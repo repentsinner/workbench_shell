@@ -1,0 +1,19 @@
+name: workbench_shell
+description: VS Code-style workbench layout shell with activity bar, sidebar, editor area, bottom panel, and status bar.
+version: 0.1.0
+publish_to: none
+
+resolution: workspace
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  equatable: ^2.0.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
