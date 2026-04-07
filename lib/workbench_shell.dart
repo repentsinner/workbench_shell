@@ -7,5 +7,6 @@ library;
 
 export 'src/activity_bar_item.dart';
 export 'src/layout_constants.dart';
+export 'src/workbench_content.dart';
 export 'src/workbench_layout.dart';
 export 'src/workbench_theme.dart';

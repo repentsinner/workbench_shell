@@ -2,24 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workbench_shell/workbench_shell.dart';
 
-const _testTheme = WorkbenchTheme(
-  activityBarBackground: Color(0xFF333333),
-  activityBarBorder: Color(0xFF444444),
-  activityBarForeground: Color(0xFFFFFFFF),
-  activityBarInactiveForeground: Color(0xFF888888),
-  sideBarBackground: Color(0xFF252526),
-  sideBarBorder: Color(0xFF444444),
-  editorBackground: Color(0xFF1E1E1E),
-  panelBorder: Color(0xFF444444),
-  statusBarBackground: Color(0xFF007ACC),
-  statusBarBorder: Color(0xFF007ACC),
-  sashHoverBackground: Color(0xFF007ACC),
-  sidebarOrPanelHeading: TextStyle(
-    fontSize: 11,
-    fontWeight: FontWeight.w700,
-    color: Color(0xFFBBBBBB),
-  ),
-);
+import 'test_theme.dart';
+
+const _testTheme = testWorkbenchTheme;
 
 final _testItems = [
   const ActivityBarItem(

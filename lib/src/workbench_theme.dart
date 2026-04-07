@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 
-/// Color tokens for workbench layout chrome.
+/// Color and typography tokens for workbench layout chrome and
+/// content primitives.
 ///
-/// Carries only the colors needed by the shell widgets (activity bar,
-/// sidebar container, resizers, status bar container). Content-area
-/// colors belong to the consumer's own theme.
+/// Carries the tokens needed by the shell widgets (activity bar,
+/// sidebar container, resizers, status bar container) plus the
+/// content primitives ([WorkbenchSection], [WorkbenchCard], form
+/// controls, etc.) that sidebars and panels compose.
 ///
 /// Install as a [ThemeExtension] on the app's [ThemeData]. Shell
-/// widgets access it via [WorkbenchThemeExtension.of].
+/// widgets and primitives access it via [WorkbenchThemeExtension.of].
 class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   // Activity bar
   final Color activityBarBackground;
@@ -32,8 +34,37 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   // Sash (resizer drag handle)
   final Color sashHoverBackground;
 
-  // Sidebar/panel heading text style
+  // Sidebar/panel heading text style (chrome — the tab strip label)
   final TextStyle sidebarOrPanelHeading;
+
+  // ---- Content primitive tokens ----
+
+  /// Section title — top-level grouping inside sidebar/panel content.
+  /// Typical: 14pt w600.
+  final TextStyle sectionTitleStyle;
+
+  /// Subsection title — second-level grouping inside a section.
+  /// Typical: 12pt w500.
+  final TextStyle subsectionTitleStyle;
+
+  /// Body text for control labels and content.
+  final TextStyle bodyStyle;
+
+  /// Helper text under form controls. Smaller and dimmer than body.
+  final TextStyle helperStyle;
+
+  /// Default border color for cards, text inputs, dropdowns, buttons.
+  final Color borderColor;
+
+  /// Border color when a form control is focused.
+  final Color focusBorderColor;
+
+  /// Background color for text inputs and dropdowns.
+  final Color inputBackground;
+
+  /// Secondary / description foreground — used by empty-state subtitle
+  /// and tooltips.
+  final Color descriptionForeground;
 
   const WorkbenchTheme({
     required this.activityBarBackground,
@@ -48,6 +79,14 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.statusBarBorder,
     required this.sashHoverBackground,
     required this.sidebarOrPanelHeading,
+    required this.sectionTitleStyle,
+    required this.subsectionTitleStyle,
+    required this.bodyStyle,
+    required this.helperStyle,
+    required this.borderColor,
+    required this.focusBorderColor,
+    required this.inputBackground,
+    required this.descriptionForeground,
   });
 
   @override
@@ -64,6 +103,14 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? statusBarBorder,
     Color? sashHoverBackground,
     TextStyle? sidebarOrPanelHeading,
+    TextStyle? sectionTitleStyle,
+    TextStyle? subsectionTitleStyle,
+    TextStyle? bodyStyle,
+    TextStyle? helperStyle,
+    Color? borderColor,
+    Color? focusBorderColor,
+    Color? inputBackground,
+    Color? descriptionForeground,
   }) {
     return WorkbenchTheme(
       activityBarBackground:
@@ -82,6 +129,15 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       sashHoverBackground: sashHoverBackground ?? this.sashHoverBackground,
       sidebarOrPanelHeading:
           sidebarOrPanelHeading ?? this.sidebarOrPanelHeading,
+      sectionTitleStyle: sectionTitleStyle ?? this.sectionTitleStyle,
+      subsectionTitleStyle: subsectionTitleStyle ?? this.subsectionTitleStyle,
+      bodyStyle: bodyStyle ?? this.bodyStyle,
+      helperStyle: helperStyle ?? this.helperStyle,
+      borderColor: borderColor ?? this.borderColor,
+      focusBorderColor: focusBorderColor ?? this.focusBorderColor,
+      inputBackground: inputBackground ?? this.inputBackground,
+      descriptionForeground:
+          descriptionForeground ?? this.descriptionForeground,
     );
   }
 
@@ -135,6 +191,30 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       sidebarOrPanelHeading: TextStyle.lerp(
         sidebarOrPanelHeading,
         other.sidebarOrPanelHeading,
+        t,
+      )!,
+      sectionTitleStyle: TextStyle.lerp(
+        sectionTitleStyle,
+        other.sectionTitleStyle,
+        t,
+      )!,
+      subsectionTitleStyle: TextStyle.lerp(
+        subsectionTitleStyle,
+        other.subsectionTitleStyle,
+        t,
+      )!,
+      bodyStyle: TextStyle.lerp(bodyStyle, other.bodyStyle, t)!,
+      helperStyle: TextStyle.lerp(helperStyle, other.helperStyle, t)!,
+      borderColor: Color.lerp(borderColor, other.borderColor, t)!,
+      focusBorderColor: Color.lerp(
+        focusBorderColor,
+        other.focusBorderColor,
+        t,
+      )!,
+      inputBackground: Color.lerp(inputBackground, other.inputBackground, t)!,
+      descriptionForeground: Color.lerp(
+        descriptionForeground,
+        other.descriptionForeground,
         t,
       )!,
     );
