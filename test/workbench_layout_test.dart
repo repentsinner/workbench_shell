@@ -118,6 +118,47 @@ void main() {
     });
   });
 
+  group('controlled section', () {
+    testWidgets('host drives active section via activeSectionId', (
+      tester,
+    ) async {
+      String active = 'explorer';
+      late StateSetter setOuter;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              setOuter = setState;
+              return WorkbenchLayout(
+                activityBarItems: _testItems,
+                editor: const Center(child: Text('Editor')),
+                sidebarBuilder: (id) => Center(child: Text('Sidebar: $id')),
+                bottomPanel: const Center(child: Text('Panel')),
+                statusBar: const SizedBox(height: 22, child: Text('Status')),
+                activeSectionId: active,
+                onSectionChanged: (id) => setState(() => active = id),
+              );
+            },
+          ),
+        ),
+      );
+
+      expect(find.text('Sidebar: explorer'), findsOneWidget);
+
+      // Tap search icon — host updates state
+      await tester.tap(find.byIcon(Icons.search));
+      await tester.pumpAndSettle();
+      expect(find.text('Sidebar: search'), findsOneWidget);
+
+      // Externally drive a section change
+      setOuter(() => active = 'settings');
+      await tester.pumpAndSettle();
+      expect(find.text('Sidebar: settings'), findsOneWidget);
+    });
+  });
+
   group('ActivityBarItem', () {
     test('equality based on id', () {
       const a = ActivityBarItem(id: 'test', label: 'Test', icon: Icons.star);

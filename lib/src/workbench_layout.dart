@@ -36,7 +36,21 @@ class WorkbenchLayout extends StatefulWidget {
   final bool showBottomPanel;
 
   /// Initial active section ID. Defaults to the first item's ID.
+  /// Ignored when [activeSectionId] is non-null (controlled mode).
   final String? initialSectionId;
+
+  /// Externally controlled active section ID. When non-null, the
+  /// shell renders this section and delegates section changes to
+  /// [onSectionChanged]. The host owns the state.
+  ///
+  /// When null, the shell tracks active section internally
+  /// (uncontrolled mode) seeded from [initialSectionId].
+  final String? activeSectionId;
+
+  /// Called when the user requests a section change via the activity
+  /// bar. The host shall update its [activeSectionId] in response.
+  /// Required when [activeSectionId] is non-null.
+  final ValueChanged<String>? onSectionChanged;
 
   const WorkbenchLayout({
     super.key,
@@ -48,24 +62,32 @@ class WorkbenchLayout extends StatefulWidget {
     this.onTogglePanel,
     this.showBottomPanel = true,
     this.initialSectionId,
-  });
+    this.activeSectionId,
+    this.onSectionChanged,
+  }) : assert(
+         activeSectionId == null || onSectionChanged != null,
+         'onSectionChanged is required when activeSectionId is provided',
+       );
 
   @override
   State<WorkbenchLayout> createState() => _WorkbenchLayoutState();
 }
 
 class _WorkbenchLayoutState extends State<WorkbenchLayout> {
-  late String _activeSectionId;
+  String _internalActiveSectionId = '';
   bool _sidebarVisible = true;
   double _sidebarWidth = WorkbenchLayoutConstants.sidebarDefaultWidth;
   bool _isDraggingSidebar = false;
   bool _isDraggingPanel = false;
   double _panelHeight = WorkbenchLayoutConstants.panelDefaultHeight;
 
+  String get _activeSectionId =>
+      widget.activeSectionId ?? _internalActiveSectionId;
+
   @override
   void initState() {
     super.initState();
-    _activeSectionId =
+    _internalActiveSectionId =
         widget.initialSectionId ??
         (widget.activityBarItems.isNotEmpty
             ? widget.activityBarItems.first.id
@@ -73,14 +95,20 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   }
 
   void _setActiveSection(String sectionId) {
-    setState(() {
-      if (_activeSectionId == sectionId) {
+    final current = _activeSectionId;
+    if (current == sectionId) {
+      setState(() {
         _sidebarVisible = !_sidebarVisible;
-      } else {
-        _activeSectionId = sectionId;
-        _sidebarVisible = true;
+      });
+      return;
+    }
+    setState(() {
+      _sidebarVisible = true;
+      if (widget.activeSectionId == null) {
+        _internalActiveSectionId = sectionId;
       }
     });
+    widget.onSectionChanged?.call(sectionId);
   }
 
   void _onSidebarResize(double delta) {
