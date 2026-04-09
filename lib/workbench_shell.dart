@@ -10,5 +10,6 @@ export 'src/layout_constants.dart';
 export 'src/workbench_content.dart';
 export 'src/workbench_layout.dart';
 export 'src/workbench_status_bar.dart';
+export 'src/workbench_tabbed_panel.dart';
 export 'src/workbench_theme.dart';
 export 'src/workbench_view_menu.dart';

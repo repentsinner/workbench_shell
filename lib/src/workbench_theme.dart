@@ -25,6 +25,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   final Color editorBackground;
 
   // Panel
+  final Color panelBackground;
   final Color panelBorder;
 
   // Status bar
@@ -36,6 +37,21 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
 
   // Sidebar/panel heading text style (chrome — the tab strip label)
   final TextStyle sidebarOrPanelHeading;
+
+  // ---- Tab strip chrome (consumed by WorkbenchTabbedPanel) ----
+
+  /// Foreground color of the selected tab label.
+  final Color tabBarLabelColor;
+
+  /// Foreground color of unselected tab labels.
+  final Color tabBarUnselectedLabelColor;
+
+  /// Color of the underline indicator beneath the selected tab.
+  final Color tabBarIndicatorColor;
+
+  /// Color of the divider line between the tab strip and panel
+  /// content. Use [Colors.transparent] to suppress.
+  final Color tabBarDividerColor;
 
   // ---- Content primitive tokens ----
 
@@ -74,11 +90,16 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.sideBarBackground,
     required this.sideBarBorder,
     required this.editorBackground,
+    required this.panelBackground,
     required this.panelBorder,
     required this.statusBarBackground,
     required this.statusBarBorder,
     required this.sashHoverBackground,
     required this.sidebarOrPanelHeading,
+    required this.tabBarLabelColor,
+    required this.tabBarUnselectedLabelColor,
+    required this.tabBarIndicatorColor,
+    required this.tabBarDividerColor,
     required this.sectionTitleStyle,
     required this.subsectionTitleStyle,
     required this.bodyStyle,
@@ -98,11 +119,16 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? sideBarBackground,
     Color? sideBarBorder,
     Color? editorBackground,
+    Color? panelBackground,
     Color? panelBorder,
     Color? statusBarBackground,
     Color? statusBarBorder,
     Color? sashHoverBackground,
     TextStyle? sidebarOrPanelHeading,
+    Color? tabBarLabelColor,
+    Color? tabBarUnselectedLabelColor,
+    Color? tabBarIndicatorColor,
+    Color? tabBarDividerColor,
     TextStyle? sectionTitleStyle,
     TextStyle? subsectionTitleStyle,
     TextStyle? bodyStyle,
@@ -123,12 +149,18 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       sideBarBackground: sideBarBackground ?? this.sideBarBackground,
       sideBarBorder: sideBarBorder ?? this.sideBarBorder,
       editorBackground: editorBackground ?? this.editorBackground,
+      panelBackground: panelBackground ?? this.panelBackground,
       panelBorder: panelBorder ?? this.panelBorder,
       statusBarBackground: statusBarBackground ?? this.statusBarBackground,
       statusBarBorder: statusBarBorder ?? this.statusBarBorder,
       sashHoverBackground: sashHoverBackground ?? this.sashHoverBackground,
       sidebarOrPanelHeading:
           sidebarOrPanelHeading ?? this.sidebarOrPanelHeading,
+      tabBarLabelColor: tabBarLabelColor ?? this.tabBarLabelColor,
+      tabBarUnselectedLabelColor:
+          tabBarUnselectedLabelColor ?? this.tabBarUnselectedLabelColor,
+      tabBarIndicatorColor: tabBarIndicatorColor ?? this.tabBarIndicatorColor,
+      tabBarDividerColor: tabBarDividerColor ?? this.tabBarDividerColor,
       sectionTitleStyle: sectionTitleStyle ?? this.sectionTitleStyle,
       subsectionTitleStyle: subsectionTitleStyle ?? this.subsectionTitleStyle,
       bodyStyle: bodyStyle ?? this.bodyStyle,
@@ -176,6 +208,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         other.editorBackground,
         t,
       )!,
+      panelBackground: Color.lerp(panelBackground, other.panelBackground, t)!,
       panelBorder: Color.lerp(panelBorder, other.panelBorder, t)!,
       statusBarBackground: Color.lerp(
         statusBarBackground,
@@ -191,6 +224,26 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       sidebarOrPanelHeading: TextStyle.lerp(
         sidebarOrPanelHeading,
         other.sidebarOrPanelHeading,
+        t,
+      )!,
+      tabBarLabelColor: Color.lerp(
+        tabBarLabelColor,
+        other.tabBarLabelColor,
+        t,
+      )!,
+      tabBarUnselectedLabelColor: Color.lerp(
+        tabBarUnselectedLabelColor,
+        other.tabBarUnselectedLabelColor,
+        t,
+      )!,
+      tabBarIndicatorColor: Color.lerp(
+        tabBarIndicatorColor,
+        other.tabBarIndicatorColor,
+        t,
+      )!,
+      tabBarDividerColor: Color.lerp(
+        tabBarDividerColor,
+        other.tabBarDividerColor,
         t,
       )!,
       sectionTitleStyle: TextStyle.lerp(

@@ -10,6 +10,7 @@ const WorkbenchTheme testWorkbenchTheme = WorkbenchTheme(
   sideBarBackground: Color(0xFF252526),
   sideBarBorder: Color(0xFF444444),
   editorBackground: Color(0xFF1E1E1E),
+  panelBackground: Color(0xFF1E1E1E),
   panelBorder: Color(0xFF444444),
   statusBarBackground: Color(0xFF007ACC),
   statusBarBorder: Color(0xFF007ACC),
@@ -19,6 +20,10 @@ const WorkbenchTheme testWorkbenchTheme = WorkbenchTheme(
     fontWeight: FontWeight.w700,
     color: Color(0xFFBBBBBB),
   ),
+  tabBarLabelColor: Color(0xFFFFFFFF),
+  tabBarUnselectedLabelColor: Color(0xFF888888),
+  tabBarIndicatorColor: Color(0xFFCCCCCC),
+  tabBarDividerColor: Color(0x00FFFFFF),
   sectionTitleStyle: TextStyle(
     fontSize: 14,
     fontWeight: FontWeight.w600,
