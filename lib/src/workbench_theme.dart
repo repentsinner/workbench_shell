@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_color_utilities/material_color_utilities.dart';
 
 import 'theming/token_theme.dart';
 import 'theming/vscode_color_map.dart';
@@ -132,6 +133,15 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   // ---- Syntax token theme ----
   final TokenTheme tokenTheme;
 
+  // ---- Domain color resolver input (§9.15) ----
+  /// HCT tone (0–100) of the canonical chrome surface ([editorBackground]).
+  ///
+  /// Domain themes (e.g. `RoveDomainTheme`) read this to pick a tone
+  /// from a tonal palette that contrasts the active chrome. Dark
+  /// chrome (low tone) selects high palette tones; light chrome
+  /// selects low palette tones. See SPEC §9.15.
+  final double surfaceTone;
+
   const WorkbenchTheme({
     required this.activityBarBackground,
     required this.activityBarBorder,
@@ -215,7 +225,17 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.loglineLevel,
     required this.loglineMessage,
     required this.tokenTheme,
+    required this.surfaceTone,
   });
+
+  /// Compute the HCT tone (0–100) for [color] using
+  /// `package:material_color_utilities`.
+  ///
+  /// Used to derive [surfaceTone] from the chrome's primary
+  /// background color. Exposed as a static so callers that build a
+  /// [WorkbenchTheme] manually (e.g. the `RoveColorTheme` bridge) can
+  /// reuse it without re-deriving the formula.
+  static double hctToneFor(Color color) => Hct.fromInt(color.toARGB32()).tone;
 
   /// Build a [WorkbenchTheme] from a parsed VS Code color theme.
   ///
@@ -429,6 +449,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       loglineMessage: t(11, FontWeight.w400),
       // Syntax token theme
       tokenTheme: map.resolvedTokenTheme,
+      // HCT tone of the canonical chrome surface (editor background).
+      // Domain themes read this to pick contrasting palette tones —
+      // see RoveDomainTheme and SPEC §9.15.
+      surfaceTone: hctToneFor(editorBg),
     );
   }
 
@@ -516,6 +540,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     TextStyle? loglineLevel,
     TextStyle? loglineMessage,
     TokenTheme? tokenTheme,
+    double? surfaceTone,
   }) {
     return WorkbenchTheme(
       activityBarBackground:
@@ -620,6 +645,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       loglineLevel: loglineLevel ?? this.loglineLevel,
       loglineMessage: loglineMessage ?? this.loglineMessage,
       tokenTheme: tokenTheme ?? this.tokenTheme,
+      surfaceTone: surfaceTone ?? this.surfaceTone,
     );
   }
 
@@ -774,6 +800,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       loglineLevel: ts(loglineLevel, other.loglineLevel),
       loglineMessage: ts(loglineMessage, other.loglineMessage),
       tokenTheme: t < 0.5 ? tokenTheme : other.tokenTheme,
+      surfaceTone: surfaceTone + (other.surfaceTone - surfaceTone) * t,
     );
   }
 }

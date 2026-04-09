@@ -12,6 +12,10 @@ dependencies:
   flutter:
     sdk: flutter
   equatable: ^2.0.5
+  # Used to derive surfaceTone from the chrome's editor background via
+  # HCT. The package is already a transitive dep of Flutter Material 3,
+  # so this adds no real footprint. See SPEC §9.15.
+  material_color_utilities: ^0.13.0
 
 dev_dependencies:
   flutter_test:
