@@ -1,0 +1,19 @@
+Bundled VS Code Color Themes — License Attribution
+====================================================
+
+dark_modern.json / light_modern.json
+  Source: Microsoft VS Code built-in themes
+  License: MIT
+  URL: https://github.com/microsoft/vscode
+
+nord.json
+  Source: Nord for Visual Studio Code
+  Author: Arctic Ice Studio / Sven Greb
+  License: MIT
+  URL: https://github.com/arcticicestudio/nord-visual-studio-code
+
+one_dark_pro.json
+  Source: One Dark Pro
+  Author: binaryify
+  License: MIT
+  URL: https://github.com/Binaryify/OneDark-Pro

@@ -4,7 +4,7 @@ import 'package:workbench_shell/workbench_shell.dart';
 
 import 'test_theme.dart';
 
-const _testTheme = testWorkbenchTheme;
+final _testTheme = testWorkbenchTheme;
 
 final _testItems = [
   const ActivityBarItem(
