@@ -78,6 +78,18 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   // ---- Sash (resizer drag handle) ----
   final Color sashHoverBackground;
 
+  // ---- Menu bar (Windows/Linux in-window fallback strip) ----
+  //
+  // macOS renders the View menu through `PlatformMenuBar` which
+  // binds to `NSMenu`, so these tokens only affect the Windows/Linux
+  // Material `MenuBar` strip. Kept distinct from activity/side bar
+  // tokens so future theming work (e.g. a custom title bar) can
+  // redirect the menu strip without disturbing adjacent chrome.
+  final Color menuBarBackground;
+  final Color menuBarForeground;
+  final Color menuBarHoverBackground;
+  final Color menuBarBorder;
+
   // ---- Pre-mixed opacity variants (semantic color modifiers, §9.6) ----
   final Color focusBorderSubtle;
   final Color focusBorderMuted;
@@ -182,6 +194,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.listActiveSelectionBackground,
     required this.focusBorder,
     required this.sashHoverBackground,
+    required this.menuBarBackground,
+    required this.menuBarForeground,
+    required this.menuBarHoverBackground,
+    required this.menuBarBorder,
     required this.focusBorderSubtle,
     required this.focusBorderMuted,
     required this.focusBorderProminent,
@@ -386,6 +402,22 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // Focus / sash
       focusBorder: accentFg,
       sashHoverBackground: map.resolve('sash.hoverBackground', accentFg),
+      // Menu bar (Windows/Linux in-window strip).
+      // VS Code stops at `titleBar.activeBackground` for the strip
+      // itself; individual menu items read `menubar.*` and `menu.*`.
+      menuBarBackground: map.resolve(
+        'titleBar.activeBackground',
+        const Color(0xFF3C3C3C),
+      ),
+      menuBarForeground: map.resolve('titleBar.activeForeground', fg),
+      menuBarHoverBackground: map.resolve(
+        'menubar.selectionBackground',
+        map.resolve('list.hoverBackground', const Color(0xFF2A2D2E)),
+      ),
+      menuBarBorder: map.resolve(
+        'titleBar.border',
+        map.resolve('activityBar.border', panelBorder),
+      ),
       // Pre-mixed modifiers
       focusBorderSubtle: accentFg.withValues(alpha: 0.1),
       focusBorderMuted: accentFg.withValues(alpha: 0.3),
@@ -497,6 +529,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? listActiveSelectionBackground,
     Color? focusBorder,
     Color? sashHoverBackground,
+    Color? menuBarBackground,
+    Color? menuBarForeground,
+    Color? menuBarHoverBackground,
+    Color? menuBarBorder,
     Color? focusBorderSubtle,
     Color? focusBorderMuted,
     Color? focusBorderProminent,
@@ -593,6 +629,11 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           listActiveSelectionBackground ?? this.listActiveSelectionBackground,
       focusBorder: focusBorder ?? this.focusBorder,
       sashHoverBackground: sashHoverBackground ?? this.sashHoverBackground,
+      menuBarBackground: menuBarBackground ?? this.menuBarBackground,
+      menuBarForeground: menuBarForeground ?? this.menuBarForeground,
+      menuBarHoverBackground:
+          menuBarHoverBackground ?? this.menuBarHoverBackground,
+      menuBarBorder: menuBarBorder ?? this.menuBarBorder,
       focusBorderSubtle: focusBorderSubtle ?? this.focusBorderSubtle,
       focusBorderMuted: focusBorderMuted ?? this.focusBorderMuted,
       focusBorderProminent: focusBorderProminent ?? this.focusBorderProminent,
@@ -727,6 +768,13 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       ),
       focusBorder: c(focusBorder, other.focusBorder),
       sashHoverBackground: c(sashHoverBackground, other.sashHoverBackground),
+      menuBarBackground: c(menuBarBackground, other.menuBarBackground),
+      menuBarForeground: c(menuBarForeground, other.menuBarForeground),
+      menuBarHoverBackground: c(
+        menuBarHoverBackground,
+        other.menuBarHoverBackground,
+      ),
+      menuBarBorder: c(menuBarBorder, other.menuBarBorder),
       focusBorderSubtle: c(focusBorderSubtle, other.focusBorderSubtle),
       focusBorderMuted: c(focusBorderMuted, other.focusBorderMuted),
       focusBorderProminent: c(focusBorderProminent, other.focusBorderProminent),

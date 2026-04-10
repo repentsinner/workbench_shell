@@ -66,7 +66,7 @@ class WorkbenchStatusBarItem extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 14, color: iconColor),
+            Icon(icon, size: 14, color: iconColor ?? theme.statusBarForeground),
             const SizedBox(width: 4),
           ],
           Text(label, style: textStyle ?? theme.helperStyle),
@@ -106,7 +106,7 @@ class WorkbenchStatusBarAction extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 14, color: iconColor),
+            Icon(icon, size: 14, color: iconColor ?? theme.statusBarForeground),
             const SizedBox(width: 4),
           ],
           Text(label, style: textStyle ?? theme.helperStyle),
@@ -118,5 +118,80 @@ class WorkbenchStatusBarAction extends StatelessWidget {
       return Tooltip(message: tooltip!, child: tappable);
     }
     return tappable;
+  }
+}
+
+/// VS Code-style "Problems" status-bar indicator: three role-coloured
+/// counts (errors, warnings, info) sharing a single tap target.
+///
+/// The host supplies three ints plus an [onTap] callback that opens
+/// (or focuses) whatever bottom-panel tab holds the underlying
+/// diagnostics. Icons, colours, spacing, and typography all resolve
+/// from [WorkbenchTheme] — the shell owns the visual contract so
+/// every host renders a consistent indicator.
+///
+/// Matching VS Code, all three counts render unconditionally
+/// (including zeros). The indicator is always visible so its
+/// position does not shift as task counts change.
+class WorkbenchStatusBarProblemsItem extends StatelessWidget {
+  final int errorCount;
+  final int warningCount;
+  final int infoCount;
+  final VoidCallback onTap;
+
+  /// Optional tooltip override. Defaults to
+  /// `"E errors, W warnings, I info"`.
+  final String? tooltip;
+
+  const WorkbenchStatusBarProblemsItem({
+    super.key,
+    required this.errorCount,
+    required this.warningCount,
+    required this.infoCount,
+    required this.onTap,
+    this.tooltip,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.workbenchTheme;
+    final child = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _badge(theme, icon: Icons.error_outline, count: errorCount),
+          const SizedBox(width: 8),
+          _badge(
+            theme,
+            icon: Icons.warning_amber_outlined,
+            count: warningCount,
+          ),
+          const SizedBox(width: 8),
+          _badge(theme, icon: Icons.info_outline, count: infoCount),
+        ],
+      ),
+    );
+    return Tooltip(
+      message:
+          tooltip ??
+          '$errorCount errors, $warningCount warnings, $infoCount info',
+      child: InkWell(onTap: onTap, child: child),
+    );
+  }
+
+  Widget _badge(
+    WorkbenchTheme theme, {
+    required IconData icon,
+    required int count,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: theme.statusBarForeground),
+        const SizedBox(width: 4),
+        Text('$count', style: theme.helperStyle),
+      ],
+    );
   }
 }

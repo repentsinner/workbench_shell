@@ -152,6 +152,96 @@ void main() {
     });
   });
 
+  group('WorkbenchMenuBar styling (in-window)', () {
+    Widget buildHarness(WorkbenchTheme theme) {
+      return MaterialApp(
+        theme: ThemeData.dark().copyWith(extensions: [theme]),
+        home: Scaffold(
+          body: WorkbenchMenuBar(
+            useNativeMenuBar: false,
+            onToggleBottomPanel: () {},
+            tabs: const [WorkbenchViewMenuTab(id: 'mdi', label: 'MDI')],
+            onSelectTab: (_) {},
+            child: const SizedBox(width: 400, height: 200),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('strip background reads from WorkbenchTheme', (tester) async {
+      final themeA = testWorkbenchTheme.copyWith(
+        menuBarBackground: const Color(0xFF101112),
+        menuBarForeground: const Color(0xFFEEEEEE),
+        menuBarBorder: const Color(0xFF303132),
+      );
+      await tester.pumpWidget(buildHarness(themeA));
+      await tester.pumpAndSettle();
+
+      // The strip container is the decorated box directly above the
+      // Material `MenuBar`. Pull it via an ancestor walk from the bar.
+      final stripContainer = tester.widget<Container>(
+        find
+            .ancestor(
+              of: find.byType(MenuBar),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      final stripDecoration = stripContainer.decoration! as BoxDecoration;
+      expect(stripDecoration.color, const Color(0xFF101112));
+      expect(
+        (stripDecoration.border! as Border).bottom.color,
+        const Color(0xFF303132),
+      );
+
+      // Swap to a contrasting theme and confirm the strip follows.
+      final themeB = testWorkbenchTheme.copyWith(
+        menuBarBackground: const Color(0xFFAABBCC),
+        menuBarForeground: const Color(0xFF112233),
+        menuBarBorder: const Color(0xFF445566),
+      );
+      await tester.pumpWidget(buildHarness(themeB));
+      await tester.pumpAndSettle();
+
+      final stripContainerB = tester.widget<Container>(
+        find
+            .ancestor(
+              of: find.byType(MenuBar),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      final stripDecorationB = stripContainerB.decoration! as BoxDecoration;
+      expect(stripDecorationB.color, const Color(0xFFAABBCC));
+      expect(
+        (stripDecorationB.border! as Border).bottom.color,
+        const Color(0xFF445566),
+      );
+    });
+
+    testWidgets('menu button foreground resolves to menuBarForeground', (
+      tester,
+    ) async {
+      final theme = testWorkbenchTheme.copyWith(
+        menuBarForeground: const Color(0xFFC0FFEE),
+      );
+      await tester.pumpWidget(buildHarness(theme));
+      await tester.pumpAndSettle();
+
+      // Both the top-level `SubmenuButton` and every `MenuItemButton`
+      // resolve their styling through `MenuButtonTheme`. Read the
+      // installed override from the nearest element inside the bar.
+      final view = find.descendant(
+        of: find.byType(MenuBar),
+        matching: find.text('View'),
+      );
+      expect(view, findsOneWidget);
+      final themeData = MenuButtonTheme.of(tester.element(view));
+      final resolvedColor = themeData.style!.foregroundColor!.resolve(const {});
+      expect(resolvedColor, const Color(0xFFC0FFEE));
+    });
+  });
+
   group('WorkbenchShortcuts', () {
     testWidgets('Ctrl+backquote invokes onFocusMdi', (tester) async {
       var focused = 0;

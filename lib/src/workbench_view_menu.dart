@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'workbench_theme.dart';
+
 /// Descriptor for a bottom-panel tab the View menu can select. The
 /// shell does not own tab content (see SPEC.md §9.14 item 2 —
 /// tabbed-panel primitive); it only owns the menu chrome.
@@ -145,36 +147,94 @@ class WorkbenchMenuBar extends StatelessWidget {
   }
 
   Widget _buildInWindowMenuBar(BuildContext context) {
+    final workbench = context.workbenchTheme;
+    // Force the Material `MenuBar` chrome to read from
+    // `WorkbenchTheme` rather than the ambient `ThemeData`. macOS
+    // is untouched — it renders through `PlatformMenuBar`, which
+    // binds to `NSMenu` and ignores Material theming.
+    //
+    // `MenuButtonThemeData` covers both the top-level `SubmenuButton`
+    // in the bar and the `MenuItemButton` entries in the submenu —
+    // both descend from Flutter's private menu-button base class and
+    // resolve through `MenuButtonTheme`. Flutter does not expose a
+    // separate `SubmenuButtonTheme`.
+    final foreground = workbench.menuBarForeground;
+    final hoverBackground = workbench.menuBarHoverBackground;
+    final menuSurface = workbench.panelBackground;
+    final labelStyle = workbench.helperStyle.copyWith(color: foreground);
+    final menuBarTheme = MenuBarThemeData(
+      style: MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(workbench.menuBarBackground),
+        elevation: const WidgetStatePropertyAll(0),
+        shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
+        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+      ),
+    );
+    final menuButtonTheme = MenuButtonThemeData(
+      style: ButtonStyle(
+        backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
+        foregroundColor: WidgetStatePropertyAll(foreground),
+        overlayColor: WidgetStatePropertyAll(hoverBackground),
+        textStyle: WidgetStatePropertyAll(labelStyle),
+        iconColor: WidgetStatePropertyAll(foreground),
+        shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
+      ),
+    );
+    final menuTheme = MenuThemeData(
+      style: MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(menuSurface),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+        elevation: const WidgetStatePropertyAll(2),
+        shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
+      ),
+    );
+    final dividerTheme = DividerThemeData(color: workbench.menuBarBorder);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: MenuBar(
-            children: [
-              SubmenuButton(
-                menuChildren: [
-                  MenuItemButton(
-                    key: const ValueKey('view-menu-panel'),
-                    shortcut: const SingleActivator(
-                      LogicalKeyboardKey.keyJ,
-                      control: true,
-                    ),
-                    onPressed: onToggleBottomPanel,
-                    child: const Text('Panel'),
-                  ),
-                  const Divider(height: 1),
-                  for (final tab in tabs)
-                    MenuItemButton(
-                      key: ValueKey('view-menu-tab-${tab.id}'),
-                      shortcut: tab.shortcut,
-                      onPressed: () => onSelectTab(tab.id),
-                      child: Text(tab.label),
-                    ),
-                ],
-                child: const Text('View'),
+        Theme(
+          data: Theme.of(context).copyWith(
+            menuBarTheme: menuBarTheme,
+            menuButtonTheme: menuButtonTheme,
+            menuTheme: menuTheme,
+            dividerTheme: dividerTheme,
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: workbench.menuBarBackground,
+              border: Border(
+                bottom: BorderSide(color: workbench.menuBarBorder),
               ),
-            ],
+            ),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: MenuBar(
+                children: [
+                  SubmenuButton(
+                    menuChildren: [
+                      MenuItemButton(
+                        key: const ValueKey('view-menu-panel'),
+                        shortcut: const SingleActivator(
+                          LogicalKeyboardKey.keyJ,
+                          control: true,
+                        ),
+                        onPressed: onToggleBottomPanel,
+                        child: const Text('Panel'),
+                      ),
+                      const Divider(height: 1),
+                      for (final tab in tabs)
+                        MenuItemButton(
+                          key: ValueKey('view-menu-tab-${tab.id}'),
+                          shortcut: tab.shortcut,
+                          onPressed: () => onSelectTab(tab.id),
+                          child: Text(tab.label),
+                        ),
+                    ],
+                    child: const Text('View'),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
         Expanded(child: child),
