@@ -172,7 +172,7 @@ class VscodeColorThemeLoader {
   /// Default token values for dark and light base types.
   ///
   /// These match VS Code's built-in defaults for tokens that themes
-  /// commonly omit. Covers the ~25 tokens that [RoveColorTheme] maps.
+  /// commonly omit. Covers the ~25 tokens that [WorkbenchTheme] maps.
   static Map<String, Color> _defaultsForBaseType(String baseType) {
     if (baseType == 'vs-dark') {
       return const {

@@ -66,7 +66,7 @@ class WorkbenchStatusBarItem extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 14, color: iconColor ?? theme.statusBarForeground),
+            Icon(icon, size: 14, color: iconColor ?? theme.helperStyle.color),
             const SizedBox(width: 4),
           ],
           Text(label, style: textStyle ?? theme.helperStyle),
@@ -106,7 +106,7 @@ class WorkbenchStatusBarAction extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 14, color: iconColor ?? theme.statusBarForeground),
+            Icon(icon, size: 14, color: iconColor ?? theme.helperStyle.color),
             const SizedBox(width: 4),
           ],
           Text(label, style: textStyle ?? theme.helperStyle),
@@ -188,7 +188,7 @@ class WorkbenchStatusBarProblemsItem extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: theme.statusBarForeground),
+        Icon(icon, size: 14, color: theme.helperStyle.color),
         const SizedBox(width: 4),
         Text('$count', style: theme.helperStyle),
       ],

@@ -249,7 +249,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   ///
   /// Used to derive [surfaceTone] from the chrome's primary
   /// background color. Exposed as a static so callers that build a
-  /// [WorkbenchTheme] manually (e.g. the `RoveColorTheme` bridge) can
+  /// [WorkbenchTheme] manually can
   /// reuse it without re-deriving the formula.
   static double hctToneFor(Color color) => Hct.fromInt(color.toARGB32()).tone;
 
@@ -269,10 +269,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       const Color(0xFF969696),
     );
     final accentFg = map.resolve('focusBorder', const Color(0xFF007ACC));
-    final statusBarFg = map.resolve(
-      'statusBar.foreground',
-      const Color(0xFFFFFFFF),
-    );
+    final statusBarFg = map.resolve('statusBar.foreground', fg);
     final panelBorder = map.resolve('panel.border', const Color(0xFF808080));
     final sideBarBg = map.resolve(
       'sideBar.background',

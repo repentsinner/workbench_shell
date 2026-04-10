@@ -80,7 +80,7 @@ void main() {
       expect(tooltip.message, 'Problems');
     });
 
-    testWidgets('icon colours come from statusBarForeground', (tester) async {
+    testWidgets('icon colours match helperStyle color', (tester) async {
       Widget buildHarness(WorkbenchTheme theme) {
         return MaterialApp(
           theme: ThemeData.dark().copyWith(extensions: [theme]),
@@ -95,9 +95,11 @@ void main() {
         );
       }
 
-      // First theme: a distinct statusBarForeground.
+      // First theme: a distinct helperStyle color.
       final overridden = testWorkbenchTheme.copyWith(
-        statusBarForeground: const Color(0xFFAA1111),
+        helperStyle: testWorkbenchTheme.helperStyle.copyWith(
+          color: const Color(0xFFAA1111),
+        ),
       );
       await tester.pumpWidget(buildHarness(overridden));
       await tester.pumpAndSettle();
@@ -105,14 +107,16 @@ void main() {
       Color colorOf(IconData data) =>
           tester.widget<Icon>(find.byIcon(data)).color!;
 
-      // All three icons share the same statusBarForeground.
+      // All three icons share the same helperStyle color.
       expect(colorOf(Icons.error_outline), const Color(0xFFAA1111));
       expect(colorOf(Icons.warning_amber_outlined), const Color(0xFFAA1111));
       expect(colorOf(Icons.info_outline), const Color(0xFFAA1111));
 
-      // Second theme: different statusBarForeground. Confirm icons update.
+      // Second theme: different helperStyle color. Confirm icons update.
       final other = testWorkbenchTheme.copyWith(
-        statusBarForeground: const Color(0xFF004400),
+        helperStyle: testWorkbenchTheme.helperStyle.copyWith(
+          color: const Color(0xFF004400),
+        ),
       );
       await tester.pumpWidget(buildHarness(other));
       await tester.pumpAndSettle();
