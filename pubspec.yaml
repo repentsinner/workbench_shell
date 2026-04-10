@@ -16,6 +16,7 @@ dependencies:
   # HCT. The package is already a transitive dep of Flutter Material 3,
   # so this adds no real footprint. See SPEC §9.15.
   material_color_utilities: ^0.13.0
+  material_symbols_icons: ^4.2928.1
 
 dev_dependencies:
   flutter_test:

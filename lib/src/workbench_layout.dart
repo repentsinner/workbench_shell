@@ -329,7 +329,7 @@ class _ActivityBar extends StatelessWidget {
             color: active
                 ? theme.activityBarForeground
                 : theme.activityBarInactiveForeground,
-            size: 24,
+            size: 30,
           ),
         ),
       ),

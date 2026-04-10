@@ -27,5 +27,5 @@ class WorkbenchLayoutConstants {
   static const double panelMaxHeight = 400.0;
 
   /// Status bar height.
-  static const double statusBarHeight = 22.0;
+  static const double statusBarHeight = 25.0;
 }

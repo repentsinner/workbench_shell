@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import 'workbench_theme.dart';
 
@@ -40,7 +41,7 @@ class WorkbenchSection extends StatelessWidget {
               Tooltip(
                 message: infoTooltip!,
                 child: Icon(
-                  Icons.info_outline,
+                  Symbols.info_rounded,
                   size: 16,
                   color: theme.descriptionForeground,
                 ),

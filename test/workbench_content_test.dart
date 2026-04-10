@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:workbench_shell/workbench_shell.dart';
 
 import 'test_theme.dart';
@@ -29,7 +30,7 @@ void main() {
           ),
         ),
       );
-      expect(find.byIcon(Icons.info_outline), findsOneWidget);
+      expect(find.byIcon(Symbols.info_rounded), findsOneWidget);
     });
 
     testWidgets('omits tooltip icon when null', (tester) async {
@@ -38,7 +39,7 @@ void main() {
           const WorkbenchSection(title: 'Hello', child: SizedBox.shrink()),
         ),
       );
-      expect(find.byIcon(Icons.info_outline), findsNothing);
+      expect(find.byIcon(Symbols.info_rounded), findsNothing);
     });
   });
 
@@ -152,13 +153,13 @@ void main() {
         wrapWithTheme(
           WorkbenchActionButton(
             label: 'Go',
-            icon: Icons.play_arrow,
+            icon: Symbols.play_arrow_rounded,
             onPressed: () => tapped = true,
           ),
         ),
       );
       expect(find.text('Go'), findsOneWidget);
-      expect(find.byIcon(Icons.play_arrow), findsOneWidget);
+      expect(find.byIcon(Symbols.play_arrow_rounded), findsOneWidget);
       await tester.tap(find.byType(WorkbenchActionButton));
       expect(tapped, isTrue);
     });
@@ -169,14 +170,14 @@ void main() {
       await tester.pumpWidget(
         wrapWithTheme(
           WorkbenchEmptyState(
-            icon: Icons.inbox,
+            icon: Symbols.inbox_rounded,
             title: 'Nothing here',
             subtitle: 'Try adding one',
             action: WorkbenchActionButton(label: 'Add', onPressed: () {}),
           ),
         ),
       );
-      expect(find.byIcon(Icons.inbox), findsOneWidget);
+      expect(find.byIcon(Symbols.inbox_rounded), findsOneWidget);
       expect(find.text('Nothing here'), findsOneWidget);
       expect(find.text('Try adding one'), findsOneWidget);
       expect(find.text('Add'), findsOneWidget);

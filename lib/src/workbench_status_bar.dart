@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import 'layout_constants.dart';
 import 'workbench_theme.dart';
@@ -66,7 +67,7 @@ class WorkbenchStatusBarItem extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 14, color: iconColor ?? theme.helperStyle.color),
+            Icon(icon, size: 17, color: iconColor ?? theme.helperStyle.color),
             const SizedBox(width: 4),
           ],
           Text(label, style: textStyle ?? theme.helperStyle),
@@ -106,7 +107,7 @@ class WorkbenchStatusBarAction extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 14, color: iconColor ?? theme.helperStyle.color),
+            Icon(icon, size: 17, color: iconColor ?? theme.helperStyle.color),
             const SizedBox(width: 4),
           ],
           Text(label, style: textStyle ?? theme.helperStyle),
@@ -160,15 +161,11 @@ class WorkbenchStatusBarProblemsItem extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _badge(theme, icon: Icons.error_outline, count: errorCount),
+          _badge(theme, icon: Symbols.error_rounded, count: errorCount),
           const SizedBox(width: 8),
-          _badge(
-            theme,
-            icon: Icons.warning_amber_outlined,
-            count: warningCount,
-          ),
+          _badge(theme, icon: Symbols.warning_rounded, count: warningCount),
           const SizedBox(width: 8),
-          _badge(theme, icon: Icons.info_outline, count: infoCount),
+          _badge(theme, icon: Symbols.info_rounded, count: infoCount),
         ],
       ),
     );
@@ -188,7 +185,7 @@ class WorkbenchStatusBarProblemsItem extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: theme.helperStyle.color),
+        Icon(icon, size: 17, color: theme.helperStyle.color),
         const SizedBox(width: 4),
         Text('$count', style: theme.helperStyle),
       ],

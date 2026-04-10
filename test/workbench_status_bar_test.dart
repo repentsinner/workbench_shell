@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:workbench_shell/workbench_shell.dart';
 
 import 'test_theme.dart';
@@ -44,11 +45,14 @@ void main() {
     testWidgets('renders icon and label when both provided', (tester) async {
       await tester.pumpWidget(
         wrapWithTheme(
-          const WorkbenchStatusBarItem(icon: Icons.wifi, label: 'Connected'),
+          const WorkbenchStatusBarItem(
+            icon: Symbols.wifi_rounded,
+            label: 'Connected',
+          ),
         ),
       );
       expect(find.text('Connected'), findsOneWidget);
-      expect(find.byIcon(Icons.wifi), findsOneWidget);
+      expect(find.byIcon(Symbols.wifi_rounded), findsOneWidget);
     });
   });
 
@@ -59,7 +63,7 @@ void main() {
         wrapWithTheme(
           WorkbenchStatusBarAction(
             label: 'Tasks',
-            icon: Icons.task,
+            icon: Symbols.task_rounded,
             onTap: () => taps++,
           ),
         ),

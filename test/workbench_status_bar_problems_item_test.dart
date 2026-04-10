@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:workbench_shell/workbench_shell.dart';
 
 import 'test_theme.dart';
@@ -22,9 +23,9 @@ void main() {
       expect(find.text('2'), findsOneWidget);
       expect(find.text('0'), findsOneWidget);
       expect(find.text('5'), findsOneWidget);
-      expect(find.byIcon(Icons.error_outline), findsOneWidget);
-      expect(find.byIcon(Icons.warning_amber_outlined), findsOneWidget);
-      expect(find.byIcon(Icons.info_outline), findsOneWidget);
+      expect(find.byIcon(Symbols.error_rounded), findsOneWidget);
+      expect(find.byIcon(Symbols.warning_rounded), findsOneWidget);
+      expect(find.byIcon(Symbols.info_rounded), findsOneWidget);
     });
 
     testWidgets('invokes onTap when tapped', (tester) async {
@@ -108,9 +109,9 @@ void main() {
           tester.widget<Icon>(find.byIcon(data)).color!;
 
       // All three icons share the same helperStyle color.
-      expect(colorOf(Icons.error_outline), const Color(0xFFAA1111));
-      expect(colorOf(Icons.warning_amber_outlined), const Color(0xFFAA1111));
-      expect(colorOf(Icons.info_outline), const Color(0xFFAA1111));
+      expect(colorOf(Symbols.error_rounded), const Color(0xFFAA1111));
+      expect(colorOf(Symbols.warning_rounded), const Color(0xFFAA1111));
+      expect(colorOf(Symbols.info_rounded), const Color(0xFFAA1111));
 
       // Second theme: different helperStyle color. Confirm icons update.
       final other = testWorkbenchTheme.copyWith(
@@ -121,9 +122,9 @@ void main() {
       await tester.pumpWidget(buildHarness(other));
       await tester.pumpAndSettle();
 
-      expect(colorOf(Icons.error_outline), const Color(0xFF004400));
-      expect(colorOf(Icons.warning_amber_outlined), const Color(0xFF004400));
-      expect(colorOf(Icons.info_outline), const Color(0xFF004400));
+      expect(colorOf(Symbols.error_rounded), const Color(0xFF004400));
+      expect(colorOf(Symbols.warning_rounded), const Color(0xFF004400));
+      expect(colorOf(Symbols.info_rounded), const Color(0xFF004400));
     });
   });
 }

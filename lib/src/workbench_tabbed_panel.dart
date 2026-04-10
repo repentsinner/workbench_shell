@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import 'workbench_theme.dart';
 
@@ -182,7 +183,7 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, size: 16),
+                  icon: const Icon(Symbols.close_rounded, size: 16),
                   color: theme.descriptionForeground,
                   tooltip: widget.closeButtonTooltip,
                   onPressed: widget.onTogglePanel,

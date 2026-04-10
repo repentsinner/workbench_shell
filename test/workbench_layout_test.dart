@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:workbench_shell/workbench_shell.dart';
 
 import 'test_theme.dart';
@@ -10,19 +11,19 @@ final _testItems = [
   const ActivityBarItem(
     id: 'explorer',
     label: 'Explorer',
-    icon: Icons.folder,
+    icon: Symbols.folder_rounded,
     sortOrder: 100,
   ),
   const ActivityBarItem(
     id: 'search',
     label: 'Search',
-    icon: Icons.search,
+    icon: Symbols.search_rounded,
     sortOrder: 200,
   ),
   const ActivityBarItem(
     id: 'settings',
     label: 'Settings',
-    icon: Icons.settings,
+    icon: Symbols.settings_rounded,
     zone: ActivityBarZone.bottom,
     sortOrder: 900,
   ),
@@ -51,9 +52,9 @@ void main() {
     testWidgets('renders activity bar with items', (tester) async {
       await tester.pumpWidget(_buildApp());
 
-      expect(find.byIcon(Icons.folder), findsOneWidget);
-      expect(find.byIcon(Icons.search), findsOneWidget);
-      expect(find.byIcon(Icons.settings), findsOneWidget);
+      expect(find.byIcon(Symbols.folder_rounded), findsOneWidget);
+      expect(find.byIcon(Symbols.search_rounded), findsOneWidget);
+      expect(find.byIcon(Symbols.settings_rounded), findsOneWidget);
     });
 
     testWidgets('renders editor content', (tester) async {
@@ -73,7 +74,7 @@ void main() {
       await tester.pumpWidget(_buildApp());
 
       // Tap search icon
-      await tester.tap(find.byIcon(Icons.search));
+      await tester.tap(find.byIcon(Symbols.search_rounded));
       await tester.pumpAndSettle();
 
       expect(find.text('Sidebar: search'), findsOneWidget);
@@ -87,12 +88,12 @@ void main() {
       expect(find.text('EXPLORER'), findsOneWidget);
 
       // Tap active section hides sidebar
-      await tester.tap(find.byIcon(Icons.folder));
+      await tester.tap(find.byIcon(Symbols.folder_rounded));
       await tester.pumpAndSettle();
       expect(find.text('EXPLORER'), findsNothing);
 
       // Tap again shows sidebar
-      await tester.tap(find.byIcon(Icons.folder));
+      await tester.tap(find.byIcon(Symbols.folder_rounded));
       await tester.pumpAndSettle();
       expect(find.text('EXPLORER'), findsOneWidget);
     });
@@ -148,7 +149,7 @@ void main() {
       expect(find.text('Sidebar: explorer'), findsOneWidget);
 
       // Tap search icon — host updates state
-      await tester.tap(find.byIcon(Icons.search));
+      await tester.tap(find.byIcon(Symbols.search_rounded));
       await tester.pumpAndSettle();
       expect(find.text('Sidebar: search'), findsOneWidget);
 
@@ -161,18 +162,30 @@ void main() {
 
   group('ActivityBarItem', () {
     test('equality based on id', () {
-      const a = ActivityBarItem(id: 'test', label: 'Test', icon: Icons.star);
+      const a = ActivityBarItem(
+        id: 'test',
+        label: 'Test',
+        icon: Symbols.star_rounded,
+      );
       const b = ActivityBarItem(
         id: 'test',
         label: 'Different Label',
-        icon: Icons.circle,
+        icon: Symbols.circle_rounded,
       );
       expect(a, equals(b));
     });
 
     test('inequality for different ids', () {
-      const a = ActivityBarItem(id: 'test1', label: 'Test', icon: Icons.star);
-      const b = ActivityBarItem(id: 'test2', label: 'Test', icon: Icons.star);
+      const a = ActivityBarItem(
+        id: 'test1',
+        label: 'Test',
+        icon: Symbols.star_rounded,
+      );
+      const b = ActivityBarItem(
+        id: 'test2',
+        label: 'Test',
+        icon: Symbols.star_rounded,
+      );
       expect(a, isNot(equals(b)));
     });
   });
