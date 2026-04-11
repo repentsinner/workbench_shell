@@ -62,13 +62,19 @@ class WorkbenchStatusBarItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: WorkbenchLayoutConstants.spacingSm,
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 17, color: iconColor ?? theme.helperStyle.color),
-            const SizedBox(width: 4),
+            Icon(
+              icon,
+              size: WorkbenchLayoutConstants.iconStatusBar,
+              color: iconColor ?? theme.helperStyle.color,
+            ),
+            const SizedBox(width: WorkbenchLayoutConstants.spacingXs),
           ],
           Text(label, style: textStyle ?? theme.helperStyle),
         ],
@@ -102,13 +108,19 @@ class WorkbenchStatusBarAction extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
     final child = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: WorkbenchLayoutConstants.spacingSm,
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 17, color: iconColor ?? theme.helperStyle.color),
-            const SizedBox(width: 4),
+            Icon(
+              icon,
+              size: WorkbenchLayoutConstants.iconStatusBar,
+              color: iconColor ?? theme.helperStyle.color,
+            ),
+            const SizedBox(width: WorkbenchLayoutConstants.spacingXs),
           ],
           Text(label, style: textStyle ?? theme.helperStyle),
         ],
@@ -157,14 +169,16 @@ class WorkbenchStatusBarProblemsItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
     final child = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: WorkbenchLayoutConstants.spacingSm,
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           _badge(theme, icon: Symbols.error_rounded, count: errorCount),
-          const SizedBox(width: 8),
+          const SizedBox(width: WorkbenchLayoutConstants.spacingSm),
           _badge(theme, icon: Symbols.warning_rounded, count: warningCount),
-          const SizedBox(width: 8),
+          const SizedBox(width: WorkbenchLayoutConstants.spacingSm),
           _badge(theme, icon: Symbols.info_rounded, count: infoCount),
         ],
       ),
@@ -185,8 +199,12 @@ class WorkbenchStatusBarProblemsItem extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 17, color: theme.helperStyle.color),
-        const SizedBox(width: 4),
+        Icon(
+          icon,
+          size: WorkbenchLayoutConstants.iconStatusBar,
+          color: theme.helperStyle.color,
+        ),
+        const SizedBox(width: WorkbenchLayoutConstants.spacingXs),
         Text('$count', style: theme.helperStyle),
       ],
     );

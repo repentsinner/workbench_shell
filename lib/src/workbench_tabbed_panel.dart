@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import 'layout_constants.dart';
 import 'workbench_theme.dart';
 
 /// Descriptor for one tab in a [WorkbenchTabbedPanel].
@@ -157,9 +158,11 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
       color: theme.panelBackground,
       child: Column(
         children: [
-          const SizedBox(height: 6),
+          const SizedBox(
+            height: WorkbenchLayoutConstants.panelTabStripPaddingY,
+          ),
           SizedBox(
-            height: 22,
+            height: WorkbenchLayoutConstants.panelTabStripHeight,
             child: Row(
               children: [
                 Expanded(
@@ -183,20 +186,27 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Symbols.close_rounded, size: 16),
+                  icon: const Icon(
+                    Symbols.close_rounded,
+                    size: WorkbenchLayoutConstants.iconMd,
+                  ),
                   color: theme.descriptionForeground,
                   tooltip: widget.closeButtonTooltip,
                   onPressed: widget.onTogglePanel,
-                  padding: const EdgeInsets.all(4),
+                  padding: const EdgeInsets.all(
+                    WorkbenchLayoutConstants.spacingXs,
+                  ),
                   constraints: const BoxConstraints(
-                    minWidth: 24,
-                    minHeight: 24,
+                    minWidth: WorkbenchLayoutConstants.iconXl,
+                    minHeight: WorkbenchLayoutConstants.iconXl,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(
+            height: WorkbenchLayoutConstants.panelTabStripPaddingY,
+          ),
           Expanded(
             child: TabBarView(
               controller: _tabController,

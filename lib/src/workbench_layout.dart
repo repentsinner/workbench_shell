@@ -185,10 +185,11 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
                                   ),
                                 ),
                                 Positioned(
-                                  top: -2,
+                                  top: -WorkbenchLayoutConstants.splitterWidth,
                                   left: 0,
                                   right: 0,
-                                  height: 4,
+                                  height: WorkbenchLayoutConstants
+                                      .resizerHitTargetSize,
                                   child: _buildHorizontalResizer(theme),
                                 ),
                               ],
@@ -223,7 +224,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       child: MouseRegion(
         cursor: SystemMouseCursors.resizeColumn,
         child: Container(
-          width: 4.0,
+          width: WorkbenchLayoutConstants.resizerHitTargetSize,
           color: _isDraggingSidebar
               ? theme.sashHoverBackground
               : theme.sideBarBackground,
@@ -320,7 +321,7 @@ class _ActivityBar extends StatelessWidget {
                 color: active
                     ? theme.activityBarForeground
                     : Colors.transparent,
-                width: 2,
+                width: WorkbenchLayoutConstants.activityBarIndicatorWidth,
               ),
             ),
           ),
@@ -329,7 +330,7 @@ class _ActivityBar extends StatelessWidget {
             color: active
                 ? theme.activityBarForeground
                 : theme.activityBarInactiveForeground,
-            size: 30,
+            size: WorkbenchLayoutConstants.iconActivityBar,
           ),
         ),
       ),
@@ -361,8 +362,10 @@ class _Sidebar extends StatelessWidget {
       child: Column(
         children: [
           Container(
-            height: 35,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            height: WorkbenchLayoutConstants.sidebarHeadingHeight,
+            padding: const EdgeInsets.symmetric(
+              horizontal: WorkbenchLayoutConstants.spacingLg,
+            ),
             child: Row(
               children: [
                 Expanded(

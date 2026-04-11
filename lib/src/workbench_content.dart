@@ -1,16 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import 'layout_constants.dart';
 import 'workbench_theme.dart';
-
-// ---- Spacing constants internal to content primitives ----
-
-const double _spaceXs = 4.0;
-const double _spaceSm = 8.0;
-const double _spaceMd = 12.0;
-const double _spaceLg = 16.0;
-const Radius _radius = Radius.circular(4);
-const BorderRadius _borderRadius = BorderRadius.all(_radius);
 
 /// Top-level grouping inside a sidebar or panel. Renders [title]
 /// using [WorkbenchTheme.sectionTitleStyle] with an optional info
@@ -37,19 +29,19 @@ class WorkbenchSection extends StatelessWidget {
           children: [
             Expanded(child: Text(title, style: theme.sectionTitleStyle)),
             if (infoTooltip != null) ...[
-              const SizedBox(width: _spaceSm),
+              const SizedBox(width: WorkbenchLayoutConstants.spacingSm),
               Tooltip(
                 message: infoTooltip!,
                 child: Icon(
                   Symbols.info_rounded,
-                  size: 16,
+                  size: WorkbenchLayoutConstants.iconMd,
                   color: theme.descriptionForeground,
                 ),
               ),
             ],
           ],
         ),
-        const SizedBox(height: _spaceMd),
+        const SizedBox(height: WorkbenchLayoutConstants.spacingMd),
         child,
       ],
     );
@@ -75,7 +67,7 @@ class WorkbenchSubsection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title, style: theme.subsectionTitleStyle),
-        const SizedBox(height: _spaceSm),
+        const SizedBox(height: WorkbenchLayoutConstants.spacingSm),
         child,
       ],
     );
@@ -91,7 +83,7 @@ class WorkbenchCard extends StatelessWidget {
   const WorkbenchCard({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(_spaceMd),
+    this.padding = const EdgeInsets.all(WorkbenchLayoutConstants.spacingMd),
   });
 
   @override
@@ -102,7 +94,7 @@ class WorkbenchCard extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         border: Border.fromBorderSide(BorderSide(color: theme.borderColor)),
-        borderRadius: _borderRadius,
+        borderRadius: WorkbenchLayoutConstants.containerRadius,
       ),
       child: child,
     );
@@ -126,7 +118,7 @@ class WorkbenchToggleCard extends StatelessWidget {
     required this.enabled,
     required this.onChanged,
     required this.child,
-    this.padding = const EdgeInsets.all(_spaceMd),
+    this.padding = const EdgeInsets.all(WorkbenchLayoutConstants.spacingMd),
   });
 
   @override
@@ -137,7 +129,7 @@ class WorkbenchToggleCard extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         border: Border.fromBorderSide(BorderSide(color: theme.borderColor)),
-        borderRadius: _borderRadius,
+        borderRadius: WorkbenchLayoutConstants.containerRadius,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -145,8 +137,8 @@ class WorkbenchToggleCard extends StatelessWidget {
           Row(
             children: [
               SizedBox(
-                width: 28,
-                height: 16,
+                width: WorkbenchLayoutConstants.switchWidth,
+                height: WorkbenchLayoutConstants.switchHeight,
                 child: FittedBox(
                   child: Switch(
                     value: enabled,
@@ -155,11 +147,11 @@ class WorkbenchToggleCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: _spaceSm),
+              const SizedBox(width: WorkbenchLayoutConstants.spacingSm),
               Expanded(child: Text(title, style: theme.subsectionTitleStyle)),
             ],
           ),
-          const SizedBox(height: _spaceSm),
+          const SizedBox(height: WorkbenchLayoutConstants.spacingSm),
           IgnorePointer(
             ignoring: !enabled,
             child: Opacity(opacity: enabled ? 1.0 : 0.4, child: child),
@@ -208,7 +200,7 @@ class WorkbenchTextField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: theme.bodyStyle),
-        const SizedBox(height: _spaceXs),
+        const SizedBox(height: WorkbenchLayoutConstants.spacingXs),
         TextField(
           controller: controller,
           focusNode: focusNode,
@@ -225,8 +217,8 @@ class WorkbenchTextField extends StatelessWidget {
             hintText: hintText,
             hintStyle: theme.helperStyle,
             contentPadding: const EdgeInsets.symmetric(
-              horizontal: _spaceSm,
-              vertical: _spaceSm,
+              horizontal: WorkbenchLayoutConstants.spacingSm,
+              vertical: WorkbenchLayoutConstants.spacingSm,
             ),
             border: border,
             enabledBorder: border,
@@ -236,7 +228,7 @@ class WorkbenchTextField extends StatelessWidget {
           ),
         ),
         if (helperText != null) ...[
-          const SizedBox(height: _spaceXs),
+          const SizedBox(height: WorkbenchLayoutConstants.spacingXs),
           Text(helperText!, style: theme.helperStyle),
         ],
       ],
@@ -278,7 +270,7 @@ class WorkbenchDropdown<T> extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: theme.bodyStyle),
-        const SizedBox(height: _spaceXs),
+        const SizedBox(height: WorkbenchLayoutConstants.spacingXs),
         DropdownButtonFormField<T>(
           initialValue: value,
           style: theme.bodyStyle,
@@ -288,8 +280,8 @@ class WorkbenchDropdown<T> extends StatelessWidget {
             filled: true,
             fillColor: theme.inputBackground,
             contentPadding: const EdgeInsets.symmetric(
-              horizontal: _spaceSm,
-              vertical: _spaceSm,
+              horizontal: WorkbenchLayoutConstants.spacingSm,
+              vertical: WorkbenchLayoutConstants.spacingSm,
             ),
             border: border,
             enabledBorder: border,
@@ -308,7 +300,7 @@ class WorkbenchDropdown<T> extends StatelessWidget {
           onChanged: onChanged,
         ),
         if (helperText != null) ...[
-          const SizedBox(height: _spaceXs),
+          const SizedBox(height: WorkbenchLayoutConstants.spacingXs),
           Text(helperText!, style: theme.helperStyle),
         ],
       ],
@@ -342,13 +334,13 @@ class WorkbenchToggle extends StatelessWidget {
             children: [
               Text(label, style: theme.bodyStyle),
               if (description != null) ...[
-                const SizedBox(height: _spaceXs),
+                const SizedBox(height: WorkbenchLayoutConstants.spacingXs),
                 Text(description!, style: theme.helperStyle),
               ],
             ],
           ),
         ),
-        const SizedBox(width: _spaceSm),
+        const SizedBox(width: WorkbenchLayoutConstants.spacingSm),
         SizedBox(
           width: 28,
           height: 16,
@@ -385,19 +377,21 @@ class WorkbenchActionButton extends StatelessWidget {
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(
-          horizontal: _spaceMd,
-          vertical: _spaceSm,
+          horizontal: WorkbenchLayoutConstants.spacingMd,
+          vertical: WorkbenchLayoutConstants.spacingSm,
         ),
         side: BorderSide(color: theme.borderColor),
-        shape: const RoundedRectangleBorder(borderRadius: _borderRadius),
+        shape: const RoundedRectangleBorder(
+          borderRadius: WorkbenchLayoutConstants.containerRadius,
+        ),
         textStyle: theme.bodyStyle,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 16),
-            const SizedBox(width: _spaceXs),
+            Icon(icon, size: WorkbenchLayoutConstants.iconMd),
+            const SizedBox(width: WorkbenchLayoutConstants.spacingXs),
           ],
           Text(label, style: theme.bodyStyle),
         ],
@@ -426,26 +420,33 @@ class WorkbenchEmptyState extends StatelessWidget {
     final theme = context.workbenchTheme;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(_spaceLg),
+        padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingLg),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 32, color: theme.descriptionForeground),
-            const SizedBox(height: _spaceMd),
+            Icon(
+              icon,
+              size: WorkbenchLayoutConstants.iconXxl,
+              color: theme.descriptionForeground,
+            ),
+            const SizedBox(height: WorkbenchLayoutConstants.spacingMd),
             Text(
               title,
               style: theme.sectionTitleStyle,
               textAlign: TextAlign.center,
             ),
             if (subtitle != null) ...[
-              const SizedBox(height: _spaceXs),
+              const SizedBox(height: WorkbenchLayoutConstants.spacingXs),
               Text(
                 subtitle!,
                 style: theme.helperStyle,
                 textAlign: TextAlign.center,
               ),
             ],
-            if (action != null) ...[const SizedBox(height: _spaceMd), action!],
+            if (action != null) ...[
+              const SizedBox(height: WorkbenchLayoutConstants.spacingMd),
+              action!,
+            ],
           ],
         ),
       ),
