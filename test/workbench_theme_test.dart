@@ -93,6 +93,62 @@ void main() {
     );
   });
 
+  group('WorkbenchTheme border fallbacks', () {
+    // Themes like Nord and One Dark Pro set `panel.border` but omit
+    // `activityBar.border` (and sometimes `sideBar.border`). The shell
+    // still draws those borders, so they must fall back to a token
+    // that matches the theme's palette — `panel.border` — rather than
+    // to a hardcoded VS Code-ish default that clashes with non-VS
+    // Code-derived palettes.
+    test('activityBar.border falls back to panel.border when omitted', () {
+      final map = loader.parse('''
+        {
+          "name": "Missing Activity Border",
+          "type": "vs-dark",
+          "colors": {
+            "activityBar.background": "#2e3440",
+            "sideBar.background": "#2e3440",
+            "panel.border": "#3b4252"
+          }
+        }
+        ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.activityBarBorder, const Color(0xFF3b4252));
+    });
+
+    test('sideBar.border falls back to panel.border when omitted', () {
+      final map = loader.parse('''
+      {
+        "name": "Missing Sidebar Border",
+        "type": "vs-dark",
+        "colors": {
+          "panel.border": "#3b4252"
+        }
+      }
+      ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.sideBarBorder, const Color(0xFF3b4252));
+    });
+
+    test('explicit border values are preserved over the fallback', () {
+      final map = loader.parse('''
+      {
+        "name": "Explicit Borders",
+        "type": "vs-dark",
+        "colors": {
+          "activityBar.border": "#112233",
+          "sideBar.border": "#445566",
+          "panel.border": "#778899"
+        }
+      }
+      ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.activityBarBorder, const Color(0xFF112233));
+      expect(theme.sideBarBorder, const Color(0xFF445566));
+      expect(theme.panelBorder, const Color(0xFF778899));
+    });
+  });
+
   group('WorkbenchTheme.copyWith / lerp', () {
     final base = WorkbenchTheme.fromVscodeColorMap(
       const VscodeColorMap(name: 'Dark', baseType: 'vs-dark', colors: {}),

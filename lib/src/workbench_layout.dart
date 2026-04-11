@@ -173,7 +173,14 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
                             child: Stack(
                               children: [
                                 Positioned.fill(
-                                  child: DecoratedBox(
+                                  // Container (not bare DecoratedBox) so
+                                  // the child is inset 1px from the top
+                                  // by Container-added padding. Bare
+                                  // DecoratedBox paints the border behind
+                                  // the child and the panel's own opaque
+                                  // background widget overdraws the 1px
+                                  // border strip.
+                                  child: Container(
                                     decoration: BoxDecoration(
                                       border: Border(
                                         top: BorderSide(

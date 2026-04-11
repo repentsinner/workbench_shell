@@ -173,6 +173,14 @@ class VscodeColorThemeLoader {
   ///
   /// These match VS Code's built-in defaults for tokens that themes
   /// commonly omit. Covers the ~25 tokens that [WorkbenchTheme] maps.
+  ///
+  /// Chrome border tokens (`activityBar.border`, `sideBar.border`)
+  /// are intentionally excluded: when absent, [WorkbenchTheme] falls
+  /// back to `panel.border` so borders stay coherent with the theme's
+  /// palette. Themes like Nord and One Dark Pro set `panel.border`
+  /// explicitly and omit the chrome borders expecting that exact
+  /// derivation; filling in a lexical default here pre-empts the
+  /// semantic fallback and renders as a clashing flat grey.
   static Map<String, Color> _defaultsForBaseType(String baseType) {
     if (baseType == 'vs-dark') {
       return const {
@@ -183,10 +191,8 @@ class VscodeColorThemeLoader {
         'activityBar.background': Color(0xFF333333),
         'activityBar.foreground': Color(0xFFFFFFFF),
         'activityBar.inactiveForeground': Color(0xFF858585),
-        'activityBar.border': Color(0xFF333333),
         'sideBar.background': Color(0xFF252526),
         'sideBar.foreground': Color(0xFFCCCCCC),
-        'sideBar.border': Color(0xFF252526),
         'panel.background': Color(0xFF1E1E1E),
         'panel.border': Color(0xFF808080),
         'panelTitle.activeForeground': Color(0xFFCCCCCC),
@@ -221,10 +227,8 @@ class VscodeColorThemeLoader {
       'activityBar.background': Color(0xFF2C2C2C),
       'activityBar.foreground': Color(0xFFFFFFFF),
       'activityBar.inactiveForeground': Color(0xFF858585),
-      'activityBar.border': Color(0xFF2C2C2C),
       'sideBar.background': Color(0xFFF3F3F3),
       'sideBar.foreground': Color(0xFF000000),
-      'sideBar.border': Color(0xFFE7E7E7),
       'panel.background': Color(0xFFFFFFFF),
       'panel.border': Color(0xFFE7E7E7),
       'panelTitle.activeForeground': Color(0xFF000000),

@@ -66,9 +66,14 @@ class WorkbenchThemeController extends ChangeNotifier {
        _selectedFilename = initialFilename,
        _availableThemes = List.unmodifiable(availableThemes),
        _loader = loader,
-       _fontFamily = fontFamily {
-    _cache[initialFilename] = initialTheme;
-  }
+       _fontFamily = fontFamily;
+  // Intentionally not caching [initialTheme] under [initialFilename].
+  // The initial theme is a synchronous placeholder (usually built from
+  // an empty VscodeColorMap) for the first frame — not the real bundled
+  // theme. Caching it here poisons [selectTheme] forever:
+  // `selectTheme(initialFilename)` would hit the already-selected
+  // short-circuit (or the cache-hit branch after a detour through
+  // another theme) and never actually load the real asset.
 
   /// Create a controller seeded with a synchronous fallback theme.
   ///
