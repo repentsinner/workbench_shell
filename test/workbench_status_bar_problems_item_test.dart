@@ -81,7 +81,7 @@ void main() {
       expect(tooltip.message, 'Problems');
     });
 
-    testWidgets('icon colours match helperStyle color', (tester) async {
+    testWidgets('icon colours match statusBarTextStyle color', (tester) async {
       Widget buildHarness(WorkbenchTheme theme) {
         return MaterialApp(
           theme: ThemeData.dark().copyWith(extensions: [theme]),
@@ -96,9 +96,14 @@ void main() {
         );
       }
 
-      // First theme: a distinct helperStyle color.
+      // Status bar text and icons paint in statusBar.foreground so
+      // they read against the blue status bar background. The old
+      // contract inherited helperStyle (descriptionForeground) and
+      // produced grey-on-blue — a legibility regression. Regression
+      // test against that: icons must follow statusBarTextStyle,
+      // not helperStyle.
       final overridden = testWorkbenchTheme.copyWith(
-        helperStyle: testWorkbenchTheme.helperStyle.copyWith(
+        statusBarTextStyle: testWorkbenchTheme.statusBarTextStyle.copyWith(
           color: const Color(0xFFAA1111),
         ),
       );
@@ -108,14 +113,14 @@ void main() {
       Color colorOf(IconData data) =>
           tester.widget<Icon>(find.byIcon(data)).color!;
 
-      // All three icons share the same helperStyle color.
+      // All three icons share the statusBarTextStyle color.
       expect(colorOf(Symbols.error_rounded), const Color(0xFFAA1111));
       expect(colorOf(Symbols.warning_rounded), const Color(0xFFAA1111));
       expect(colorOf(Symbols.info_rounded), const Color(0xFFAA1111));
 
-      // Second theme: different helperStyle color. Confirm icons update.
+      // Second theme: different statusBarTextStyle color.
       final other = testWorkbenchTheme.copyWith(
-        helperStyle: testWorkbenchTheme.helperStyle.copyWith(
+        statusBarTextStyle: testWorkbenchTheme.statusBarTextStyle.copyWith(
           color: const Color(0xFF004400),
         ),
       );

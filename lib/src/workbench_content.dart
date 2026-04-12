@@ -4,6 +4,15 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'layout_constants.dart';
 import 'workbench_theme.dart';
 
+/// Resolve a content-primitive border side from the theme's nullable
+/// [WorkbenchTheme.borderColor]. When the theme suppresses the border,
+/// fall through to [BorderSide.none] so the content primitive draws
+/// without a visible edge. Callers that need to skip the wrapping
+/// decoration entirely should branch on `theme.borderColor == null`.
+BorderSide _contentBorderSide(WorkbenchTheme theme) => theme.borderColor == null
+    ? BorderSide.none
+    : BorderSide(color: theme.borderColor!);
+
 /// Top-level grouping inside a sidebar or panel. Renders [title]
 /// using [WorkbenchTheme.sectionTitleStyle] with an optional info
 /// tooltip icon.
@@ -93,7 +102,7 @@ class WorkbenchCard extends StatelessWidget {
       width: double.infinity,
       padding: padding,
       decoration: BoxDecoration(
-        border: Border.fromBorderSide(BorderSide(color: theme.borderColor)),
+        border: Border.fromBorderSide(_contentBorderSide(theme)),
         borderRadius: WorkbenchLayoutConstants.containerRadius,
       ),
       child: child,
@@ -128,7 +137,7 @@ class WorkbenchToggleCard extends StatelessWidget {
       width: double.infinity,
       padding: padding,
       decoration: BoxDecoration(
-        border: Border.fromBorderSide(BorderSide(color: theme.borderColor)),
+        border: Border.fromBorderSide(_contentBorderSide(theme)),
         borderRadius: WorkbenchLayoutConstants.containerRadius,
       ),
       child: Column(
@@ -193,9 +202,7 @@ class WorkbenchTextField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
-    final border = OutlineInputBorder(
-      borderSide: BorderSide(color: theme.borderColor),
-    );
+    final border = OutlineInputBorder(borderSide: _contentBorderSide(theme));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -263,9 +270,7 @@ class WorkbenchDropdown<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
-    final border = OutlineInputBorder(
-      borderSide: BorderSide(color: theme.borderColor),
-    );
+    final border = OutlineInputBorder(borderSide: _contentBorderSide(theme));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -380,7 +385,7 @@ class WorkbenchActionButton extends StatelessWidget {
           horizontal: WorkbenchLayoutConstants.spacingMd,
           vertical: WorkbenchLayoutConstants.spacingSm,
         ),
-        side: BorderSide(color: theme.borderColor),
+        side: _contentBorderSide(theme),
         shape: const RoundedRectangleBorder(
           borderRadius: WorkbenchLayoutConstants.containerRadius,
         ),

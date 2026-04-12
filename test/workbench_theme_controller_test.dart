@@ -64,11 +64,11 @@ void main() {
       await controller.selectTheme('dark_modern.json');
       final firstLoad = controller.theme;
 
-      await controller.selectTheme('nord.json');
+      await controller.selectTheme('light_modern.json');
       expect(
         controller.theme.editorBackground,
         isNot(const Color(0xFF1F1F1F)),
-        reason: 'Nord should have loaded a different editor background',
+        reason: 'Light Modern should have a different editor background',
       );
 
       await controller.selectTheme('dark_modern.json');

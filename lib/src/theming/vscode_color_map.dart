@@ -95,11 +95,11 @@ class VscodeColorThemeLoader {
       }
     }
 
-    // Apply defaults for unspecified tokens.
-    final defaults = _defaultsForBaseType(baseType);
-    for (final entry in defaults.entries) {
-      colors.putIfAbsent(entry.key, () => entry.value);
-    }
+    // Absent tokens stay absent. Consumers (primarily
+    // [WorkbenchTheme.fromVscodeColorMap]) own the semantic fallback
+    // chain — `sideBar.border → null`, `statusBar.foreground → #FFF`,
+    // etc. — matching VS Code's color registry in
+    // `src/vs/workbench/common/theme.ts`.
 
     final editorFg =
         colors['editor.foreground'] ??
@@ -167,91 +167,5 @@ class VscodeColorThemeLoader {
     final name = (json['name'] as String? ?? '').toLowerCase();
     if (name.contains('light')) return 'vs';
     return 'vs-dark';
-  }
-
-  /// Default token values for dark and light base types.
-  ///
-  /// These match VS Code's built-in defaults for tokens that themes
-  /// commonly omit. Covers the ~25 tokens that [WorkbenchTheme] maps.
-  ///
-  /// Chrome border tokens (`activityBar.border`, `sideBar.border`)
-  /// are intentionally excluded: when absent, [WorkbenchTheme] falls
-  /// back to `panel.border` so borders stay coherent with the theme's
-  /// palette. Themes like Nord and One Dark Pro set `panel.border`
-  /// explicitly and omit the chrome borders expecting that exact
-  /// derivation; filling in a lexical default here pre-empts the
-  /// semantic fallback and renders as a clashing flat grey.
-  static Map<String, Color> _defaultsForBaseType(String baseType) {
-    if (baseType == 'vs-dark') {
-      return const {
-        'editor.background': Color(0xFF1E1E1E),
-        'editor.foreground': Color(0xFFCCCCCC),
-        'foreground': Color(0xFFCCCCCC),
-        'focusBorder': Color(0xFF007ACC),
-        'activityBar.background': Color(0xFF333333),
-        'activityBar.foreground': Color(0xFFFFFFFF),
-        'activityBar.inactiveForeground': Color(0xFF858585),
-        'sideBar.background': Color(0xFF252526),
-        'sideBar.foreground': Color(0xFFCCCCCC),
-        'panel.background': Color(0xFF1E1E1E),
-        'panel.border': Color(0xFF808080),
-        'panelTitle.activeForeground': Color(0xFFCCCCCC),
-        'panelTitle.inactiveForeground': Color(0xFF969696),
-        'statusBar.background': Color(0xFF007ACC),
-        'statusBar.foreground': Color(0xFFFFFFFF),
-        'statusBar.border': Color(0xFF007ACC),
-        'input.background': Color(0xFF3C3C3C),
-        'input.foreground': Color(0xFFCCCCCC),
-        'input.border': Color(0xFF3C3C3C),
-        'input.placeholderForeground': Color(0xFF969696),
-        'button.background': Color(0xFF0E639C),
-        'button.foreground': Color(0xFFFFFFFF),
-        'button.hoverBackground': Color(0xFF1177BB),
-        'dropdown.background': Color(0xFF3C3C3C),
-        'dropdown.foreground': Color(0xFFCCCCCC),
-        'errorForeground': Color(0xFFF85149),
-        'descriptionForeground': Color(0xFF969696),
-        'tab.activeBackground': Color(0xFF1E1E1E),
-        'tab.activeForeground': Color(0xFFFFFFFF),
-        'tab.inactiveBackground': Color(0xFF2D2D2D),
-        'tab.inactiveForeground': Color(0xFF969696),
-        'tab.border': Color(0xFF252526),
-      };
-    }
-    // Light (vs)
-    return const {
-      'editor.background': Color(0xFFFFFFFF),
-      'editor.foreground': Color(0xFF000000),
-      'foreground': Color(0xFF000000),
-      'focusBorder': Color(0xFF0078D4),
-      'activityBar.background': Color(0xFF2C2C2C),
-      'activityBar.foreground': Color(0xFFFFFFFF),
-      'activityBar.inactiveForeground': Color(0xFF858585),
-      'sideBar.background': Color(0xFFF3F3F3),
-      'sideBar.foreground': Color(0xFF000000),
-      'panel.background': Color(0xFFFFFFFF),
-      'panel.border': Color(0xFFE7E7E7),
-      'panelTitle.activeForeground': Color(0xFF000000),
-      'panelTitle.inactiveForeground': Color(0xFF969696),
-      'statusBar.background': Color(0xFF007ACC),
-      'statusBar.foreground': Color(0xFFFFFFFF),
-      'statusBar.border': Color(0xFF007ACC),
-      'input.background': Color(0xFFFFFFFF),
-      'input.foreground': Color(0xFF000000),
-      'input.border': Color(0xFFCECECE),
-      'input.placeholderForeground': Color(0xFF767676),
-      'button.background': Color(0xFF007ACC),
-      'button.foreground': Color(0xFFFFFFFF),
-      'button.hoverBackground': Color(0xFF0062A3),
-      'dropdown.background': Color(0xFFFFFFFF),
-      'dropdown.foreground': Color(0xFF000000),
-      'errorForeground': Color(0xFFF85149),
-      'descriptionForeground': Color(0xFF717171),
-      'tab.activeBackground': Color(0xFFFFFFFF),
-      'tab.activeForeground': Color(0xFF000000),
-      'tab.inactiveBackground': Color(0xFFECECEC),
-      'tab.inactiveForeground': Color(0xFF717171),
-      'tab.border': Color(0xFFE7E7E7),
-    };
   }
 }

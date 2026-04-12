@@ -180,13 +180,20 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
                                   // the child and the panel's own opaque
                                   // background widget overdraws the 1px
                                   // border strip.
+                                  //
+                                  // Null panelBorder → theme explicitly
+                                  // suppresses the seam; skip the
+                                  // BorderSide entirely rather than
+                                  // falling back to a neighboring color.
                                   child: Container(
                                     decoration: BoxDecoration(
-                                      border: Border(
-                                        top: BorderSide(
-                                          color: theme.panelBorder,
-                                        ),
-                                      ),
+                                      border: theme.panelBorder == null
+                                          ? null
+                                          : Border(
+                                              top: BorderSide(
+                                                color: theme.panelBorder!,
+                                              ),
+                                            ),
                                     ),
                                     child: widget.bottomPanel,
                                   ),
@@ -235,17 +242,25 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
           color: _isDraggingSidebar
               ? theme.sashHoverBackground
               : theme.sideBarBackground,
-          child: _isDraggingSidebar
-              ? null
-              : Align(
-                  alignment: Alignment.centerRight,
-                  child: Container(
-                    width: 1.0,
-                    color: theme.sideBarBorder,
-                    child: const SizedBox.expand(),
-                  ),
-                ),
+          child: _buildSidebarResizerOverlay(theme),
         ),
+      ),
+    );
+  }
+
+  // Returns the inner hairline widget for the sidebar resizer's
+  // idle state, or null while dragging or when the theme suppresses
+  // the seam (null sideBarBorder).
+  Widget? _buildSidebarResizerOverlay(WorkbenchTheme theme) {
+    if (_isDraggingSidebar) return null;
+    final sideBarBorder = theme.sideBarBorder;
+    if (sideBarBorder == null) return null;
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Container(
+        width: 1.0,
+        color: sideBarBorder,
+        child: const SizedBox.expand(),
       ),
     );
   }
@@ -293,11 +308,15 @@ class _ActivityBar extends StatelessWidget {
         items.where((i) => i.zone == ActivityBarZone.bottom).toList()
           ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
 
+    // Null activityBarBorder → theme registry default (modern themes).
+    // Skip the BorderSide entirely instead of flat-grey fallback.
     return Container(
       width: WorkbenchLayoutConstants.activityBarWidth,
       decoration: BoxDecoration(
         color: theme.activityBarBackground,
-        border: Border(right: BorderSide(color: theme.activityBarBorder)),
+        border: theme.activityBarBorder == null
+            ? null
+            : Border(right: BorderSide(color: theme.activityBarBorder!)),
       ),
       child: Column(
         children: [

@@ -78,7 +78,11 @@ void main() {
       expect(map.isDark, isFalse);
     });
 
-    test('fills defaults for unspecified tokens', () {
+    test('absent tokens stay absent in the parsed map', () {
+      // The loader records only what the theme JSON sets. Semantic
+      // fallbacks live in [WorkbenchTheme.fromVscodeColorMap], not
+      // in the loader — this matches VS Code's split between the
+      // theme file and the color registry.
       const json = '''
       {
         "name": "Sparse",
@@ -88,13 +92,12 @@ void main() {
       ''';
       final map = loader.parse(json);
 
-      // Default dark editor background should be filled.
-      expect(map['editor.background'], isNotNull);
-      expect(map['activityBar.background'], isNotNull);
-      expect(map['statusBar.background'], isNotNull);
+      expect(map['editor.background'], isNull);
+      expect(map['activityBar.background'], isNull);
+      expect(map['statusBar.background'], isNull);
     });
 
-    test('explicit tokens override defaults', () {
+    test('explicit tokens round-trip through parse', () {
       const json = '''
       {
         "name": "Custom",

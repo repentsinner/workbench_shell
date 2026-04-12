@@ -72,11 +72,11 @@ class WorkbenchStatusBarItem extends StatelessWidget {
             Icon(
               icon,
               size: WorkbenchLayoutConstants.iconStatusBar,
-              color: iconColor ?? theme.helperStyle.color,
+              color: iconColor ?? theme.statusBarTextStyle.color,
             ),
             const SizedBox(width: WorkbenchLayoutConstants.spacingXs),
           ],
-          Text(label, style: textStyle ?? theme.helperStyle),
+          Text(label, style: textStyle ?? theme.statusBarTextStyle),
         ],
       ),
     );
@@ -118,11 +118,11 @@ class WorkbenchStatusBarAction extends StatelessWidget {
             Icon(
               icon,
               size: WorkbenchLayoutConstants.iconStatusBar,
-              color: iconColor ?? theme.helperStyle.color,
+              color: iconColor ?? theme.statusBarTextStyle.color,
             ),
             const SizedBox(width: WorkbenchLayoutConstants.spacingXs),
           ],
-          Text(label, style: textStyle ?? theme.helperStyle),
+          Text(label, style: textStyle ?? theme.statusBarTextStyle),
         ],
       ),
     );
@@ -202,10 +202,10 @@ class WorkbenchStatusBarProblemsItem extends StatelessWidget {
         Icon(
           icon,
           size: WorkbenchLayoutConstants.iconStatusBar,
-          color: theme.helperStyle.color,
+          color: theme.statusBarTextStyle.color,
         ),
         const SizedBox(width: WorkbenchLayoutConstants.spacingXs),
-        Text('$count', style: theme.helperStyle),
+        Text('$count', style: theme.statusBarTextStyle),
       ],
     );
   }

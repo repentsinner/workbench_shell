@@ -17,13 +17,25 @@ import 'theming/vscode_color_map.dart';
 class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   // ---- Activity bar ----
   final Color activityBarBackground;
-  final Color activityBarBorder;
+
+  /// Activity bar right-edge separator. Null in modern themes
+  /// (Dark+, Light+) whose VS Code registry default is null —
+  /// widgets shall skip painting the separator entirely rather than
+  /// falling back to a neighboring border color. Dark Modern and
+  /// similar themes set this explicitly. See SPEC §9.6 Token
+  /// Semantics: Null and Alpha.
+  final Color? activityBarBorder;
+
   final Color activityBarForeground;
   final Color activityBarInactiveForeground;
 
   // ---- Sidebar ----
   final Color sideBarBackground;
-  final Color sideBarBorder;
+
+  /// Sidebar right-edge separator. Null in modern themes whose VS
+  /// Code registry default is null — see [activityBarBorder].
+  final Color? sideBarBorder;
+
   final Color sideBarForeground;
 
   // ---- Editor area ----
@@ -31,7 +43,13 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
 
   // ---- Panel ----
   final Color panelBackground;
-  final Color panelBorder;
+
+  /// Panel top-edge separator. Defaults to translucent grey
+  /// (`#80808059`) in every modern VS Code theme so the seam blends
+  /// with the surface beneath. Nullable so a theme can suppress the
+  /// panel border outright.
+  final Color? panelBorder;
+
   final Color panelTitleActiveForeground;
   final Color panelTitleInactiveForeground;
 
@@ -123,7 +141,14 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   final TextStyle subsectionTitleStyle;
   final TextStyle bodyStyle;
   final TextStyle helperStyle;
-  final Color borderColor;
+
+  /// Content-primitive border color (WorkbenchCard, form inputs,
+  /// action button outlines). Derived from [panelBorder], so follows
+  /// its nullability: null when a theme explicitly suppresses panel
+  /// borders. Consumers shall skip drawing or fall back to
+  /// [Colors.transparent] when null.
+  final Color? borderColor;
+
   final Color focusBorderColor;
 
   // ---- Semantic text styles (§9.6 Text Styles) ----
@@ -134,7 +159,17 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   final TextStyle smallText;
   final TextStyle buttonTextStyle;
   final TextStyle statusText;
-  final TextStyle statusBarText;
+
+  /// Primary status-bar item text style.
+  ///
+  /// Matches the size/weight of [helperStyle] but paints in
+  /// [statusBarForeground] so text reads against the status bar's
+  /// theme-defined background (`#007ACC` blue by default). Use from
+  /// every status-bar leaf that needs a foreground — defaulting to
+  /// [helperStyle] is a legibility regression because that style
+  /// resolves to `descriptionForeground` (grey on blue).
+  final TextStyle statusBarTextStyle;
+
   final TextStyle valueText;
   final TextStyle sidebarOrPanelHeading;
   final TextStyle loglineTime;
@@ -233,7 +268,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.smallText,
     required this.buttonTextStyle,
     required this.statusText,
-    required this.statusBarText,
+    required this.statusBarTextStyle,
     required this.valueText,
     required this.sidebarOrPanelHeading,
     required this.loglineTime,
@@ -263,19 +298,41 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     VscodeColorMap map, {
     String fontFamily = 'Inconsolata',
   }) {
-    final fg = map.resolve('foreground', const Color(0xFFCCCCCC));
+    // Base-type-aware fallback: picks the correct default for dark vs
+    // light themes. Values sourced from VS Code's color registry in
+    // src/vs/workbench/common/theme.ts and
+    // src/vs/platform/theme/common/colors/*.ts.
+    Color dl(Color dark, Color light) => map.isDark ? dark : light;
+
+    final fg = map.resolve(
+      'foreground',
+      dl(const Color(0xFFCCCCCC), const Color(0xFF000000)),
+    );
+    // VS Code: transparent(foreground, 0.5) for both dark and light.
     final secondaryFg = map.resolve(
       'descriptionForeground',
-      const Color(0xFF969696),
+      fg.withValues(alpha: 0.5),
     );
-    final accentFg = map.resolve('focusBorder', const Color(0xFF007ACC));
-    final statusBarFg = map.resolve('statusBar.foreground', fg);
-    final panelBorder = map.resolve('panel.border', const Color(0xFF808080));
+    final accentFg = map.resolve(
+      'focusBorder',
+      dl(const Color(0xFF007ACC), const Color(0xFF0078D4)),
+    );
+    // VS Code registry: #FFFFFF in both dark and light.
+    final statusBarFg = map.resolve(
+      'statusBar.foreground',
+      const Color(0xFFFFFFFF),
+    );
+    // VS Code registry: Color.fromHex('#808080').transparent(0.35) →
+    // 0x59808080 — same for dark and light.
+    final Color panelBorder = map['panel.border'] ?? const Color(0x59808080);
     final sideBarBg = map.resolve(
       'sideBar.background',
-      const Color(0xFF252526),
+      dl(const Color(0xFF252526), const Color(0xFFF3F3F3)),
     );
-    final editorBg = map.resolve('editor.background', const Color(0xFF1E1E1E));
+    final editorBg = map.resolve(
+      'editor.background',
+      dl(const Color(0xFF1E1E1E), const Color(0xFFFFFFFF)),
+    );
     final errorFg = map.resolve('errorForeground', const Color(0xFFF85149));
     final warningFg = map.resolve(
       'editorWarning.foreground',
@@ -301,25 +358,32 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // Activity bar
       activityBarBackground: map.resolve(
         'activityBar.background',
-        const Color(0xFF333333),
+        dl(const Color(0xFF333333), const Color(0xFF2C2C2C)),
       ),
-      activityBarBorder: map.resolve('activityBar.border', panelBorder),
+      // Null when the theme omits it — VS Code's ACTIVITY_BAR_BORDER
+      // registry default is null in dark/light themes. Widgets skip
+      // painting the separator when null (see SPEC §9.6).
+      activityBarBorder: map['activityBar.border'],
       activityBarForeground: map.resolve(
         'activityBar.foreground',
         const Color(0xFFFFFFFF),
       ),
+      // VS Code: transparent(activityBar.foreground, 0.4).
       activityBarInactiveForeground: map.resolve(
         'activityBar.inactiveForeground',
-        const Color(0xFF858585),
+        map
+            .resolve('activityBar.foreground', const Color(0xFFFFFFFF))
+            .withValues(alpha: 0.4),
       ),
       // Sidebar
       sideBarBackground: sideBarBg,
-      sideBarBorder: map.resolve('sideBar.border', panelBorder),
+      // Null by the same registry semantics as activityBar.border.
+      sideBarBorder: map['sideBar.border'],
       sideBarForeground: map.resolve('sideBar.foreground', fg),
       // Editor
       editorBackground: editorBg,
       // Panel
-      panelBackground: map.resolve('panel.background', const Color(0xFF1E1E1E)),
+      panelBackground: map.resolve('panel.background', editorBg),
       panelBorder: panelBorder,
       panelTitleActiveForeground: map.resolve(
         'panelTitle.activeForeground',
@@ -334,38 +398,45 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         'statusBar.background',
         const Color(0xFF007ACC),
       ),
-      statusBarBorder: map.resolve('statusBar.border', const Color(0xFF007ACC)),
+      // VS Code registry: null for dark/light, contrastBorder for HC.
+      // Transparent fallback so the BorderSide draws but is invisible.
+      statusBarBorder: map['statusBar.border'] ?? const Color(0x00000000),
       statusBarForeground: statusBarFg,
       // Tab strip container
-      tabActiveBackground: map.resolve(
-        'tab.activeBackground',
-        const Color(0xFF1E1E1E),
-      ),
+      // VS Code: tab.activeBackground inherits from editor.background.
+      tabActiveBackground: map.resolve('tab.activeBackground', editorBg),
       tabInactiveBackground: map.resolve(
         'tab.inactiveBackground',
-        const Color(0xFF2D2D2D),
+        dl(const Color(0xFF2D2D2D), const Color(0xFFECECEC)),
       ),
       tabActiveForeground: map.resolve(
         'tab.activeForeground',
-        const Color(0xFFFFFFFF),
+        dl(const Color(0xFFFFFFFF), const Color(0xFF333333)),
       ),
       tabInactiveForeground: map.resolve('tab.inactiveForeground', secondaryFg),
-      tabBorder: map.resolve('tab.border', const Color(0xFF252526)),
+      tabBorder: map.resolve(
+        'tab.border',
+        dl(const Color(0xFF252526), const Color(0xFFF3F3F3)),
+      ),
       // Inputs / buttons
-      inputBackground: map.resolve('input.background', const Color(0xFF3C3C3C)),
+      inputBackground: map.resolve(
+        'input.background',
+        dl(const Color(0xFF3C3C3C), const Color(0xFFFFFFFF)),
+      ),
       inputForeground: map.resolve('input.foreground', fg),
-      inputBorder: map.resolve('input.border', const Color(0xFF3C3C3C)),
+      // VS Code registry: null for dark/light.
+      inputBorder: map['input.border'] ?? const Color(0x00000000),
       inputPlaceholderForeground: map.resolve(
         'input.placeholderForeground',
         secondaryFg,
       ),
       dropdownBackground: map.resolve(
         'dropdown.background',
-        const Color(0xFF3C3C3C),
+        dl(const Color(0xFF3C3C3C), const Color(0xFFFFFFFF)),
       ),
       buttonBackground: map.resolve(
         'button.background',
-        const Color(0xFF0E639C),
+        dl(const Color(0xFF0E639C), const Color(0xFF007ACC)),
       ),
       buttonForeground: map.resolve(
         'button.foreground',
@@ -373,7 +444,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       ),
       buttonHoverBackground: map.resolve(
         'button.hoverBackground',
-        const Color(0xFF1177BB),
+        dl(const Color(0xFF1177BB), const Color(0xFF0062A3)),
       ),
       // Foregrounds / accent
       foreground: fg,
@@ -390,11 +461,11 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // List
       listHoverBackground: map.resolve(
         'list.hoverBackground',
-        const Color(0xFF2A2D2E),
+        dl(const Color(0xFF2A2D2E), const Color(0xFFF0F0F0)),
       ),
       listActiveSelectionBackground: map.resolve(
         'list.activeSelectionBackground',
-        const Color(0xFF094771),
+        dl(const Color(0xFF04395E), const Color(0xFF0060C0)),
       ),
       // Focus / sash
       focusBorder: accentFg,
@@ -404,17 +475,23 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // itself; individual menu items read `menubar.*` and `menu.*`.
       menuBarBackground: map.resolve(
         'titleBar.activeBackground',
-        const Color(0xFF3C3C3C),
+        dl(const Color(0xFF3C3C3C), const Color(0xFFDDDDDD)),
       ),
-      menuBarForeground: map.resolve('titleBar.activeForeground', fg),
+      menuBarForeground: map.resolve(
+        'titleBar.activeForeground',
+        dl(const Color(0xFFCCCCCC), const Color(0xFF333333)),
+      ),
       menuBarHoverBackground: map.resolve(
         'menubar.selectionBackground',
-        map.resolve('list.hoverBackground', const Color(0xFF2A2D2E)),
+        map.resolve(
+          'list.hoverBackground',
+          dl(const Color(0xFF2A2D2E), const Color(0xFFF0F0F0)),
+        ),
       ),
-      menuBarBorder: map.resolve(
-        'titleBar.border',
-        map.resolve('activityBar.border', panelBorder),
-      ),
+      // menuBar is an in-window strip; keep a visible seam for the
+      // Win/Linux Material MenuBar. Fall through to the panel border
+      // default, which is already translucent-grey.
+      menuBarBorder: map.resolve('titleBar.border', panelBorder),
       // Pre-mixed modifiers
       focusBorderSubtle: accentFg.withValues(alpha: 0.1),
       focusBorderMuted: accentFg.withValues(alpha: 0.3),
@@ -465,7 +542,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         fontSize: 11,
         fontWeight: FontWeight.w500,
       ),
-      statusBarText: t(13, FontWeight.normal, color: statusBarFg),
+      // Match the size/weight of helperStyle (11pt, w400) but paint
+      // in statusBar.foreground rather than descriptionForeground so
+      // status bar text reads against the blue status bar background.
+      statusBarTextStyle: t(11, FontWeight.w400, color: statusBarFg),
       valueText: t(12, FontWeight.w600),
       sidebarOrPanelHeading: t(13, FontWeight.w600),
       loglineTime: t(11, FontWeight.w400, color: secondaryFg),
@@ -565,7 +645,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     TextStyle? smallText,
     TextStyle? buttonTextStyle,
     TextStyle? statusText,
-    TextStyle? statusBarText,
+    TextStyle? statusBarTextStyle,
     TextStyle? valueText,
     TextStyle? sidebarOrPanelHeading,
     TextStyle? loglineTime,
@@ -674,7 +754,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       smallText: smallText ?? this.smallText,
       buttonTextStyle: buttonTextStyle ?? this.buttonTextStyle,
       statusText: statusText ?? this.statusText,
-      statusBarText: statusBarText ?? this.statusBarText,
+      statusBarTextStyle: statusBarTextStyle ?? this.statusBarTextStyle,
       valueText: valueText ?? this.valueText,
       sidebarOrPanelHeading:
           sidebarOrPanelHeading ?? this.sidebarOrPanelHeading,
@@ -691,13 +771,21 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   WorkbenchTheme lerp(covariant WorkbenchTheme? other, double t) {
     if (other == null) return this;
     Color c(Color a, Color b) => Color.lerp(a, b, t)!;
+    // Nullable lerp: null endpoints interpolate through transparent so
+    // an animated swap from a null border to a concrete one fades in
+    // instead of snapping.
+    Color? cn(Color? a, Color? b) {
+      if (a == null && b == null) return null;
+      return Color.lerp(a, b, t);
+    }
+
     TextStyle ts(TextStyle a, TextStyle b) => TextStyle.lerp(a, b, t)!;
     return WorkbenchTheme(
       activityBarBackground: c(
         activityBarBackground,
         other.activityBarBackground,
       ),
-      activityBarBorder: c(activityBarBorder, other.activityBarBorder),
+      activityBarBorder: cn(activityBarBorder, other.activityBarBorder),
       activityBarForeground: c(
         activityBarForeground,
         other.activityBarForeground,
@@ -707,11 +795,11 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         other.activityBarInactiveForeground,
       ),
       sideBarBackground: c(sideBarBackground, other.sideBarBackground),
-      sideBarBorder: c(sideBarBorder, other.sideBarBorder),
+      sideBarBorder: cn(sideBarBorder, other.sideBarBorder),
       sideBarForeground: c(sideBarForeground, other.sideBarForeground),
       editorBackground: c(editorBackground, other.editorBackground),
       panelBackground: c(panelBackground, other.panelBackground),
-      panelBorder: c(panelBorder, other.panelBorder),
+      panelBorder: cn(panelBorder, other.panelBorder),
       panelTitleActiveForeground: c(
         panelTitleActiveForeground,
         other.panelTitleActiveForeground,
@@ -825,7 +913,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       ),
       bodyStyle: ts(bodyStyle, other.bodyStyle),
       helperStyle: ts(helperStyle, other.helperStyle),
-      borderColor: c(borderColor, other.borderColor),
+      borderColor: cn(borderColor, other.borderColor),
       focusBorderColor: c(focusBorderColor, other.focusBorderColor),
       sectionTitle: ts(sectionTitle, other.sectionTitle),
       labelText: ts(labelText, other.labelText),
@@ -834,7 +922,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       smallText: ts(smallText, other.smallText),
       buttonTextStyle: ts(buttonTextStyle, other.buttonTextStyle),
       statusText: ts(statusText, other.statusText),
-      statusBarText: ts(statusBarText, other.statusBarText),
+      statusBarTextStyle: ts(statusBarTextStyle, other.statusBarTextStyle),
       valueText: ts(valueText, other.valueText),
       sidebarOrPanelHeading: ts(
         sidebarOrPanelHeading,
@@ -855,4 +943,18 @@ extension WorkbenchThemeExtension on BuildContext {
   /// The [WorkbenchTheme] from the nearest [Theme] ancestor.
   WorkbenchTheme get workbenchTheme =>
       Theme.of(this).extension<WorkbenchTheme>()!;
+}
+
+/// Helper for content-primitive widgets that need a concrete
+/// [Color] regardless of whether the theme suppresses the chrome
+/// panel border. When [WorkbenchTheme.panelBorder] is null the
+/// helper falls through to [Colors.transparent] — content primitives
+/// outside the workbench chrome still lay out identically, they
+/// just render edgelessly.
+extension WorkbenchThemeContentBorder on WorkbenchTheme {
+  /// Non-null panel-border color, substituting transparent when the
+  /// theme suppresses the border. Use from content-primitive widgets
+  /// (jog controls, cards, sidebar chips) whose structural width must
+  /// not change when the theme omits the border.
+  Color get panelBorderOrTransparent => panelBorder ?? Colors.transparent;
 }

@@ -41,10 +41,27 @@ class WorkbenchThemeEntry {
 class WorkbenchThemeController extends ChangeNotifier {
   /// Default bundled themes shipped with `workbench_shell`.
   static const List<WorkbenchThemeEntry> defaultAvailableThemes = [
+    WorkbenchThemeEntry(label: 'Dark 2026', filename: '2026_dark.json'),
+    WorkbenchThemeEntry(label: 'Light 2026', filename: '2026_light.json'),
     WorkbenchThemeEntry(label: 'Dark Modern', filename: 'dark_modern.json'),
     WorkbenchThemeEntry(label: 'Light Modern', filename: 'light_modern.json'),
-    WorkbenchThemeEntry(label: 'Nord', filename: 'nord.json'),
-    WorkbenchThemeEntry(label: 'One Dark Pro', filename: 'one_dark_pro.json'),
+    WorkbenchThemeEntry(
+      label: 'Dark+ (Visual Studio)',
+      filename: 'dark_plus.json',
+    ),
+    WorkbenchThemeEntry(
+      label: 'Light+ (Visual Studio)',
+      filename: 'light_plus.json',
+    ),
+    WorkbenchThemeEntry(label: 'Monokai', filename: 'monokai.json'),
+    WorkbenchThemeEntry(
+      label: 'Solarized Dark',
+      filename: 'solarized_dark.json',
+    ),
+    WorkbenchThemeEntry(
+      label: 'Solarized Light',
+      filename: 'solarized_light.json',
+    ),
   ];
 
   final VscodeColorThemeLoader _loader;

@@ -93,59 +93,154 @@ void main() {
     );
   });
 
-  group('WorkbenchTheme border fallbacks', () {
-    // Themes like Nord and One Dark Pro set `panel.border` but omit
-    // `activityBar.border` (and sometimes `sideBar.border`). The shell
-    // still draws those borders, so they must fall back to a token
-    // that matches the theme's palette — `panel.border` — rather than
-    // to a hardcoded VS Code-ish default that clashes with non-VS
-    // Code-derived palettes.
-    test('activityBar.border falls back to panel.border when omitted', () {
+  group('WorkbenchTheme border semantics', () {
+    // VS Code's color registry treats activityBar.border and
+    // sideBar.border as null by default for dark and light themes.
+    // Modern themes (Dark+, Light+) omit them; Dark Modern sets them
+    // explicitly. Propagate the absence as null so chrome widgets
+    // skip painting instead of showing flat grey hairlines.
+    test('activityBar.border resolves to null when omitted', () {
       final map = loader.parse('''
         {
-          "name": "Missing Activity Border",
+          "name": "Dark+-like",
           "type": "vs-dark",
           "colors": {
-            "activityBar.background": "#2e3440",
-            "sideBar.background": "#2e3440",
-            "panel.border": "#3b4252"
+            "activityBar.background": "#333333",
+            "sideBar.background": "#252526",
+            "editor.background": "#1E1E1E"
           }
         }
         ''');
       final theme = WorkbenchTheme.fromVscodeColorMap(map);
-      expect(theme.activityBarBorder, const Color(0xFF3b4252));
+      expect(theme.activityBarBorder, isNull);
     });
 
-    test('sideBar.border falls back to panel.border when omitted', () {
+    test('sideBar.border resolves to null when omitted', () {
       final map = loader.parse('''
-      {
-        "name": "Missing Sidebar Border",
-        "type": "vs-dark",
-        "colors": {
-          "panel.border": "#3b4252"
+        {
+          "name": "Minimal Dark",
+          "type": "vs-dark",
+          "colors": {}
         }
-      }
-      ''');
+        ''');
       final theme = WorkbenchTheme.fromVscodeColorMap(map);
-      expect(theme.sideBarBorder, const Color(0xFF3b4252));
+      expect(theme.sideBarBorder, isNull);
     });
 
-    test('explicit border values are preserved over the fallback', () {
+    test('panel.border resolves to translucent grey when omitted', () {
+      // VS Code registry: PANEL_BORDER defaults to
+      // `Color.fromHex('#808080').transparent(0.35)` → 0x59808080.
       final map = loader.parse('''
-      {
-        "name": "Explicit Borders",
-        "type": "vs-dark",
-        "colors": {
-          "activityBar.border": "#112233",
-          "sideBar.border": "#445566",
-          "panel.border": "#778899"
+        {
+          "name": "Minimal Dark",
+          "type": "vs-dark",
+          "colors": {}
         }
-      }
-      ''');
+        ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.panelBorder, const Color(0x59808080));
+    });
+
+    test('explicit border values are preserved', () {
+      final map = loader.parse('''
+        {
+          "name": "Explicit Borders",
+          "type": "vs-dark",
+          "colors": {
+            "activityBar.border": "#112233",
+            "sideBar.border": "#445566",
+            "panel.border": "#778899"
+          }
+        }
+        ''');
       final theme = WorkbenchTheme.fromVscodeColorMap(map);
       expect(theme.activityBarBorder, const Color(0xFF112233));
       expect(theme.sideBarBorder, const Color(0xFF445566));
       expect(theme.panelBorder, const Color(0xFF778899));
+    });
+
+    test('preserves alpha channel from #RRGGBBAA', () {
+      // Spec §9.6: "Color tokens expressed as #RRGGBBAA retain their
+      // alpha channel from parse through paint." Reject any
+      // opaque-coercion downstream.
+      final map = loader.parse('''
+        {
+          "name": "Translucent",
+          "type": "vs-dark",
+          "colors": {
+            "panel.border": "#80808059"
+          }
+        }
+        ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.panelBorder, const Color(0x59808080));
+    });
+  });
+
+  group('WorkbenchTheme border fallbacks (Plus asset)', () {
+    test('Dark+ bundled theme leaves activity/side borders null', () async {
+      final map = await loader.loadAsset('dark_plus.json');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.activityBarBorder, isNull);
+      expect(theme.sideBarBorder, isNull);
+      // panel.border absent in Dark+ too → registry default
+      // (translucent grey).
+      expect(theme.panelBorder, const Color(0x59808080));
+      // Backgrounds come from the fromVscodeColorMap fallback chain.
+      expect(theme.activityBarBackground, const Color(0xFF333333));
+      expect(theme.sideBarBackground, const Color(0xFF252526));
+      expect(theme.editorBackground, const Color(0xFF1E1E1E));
+      expect(theme.statusBarBackground, const Color(0xFF007ACC));
+    });
+
+    test('Dark Modern sets all three border tokens explicitly', () async {
+      final map = await loader.loadAsset('dark_modern.json');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.activityBarBorder, const Color(0xFF2B2B2B));
+      expect(theme.sideBarBorder, const Color(0xFF2B2B2B));
+      expect(theme.panelBorder, const Color(0xFF2B2B2B));
+    });
+  });
+
+  group('WorkbenchTheme.statusBarTextStyle', () {
+    // Primary status bar text matches the size/weight of helperStyle
+    // (11pt, w400) but paints in statusBar.foreground so it reads
+    // against the blue status bar background. The prior default
+    // (helperStyle) used descriptionForeground and produced an
+    // illegible grey on blue.
+    test('uses statusBar.foreground and helperStyle metrics', () {
+      final map = loader.parse('''
+        {
+          "name": "Dark Test",
+          "type": "vs-dark",
+          "colors": {
+            "statusBar.foreground": "#FFFFFF",
+            "descriptionForeground": "#969696"
+          }
+        }
+        ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.statusBarTextStyle.color, const Color(0xFFFFFFFF));
+      expect(theme.statusBarTextStyle.fontSize, theme.helperStyle.fontSize);
+      expect(theme.statusBarTextStyle.fontWeight, theme.helperStyle.fontWeight);
+      // Regression guard: must not fall through to descriptionForeground.
+      expect(
+        theme.statusBarTextStyle.color,
+        isNot(theme.descriptionForeground),
+      );
+    });
+
+    test('Dark+ default resolves to white', () async {
+      final map = await loader.loadAsset('dark_plus.json');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.statusBarTextStyle.color, const Color(0xFFFFFFFF));
+      expect(theme.statusBarForeground, const Color(0xFFFFFFFF));
+    });
+
+    test('Dark Modern sets statusBar.foreground to #CCCCCC', () async {
+      final map = await loader.loadAsset('dark_modern.json');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.statusBarTextStyle.color, const Color(0xFFCCCCCC));
     });
   });
 

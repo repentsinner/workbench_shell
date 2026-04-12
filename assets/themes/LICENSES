@@ -6,6 +6,14 @@ dark_modern.json / light_modern.json
   License: MIT
   URL: https://github.com/microsoft/vscode
 
+dark_plus.json / light_plus.json
+  Source: Microsoft VS Code built-in themes — flattened from
+  extensions/theme-defaults/themes/{dark,light}_plus.json merged with
+  their {dark,light}_vs.json base (VS Code's `include` chain, inlined
+  here because the loader does not resolve `include:` directives).
+  License: MIT
+  URL: https://github.com/microsoft/vscode
+
 nord.json
   Source: Nord for Visual Studio Code
   Author: Arctic Ice Studio / Sven Greb
