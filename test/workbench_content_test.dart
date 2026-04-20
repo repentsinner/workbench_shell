@@ -77,94 +77,6 @@ void main() {
     });
   });
 
-  group('WorkbenchTextField', () {
-    testWidgets('renders label and controller-backed input', (tester) async {
-      final controller = TextEditingController(text: 'initial');
-      addTearDown(controller.dispose);
-      await tester.pumpWidget(
-        wrapWithTheme(
-          WorkbenchTextField(label: 'Name', controller: controller),
-        ),
-      );
-      expect(find.text('Name'), findsOneWidget);
-      expect(find.text('initial'), findsOneWidget);
-    });
-
-    testWidgets('renders helper text when provided', (tester) async {
-      final controller = TextEditingController();
-      addTearDown(controller.dispose);
-      await tester.pumpWidget(
-        wrapWithTheme(
-          WorkbenchTextField(
-            label: 'Name',
-            controller: controller,
-            helperText: 'helpful hint',
-          ),
-        ),
-      );
-      expect(find.text('helpful hint'), findsOneWidget);
-    });
-  });
-
-  group('WorkbenchDropdown', () {
-    testWidgets('renders label and selected value', (tester) async {
-      await tester.pumpWidget(
-        wrapWithTheme(
-          WorkbenchDropdown<String>(
-            label: 'Mode',
-            value: 'a',
-            items: const [
-              WorkbenchDropdownItem(value: 'a', label: 'Alpha'),
-              WorkbenchDropdownItem(value: 'b', label: 'Beta'),
-            ],
-            onChanged: (_) {},
-          ),
-        ),
-      );
-      expect(find.text('Mode'), findsOneWidget);
-      expect(find.text('Alpha'), findsWidgets);
-    });
-  });
-
-  group('WorkbenchToggle', () {
-    testWidgets('renders label, description, and switch', (tester) async {
-      await tester.pumpWidget(
-        wrapWithTheme(
-          WorkbenchToggle(
-            label: 'Enable',
-            description: 'turn it on',
-            value: true,
-            onChanged: (_) {},
-          ),
-        ),
-      );
-      expect(find.text('Enable'), findsOneWidget);
-      expect(find.text('turn it on'), findsOneWidget);
-      expect(find.byType(Switch), findsOneWidget);
-      final sw = tester.widget<Switch>(find.byType(Switch));
-      expect(sw.value, isTrue);
-    });
-  });
-
-  group('WorkbenchActionButton', () {
-    testWidgets('renders label and optional icon', (tester) async {
-      var tapped = false;
-      await tester.pumpWidget(
-        wrapWithTheme(
-          WorkbenchActionButton(
-            label: 'Go',
-            icon: Symbols.play_arrow_rounded,
-            onPressed: () => tapped = true,
-          ),
-        ),
-      );
-      expect(find.text('Go'), findsOneWidget);
-      expect(find.byIcon(Symbols.play_arrow_rounded), findsOneWidget);
-      await tester.tap(find.byType(WorkbenchActionButton));
-      expect(tapped, isTrue);
-    });
-  });
-
   group('WorkbenchEmptyState', () {
     testWidgets('renders icon, title, subtitle, and action', (tester) async {
       await tester.pumpWidget(
@@ -173,7 +85,7 @@ void main() {
             icon: Symbols.inbox_rounded,
             title: 'Nothing here',
             subtitle: 'Try adding one',
-            action: WorkbenchActionButton(label: 'Add', onPressed: () {}),
+            action: OutlinedButton(onPressed: () {}, child: const Text('Add')),
           ),
         ),
       );
