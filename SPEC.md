@@ -145,7 +145,7 @@ and typography come from `WorkbenchTheme`.
 
 ## 5. Chrome Widgets
 
-*Status: complete*
+*Status: in progress*
 
 ### 5.1 WorkbenchLayout
 
@@ -207,7 +207,11 @@ app/Window menus that frame it. The View menu lists a static
 entry per bottom-panel tab. Selecting a tab focuses it (showing
 the panel first if hidden), or hides the panel if that tab is
 already focused. The shell does not own tab content; the host
-supplies tab descriptors and the focus-or-hide handler.
+supplies tab descriptors and registers `Action` handlers for the
+workbench intents the menu emits (§5.6). `WorkbenchMenuBar`
+itself takes no callback props — each menu item dispatches a
+workbench intent via `Actions.invoke`, and the host responds at
+whichever ancestor owns the target state.
 
 **Platform menu rendering**:
 
@@ -282,6 +286,105 @@ Machine State (VS Code Debug Console), and Shift+Cmd/Ctrl+U
 focuses Output. Bindings carry both Cmd and Ctrl activators
 where VS Code's macOS default uses Cmd, so the macOS system menu
 bar renders the Cmd glyph while Windows/Linux fire on Ctrl.
+
+Each binding dispatches a workbench intent through Flutter's
+`Shortcuts`/`Actions` pair (§5.6). `WorkbenchShortcuts` takes no
+callback props; hosts wrap the shell in an `Actions` widget and
+register `Action` handlers at the widget that owns the target
+state. Host-specific shortcuts outside the shell's default set
+pass through `extraShortcuts`, which the host defines with its
+own intent types.
+
+### 5.6 Action Dispatch
+
+*Status: not started*
+
+Workbench commands — toggle the bottom panel, focus the MDI tab,
+focus the Problems tab — originate from two surfaces: the View
+menu (§5.4) and keyboard shortcuts (§5.5). Both surfaces invoke
+the same underlying behaviors, and those behaviors live in the
+host's widget tree next to the state they mutate (panel-visible
+flag, active-tab controller). The shell does not own the target
+state; it only owns the surfaces that trigger commands against
+it.
+
+Commands dispatch through Flutter's `Actions`/`Intent` machinery.
+The shell publishes a stable set of public intent types
+(`ToggleBottomPanelIntent`, `FocusPanelTabIntent`,
+`FocusMdiIntent`, and one focus intent per defaulted tab
+binding). View-menu items and shortcut bindings both emit those
+intents via `Actions.invoke(context, …)`. Hosts register
+`Action<Intent>` handlers at the widget that owns the target
+state. No callback props thread through intermediate ancestors.
+
+**Why Intents rather than callbacks**. Callbacks couple the
+surface widget (menu or shortcut receiver) to the target owner
+through every intermediate widget. Each new command doubles the
+prop surface — the shortcut widget and the menu widget both
+take the same handler and the host passes it twice. Intents
+invert that: the surface announces *what the user asked for*,
+and whichever ancestor owns the target responds. Menu items
+and shortcut activators reuse the same intent vocabulary, so a
+new command registers once. The pattern matches Cocoa's
+target/action responder chain — the same mental model VS Code
+users carry from the OS menu bar.
+
+**Why public intent types**. `Actions` keys on `Type`, so the
+host's `Action<Intent>` declaration must name the intent at
+compile time. Private shell-internal intents cannot satisfy
+this. Each command the shell surfaces from a menu item or
+default shortcut shall publish its intent in a public
+`workbench_intents` module, alongside any per-intent payload
+(e.g. `tabId` for `FocusPanelTabIntent`). Payload shape travels
+with the intent, not with a separate callback signature.
+
+**Enable state**. Menu items render disabled when their
+underlying target is unavailable — no "Focus Output" entry when
+no Output tab is registered, no "Panel" entry when the host
+passes an empty tab list. The shell queries `Action.isEnabled`
+when rendering each menu item; hosts report availability by
+implementing `isEnabled` on their registered `Action`s (usually
+by reading a `Listenable` supplied by the host's state model).
+Menu items re-render when that listenable notifies. Hosts that
+do not override `isEnabled` default to always-enabled, matching
+today's behavior. Keyboard shortcuts remain always-fireable —
+disabled state is a menu-item chrome concern, not a shortcut
+concern.
+
+**Rejected alternative — command registry with string ids**. A
+`WorkbenchCommandRegistry` keyed by string ids
+(`'workbench.togglePanel'`) would decouple menu and shortcut
+from target without requiring Intent types per command and
+would layer cleanly under a future command palette. The string-
+keyed indirection loses compile-time checking on payload shapes
+and pushes command registration into a separate lifecycle step.
+`Actions`/`Intent` is Flutter's built-in primitive for this
+exact use case and covers the current surface; a registry can
+layer on top later if a palette workstream lands.
+
+**Rejected alternative — `InheritedWidget` for target state**.
+An `InheritedWidget` that exposes the panel controller to
+descendants would let the menu widgets call controller methods
+directly. But it flattens the control flow — any descendant can
+reach up and mutate the controller — and makes testing the menu
+in isolation harder because the inherited widget must be
+faked. `Actions` keeps the dispatch unidirectional and lets the
+test pump a tree with a single synthetic `Action` registration.
+
+**Tradeoff accepted**. Each command requires one public Intent
+class in the shell and one `Action<Intent>` registration in the
+host. That overhead is larger than passing a callback, but it
+pays for menu/shortcut deduplication, the enable-state contract,
+and a discoverable surface that hosts can find via IDE
+autocomplete on the `workbench_intents` module.
+
+**Scope**. This dispatch contract covers commands the View menu
+and `WorkbenchShortcuts` trigger: panel visibility, panel-tab
+focus, MDI focus. Notification-center dispatch (§10) is out of
+scope for this section; that section's intents land alongside
+its own design rationale. Host-defined shortcuts carrying
+host-defined intents continue to pass through via
+`extraShortcuts` — the shell does not constrain that shape.
 
 ---
 
