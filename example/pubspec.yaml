@@ -1,0 +1,26 @@
+name: workbench_shell_example
+description: >-
+  Minimal Flutter app demonstrating workbench_shell chrome without any
+  Rove-specific dependencies. Renders two activity-bar sidebars, a
+  tabbed bottom panel, and a status bar.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.10.0
+  flutter: ">=3.27.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  workbench_shell:
+    path: ../
+  material_symbols_icons: ^4.2928.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

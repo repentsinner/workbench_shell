@@ -1,12 +1,25 @@
 name: workbench_shell
-description: VS Code-style workbench layout shell with activity bar, sidebar, editor area, bottom panel, and status bar.
+description: >-
+  VS Code-style workbench layout shell for Flutter with activity bar,
+  sidebar, editor area, tabbed bottom panel, status bar, menu bar, and
+  structural primitives. Depends only on Flutter.
 version: 0.1.0
-publish_to: none
 
 resolution: workspace
 
+homepage: https://github.com/repentsinner/ghsender
+repository: https://github.com/repentsinner/ghsender/tree/main/packages/workbench_shell
+issue_tracker: https://github.com/repentsinner/ghsender/issues
+topics:
+  - workbench
+  - vscode
+  - ide
+  - layout
+  - desktop
+
 environment:
-  sdk: ^3.11.0
+  sdk: ^3.10.0
+  flutter: ">=3.27.0"
 
 dependencies:
   flutter:
@@ -14,7 +27,7 @@ dependencies:
   equatable: ^2.0.5
   # Used to derive surfaceTone from the chrome's editor background via
   # HCT. The package is already a transitive dep of Flutter Material 3,
-  # so this adds no real footprint. See SPEC §9.15.
+  # so this adds no real footprint. See SPEC §7.2.
   material_color_utilities: ^0.13.0
   material_symbols_icons: ^4.2928.1
 
@@ -26,3 +39,12 @@ dev_dependencies:
 flutter:
   assets:
     - assets/themes/
+
+# Exclude the standalone example app — it is an independent package
+# pointed back at workbench_shell via a local path and has its own
+# deps (workbench_shell_example, flutter_lints). Without this
+# exclude, dependency_validator reports workbench_shell_example as a
+# missing dev_dependency of workbench_shell.
+dependency_validator:
+  exclude:
+    - 'example/**'
