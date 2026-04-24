@@ -7,6 +7,11 @@ library;
 
 export 'src/activity_bar_item.dart';
 export 'src/layout_constants.dart';
+// UI extension slots (consumed by apps to extend the shell)
+export 'src/slots/sidebar_slot.dart';
+export 'src/slots/sidebar_zone.dart';
+export 'src/slots/slot_id.dart';
+export 'src/slots/slot_registry.dart';
 export 'src/theming/token_theme.dart';
 export 'src/theming/vscode_color_map.dart';
 export 'src/workbench_content.dart';
