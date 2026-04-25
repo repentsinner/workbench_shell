@@ -136,6 +136,14 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   final Color tabBarIndicatorColor;
   final Color tabBarDividerColor;
 
+  // ---- Badges (consumed by PanelTabBadge and any future shell badge
+  // surface). VS Code's `badge.background` / `badge.foreground` are
+  // a separate accent from the panel-tab underline — same colour in
+  // some themes, different in others (Light Modern uses a saturated
+  // blue badge against a near-black underline).
+  final Color badgeBackground;
+  final Color badgeForeground;
+
   // ---- Content primitive tokens ----
   final TextStyle sectionTitleStyle;
   final TextStyle subsectionTitleStyle;
@@ -255,6 +263,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.tabBarUnselectedLabelColor,
     required this.tabBarIndicatorColor,
     required this.tabBarDividerColor,
+    required this.badgeBackground,
+    required this.badgeForeground,
     required this.sectionTitleStyle,
     required this.subsectionTitleStyle,
     required this.bodyStyle,
@@ -517,8 +527,36 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         'panelTitle.inactiveForeground',
         secondaryFg,
       ),
-      tabBarIndicatorColor: fg,
+      tabBarIndicatorColor: map.resolve('panelTitle.activeBorder', fg),
       tabBarDividerColor: const Color(0x00000000),
+      // Badge accent (panel-tab count, future shell badge surfaces).
+      //
+      // Fallback chain when the theme JSON omits `badge.background`:
+      //   1. `activityBarBadge.background` — most VS Code themes
+      //      define this even when they leave `badge.background`
+      //      unset; it's the same accent in practice. Dark+ and
+      //      Light+ both rely on this path (they only define the
+      //      activity-bar form).
+      //   2. VS Code's vs-dark / vs base-theme default
+      //      (`#4D4D4D` / `#C4C4C4`) — what VS Code itself paints
+      //      when nothing in the theme registry defines the badge.
+      //
+      // Falling back to `panelTitle.activeBorder` was wrong: in
+      // Dark+ (where neither `badge.background` nor
+      // `panelTitle.activeBorder` is defined) the chain bottomed out
+      // at `fg` (white-ish) and the badge text washed out against
+      // its own background.
+      badgeBackground: map.resolve(
+        'badge.background',
+        map.resolve(
+          'activityBarBadge.background',
+          dl(const Color(0xFF4D4D4D), const Color(0xFFC4C4C4)),
+        ),
+      ),
+      badgeForeground: map.resolve(
+        'badge.foreground',
+        map.resolve('activityBarBadge.foreground', const Color(0xFFFFFFFF)),
+      ),
       // Content primitive tokens (kept for widgets that already read them)
       sectionTitleStyle: t(14, FontWeight.w600),
       subsectionTitleStyle: t(12, FontWeight.w500),
@@ -632,6 +670,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? tabBarUnselectedLabelColor,
     Color? tabBarIndicatorColor,
     Color? tabBarDividerColor,
+    Color? badgeBackground,
+    Color? badgeForeground,
     TextStyle? sectionTitleStyle,
     TextStyle? subsectionTitleStyle,
     TextStyle? bodyStyle,
@@ -741,6 +781,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           tabBarUnselectedLabelColor ?? this.tabBarUnselectedLabelColor,
       tabBarIndicatorColor: tabBarIndicatorColor ?? this.tabBarIndicatorColor,
       tabBarDividerColor: tabBarDividerColor ?? this.tabBarDividerColor,
+      badgeBackground: badgeBackground ?? this.badgeBackground,
+      badgeForeground: badgeForeground ?? this.badgeForeground,
       sectionTitleStyle: sectionTitleStyle ?? this.sectionTitleStyle,
       subsectionTitleStyle: subsectionTitleStyle ?? this.subsectionTitleStyle,
       bodyStyle: bodyStyle ?? this.bodyStyle,
@@ -906,6 +948,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       ),
       tabBarIndicatorColor: c(tabBarIndicatorColor, other.tabBarIndicatorColor),
       tabBarDividerColor: c(tabBarDividerColor, other.tabBarDividerColor),
+      badgeBackground: c(badgeBackground, other.badgeBackground),
+      badgeForeground: c(badgeForeground, other.badgeForeground),
       sectionTitleStyle: ts(sectionTitleStyle, other.sectionTitleStyle),
       subsectionTitleStyle: ts(
         subsectionTitleStyle,

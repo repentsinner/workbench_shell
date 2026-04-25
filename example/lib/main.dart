@@ -1,16 +1,22 @@
 // workbench_shell example app.
 //
-// Renders a minimal workbench with two activity-bar sidebars (Explorer
-// and Search), VS Code's five canonical bottom panels (Problems,
-// Output, Debug Console, Terminal, Ports) with their default keyboard
-// bindings, and a status bar. Demonstrates the canonical integration
-// pattern for pub.dev consumers: host owns its tab vocabulary and
-// focus intent; the shell owns chrome and the panel-toggle default.
+// Renders a minimal workbench with three activity-bar sidebars
+// (Explorer, Search, Settings), VS Code's five canonical bottom
+// panels (Problems, Output, Debug Console, Terminal, Ports) with
+// their default keyboard bindings, and a status bar. Demonstrates
+// the canonical integration pattern for pub.dev consumers: host
+// owns its tab vocabulary and focus intent; the shell owns chrome
+// and the panel-toggle default.
 //
 // The Output panel observes its `PanelLifecycle.isFocused` to drive
 // a once-per-second counter that pauses while the tab is blurred or
 // the bottom panel is hidden — the canonical focus-aware-content
 // pattern.
+//
+// The Settings sidebar exposes a theme picker driven by
+// `WorkbenchThemeController`. Switching themes rebuilds the
+// `MaterialApp.theme` extension; every chrome surface (tab strip,
+// status bar, sidebar headings) updates in the same frame.
 
 import 'dart:async';
 
@@ -23,27 +29,56 @@ void main() {
   runApp(const WorkbenchExampleApp());
 }
 
-class WorkbenchExampleApp extends StatelessWidget {
+class WorkbenchExampleApp extends StatefulWidget {
   const WorkbenchExampleApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // Build a dark WorkbenchTheme from an empty VS Code color map so
-    // every token resolves to its built-in fallback. Mirrors the
-    // pattern used by the package's own test harness.
-    final theme = WorkbenchTheme.fromVscodeColorMap(
-      const VscodeColorMap(
-        name: 'Example Dark',
-        baseType: 'vs-dark',
-        colors: {},
+  State<WorkbenchExampleApp> createState() => _WorkbenchExampleAppState();
+}
+
+class _WorkbenchExampleAppState extends State<WorkbenchExampleApp> {
+  late final WorkbenchThemeController _themeController;
+
+  @override
+  void initState() {
+    super.initState();
+    // Seed with a synchronous fallback theme so the first frame
+    // paints with usable chrome. The real Dark Modern asset loads
+    // asynchronously after first frame; the controller calls
+    // notifyListeners() when it lands and the AnimatedBuilder
+    // below rebuilds.
+    _themeController = WorkbenchThemeController(
+      initialTheme: WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(
+          name: 'Example Dark',
+          baseType: 'vs-dark',
+          colors: {},
+        ),
       ),
     );
+    _themeController.selectTheme('dark_modern.json');
+  }
 
-    return MaterialApp(
-      title: 'workbench_shell example',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(extensions: [theme]),
-      home: const WorkbenchHome(),
+  @override
+  void dispose() {
+    _themeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _themeController,
+      builder: (context, _) {
+        return MaterialApp(
+          title: 'workbench_shell example',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData.dark().copyWith(
+            extensions: [_themeController.theme],
+          ),
+          home: WorkbenchHome(themeController: _themeController),
+        );
+      },
     );
   }
 }
@@ -71,7 +106,9 @@ class FocusExamplePanelIntent extends Intent {
 }
 
 class WorkbenchHome extends StatefulWidget {
-  const WorkbenchHome({super.key});
+  const WorkbenchHome({super.key, required this.themeController});
+
+  final WorkbenchThemeController themeController;
 
   @override
   State<WorkbenchHome> createState() => _WorkbenchHomeState();
@@ -91,6 +128,12 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
       id: 'search',
       label: 'Search',
       icon: Symbols.search_rounded,
+    ),
+    ActivityBarItem(
+      id: 'settings',
+      label: 'Settings',
+      icon: Symbols.settings_rounded,
+      zone: ActivityBarZone.bottom,
     ),
   ];
 
@@ -232,8 +275,97 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
         return const _SidebarBodyPlaceholder(
           text: 'Search sidebar — host-supplied content lands here.',
         );
+      case 'settings':
+        return _SettingsSidebar(themeController: widget.themeController);
     }
     return null;
+  }
+}
+
+/// Settings sidebar — a theme picker driven by
+/// `WorkbenchThemeController`. The shell's `availableThemes` list
+/// covers the bundled VS Code themes; selecting one swaps the
+/// `WorkbenchTheme` extension on the surrounding `MaterialApp`,
+/// updating every chrome surface in the same frame.
+class _SettingsSidebar extends StatelessWidget {
+  const _SettingsSidebar({required this.themeController});
+
+  final WorkbenchThemeController themeController;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: themeController,
+      builder: (context, _) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingLg),
+          child: WorkbenchSection(
+            title: 'Color Theme',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final entry in themeController.availableThemes)
+                  _ThemeTile(
+                    entry: entry,
+                    isActive:
+                        themeController.selectedFilename == entry.filename,
+                    onTap: () => themeController.selectTheme(entry.filename),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ThemeTile extends StatelessWidget {
+  const _ThemeTile({
+    required this.entry,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  final WorkbenchThemeEntry entry;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.workbenchTheme;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: WorkbenchLayoutConstants.spacingSm,
+          vertical: WorkbenchLayoutConstants.spacingSm,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isActive
+                  ? Symbols.radio_button_checked
+                  : Symbols.radio_button_unchecked,
+              size: 16,
+              color: isActive
+                  ? theme.tabBarIndicatorColor
+                  : theme.descriptionForeground,
+            ),
+            const SizedBox(width: WorkbenchLayoutConstants.spacingSm),
+            Expanded(
+              child: Text(
+                entry.label,
+                style: theme.bodyStyle.copyWith(
+                  color: isActive ? theme.foreground : theme.foreground,
+                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

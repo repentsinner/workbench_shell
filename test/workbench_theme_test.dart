@@ -244,6 +244,42 @@ void main() {
     });
   });
 
+  group('WorkbenchTheme.tabBarIndicatorColor', () {
+    // Active-tab underline and the inline PanelTabBadge pill share
+    // VS Code's `panelTitle.activeBorder` token. Themes that omit it
+    // fall back to the resolved foreground so older themes still
+    // render a visible underline.
+    test('resolves from panelTitle.activeBorder when defined', () {
+      final map = loader.parse('''
+        {
+          "name": "Active Border Defined",
+          "type": "vs-dark",
+          "colors": {
+            "panelTitle.activeBorder": "#0078D4",
+            "foreground": "#CCCCCC"
+          }
+        }
+        ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.tabBarIndicatorColor, const Color(0xFF0078D4));
+    });
+
+    test('falls back to foreground when panelTitle.activeBorder absent', () {
+      final map = loader.parse('''
+        {
+          "name": "No Active Border",
+          "type": "vs-dark",
+          "colors": {
+            "foreground": "#CCCCCC"
+          }
+        }
+        ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.tabBarIndicatorColor, theme.foreground);
+      expect(theme.tabBarIndicatorColor, const Color(0xFFCCCCCC));
+    });
+  });
+
   group('WorkbenchTheme.copyWith / lerp', () {
     final base = WorkbenchTheme.fromVscodeColorMap(
       const VscodeColorMap(name: 'Dark', baseType: 'vs-dark', colors: {}),

@@ -65,4 +65,21 @@ void main() {
       findsNothing,
     );
   });
+
+  testWidgets('Settings sidebar renders Color Theme picker', (tester) async {
+    await tester.pumpWidget(const WorkbenchExampleApp());
+    await tester.pumpAndSettle();
+
+    // Settings sits in the activity bar's bottom zone.
+    await tester.tap(find.byIcon(Symbols.settings_rounded));
+    await tester.pumpAndSettle();
+
+    // Section heading rendered (uppercased by WorkbenchSection).
+    expect(find.text('COLOR THEME'), findsOneWidget);
+
+    // Bundled themes listed (sample two — full list lives in the
+    // shell's WorkbenchThemeController.defaultAvailableThemes).
+    expect(find.text('Dark Modern'), findsOneWidget);
+    expect(find.text('Solarized Dark'), findsOneWidget);
+  });
 }

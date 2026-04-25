@@ -124,9 +124,9 @@ The precedent is in the codebase: `WorkbenchSection` and
 `WorkbenchSubsection` headings render uppercase regardless of how
 the consumer cases the input string; `WorkbenchTabbedPanel` does
 the same for tab labels and renders the inline count badge from
-a typed `PanelTabBadge` payload, painting the pill in the panel-
-active accent colour matching VS Code. Every new chrome surface
-follows the same model.
+a typed `PanelTabBadge` payload, painting the pill in VS Code's
+generic badge accent (`badge.background`). Every new chrome
+surface follows the same model.
 
 ---
 
@@ -205,11 +205,12 @@ in natural case (`'Output'`, `'Debug Console'`) and the shell
 renders `'OUTPUT'`, `'DEBUG CONSOLE'`. Consumers needing the VS
 Code "Problems (3)" pattern supply a typed `PanelTabBadge` (count
 only) which the shell renders inline next to the uppercased label,
-painting the pill in the panel-active accent colour. The badge
-does not vary by severity: a multi-severity collection (Rove's
-UserTasks has error / warning / info) has no obvious "summary
-severity" to project (highest? most populous?), so the count
-stands on its own.
+painting the pill in VS Code's generic badge accent
+(`badge.background` / `badge.foreground`) — a separate slot from
+the panel-active underline. The badge does not vary by severity:
+a multi-severity collection (Rove's UserTasks has error / warning
+/ info) has no obvious "summary severity" to project (highest?
+most populous?), so the count stands on its own.
 
 ### 5.3 Status Bar
 
@@ -461,9 +462,10 @@ discipline and admits non-canonical surfaces by accident or
 convenience. Pinning `label` to `String` and rendering the tab
 internally removes the escape hatch at the type level. Count
 badges go through a typed `PanelTabBadge` (count only); the
-shell paints the pill in the panel-active accent colour, matching
-VS Code's treatment. Badges that don't fit the count-only shape
-belong in the panel content, not the tab strip.
+shell paints the pill in VS Code's generic badge accent
+(`badge.background`), matching VS Code's treatment.
+Badges that don't fit the count-only shape belong in the panel
+content, not the tab strip.
 
 **Why no imperative `WorkbenchPanelController`**. A controller
 exposing `focusTab(id)` / `hide()` / `show()` would give host
@@ -560,6 +562,18 @@ alarm severities) via their own `ThemeExtension` and bridge to
 `WorkbenchTheme`'s `surfaceTone` for HCT tonal resolution when
 contrast-safe colors are required against the chrome background.
 
+**Reference integration**: the bundled example app
+(`packages/workbench_shell/example/`) wires
+`WorkbenchThemeController` end-to-end — a top-level
+`AnimatedBuilder` rebuilds `MaterialApp.theme` when the active
+theme changes, and a "Settings" sidebar exposes the bundled
+theme list (`controller.availableThemes`) as a tap-to-select
+picker. Selecting a theme swaps every chrome surface (tab strip,
+status bar, sidebar headings, panel borders) in the same frame,
+with no per-surface wiring on the consumer side. Pub.dev
+consumers get the canonical pattern by reading
+`example/lib/main.dart`.
+
 **Why split by ownership, not by UI surface**: the useful
 question is "who owns the semantic?" Chrome semantics belong to
 the shell (a VS Code theme can set them without knowing the
@@ -632,40 +646,22 @@ switch.
 
 ### 7.4 Tab strip canon
 
-*Status: not started*
+*Status: complete*
 
-`WorkbenchTabbedPanel`'s tab strip renders to two VS Code-canonical
-treatments that the shell currently misses: the active-tab
-underline picks up the wrong colour, and pointer hover draws a
-Material overlay box rather than tinting the label text. Both are
-§3 enforcement gaps — the shell is supposed to own canonical
-rendering, and consumers can't fix either without reaching past
-the API.
-
-**Active-tab underline and badge accent**. The active tab
-underline (and the inline `PanelTabBadge` pill, which shares
-this colour by §5.2) reads from VS Code's
+`WorkbenchTabbedPanel`'s tab strip renders three VS Code-canonical
+treatments the shell owns under §3: the active-tab underline reads
+from
 [`panelTitle.activeBorder`](https://code.visualstudio.com/api/references/theme-color#panel-colors)
-token. `WorkbenchTheme.fromVscodeColorMap` resolves
-`tabBarIndicatorColor` from that token, falling back to the
-ambient foreground when the loaded theme JSON does not specify
-it (which preserves the shell's behaviour on themes that pre-date
-the token's adoption). Themes like Dark Modern and Dark+ define
-`panelTitle.activeBorder` as a saturated accent (the same blue
-the activity bar selection uses); themes that omit it accept the
-foreground fallback. The `PanelTabBadge` pill paints from the
-same token without a separate resolver — the underline and the
-pill always agree.
-
-**Hover behaviour**. Pointer hover over an inactive tab changes
-the tab's *label colour* to `panelTitle.activeBorder` — the
-underline accent — and reverts to the inactive label colour on
-exit. No background overlay, no box, no opacity ramp on a panel-
-sized rectangle. Material's `TabBar` ships with an `overlayColor`
-`MaterialStateProperty` that paints a tinted hover/focus overlay
-behind the tab content; that overlay is suppressed (resolved to
-`Colors.transparent` for every state) so the only visible response
-is the label-colour transition.
+with the resolved foreground as fallback; pointer hover over an
+inactive tab tints the label to
+[`panelTitle.activeForeground`](https://code.visualstudio.com/api/references/theme-color#panel-colors)
+(the active-tab text colour) without painting a background overlay;
+and the `PanelTabBadge` pill paints in
+[`badge.background`](https://code.visualstudio.com/api/references/theme-color#badge-colors)
+/ `badge.foreground` — VS Code's generic badge accent, separate
+from the underline (Light Modern uses a saturated blue badge
+against a near-black underline; Dark Modern coincidentally uses
+similar colours for both).
 
 **Why match VS Code instead of Material defaults**. VS Code's
 panel tab strip is the visual reference the package targets;
@@ -678,37 +674,49 @@ removes the doubling without inventing a new visual treatment;
 the label colour change is signal enough on a strip whose tabs
 already have generous click targets.
 
-**Why not a separate `tabBarHoverColor` theme token**. Hover
-re-uses the same colour as the active-tab indicator by
-construction — there is one accent. Surfacing a second slot would
-let consumers diverge the two, which is exactly the canon
-violation the shell exists to prevent. The colour comes from
-`panelTitle.activeBorder` and nowhere else.
+**Why hover matches the active-tab text colour, not the
+underline accent**. The selection underline (`panelTitle.activeBorder`)
+signals "this tab is the active one." Hover signals "if you
+click, this tab becomes active" — its visual goal is to
+preview the active-tab styling on the prospective click target.
+Active tabs render their label in `panelTitle.activeForeground`,
+so hovered inactive tabs tint to the same colour. Tying hover to
+the underline accent would conflate selection state with hover
+state and produce a colour that doesn't match what the tab
+becomes when clicked.
+
+**Why not a separate `tabBarHoverColor` theme token**. The hover
+colour is already the active-tab text colour
+(`panelTitle.activeForeground`); surfacing a separate slot
+would let consumers diverge hover from selected styling, which
+is exactly the canon violation the shell exists to prevent. The
+two colours come from `WorkbenchTheme`'s existing tab tokens and
+nowhere else.
 
 **Tradeoff accepted**. Wiring a hover-aware label colour requires
 the tab strip to track pointer state per tab. The shell uses a
-`MouseRegion` (or equivalent) wrapper around each tab's label
-widget, which adds a small amount of state per tab. The
-alternative — a single hit-test region across the strip with
-pointer-position math — would couple hover to tab geometry and
-break under tab reordering. Per-tab `MouseRegion` is the standard
-Flutter pattern for hover-on-individual-children and matches how
-`InkResponse` already tracks per-button hover under Material.
+`MouseRegion` wrapper around each tab's label widget, which adds
+a small amount of state per tab. The alternative — a single
+hit-test region across the strip with pointer-position math —
+would couple hover to tab geometry and break under tab reordering.
+Per-tab `MouseRegion` is the standard Flutter pattern for
+hover-on-individual-children and matches how `InkResponse` already
+tracks per-button hover under Material.
 
 **Observable behaviour**:
 
-- Loading a VS Code theme JSON that defines
-  `panelTitle.activeBorder` (Dark Modern, Dark+, Light Modern,
-  Light+, the bundled themes) renders the active-tab underline
-  in that colour. Loading a theme that omits the token renders
-  the underline in the resolved foreground colour.
-- The `PanelTabBadge` pill paints from the same token — the
-  underline and the pill match without consumer wiring.
-- Hovering an inactive tab tints its label `panelTitle.activeBorder`;
-  the active tab is unchanged on hover (it already paints its
-  label in the active-tab foreground).
+- A theme JSON that defines `panelTitle.activeBorder` renders the
+  active-tab underline in that colour; a theme that omits it
+  falls back to the resolved foreground.
+- Hovering an inactive tab tints its label to the active-tab
+  text colour (`panelTitle.activeForeground`); the active tab
+  is unchanged on hover.
 - No background overlay or box appears on hover; the tab strip
   remains visually flat aside from the underline.
+- A `PanelTabBadge` pill paints in `badge.background` /
+  `badge.foreground` — independent of the underline colour, so
+  themes that distinguish them (e.g. Light Modern) render
+  correctly without consumer wiring.
 
 ## 8. Layout Constants
 

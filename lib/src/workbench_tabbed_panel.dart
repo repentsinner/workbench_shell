@@ -195,12 +195,35 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
                       color: theme.tabBarUnselectedLabelColor,
                     ),
                     dividerColor: theme.tabBarDividerColor,
+                    // Suppress Material's hover/focus/pressed overlay box;
+                    // the §7.4 canon is a label-colour transition with no
+                    // background overlay.
+                    overlayColor: const WidgetStatePropertyAll(
+                      Colors.transparent,
+                    ),
                     indicator: UnderlineTabIndicator(
                       borderSide: BorderSide(color: theme.tabBarIndicatorColor),
                     ),
                     tabs: [
-                      for (final t in widget.tabs)
-                        Tab(child: _buildTabLabel(theme, t)),
+                      for (var i = 0; i < widget.tabs.length; i++)
+                        Tab(
+                          child: _HoverableTabLabel(
+                            controller: _tabController,
+                            tabIndex: i,
+                            activeColor: theme.tabBarLabelColor,
+                            inactiveColor: theme.tabBarUnselectedLabelColor,
+                            // Hover tints inactive labels toward the
+                            // active-tab text colour (the
+                            // panelTitle.activeForeground accent),
+                            // not the selection underline. The selection
+                            // underline is a "this is the active tab"
+                            // signal, while hover is "if you click this
+                            // tab will become active" — visually closer
+                            // to the active text colour.
+                            inactiveHoverColor: theme.tabBarLabelColor,
+                            child: _buildTabLabel(theme, widget.tabs[i]),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -263,13 +286,13 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: theme.tabBarIndicatorColor,
+        color: theme.badgeBackground,
         borderRadius: const BorderRadius.all(Radius.circular(8)),
       ),
       child: Text(
         '${badge.count}',
         style: theme.smallText.copyWith(
-          color: theme.buttonForeground,
+          color: theme.badgeForeground,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -302,5 +325,85 @@ class _KeepAliveTabContentState extends State<_KeepAliveTabContent>
   Widget build(BuildContext context) {
     super.build(context);
     return widget.builder(context);
+  }
+}
+
+/// Wraps a tab's label widget with hover-aware label colouring.
+///
+/// VS Code's panel tab strip tints an inactive tab's label to the
+/// active-tab indicator colour on pointer hover. The active tab's
+/// label is unchanged. Implemented as a per-tab [MouseRegion] —
+/// pointer enter/exit drives the local `_hovering` flag without
+/// disturbing the surrounding `TabBar` hover machinery (which is
+/// otherwise suppressed via `overlayColor`).
+class _HoverableTabLabel extends StatefulWidget {
+  final TabController controller;
+  final int tabIndex;
+  final Color activeColor;
+  final Color inactiveColor;
+  final Color inactiveHoverColor;
+  final Widget child;
+
+  const _HoverableTabLabel({
+    required this.controller,
+    required this.tabIndex,
+    required this.activeColor,
+    required this.inactiveColor,
+    required this.inactiveHoverColor,
+    required this.child,
+  });
+
+  @override
+  State<_HoverableTabLabel> createState() => _HoverableTabLabelState();
+}
+
+class _HoverableTabLabelState extends State<_HoverableTabLabel> {
+  bool _hovering = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onControllerChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant _HoverableTabLabel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_onControllerChanged);
+      widget.controller.addListener(_onControllerChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onControllerChanged);
+    super.dispose();
+  }
+
+  void _onControllerChanged() {
+    // Active-state changes flip the resolved label colour even
+    // without a hover event; rebuild so the wrapper paints with the
+    // right colour for the new active index.
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = widget.controller.index == widget.tabIndex;
+    final color = isActive
+        ? widget.activeColor
+        : (_hovering ? widget.inactiveHoverColor : widget.inactiveColor);
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovering = true),
+      onExit: (_) => setState(() => _hovering = false),
+      child: DefaultTextStyle.merge(
+        style: TextStyle(color: color),
+        child: IconTheme.merge(
+          data: IconThemeData(color: color),
+          child: widget.child,
+        ),
+      ),
+    );
   }
 }
