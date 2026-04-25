@@ -718,6 +718,145 @@ tracks per-button hover under Material.
   themes that distinguish them (e.g. Light Modern) render
   correctly without consumer wiring.
 
+### 7.5 Platform Brightness Sync §spec:platform-brightness-sync
+
+*Status: not started*
+
+Workbench chrome ignores the host OS's appearance setting. The theme
+list is flat — every entry selects by name, with no notion that `Light
+Modern` and `Dark Modern` are the same theme at different brightnesses.
+Users on a Mac that auto-toggles light and dark at sunset must re-pick
+the theme by hand. The macOS native title bar (which sits outside the
+Flutter view) keeps the system appearance regardless of which workbench
+theme is active, producing a dark Aqua title bar above a light
+workbench, or vice versa.
+
+§7.5 closes the gap on both fronts. It introduces a three-mode theme
+preference (System / Light / Dark), nominates the active theme via a
+brightness-indexed registry, and emits a brightness signal that hosts
+wire into per-platform window-chrome APIs.
+
+**Theme mode**
+
+`WorkbenchThemeController` carries a `ThemeMode` (`system | light |
+dark`). In `system` mode the active theme resolves from
+`PlatformDispatcher.platformBrightness` and the controller subscribes
+to `onPlatformBrightnessChanged`, so OS-driven flips swap the theme
+within one frame. In `light` or `dark` mode the active theme is the
+preferred theme of the named brightness; the platform brightness signal
+is ignored.
+
+**Brightness-paired registry**
+
+Theme entries declare a `Brightness` — the same flag that already
+exists implicitly via `WorkbenchTheme.isDark`, promoted onto
+`WorkbenchThemeEntry` so the controller can pair without loading the
+asset. The host (or the user, via persisted preference) nominates two
+slots: `preferredLight` and `preferredDark`. In `system` mode the
+controller selects the slot that matches the resolved brightness. The
+slots may name any registered theme of the matching brightness;
+defaults are `Light Modern` for `preferredLight` and `Dark Modern` for
+`preferredDark`.
+
+**Why explicit pairing, not name-suffix matching**. The bundled list
+contains obvious pairs (`Dark Modern` / `Light Modern`, `Dark+` /
+`Light+`, `Solarized Dark` / `Solarized Light`, `Dark 2026` / `Light
+2026`) but also `Monokai`, which has no light counterpart. A
+suffix-matching scheme would silently refuse to resolve Monokai under
+`system` mode, or invent an arbitrary fallback. Explicit nomination
+gives the user a deliberate choice — pick any pair, including
+unexpected ones (`Solarized Light` against `Dark+`) — and the
+controller always has a defined answer.
+
+**Why three modes, not two**. A two-mode `system | manual` model would
+need a single "manual" theme slot, and toggling between manual themes
+of different brightness while in `system` mode would silently override
+the user's pair. The three-mode model treats `light` and `dark` as
+explicit overrides of the OS signal — picking a theme in either mode
+records intent ("I want a light workbench right now"), independent of
+the System-mode pair. This matches macOS, iOS, Android, and VS Code's
+appearance preference, which users already understand.
+
+**Native window chrome**
+
+The controller emits a resolved `Brightness` alongside the active
+`WorkbenchTheme`. Hosts subscribe and call platform-native APIs to
+align the window title bar:
+
+- macOS: set `NSWindow.appearance` to `NSAppearance(named: .aqua)` or
+  `.darkAqua` in the host's `MainFlutterWindow` runner.
+- Windows: call `DwmSetWindowAttribute(hwnd,
+  DWMWA_USE_IMMERSIVE_DARK_MODE, ...)` in the host's `win32_window`
+  runner.
+- Linux: not supported. GTK title bars follow the system theme via
+  `gtk-application-prefer-dark-theme`; per-window override requires
+  client-side decorations or a window-manager-specific dance and
+  produces inconsistent results across desktops. Hosts may add it if
+  their target distribution warrants the cost.
+
+`workbench_shell` ships the brightness signal and demonstrates the
+wiring in the bundled example app's runners. The package itself does
+not ship a platform plugin — its pure-Dart dependency footprint (§3)
+is preserved, and the native code stays in each host's runner where
+the window is already constructed.
+
+**Why not vendor `macos_window_utils` or a similar package**. Each
+platform needs ~10 lines of native code. A platform plugin would add
+a runtime dependency, a method-channel hop on every brightness
+change, and a publish-readiness coupling between `workbench_shell`'s
+release cadence and an external maintainer's. The host runner is the
+right home.
+
+**Why brightness lives on the controller, not derived from
+`MediaQuery.platformBrightnessOf`**. The controller already owns
+theme switching state and is the single place where "the workbench is
+currently in dark mode" is decided — whether by the system or by a
+manual override. Hosts that read brightness elsewhere (e.g. a sidebar
+that adapts an inline preview) get the override semantics for free:
+flipping to `light` mode on a dark Mac makes the preview, the
+workbench chrome, and the title bar all light in the same frame.
+
+**Default mode**
+
+`system` is the default for new users. A flat `light` or `dark`
+default loses information — the user has not said they want a light
+workbench on a dark Mac, only that they want a workbench. `system`
+honours the OS until the user expresses a preference.
+
+**Observable behaviour**
+
+- `WorkbenchThemeController` exposes `themeMode`, `preferredLight`,
+  `preferredDark`, and a `brightness` getter that returns the effective
+  brightness of the active theme.
+- In `system` mode, toggling the OS appearance swaps the active theme
+  to the matching preferred slot within one frame and emits a
+  brightness change.
+- In `light` or `dark` mode, OS appearance changes do not affect the
+  active theme.
+- Selecting a theme via the picker while in `system` mode updates the
+  matching preferred slot when the picked theme's brightness matches
+  the current OS brightness; picking a theme of the opposite
+  brightness flips the mode to `light` or `dark` to match.
+- The example app's macOS and Windows runners observe the brightness
+  signal over a method channel and update the window title bar
+  appearance in the same frame as the chrome swap.
+
+**Persistence**
+
+The host owns persistence for `themeMode`, `preferredLight`, and
+`preferredDark` (consistent with §7's existing position that the host
+persists theme selection). The controller accepts initial values for
+all three on construction.
+
+**Tradeoff accepted**
+
+Subscribing to platform brightness ties the controller's lifecycle to
+`WidgetsBinding`. The controller already mounts as a `ChangeNotifier`
+near the widget tree root, so the dependency is satisfied in practice
+for every consumer; tests that construct the controller without a
+binding either initialise one or pass `themeMode: ThemeMode.light` to
+skip the subscription path.
+
 ## 8. Layout Constants
 
 *Status: complete*
