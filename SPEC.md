@@ -79,7 +79,7 @@ typography, spacing, and theming.
 
 ## 3. Shell Capability Boundary
 
-*Status: complete*
+*Status: in progress*
 
 Chrome that is generic to a VS Code-style workbench belongs in
 `workbench_shell`; chrome that encodes a specific product's
@@ -101,6 +101,32 @@ allowlist so downstream consumers can add an equivalent gate.
 **No BLoCs, no domain types, no state beyond what a tabbed
 panel's `TabController` requires**. Pure widgets, theme
 extensions, and value types.
+
+**Canon enforcement, not canon description**. When the spec
+calls a treatment "canonical" or "VS Code-style" — text-only
+tab labels, uppercase tab and section heading text, fixed
+status bar height, the panel-toggle living in the View menu
+rather than the status bar — the API surface enforces it at
+the type level or in the shell's rendering layer. The shell
+does not accept a permissive `Widget` field and document that
+consumers shouldn't put icons in it; does not accept a `String`
+field and document that consumers should `.toUpperCase()` first;
+does not expose a "panel visibility action" slot in the status
+bar that consumers are asked not to use. The renderable belongs
+to the shell. Consumers that need richer expression than the
+canon allows get a typed structured primitive (e.g., a
+`PanelTabBadge(count, severity)` field for the count badge case)
+rather than a widget escape hatch. This invariant prevents
+cross-consumer drift — the failure mode that `workbench_shell`
+exists to remove (§1).
+
+The precedent is already in the codebase: `WorkbenchSection` and
+`WorkbenchSubsection` headings render uppercase regardless of
+how the consumer cases the input string. Every new chrome
+surface follows the same model. Surfaces that currently violate
+this rule (e.g., `WorkbenchPanelTab.label` typed `Widget` —
+§5.2) are flagged as in-progress in their own sections and
+tightened as the affected workstreams run.
 
 ---
 
@@ -161,15 +187,32 @@ callers that do not need external control.
 `WorkbenchTabbedPanel` and `WorkbenchPanelTab` own the bottom
 panel's `TabController`, scrollable tab strip, close button,
 header spacing, and panel background. Hosts pass an ordered list
-of tab descriptors (stable id, label widget, content builder), an
-`initialTabId`, an `onTogglePanel` callback for the close button,
-and optional `onActiveTabChanged` / `onRegisterFocusTab` hooks so
-the View menu and keyboard shortcuts can drive tab focus through
-the same controller. `WorkbenchTheme` carries the tab strip
-tokens (`panelBackground`, `tabBarLabelColor`,
-`tabBarUnselectedLabelColor`, `tabBarIndicatorColor`,
-`tabBarDividerColor`), so hosts no longer patch
-`Theme.of(context).copyWith(tabBarTheme: …)` around the primitive.
+of tab descriptors (stable id, label, optional badge, content
+builder), an `initialTabId`, an `onTogglePanel` callback for the
+close button, and optional `onActiveTabChanged` /
+`onRegisterFocusTab` hooks so the View menu and keyboard
+shortcuts can drive tab focus through the same controller.
+`WorkbenchTheme` carries the tab strip tokens
+(`panelBackground`, `tabBarLabelColor`, `tabBarUnselectedLabelColor`,
+`tabBarIndicatorColor`, `tabBarDividerColor`), so hosts no
+longer patch `Theme.of(context).copyWith(tabBarTheme: …)` around
+the primitive.
+
+**Canonical tab strip rendering**. Per §3 enforcement, the tab
+strip is text-only and labels render uppercase. The shell applies
+both invariants in its rendering — consumers pass `String`
+labels in natural case (`'Output'`, `'Debug Console'`) and the
+shell renders `'OUTPUT'`, `'DEBUG CONSOLE'`. Consumers needing
+the VS Code "Problems (3)" pattern supply a typed badge (count
+plus severity) which the shell renders inline next to the
+uppercased label.
+
+**In progress**: today's `WorkbenchPanelTab.label` is typed
+`Widget`, which leaves the canon to consumer discipline (Rove
+calls `.toUpperCase()` per call site; the example app didn't,
+producing visible drift). The §5.7 implementation tightens the
+field to `String` plus optional `PanelTabBadge` and moves the
+uppercase rendering into the shell.
 
 ### 5.3 Status Bar
 
@@ -370,6 +413,173 @@ and installs its own `Shortcuts` map around the shell.
 dispatch (§10) is out of scope — that section defines its own
 intents. Host-defined shortcuts continue to pass through
 `extraShortcuts` or a surrounding `Shortcuts` widget.
+
+### 5.7 Bottom Panel Lifecycle
+
+*Status: not started*
+
+`WorkbenchTabbedPanel` (§5.2) renders tabs and content; the View
+menu (§5.4) and keyboard shortcuts (§5.5) invoke intents to focus
+or hide them. Stitching those surfaces together is host work
+today — the consumer maintains two parallel descriptor lists
+(one for menu entries, one for tab content) with matching string
+ids, owns the active-tab state that must survive hide-then-show,
+owns the "is this tab currently focused" signal that panel
+content needs to react to, and re-declares each panel's keyboard
+binding in both the shortcut map and the menu descriptor. The
+duplication invites drift and pushes shell-level concerns into
+every consumer.
+
+`workbench_shell` owns the shape of panel-hood. A
+`WorkbenchPanel` descriptor captures everything the shell needs
+to know about a single bottom-panel tab — identity, label,
+content, optional keyboard binding, optional focus intent — and
+a `WorkbenchPanelHost` widget consumes an ordered list of
+panels and wires the View menu, keyboard shortcuts, tab strip,
+and lifecycle signaling in one composition. Consumers declare
+panels once.
+
+**Descriptor shape**. `WorkbenchPanel` is an immutable data
+class carrying `id`, `label`, `contentBuilder`, and optional
+`shortcut`, `badge`, and `focusIntent`. `id` is typed `Object` —
+consumers supply values from their own enum or sealed type, and
+the shell compares with `==`. The shell imposes no tab
+vocabulary; Rove's `BottomPanelTabIds` enum stays in Rove.
+`contentBuilder` receives the host `BuildContext` and a
+`PanelLifecycle` handle the content uses to observe focus
+state. `focusIntent` defaults to a
+`FocusPanelTabIntent(id)`-shaped intent the shell constructs
+internally; consumers can override when their action dispatch
+wants a different intent shape.
+
+**Why `label` is `String`, not `Widget`**. VS Code's bottom
+panel tab strip is canonically text-only — uppercase or
+title-case label, optional inline numeric badge (the "Problems
+(3)" pattern), no icons stacked above text. The current
+`WorkbenchPanelTab.label: Widget` field (§5.2) leaves the
+strip's content entirely to consumers, which has already
+admitted non-canonical attempts (Tab with `icon:` slot). The
+shell knows what canonical looks like; consumers do not. Pinning
+`label` to `String` and rendering `Tab(text: label)` internally
+removes that escape hatch at the type level — a `Widget`
+parameter cannot be reintroduced by accident or convenience.
+Hosts that need a count-style badge (Rove's user-tasks tab,
+VS Code's Problems tab) supply `badge` as a typed
+`PanelTabBadge` carrying a count plus severity; the shell
+renders it inline with canonical chrome, applying the severity
+color from `WorkbenchTheme`. Badges that aren't
+representable as `PanelTabBadge` belong in the panel content,
+not the tab strip.
+
+**Active-tab state**. `WorkbenchPanelHost` owns a
+`ValueNotifier<Object?>` for the currently focused panel id.
+It persists when the bottom panel hides (via
+`ToggleBottomPanelIntent` from §5.6) and restores when the
+panel shows again — the previously focused tab comes back.
+First-mount default is the first panel in the list unless the
+host passes `initialTabId`.
+
+**Lifecycle signaling**. Panel content observes focus state
+through a `PanelLifecycle` listenable supplied by the host at
+build time. `PanelLifecycle.isFocused` is true when the panel
+is visible *and* the panel's tab is the active tab; false
+otherwise. Content widgets call `PanelLifecycle.addListener`
+(or wrap in `ListenableBuilder`) to react — replay a cursor
+blink when refocused, pause a heavy animation when blurred, and
+so on. No per-panel callbacks on the descriptor; the listenable
+is the canonical signal.
+
+**Menu and shortcut derivation**. `WorkbenchPanelHost` generates
+the View menu's panel entries from the descriptor list and
+installs the per-panel shortcuts on the enclosing `Shortcuts`
+widget. Consumers pass panels once and get the menu, the tab
+strip, and the keyboard bindings consistent by construction.
+The panel-toggle default (Cmd/Ctrl+J → `ToggleBottomPanelIntent`
+per §5.5) is unchanged and lives in `WorkbenchShortcuts`
+regardless of whether `WorkbenchPanelHost` is in use.
+
+**Enable state**. Panel menu entries gray out through the
+§5.6 `Action.isEnabled` contract. `WorkbenchPanelHost` resolves
+each panel's `focusIntent` via `Actions.maybeFind` and renders
+disabled chrome when the host hasn't registered a handler or
+its `isEnabled` reports false. The enable-state listenable is
+the same one the action already exposes; no new signal.
+
+**Coexistence with §5.2**. `WorkbenchTabbedPanel` and
+`WorkbenchPanelTab` (§5.2) remain as the low-level tab-strip
+primitive. `WorkbenchPanelHost` composes them internally.
+Consumers that need a tab strip outside the shell's
+menu-integrated model continue to use §5.2 directly. Host-side
+code migrating to the new abstraction deletes its paired
+menu/tab descriptor lists in favor of a single
+`List<WorkbenchPanel>`.
+
+`WorkbenchPanelTab.label` (§5.2) is also tightened to `String`
+plus optional `PanelTabBadge` for the same reason given for
+`WorkbenchPanel.label` above — the canon-enforcement applies to
+the primitive as well. Hosts that previously passed bespoke
+widgets (text-with-badge composites, decorated tabs) re-express
+through the badge field; rendering shapes the canonical chrome
+applies regardless of which entry point the host uses.
+
+**Why a descriptor class rather than a subclass base**. Two
+shapes were considered:
+
+1. `abstract class WorkbenchPanel` with subclasses per panel,
+   lifecycle as virtual methods (`onFocused()` / `onBlurred()`).
+2. Immutable `WorkbenchPanel` data class, lifecycle via a
+   listenable the content subscribes to.
+
+The subclass shape reads naturally in OO terms but forces every
+panel into its own class even when the content is a single
+widget, and puts per-panel state in the descriptor (which the
+shell needs to treat as shallow/immutable for rebuilds to be
+cheap). Lifecycle as virtual methods couples the panel object
+to the shell's tree lifecycle, which is awkward to test and
+harder to compose with widgets that prefer push-based
+observability. The descriptor-plus-listenable shape matches
+Flutter conventions — `Theme`, `MediaQuery`, `Focus`, and
+`FocusNode` all expose state through listenables or inherited
+widgets rather than lifecycle methods on descriptors.
+
+**Why opaque `Object` id rather than generic `WorkbenchPanel<T>`**.
+A generic id type propagates the type parameter to
+`WorkbenchPanelHost<T>`, to every menu descriptor, and to every
+`Action<FocusPanelTabIntent<T>>` the host registers. The
+compile-time safety is real but the boilerplate cost is large
+and the runtime risk low — the only operation on a panel id is
+equality, and enum values compare by identity. Consumers who
+want type-safe access at callsites cast once in their action
+handler (`intent.tabId as BottomPanelTabIds`) and switch
+exhaustively from there.
+
+**Why no imperative `WorkbenchPanelController`**. A
+controller exposing `focusTab(id)` / `hide()` / `show()` would
+give host code an imperative surface alongside the intent
+dispatch. Intents are already the declarative surface
+(`Actions.invoke(context, FocusPanelTabIntent(id))` does the
+same thing), and adding a second surface doubles the API
+without unique capability. If a future use case requires
+imperative panel drive-through outside the `BuildContext`
+scope — e.g., a global service reacting to a controller event —
+the controller layers on additively without disturbing the
+existing intent-based contract.
+
+**Tradeoff accepted**. Migrating an existing `vscode_layout`-
+shaped host means collapsing the paired descriptor lists into a
+`List<WorkbenchPanel>`, moving any content focus/blur side
+effects onto `PanelLifecycle` listeners, and letting the host
+manage active-tab restoration. For Rove's four-panel surface
+the migration is mostly a reshape; for consumers with heavier
+lifecycle logic in callbacks, the rewrite is larger but
+mechanical.
+
+**Scope**. This section covers the bottom panel only. Sidebars
+(§5.1 `WorkbenchLayout`) compose differently — sidebar content
+is a single builder per activity-bar section, not a tabbed
+stack — and do not need a parallel lifecycle abstraction at
+this time. Notification-center surfaces (§10) live outside the
+bottom-panel model and do not participate in this contract.
 
 ---
 
