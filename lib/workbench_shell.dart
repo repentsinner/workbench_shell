@@ -15,6 +15,7 @@ export 'src/slots/slot_registry.dart';
 export 'src/theming/token_theme.dart';
 export 'src/theming/vscode_color_map.dart';
 export 'src/workbench_content.dart';
+export 'src/workbench_intents.dart';
 export 'src/workbench_layout.dart';
 export 'src/workbench_status_bar.dart';
 export 'src/workbench_tabbed_panel.dart';

@@ -1,15 +1,16 @@
 // Widget test for the workbench_shell example app.
 //
-// Exercises the integration surface: ensures the example renders
-// without error, both activity-bar icons are present, and the
-// bottom panel's Output tab is visible on first frame.
+// Exercises the integration surface: the example renders the
+// canonical VS Code five-panel set, both activity-bar sidebars
+// switch on tap, and the initial active panel (Problems) renders
+// its content body.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:workbench_shell_example/main.dart';
 
 void main() {
-  testWidgets('example app renders chrome with both sidebars and panel tab', (
+  testWidgets('example renders five canonical panels and Problems content', (
     tester,
   ) async {
     await tester.pumpWidget(const WorkbenchExampleApp());
@@ -25,10 +26,20 @@ void main() {
       findsOneWidget,
     );
 
-    // Bottom panel with Output tab rendered.
-    expect(find.text('Output'), findsOneWidget);
+    // All five canonical panels render their tab labels.
+    for (final label in const [
+      'Problems',
+      'Output',
+      'Debug Console',
+      'Terminal',
+      'Ports',
+    ]) {
+      expect(find.text(label), findsWidgets, reason: 'tab "$label" missing');
+    }
+
+    // Problems is the initial tab — its content body shows.
     expect(
-      find.text('Output tab — host-supplied content lands here.'),
+      find.text('Problems tab — host-supplied content lands here.'),
       findsOneWidget,
     );
 

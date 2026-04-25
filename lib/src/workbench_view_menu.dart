@@ -2,28 +2,35 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'workbench_intents.dart';
 import 'workbench_theme.dart';
 
 /// Descriptor for a bottom-panel tab the View menu can select. The
-/// shell does not own tab content (see SPEC.md §9.14 item 2 —
+/// shell does not own tab content (see package SPEC §9.14 item 2 —
 /// tabbed-panel primitive); it only owns the menu chrome.
 ///
 /// The menu item label is static. Selection semantics — focus the
 /// tab, or hide the panel if the tab is already focused — are
-/// decided by the host via [WorkbenchMenuBar.onSelectTab].
+/// decided by the host's registered `Action<Intent>` handler for
+/// [intent].
 class WorkbenchViewMenuTab {
-  /// Stable identifier for the tab. Used as menu-item key.
-  final String id;
+  /// Intent dispatched via `Actions.invoke` when the user selects this
+  /// menu entry. Hosts register an `Action<Intent>` for the intent's
+  /// runtime type at the widget that owns the target state. The shell
+  /// does not constrain intent shape — each tab carries its own.
+  final Intent intent;
 
   /// Label shown in the View menu.
   final String label;
 
-  /// Optional keyboard shortcut, displayed next to the label.
-  /// The host installs the actual binding via [WorkbenchShortcuts].
+  /// Optional keyboard shortcut, displayed next to the label. The
+  /// shortcut glyph is cosmetic — hosts bind the activator themselves
+  /// via a surrounding `Shortcuts` widget. `WorkbenchShortcuts` only
+  /// installs the Cmd/Ctrl+J bottom-panel toggle.
   final MenuSerializableShortcut? shortcut;
 
   const WorkbenchViewMenuTab({
-    required this.id,
+    required this.intent,
     required this.label,
     this.shortcut,
   });
@@ -39,22 +46,14 @@ bool _isMacOS() => !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
 /// an in-window Material [MenuBar] above [child].
 ///
 /// The View menu is modeled on VS Code: a static "Panel" entry that
-/// toggles bottom-panel visibility, followed by static entries for
-/// each bottom-panel tab. Selecting a tab focuses it (showing the
-/// panel first if hidden), or hides the panel if that tab is already
-/// focused. The Cmd/Ctrl+J shortcut also toggles the panel without
-/// picking a tab; see [WorkbenchShortcuts].
+/// dispatches [ToggleBottomPanelIntent], followed by static entries
+/// for each host-supplied tab. Each tab dispatches its own [Intent]
+/// via `Actions.invoke`; hosts register the matching
+/// `Action<Intent>` at the widget that owns the target state.
 class WorkbenchMenuBar extends StatelessWidget {
-  /// Called when the user selects the static "Panel" menu item.
-  /// Toggles bottom-panel visibility regardless of focused tab.
-  final VoidCallback onToggleBottomPanel;
-
-  /// Tab descriptors. Each generates a static menu item.
+  /// Tab descriptors. Each generates a static menu item that dispatches
+  /// its [WorkbenchViewMenuTab.intent] on selection.
   final List<WorkbenchViewMenuTab> tabs;
-
-  /// Called with the tab id when the user picks a tab from the menu.
-  /// The host implements focus-or-hide semantics.
-  final ValueChanged<String> onSelectTab;
 
   /// Child widget tree to wrap. On macOS, [PlatformMenuBar] passes
   /// this through unchanged while attaching menus to the system
@@ -69,9 +68,7 @@ class WorkbenchMenuBar extends StatelessWidget {
 
   const WorkbenchMenuBar({
     super.key,
-    required this.onToggleBottomPanel,
     required this.tabs,
-    required this.onSelectTab,
     required this.child,
     this.useNativeMenuBar,
   });
@@ -79,12 +76,12 @@ class WorkbenchMenuBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (useNativeMenuBar ?? _isMacOS()) {
-      return _buildMacOSMenuBar();
+      return _buildMacOSMenuBar(context);
     }
     return _buildInWindowMenuBar(context);
   }
 
-  Widget _buildMacOSMenuBar() {
+  Widget _buildMacOSMenuBar(BuildContext context) {
     return PlatformMenuBar(
       menus: [
         const PlatformMenu(
@@ -113,7 +110,10 @@ class WorkbenchMenuBar extends StatelessWidget {
                 LogicalKeyboardKey.keyJ,
                 meta: true,
               ),
-              onSelected: onToggleBottomPanel,
+              onSelected: _onSelectedFor(
+                context,
+                const ToggleBottomPanelIntent(),
+              ),
             ),
             PlatformMenuItemGroup(
               members: [
@@ -121,7 +121,7 @@ class WorkbenchMenuBar extends StatelessWidget {
                   PlatformMenuItem(
                     label: tab.label,
                     shortcut: tab.shortcut,
-                    onSelected: () => onSelectTab(tab.id),
+                    onSelected: _onSelectedFor(context, tab.intent),
                   ),
               ],
             ),
@@ -212,22 +212,26 @@ class WorkbenchMenuBar extends StatelessWidget {
                 children: [
                   SubmenuButton(
                     menuChildren: [
-                      MenuItemButton(
+                      _EnableAwareMenuItem(
                         key: const ValueKey('view-menu-panel'),
+                        intent: const ToggleBottomPanelIntent(),
+                        dispatchContext: context,
                         shortcut: const SingleActivator(
                           LogicalKeyboardKey.keyJ,
                           control: true,
                         ),
-                        onPressed: onToggleBottomPanel,
-                        child: const Text('Panel'),
+                        label: const Text('Panel'),
                       ),
                       const Divider(height: 1),
                       for (final tab in tabs)
-                        MenuItemButton(
-                          key: ValueKey('view-menu-tab-${tab.id}'),
+                        _EnableAwareMenuItem(
+                          key: ValueKey(
+                            'view-menu-tab-${tab.intent.runtimeType}-${tab.label}',
+                          ),
+                          intent: tab.intent,
+                          dispatchContext: context,
                           shortcut: tab.shortcut,
-                          onPressed: () => onSelectTab(tab.id),
-                          child: Text(tab.label),
+                          label: Text(tab.label),
                         ),
                     ],
                     child: const Text('View'),
@@ -241,40 +245,116 @@ class WorkbenchMenuBar extends StatelessWidget {
       ],
     );
   }
+
+  /// Returns a [PlatformMenuItem.onSelected] callback that dispatches
+  /// [intent] when the host's registered action reports enabled, or
+  /// `null` (which disables the native menu item) otherwise.
+  ///
+  /// Evaluated at build time: `PlatformMenuBar` rebuilds when its
+  /// child tree rebuilds, so hosts that want live enable-state updates
+  /// trigger a rebuild of [WorkbenchMenuBar] (e.g. by wrapping it in
+  /// a [ListenableBuilder] tied to the same source of truth).
+  VoidCallback? _onSelectedFor(BuildContext context, Intent intent) {
+    final action = Actions.maybeFind<Intent>(context, intent: intent);
+    if (action == null || !action.isEnabled(intent)) return null;
+    return () => Actions.maybeInvoke(context, intent);
+  }
 }
 
-/// Keyboard shortcut wrapper for workbench-level commands.
+/// A [MenuItemButton] that mirrors the enable state of the host's
+/// registered `Action<Intent>`. When no matching action exists, or the
+/// action reports `isActionEnabled == false`, the item renders with a
+/// null `onPressed`, which Material's menu paints as disabled.
 ///
-/// Bindings match VS Code's View menu defaults:
+/// Subscribes to the action via [Action.addActionListener] so that
+/// hosts can toggle availability at runtime (e.g. register or
+/// unregister a bottom-panel tab) and the menu re-renders without a
+/// full parent rebuild.
+class _EnableAwareMenuItem extends StatefulWidget {
+  const _EnableAwareMenuItem({
+    super.key,
+    required this.intent,
+    required this.dispatchContext,
+    required this.label,
+    this.shortcut,
+  });
+
+  final Intent intent;
+  final BuildContext dispatchContext;
+  final Widget label;
+  final MenuSerializableShortcut? shortcut;
+
+  @override
+  State<_EnableAwareMenuItem> createState() => _EnableAwareMenuItemState();
+}
+
+class _EnableAwareMenuItemState extends State<_EnableAwareMenuItem> {
+  Action<Intent>? _action;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _updateActionSubscription();
+  }
+
+  @override
+  void didUpdateWidget(_EnableAwareMenuItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.intent.runtimeType != widget.intent.runtimeType ||
+        oldWidget.dispatchContext != widget.dispatchContext) {
+      _updateActionSubscription();
+    }
+  }
+
+  void _updateActionSubscription() {
+    final resolved = Actions.maybeFind<Intent>(
+      widget.dispatchContext,
+      intent: widget.intent,
+    );
+    if (identical(resolved, _action)) return;
+    _action?.removeActionListener(_handleActionChanged);
+    _action = resolved;
+    _action?.addActionListener(_handleActionChanged);
+  }
+
+  void _handleActionChanged(Action<Intent> action) {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _action?.removeActionListener(_handleActionChanged);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final action = _action;
+    final enabled = action != null && action.isEnabled(widget.intent);
+    return MenuItemButton(
+      shortcut: widget.shortcut,
+      onPressed: enabled
+          ? () => Actions.maybeInvoke(widget.dispatchContext, widget.intent)
+          : null,
+      child: widget.label,
+    );
+  }
+}
+
+/// Keyboard shortcut wrapper for the one command the shell defaults:
+/// Cmd/Ctrl+J to toggle the bottom panel.
 ///
-/// - Ctrl+`          — focus MDI tab (VS Code Terminal; Ctrl on all
-///   platforms, including macOS — deliberately not Cmd).
-/// - Cmd/Ctrl+J      — toggle bottom panel.
-/// - Shift+Cmd/Ctrl+M — focus Tasks tab (VS Code Problems).
-/// - Shift+Cmd/Ctrl+Y — focus Machine State tab (VS Code Debug Console).
-/// - Shift+Cmd/Ctrl+U — focus Output tab (VS Code Output).
+/// Dispatches [ToggleBottomPanelIntent] via Flutter's `Shortcuts`
+/// primitive; hosts register `Action<ToggleBottomPanelIntent>` at the
+/// widget that owns the panel-visibility flag.
 ///
-/// Additional bindings may be passed via [extraShortcuts]; the wrapper
-/// merges them with the defaults.
+/// The shell ships only this single binding. Hosts install any other
+/// workbench shortcuts (tab-focus, command-palette, etc.) via a
+/// surrounding `Shortcuts` widget with their own intent vocabulary.
+/// Host-specific extras can also pass through [extraShortcuts], which
+/// merges into the default map.
 class WorkbenchShortcuts extends StatelessWidget {
   final Widget child;
-
-  /// Invoked when the user presses Ctrl+` to focus the MDI tab.
-  /// Same focus-or-hide semantics as picking MDI from the View menu.
-  final VoidCallback? onFocusMdi;
-
-  /// Invoked when the user presses Cmd/Ctrl+J to toggle the bottom
-  /// panel. Mirrors VS Code's default.
-  final VoidCallback? onToggleBottomPanel;
-
-  /// Invoked on Shift+Cmd/Ctrl+M to focus the Tasks tab.
-  final VoidCallback? onFocusTasks;
-
-  /// Invoked on Shift+Cmd/Ctrl+Y to focus the Machine State tab.
-  final VoidCallback? onFocusMachineState;
-
-  /// Invoked on Shift+Cmd/Ctrl+U to focus the Output tab.
-  final VoidCallback? onFocusOutput;
 
   /// Extra app-defined shortcuts merged into the default map.
   final Map<ShortcutActivator, Intent>? extraShortcuts;
@@ -282,109 +362,25 @@ class WorkbenchShortcuts extends StatelessWidget {
   const WorkbenchShortcuts({
     super.key,
     required this.child,
-    this.onFocusMdi,
-    this.onToggleBottomPanel,
-    this.onFocusTasks,
-    this.onFocusMachineState,
-    this.onFocusOutput,
     this.extraShortcuts,
   });
 
   @override
   Widget build(BuildContext context) {
     final shortcuts = <ShortcutActivator, Intent>{
-      // MDI: Ctrl+` on all platforms (matches VS Code Terminal).
-      const SingleActivator(LogicalKeyboardKey.backquote, control: true):
-          const _FocusMdiIntent(),
-      // Bottom panel toggle: Cmd+J on macOS, Ctrl+J elsewhere.
+      // Bottom panel toggle: Cmd+J on macOS, Ctrl+J elsewhere. Both
+      // activators live in the map so the binding fires regardless of
+      // which platform the user is on.
       const SingleActivator(LogicalKeyboardKey.keyJ, meta: true):
-          const _ToggleBottomPanelIntent(),
+          const ToggleBottomPanelIntent(),
       const SingleActivator(LogicalKeyboardKey.keyJ, control: true):
-          const _ToggleBottomPanelIntent(),
-      // Tasks: Shift+Cmd+M / Shift+Ctrl+M.
-      const SingleActivator(LogicalKeyboardKey.keyM, meta: true, shift: true):
-          const _FocusTasksIntent(),
-      const SingleActivator(
-        LogicalKeyboardKey.keyM,
-        control: true,
-        shift: true,
-      ): const _FocusTasksIntent(),
-      // Machine State: Shift+Cmd+Y / Shift+Ctrl+Y.
-      const SingleActivator(LogicalKeyboardKey.keyY, meta: true, shift: true):
-          const _FocusMachineStateIntent(),
-      const SingleActivator(
-        LogicalKeyboardKey.keyY,
-        control: true,
-        shift: true,
-      ): const _FocusMachineStateIntent(),
-      // Output: Shift+Cmd+U / Shift+Ctrl+U.
-      const SingleActivator(LogicalKeyboardKey.keyU, meta: true, shift: true):
-          const _FocusOutputIntent(),
-      const SingleActivator(
-        LogicalKeyboardKey.keyU,
-        control: true,
-        shift: true,
-      ): const _FocusOutputIntent(),
+          const ToggleBottomPanelIntent(),
       ...?extraShortcuts,
     };
 
     return Shortcuts(
       shortcuts: shortcuts,
-      child: Actions(
-        actions: <Type, Action<Intent>>{
-          _FocusMdiIntent: CallbackAction<_FocusMdiIntent>(
-            onInvoke: (_) {
-              onFocusMdi?.call();
-              return null;
-            },
-          ),
-          _ToggleBottomPanelIntent: CallbackAction<_ToggleBottomPanelIntent>(
-            onInvoke: (_) {
-              onToggleBottomPanel?.call();
-              return null;
-            },
-          ),
-          _FocusTasksIntent: CallbackAction<_FocusTasksIntent>(
-            onInvoke: (_) {
-              onFocusTasks?.call();
-              return null;
-            },
-          ),
-          _FocusMachineStateIntent: CallbackAction<_FocusMachineStateIntent>(
-            onInvoke: (_) {
-              onFocusMachineState?.call();
-              return null;
-            },
-          ),
-          _FocusOutputIntent: CallbackAction<_FocusOutputIntent>(
-            onInvoke: (_) {
-              onFocusOutput?.call();
-              return null;
-            },
-          ),
-        },
-        child: Focus(autofocus: true, child: child),
-      ),
+      child: Focus(autofocus: true, child: child),
     );
   }
-}
-
-class _FocusMdiIntent extends Intent {
-  const _FocusMdiIntent();
-}
-
-class _ToggleBottomPanelIntent extends Intent {
-  const _ToggleBottomPanelIntent();
-}
-
-class _FocusTasksIntent extends Intent {
-  const _FocusTasksIntent();
-}
-
-class _FocusMachineStateIntent extends Intent {
-  const _FocusMachineStateIntent();
-}
-
-class _FocusOutputIntent extends Intent {
-  const _FocusOutputIntent();
 }

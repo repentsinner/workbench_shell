@@ -17,8 +17,9 @@ construction.
   VS Code Problems indicator with three severity counts.
 - `WorkbenchMenuBar` — native `PlatformMenuBar` on macOS, in-window
   `MenuBar` on Windows and Linux.
-- `WorkbenchShortcuts` — keyboard bindings aligned with VS Code
-  defaults (Cmd/Ctrl+J, Shift+Cmd/Ctrl+M, etc.).
+- `WorkbenchShortcuts` — ships the Cmd/Ctrl+J bottom-panel toggle;
+  hosts register additional shortcuts via `extraShortcuts` or a
+  surrounding `Shortcuts` widget.
 - `WorkbenchSection`, `WorkbenchSubsection`, `WorkbenchCard`,
   `WorkbenchToggleCard`, `WorkbenchEmptyState` — structural primitives
   that encode the workbench's visual hierarchy.
