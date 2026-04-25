@@ -630,7 +630,85 @@ controller exposes it alongside `WorkbenchTheme` so syntax
 highlighters in consuming apps resolve against the same theme
 switch.
 
----
+### 7.4 Tab strip canon
+
+*Status: not started*
+
+`WorkbenchTabbedPanel`'s tab strip renders to two VS Code-canonical
+treatments that the shell currently misses: the active-tab
+underline picks up the wrong colour, and pointer hover draws a
+Material overlay box rather than tinting the label text. Both are
+§3 enforcement gaps — the shell is supposed to own canonical
+rendering, and consumers can't fix either without reaching past
+the API.
+
+**Active-tab underline and badge accent**. The active tab
+underline (and the inline `PanelTabBadge` pill, which shares
+this colour by §5.2) reads from VS Code's
+[`panelTitle.activeBorder`](https://code.visualstudio.com/api/references/theme-color#panel-colors)
+token. `WorkbenchTheme.fromVscodeColorMap` resolves
+`tabBarIndicatorColor` from that token, falling back to the
+ambient foreground when the loaded theme JSON does not specify
+it (which preserves the shell's behaviour on themes that pre-date
+the token's adoption). Themes like Dark Modern and Dark+ define
+`panelTitle.activeBorder` as a saturated accent (the same blue
+the activity bar selection uses); themes that omit it accept the
+foreground fallback. The `PanelTabBadge` pill paints from the
+same token without a separate resolver — the underline and the
+pill always agree.
+
+**Hover behaviour**. Pointer hover over an inactive tab changes
+the tab's *label colour* to `panelTitle.activeBorder` — the
+underline accent — and reverts to the inactive label colour on
+exit. No background overlay, no box, no opacity ramp on a panel-
+sized rectangle. Material's `TabBar` ships with an `overlayColor`
+`MaterialStateProperty` that paints a tinted hover/focus overlay
+behind the tab content; that overlay is suppressed (resolved to
+`Colors.transparent` for every state) so the only visible response
+is the label-colour transition.
+
+**Why match VS Code instead of Material defaults**. VS Code's
+panel tab strip is the visual reference the package targets;
+diverging from it on hover would mean every consumer who has used
+VS Code reads the chrome as off-canon. The Material overlay-box
+treatment also looks heavy on a workbench-thin tab strip — it
+fills a region whose only "background" is the panel chrome itself,
+producing a doubled-rectangle effect. Suppressing the overlay
+removes the doubling without inventing a new visual treatment;
+the label colour change is signal enough on a strip whose tabs
+already have generous click targets.
+
+**Why not a separate `tabBarHoverColor` theme token**. Hover
+re-uses the same colour as the active-tab indicator by
+construction — there is one accent. Surfacing a second slot would
+let consumers diverge the two, which is exactly the canon
+violation the shell exists to prevent. The colour comes from
+`panelTitle.activeBorder` and nowhere else.
+
+**Tradeoff accepted**. Wiring a hover-aware label colour requires
+the tab strip to track pointer state per tab. The shell uses a
+`MouseRegion` (or equivalent) wrapper around each tab's label
+widget, which adds a small amount of state per tab. The
+alternative — a single hit-test region across the strip with
+pointer-position math — would couple hover to tab geometry and
+break under tab reordering. Per-tab `MouseRegion` is the standard
+Flutter pattern for hover-on-individual-children and matches how
+`InkResponse` already tracks per-button hover under Material.
+
+**Observable behaviour**:
+
+- Loading a VS Code theme JSON that defines
+  `panelTitle.activeBorder` (Dark Modern, Dark+, Light Modern,
+  Light+, the bundled themes) renders the active-tab underline
+  in that colour. Loading a theme that omits the token renders
+  the underline in the resolved foreground colour.
+- The `PanelTabBadge` pill paints from the same token — the
+  underline and the pill match without consumer wiring.
+- Hovering an inactive tab tints its label `panelTitle.activeBorder`;
+  the active tab is unchanged on hover (it already paints its
+  label in the active-tab foreground).
+- No background overlay or box appears on hover; the tab strip
+  remains visually flat aside from the underline.
 
 ## 8. Layout Constants
 
