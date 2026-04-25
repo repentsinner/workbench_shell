@@ -171,7 +171,7 @@ and typography come from `WorkbenchTheme`.
 
 ## 5. Chrome Widgets
 
-*Status: complete*
+*Status: in progress*
 
 ### 5.1 WorkbenchLayout
 
