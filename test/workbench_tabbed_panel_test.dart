@@ -10,12 +10,12 @@ void main() {
     List<WorkbenchPanelTab> tabs() => [
       WorkbenchPanelTab(
         id: 'a',
-        label: const Tab(text: 'A'),
+        label: 'Output',
         contentBuilder: (_) => const Text('content-a'),
       ),
       WorkbenchPanelTab(
         id: 'b',
-        label: const Tab(text: 'B'),
+        label: 'Debug Console',
         contentBuilder: (_) => const Text('content-b'),
       ),
     ];
@@ -34,8 +34,11 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('A'), findsOneWidget);
-      expect(find.text('B'), findsOneWidget);
+      // Shell uppercases natural-case labels per §3 canon enforcement.
+      expect(find.text('OUTPUT'), findsOneWidget);
+      expect(find.text('DEBUG CONSOLE'), findsOneWidget);
+      expect(find.text('Output'), findsNothing);
+      expect(find.text('Debug Console'), findsNothing);
       expect(find.text('content-a'), findsOneWidget);
     });
 
@@ -136,5 +139,65 @@ void main() {
         testWorkbenchTheme.tabBarIndicatorColor,
       );
     });
+
+    testWidgets('renders no badge widget when badge is null', (tester) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          SizedBox(
+            width: 400,
+            height: 300,
+            child: WorkbenchTabbedPanel(tabs: tabs(), onTogglePanel: () {}),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Badge would render as a count Text inside a decorated Container —
+      // when no badge is supplied, no count text appears.
+      expect(find.textContaining(RegExp(r'^\d+$')), findsNothing);
+    });
+
+    testWidgets(
+      'renders inline badge chrome (count + accent-coloured pill) when badge != null',
+      (tester) async {
+        final badged = [
+          WorkbenchPanelTab(
+            id: 'tasks',
+            label: 'Tasks',
+            badge: const PanelTabBadge(count: 3),
+            contentBuilder: (_) => const Text('content-tasks'),
+          ),
+          WorkbenchPanelTab(
+            id: 'output',
+            label: 'Output',
+            contentBuilder: (_) => const Text('content-output'),
+          ),
+        ];
+
+        await tester.pumpWidget(
+          wrapWithTheme(
+            SizedBox(
+              width: 400,
+              height: 300,
+              child: WorkbenchTabbedPanel(tabs: badged, onTogglePanel: () {}),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        // Count rendered.
+        expect(find.text('3'), findsOneWidget);
+        // The pill is painted in the panel-active accent (the same
+        // colour as the active-tab underline). Resolve the rounded
+        // container with that fill.
+        final containers = tester.widgetList<Container>(find.byType(Container));
+        final pill = containers.firstWhere((c) {
+          final deco = c.decoration;
+          if (deco is! BoxDecoration) return false;
+          return deco.color == testWorkbenchTheme.tabBarIndicatorColor;
+        }, orElse: () => Container());
+        expect(pill.decoration, isA<BoxDecoration>());
+      },
+    );
   });
 }

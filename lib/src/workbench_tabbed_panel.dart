@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'layout_constants.dart';
+import 'workbench_panel.dart';
 import 'workbench_theme.dart';
 
 /// Descriptor for one tab in a [WorkbenchTabbedPanel].
@@ -9,17 +10,30 @@ import 'workbench_theme.dart';
 /// Apps build the descriptor list and pass it to the primitive. The
 /// primitive owns the [TabController], the tab strip, the close
 /// button, header spacing, and the tab content area; the descriptor
-/// only carries identity, label widget, and content builder.
+/// only carries identity, label string, optional badge, and the
+/// content builder.
+///
+/// **Canonical rendering**. Per §3 of the workbench_shell spec, tabs
+/// render uppercase regardless of how the consumer cases the input.
+/// Hosts pass natural-case labels (`'Output'`, `'Debug Console'`)
+/// and the shell paints `'OUTPUT'` / `'DEBUG CONSOLE'`. Hosts that
+/// want a count-style badge supply [badge] as a typed
+/// [PanelTabBadge] carrying the count; the shell paints the inline
+/// pill in the panel-active accent colour (matching the active-tab
+/// underline) — VS Code does not vary the badge by severity.
+/// Badges that don't fit the count-only shape belong in the panel
+/// content, not the tab strip — there is no widget escape hatch.
 @immutable
 class WorkbenchPanelTab {
   /// Stable id used by hosts to focus a tab via
   /// [WorkbenchTabbedPanel.onRegisterFocusTab].
   final String id;
 
-  /// Widget rendered inside the [TabBar] strip. Most callers pass a
-  /// [Tab] with text; supplying a custom widget allows badges,
-  /// counters, etc.
-  final Widget label;
+  /// Natural-case label rendered uppercase by the shell.
+  final String label;
+
+  /// Optional inline badge rendered next to the label.
+  final PanelTabBadge? badge;
 
   /// Builds the body for this tab. Called once per build cycle the
   /// tab is laid out — the primitive does not cache the result.
@@ -29,6 +43,7 @@ class WorkbenchPanelTab {
     required this.id,
     required this.label,
     required this.contentBuilder,
+    this.badge,
   });
 }
 
@@ -36,7 +51,8 @@ class WorkbenchPanelTab {
 ///
 /// Owns the [TabController] and renders:
 ///
-/// 1. A scrollable [TabBar] of the tab labels.
+/// 1. A scrollable [TabBar] of the tab labels (uppercase, with
+///    optional inline badges).
 /// 2. A trailing close button that fires [onTogglePanel].
 /// 3. A [TabBarView] hosting each descriptor's content.
 ///
@@ -182,7 +198,10 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
                     indicator: UnderlineTabIndicator(
                       borderSide: BorderSide(color: theme.tabBarIndicatorColor),
                     ),
-                    tabs: [for (final t in widget.tabs) t.label],
+                    tabs: [
+                      for (final t in widget.tabs)
+                        Tab(child: _buildTabLabel(theme, t)),
+                    ],
                   ),
                 ),
                 IconButton(
@@ -211,12 +230,77 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
             child: TabBarView(
               controller: _tabController,
               children: [
-                for (final t in widget.tabs) Builder(builder: t.contentBuilder),
+                for (final t in widget.tabs)
+                  _KeepAliveTabContent(builder: t.contentBuilder),
               ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  /// Canonical tab label: uppercased text plus an optional severity
+  /// pill. The shell owns this rendering so consumers cannot diverge
+  /// (§3 canon enforcement).
+  Widget _buildTabLabel(WorkbenchTheme theme, WorkbenchPanelTab tab) {
+    final upper = tab.label.toUpperCase();
+    final badge = tab.badge;
+    if (badge == null) {
+      return Text(upper);
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(upper),
+        const SizedBox(width: WorkbenchLayoutConstants.spacingXs),
+        _badgePill(theme, badge),
+      ],
+    );
+  }
+
+  Widget _badgePill(WorkbenchTheme theme, PanelTabBadge badge) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: theme.tabBarIndicatorColor,
+        borderRadius: const BorderRadius.all(Radius.circular(8)),
+      ),
+      child: Text(
+        '${badge.count}',
+        style: theme.smallText.copyWith(
+          color: theme.buttonForeground,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+/// Wraps each [TabBarView] child so its `State` survives tab switches.
+/// Without this, switching tabs disposes the inactive tab's content
+/// `State` and discards anything held there (timers, scroll positions,
+/// fetched data). VS Code keeps panel content alive across tab
+/// switches; the shell does the same so consumer content can rely on
+/// `PanelLifecycle` for pause-on-blur instead of re-initializing every
+/// switch.
+class _KeepAliveTabContent extends StatefulWidget {
+  const _KeepAliveTabContent({required this.builder});
+
+  final WidgetBuilder builder;
+
+  @override
+  State<_KeepAliveTabContent> createState() => _KeepAliveTabContentState();
+}
+
+class _KeepAliveTabContentState extends State<_KeepAliveTabContent>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.builder(context);
   }
 }

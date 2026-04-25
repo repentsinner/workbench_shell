@@ -162,13 +162,22 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
                     _buildVerticalResizer(theme),
                   ],
 
-                  // Editor + optional bottom panel
+                  // Editor + bottom panel. The panel is wrapped in a
+                  // Visibility(maintainState: true) so its widget
+                  // subtree (and any State it owns — timers, scroll
+                  // positions, fetched data) survives hide/show
+                  // cycles. Without this, toggling showBottomPanel
+                  // disposes the entire panel tree and discards
+                  // content state every cycle.
                   Expanded(
                     child: Column(
                       children: [
                         Expanded(child: widget.editor),
-                        if (widget.showBottomPanel)
-                          SizedBox(
+                        Visibility(
+                          visible: widget.showBottomPanel,
+                          maintainState: true,
+                          maintainAnimation: true,
+                          child: SizedBox(
                             height: _panelHeight,
                             child: Stack(
                               children: [
@@ -209,6 +218,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
                               ],
                             ),
                           ),
+                        ),
                       ],
                     ),
                   ),

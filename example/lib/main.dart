@@ -6,6 +6,13 @@
 // bindings, and a status bar. Demonstrates the canonical integration
 // pattern for pub.dev consumers: host owns its tab vocabulary and
 // focus intent; the shell owns chrome and the panel-toggle default.
+//
+// The Output panel observes its `PanelLifecycle.isFocused` to drive
+// a once-per-second counter that pauses while the tab is blurred or
+// the bottom panel is hidden — the canonical focus-aware-content
+// pattern.
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -72,7 +79,7 @@ class WorkbenchHome extends StatefulWidget {
 
 class _WorkbenchHomeState extends State<WorkbenchHome> {
   bool _panelVisible = true;
-  ValueChanged<String>? _focusTabById;
+  void Function(Object id)? _focusPanelById;
 
   static const _activityBarItems = [
     ActivityBarItem(
@@ -89,13 +96,6 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
 
   void _togglePanel() {
     setState(() => _panelVisible = !_panelVisible);
-  }
-
-  void _focusPanel(ExamplePanel panel) {
-    if (!_panelVisible) {
-      setState(() => _panelVisible = true);
-    }
-    _focusTabById?.call(panel.name);
   }
 
   /// VS Code's defaults: Shift+Cmd+M Problems, Shift+Cmd+U Output,
@@ -132,87 +132,93 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
     }
   }
 
-  static const _tabFocusShortcuts = <ShortcutActivator, Intent>{
-    // Problems — Shift+Cmd+M / Shift+Ctrl+M
-    SingleActivator(LogicalKeyboardKey.keyM, meta: true, shift: true):
-        FocusExamplePanelIntent(ExamplePanel.problems),
+  /// `WorkbenchPanelHost.shortcuts` covers the meta-key variant of
+  /// each tab's keybinding. To stay aligned with VS Code on Linux and
+  /// Windows we install the parallel control-key bindings here.
+  static const _ctrlVariantShortcuts = <ShortcutActivator, Intent>{
     SingleActivator(LogicalKeyboardKey.keyM, control: true, shift: true):
         FocusExamplePanelIntent(ExamplePanel.problems),
-    // Output — Shift+Cmd+U / Shift+Ctrl+U
-    SingleActivator(LogicalKeyboardKey.keyU, meta: true, shift: true):
-        FocusExamplePanelIntent(ExamplePanel.output),
     SingleActivator(LogicalKeyboardKey.keyU, control: true, shift: true):
         FocusExamplePanelIntent(ExamplePanel.output),
-    // Debug Console — Shift+Cmd+Y / Shift+Ctrl+Y
-    SingleActivator(LogicalKeyboardKey.keyY, meta: true, shift: true):
-        FocusExamplePanelIntent(ExamplePanel.debugConsole),
     SingleActivator(LogicalKeyboardKey.keyY, control: true, shift: true):
         FocusExamplePanelIntent(ExamplePanel.debugConsole),
-    // Terminal — Ctrl+` on every platform (matches VS Code).
-    SingleActivator(LogicalKeyboardKey.backquote, control: true):
-        FocusExamplePanelIntent(ExamplePanel.terminal),
   };
+
+  Widget _buildPanelContent(ExamplePanel panel, PanelLifecycle lifecycle) {
+    if (panel == ExamplePanel.output) {
+      return _OutputCounterBody(lifecycle: lifecycle);
+    }
+    return _PanelBodyPlaceholder(panel: panel);
+  }
+
+  List<WorkbenchPanel> _buildPanels() {
+    return [
+      for (final panel in ExamplePanel.values)
+        WorkbenchPanel(
+          id: panel,
+          label: panel.label,
+          shortcut: _shortcutFor(panel),
+          focusIntent: FocusExamplePanelIntent(panel),
+          contentBuilder: (ctx, lifecycle) =>
+              _buildPanelContent(panel, lifecycle),
+        ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Shortcuts(
-      shortcuts: _tabFocusShortcuts,
-      child: WorkbenchShortcuts(
-        child: Actions(
-          actions: <Type, Action<Intent>>{
-            ToggleBottomPanelIntent: CallbackAction<ToggleBottomPanelIntent>(
-              onInvoke: (_) {
-                _togglePanel();
-                return null;
-              },
-            ),
-            FocusExamplePanelIntent: CallbackAction<FocusExamplePanelIntent>(
-              onInvoke: (intent) {
-                _focusPanel(intent.panel);
-                return null;
-              },
-            ),
-          },
-          child: WorkbenchMenuBar(
-            tabs: [
-              for (final panel in ExamplePanel.values)
-                WorkbenchViewMenuTab(
-                  intent: FocusExamplePanelIntent(panel),
-                  label: panel.label,
-                  shortcut: _shortcutFor(panel),
-                ),
-            ],
-            child: WorkbenchLayout(
-              activityBarItems: _activityBarItems,
-              sidebarBuilder: _buildSidebar,
-              editor: const _EditorPlaceholder(),
-              bottomPanel: WorkbenchTabbedPanel(
-                tabs: [
-                  for (final panel in ExamplePanel.values)
-                    WorkbenchPanelTab(
-                      id: panel.name,
-                      label: Tab(text: panel.label),
-                      contentBuilder: (context) =>
-                          _PanelBodyPlaceholder(panel: panel),
+    return WorkbenchPanelHost(
+      panels: _buildPanels(),
+      panelVisible: _panelVisible,
+      onTogglePanel: _togglePanel,
+      initialActiveId: ExamplePanel.problems,
+      onRegisterFocus: (focusById) => _focusPanelById = focusById,
+      builder: (ctx, scope) {
+        return Shortcuts(
+          shortcuts: {...scope.shortcuts, ..._ctrlVariantShortcuts},
+          child: WorkbenchShortcuts(
+            child: Actions(
+              actions: <Type, Action<Intent>>{
+                ToggleBottomPanelIntent:
+                    CallbackAction<ToggleBottomPanelIntent>(
+                      onInvoke: (_) {
+                        _togglePanel();
+                        return null;
+                      },
                     ),
-                ],
-                initialTabId: ExamplePanel.problems.name,
-                onTogglePanel: _togglePanel,
-                onRegisterFocusTab: (focus) => _focusTabById = focus,
-              ),
-              showBottomPanel: _panelVisible,
-              statusBar: const WorkbenchStatusBar(
-                leading: [
-                  WorkbenchStatusBarItem(
-                    icon: Symbols.info_rounded,
-                    label: 'workbench_shell example',
+                FocusExamplePanelIntent:
+                    CallbackAction<FocusExamplePanelIntent>(
+                      onInvoke: (intent) {
+                        if (!_panelVisible) {
+                          setState(() => _panelVisible = true);
+                        }
+                        _focusPanelById?.call(intent.panel);
+                        return null;
+                      },
+                    ),
+              },
+              child: WorkbenchMenuBar(
+                tabs: scope.viewMenuTabs,
+                child: WorkbenchLayout(
+                  activityBarItems: _activityBarItems,
+                  sidebarBuilder: _buildSidebar,
+                  editor: const _EditorPlaceholder(),
+                  bottomPanel: scope.tabbedPanel,
+                  showBottomPanel: _panelVisible,
+                  statusBar: const WorkbenchStatusBar(
+                    leading: [
+                      WorkbenchStatusBarItem(
+                        icon: Symbols.info_rounded,
+                        label: 'workbench_shell example',
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -272,6 +278,74 @@ class _PanelBodyPlaceholder extends StatelessWidget {
       child: Text(
         '${panel.label} tab — host-supplied content lands here.',
         style: theme.bodyStyle,
+      ),
+    );
+  }
+}
+
+/// Output panel content — increments a counter once per second while
+/// the panel is focused, pauses while blurred. Demonstrates the
+/// canonical [PanelLifecycle] pattern for pub.dev consumers.
+class _OutputCounterBody extends StatefulWidget {
+  const _OutputCounterBody({required this.lifecycle});
+  final PanelLifecycle lifecycle;
+
+  @override
+  State<_OutputCounterBody> createState() => _OutputCounterBodyState();
+}
+
+class _OutputCounterBodyState extends State<_OutputCounterBody> {
+  Timer? _timer;
+  int _count = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.lifecycle.isFocused.addListener(_handleFocusChanged);
+    if (widget.lifecycle.isFocused.value) _startTimer();
+  }
+
+  @override
+  void dispose() {
+    widget.lifecycle.isFocused.removeListener(_handleFocusChanged);
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _handleFocusChanged() {
+    if (widget.lifecycle.isFocused.value) {
+      _startTimer();
+    } else {
+      _timer?.cancel();
+      _timer = null;
+    }
+  }
+
+  void _startTimer() {
+    _timer ??= Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() => _count++);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.workbenchTheme;
+    return Padding(
+      padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingLg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Output tab — increments once per second while focused.',
+            style: theme.bodyStyle,
+          ),
+          const SizedBox(height: WorkbenchLayoutConstants.spacingMd),
+          Text(
+            'Counter: $_count',
+            style: theme.sectionTitle.copyWith(color: theme.foreground),
+          ),
+        ],
       ),
     );
   }
