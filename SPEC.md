@@ -720,21 +720,20 @@ tracks per-button hover under Material.
 
 ### 7.5 Platform Brightness Sync §spec:platform-brightness-sync
 
-*Status: not started*
+*Status: complete*
 
-Workbench chrome ignores the host OS's appearance setting. The theme
-list is flat — every entry selects by name, with no notion that `Light
-Modern` and `Dark Modern` are the same theme at different brightnesses.
-Users on a Mac that auto-toggles light and dark at sunset must re-pick
-the theme by hand. The macOS native title bar (which sits outside the
-Flutter view) keeps the system appearance regardless of which workbench
-theme is active, producing a dark Aqua title bar above a light
-workbench, or vice versa.
+Workbench chrome tracks the host OS's appearance setting. The theme
+list is brightness-paired so `Light Modern` and `Dark Modern` (and
+similar pairs) act as one logical theme at different brightnesses,
+swapping automatically when the OS toggles. The native title bar —
+which sits outside the Flutter view — follows the same signal so the
+window chrome stays coherent across the OS-managed and Flutter-managed
+surfaces.
 
-§7.5 closes the gap on both fronts. It introduces a three-mode theme
-preference (System / Light / Dark), nominates the active theme via a
-brightness-indexed registry, and emits a brightness signal that hosts
-wire into per-platform window-chrome APIs.
+§7.5 introduces a three-mode theme preference (System / Light / Dark),
+nominates the active theme via a brightness-indexed registry, and
+emits a brightness signal hosts wire into per-platform window-chrome
+APIs.
 
 **Theme mode**
 
@@ -748,15 +747,13 @@ is ignored.
 
 **Brightness-paired registry**
 
-Theme entries declare a `Brightness` — the same flag that already
-exists implicitly via `WorkbenchTheme.isDark`, promoted onto
-`WorkbenchThemeEntry` so the controller can pair without loading the
-asset. The host (or the user, via persisted preference) nominates two
-slots: `preferredLight` and `preferredDark`. In `system` mode the
-controller selects the slot that matches the resolved brightness. The
-slots may name any registered theme of the matching brightness;
-defaults are `Light Modern` for `preferredLight` and `Dark Modern` for
-`preferredDark`.
+Theme entries declare a `Brightness` on `WorkbenchThemeEntry` so the
+controller can pair without loading the asset. The host (or the user,
+via persisted preference) nominates two slots: `preferredLight` and
+`preferredDark`. In `system` mode the controller selects the slot that
+matches the resolved brightness. The slots may name any registered
+theme of the matching brightness; defaults are `Light Modern` for
+`preferredLight` and `Dark Modern` for `preferredDark`.
 
 **Why explicit pairing, not name-suffix matching**. The bundled list
 contains obvious pairs (`Dark Modern` / `Light Modern`, `Dark+` /
@@ -780,13 +777,26 @@ appearance preference, which users already understand.
 **Native window chrome**
 
 The controller emits a resolved `Brightness` alongside the active
-`WorkbenchTheme`. Hosts subscribe and call platform-native APIs to
-align the window title bar:
+`WorkbenchTheme`. Hosts subscribe and forward the signal across the
+canonical `workbench_shell/window_chrome` method channel — defined in
+the bundled example app and documented as the contract every host
+mirrors:
+
+- Channel name: `workbench_shell/window_chrome`
+- Method: `setBrightness`
+- Argument: `String` — `'light'` or `'dark'`
+- Direction: unidirectional Dart → host; the host runner replies
+  `nil` on success and a `FlutterError` for malformed payloads.
+- A `MissingPluginException` raised by the runner is benign — Dart
+  treats it as a no-op so the signal degrades cleanly on platforms
+  without a registered receiver.
+
+Per-platform receivers:
 
 - macOS: set `NSWindow.appearance` to `NSAppearance(named: .aqua)` or
   `.darkAqua` in the host's `MainFlutterWindow` runner.
 - Windows: call `DwmSetWindowAttribute(hwnd,
-  DWMWA_USE_IMMERSIVE_DARK_MODE, ...)` in the host's `win32_window`
+  DWMWA_USE_IMMERSIVE_DARK_MODE, ...)` in the host's `flutter_window`
   runner.
 - Linux: not supported. GTK title bars follow the system theme via
   `gtk-application-prefer-dark-theme`; per-window override requires
@@ -853,9 +863,9 @@ all three on construction.
 Subscribing to platform brightness ties the controller's lifecycle to
 `WidgetsBinding`. The controller already mounts as a `ChangeNotifier`
 near the widget tree root, so the dependency is satisfied in practice
-for every consumer; tests that construct the controller without a
-binding either initialise one or pass `themeMode: ThemeMode.light` to
-skip the subscription path.
+for every consumer; tests pass an explicit `PlatformDispatcher` (the
+binding's, with `platformBrightnessTestValue` overrides) so the
+subscription path is exercised deterministically.
 
 ## 8. Layout Constants
 

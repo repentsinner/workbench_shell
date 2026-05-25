@@ -83,4 +83,205 @@ void main() {
       expect(identical(controller.theme, firstLoad), isTrue);
     });
   });
+
+  group('WorkbenchThemeController brightness-paired selection', () {
+    // Each test installs its own platform-brightness override so the
+    // controller's `system`-mode resolver sees a deterministic value.
+    // Tear-downs restore the binding's defaults.
+    void setPlatformBrightness(Brightness b) {
+      final binding = TestWidgetsFlutterBinding.ensureInitialized();
+      binding.platformDispatcher.platformBrightnessTestValue = b;
+    }
+
+    void clearPlatformBrightness() {
+      final binding = TestWidgetsFlutterBinding.ensureInitialized();
+      binding.platformDispatcher.clearPlatformBrightnessTestValue();
+    }
+
+    tearDown(clearPlatformBrightness);
+
+    test('defaultAvailableThemes declares brightness for each entry', () {
+      // The entry list is authoritative for pairing in `system` mode —
+      // each entry must declare its brightness so the controller can
+      // pick a slot without loading the asset.
+      final entries = WorkbenchThemeController.defaultAvailableThemes;
+      Brightness brightnessFor(String filename) =>
+          entries.firstWhere((e) => e.filename == filename).brightness;
+
+      expect(brightnessFor('dark_modern.json'), Brightness.dark);
+      expect(brightnessFor('light_modern.json'), Brightness.light);
+      expect(brightnessFor('dark_plus.json'), Brightness.dark);
+      expect(brightnessFor('light_plus.json'), Brightness.light);
+      expect(brightnessFor('solarized_dark.json'), Brightness.dark);
+      expect(brightnessFor('solarized_light.json'), Brightness.light);
+      expect(brightnessFor('monokai.json'), Brightness.dark);
+      expect(brightnessFor('2026_dark.json'), Brightness.dark);
+      expect(brightnessFor('2026_light.json'), Brightness.light);
+    });
+
+    test(
+      'system mode selects preferredDark when OS brightness is dark',
+      () async {
+        // Defaults: themeMode=system, preferredLight=light_modern,
+        // preferredDark=dark_modern. The dispatcher flag is the only
+        // axis under test.
+        setPlatformBrightness(Brightness.dark);
+
+        final controller = WorkbenchThemeController(
+          initialTheme: _placeholderTheme(),
+        );
+        addTearDown(controller.dispose);
+
+        await controller.resolveActiveTheme();
+        expect(controller.selectedFilename, 'dark_modern.json');
+        expect(controller.brightness, Brightness.dark);
+      },
+    );
+
+    test(
+      'system mode selects preferredLight when OS brightness is light',
+      () async {
+        setPlatformBrightness(Brightness.light);
+
+        final controller = WorkbenchThemeController(
+          initialTheme: _placeholderTheme(),
+        );
+        addTearDown(controller.dispose);
+
+        await controller.resolveActiveTheme();
+        expect(controller.selectedFilename, 'light_modern.json');
+        expect(controller.brightness, Brightness.light);
+      },
+    );
+
+    test(
+      'system mode swaps the active theme when OS brightness flips',
+      () async {
+        setPlatformBrightness(Brightness.light);
+
+        final controller = WorkbenchThemeController(
+          initialTheme: _placeholderTheme(),
+        );
+        addTearDown(controller.dispose);
+        await controller.resolveActiveTheme();
+        expect(controller.selectedFilename, 'light_modern.json');
+
+        // Flip OS to dark and synthesise the platform callback the way
+        // the binding does in production. The controller subscribes to
+        // `onPlatformBrightnessChanged` in its constructor.
+        setPlatformBrightness(Brightness.dark);
+        final binding = TestWidgetsFlutterBinding.ensureInitialized();
+        binding.platformDispatcher.onPlatformBrightnessChanged?.call();
+        // The handler kicks off an async asset load.
+        await controller.pendingResolution;
+
+        expect(controller.selectedFilename, 'dark_modern.json');
+        expect(controller.brightness, Brightness.dark);
+      },
+    );
+
+    test('light mode ignores OS brightness changes', () async {
+      setPlatformBrightness(Brightness.dark);
+
+      final controller = WorkbenchThemeController(
+        initialTheme: _placeholderTheme(),
+        themeMode: ThemeMode.light,
+      );
+      addTearDown(controller.dispose);
+
+      await controller.resolveActiveTheme();
+      expect(controller.selectedFilename, 'light_modern.json');
+
+      // Flip OS to light then back to dark — neither should affect us.
+      setPlatformBrightness(Brightness.light);
+      final binding = TestWidgetsFlutterBinding.ensureInitialized();
+      binding.platformDispatcher.onPlatformBrightnessChanged?.call();
+      await controller.pendingResolution;
+      expect(controller.selectedFilename, 'light_modern.json');
+
+      setPlatformBrightness(Brightness.dark);
+      binding.platformDispatcher.onPlatformBrightnessChanged?.call();
+      await controller.pendingResolution;
+      expect(controller.selectedFilename, 'light_modern.json');
+    });
+
+    test(
+      'selectTheme of opposite brightness in system mode flips themeMode',
+      () async {
+        setPlatformBrightness(Brightness.light);
+
+        final controller = WorkbenchThemeController(
+          initialTheme: _placeholderTheme(),
+        );
+        addTearDown(controller.dispose);
+        await controller.resolveActiveTheme();
+        expect(controller.themeMode, ThemeMode.system);
+        expect(controller.brightness, Brightness.light);
+
+        // Picking a Dark theme while the OS is light flips the mode.
+        await controller.selectTheme('dark_modern.json');
+
+        expect(controller.themeMode, ThemeMode.dark);
+        expect(controller.selectedFilename, 'dark_modern.json');
+        expect(controller.brightness, Brightness.dark);
+      },
+    );
+
+    test('selectTheme matching current brightness in system mode updates the '
+        'preferred slot for that brightness', () async {
+      setPlatformBrightness(Brightness.light);
+
+      final controller = WorkbenchThemeController(
+        initialTheme: _placeholderTheme(),
+      );
+      addTearDown(controller.dispose);
+      await controller.resolveActiveTheme();
+
+      await controller.selectTheme('solarized_light.json');
+
+      expect(controller.themeMode, ThemeMode.system);
+      expect(controller.preferredLight, 'solarized_light.json');
+      expect(controller.preferredDark, 'dark_modern.json');
+      expect(controller.selectedFilename, 'solarized_light.json');
+    });
+
+    test(
+      'changing preferredLight in system mode under light OS swaps active',
+      () async {
+        setPlatformBrightness(Brightness.light);
+
+        final controller = WorkbenchThemeController(
+          initialTheme: _placeholderTheme(),
+        );
+        addTearDown(controller.dispose);
+        await controller.resolveActiveTheme();
+        expect(controller.selectedFilename, 'light_modern.json');
+
+        controller.preferredLight = 'solarized_light.json';
+        await controller.pendingResolution;
+
+        expect(controller.selectedFilename, 'solarized_light.json');
+      },
+    );
+
+    test('setting themeMode emits notifyListeners', () async {
+      setPlatformBrightness(Brightness.light);
+
+      final controller = WorkbenchThemeController(
+        initialTheme: _placeholderTheme(),
+      );
+      addTearDown(controller.dispose);
+      await controller.resolveActiveTheme();
+
+      var notifications = 0;
+      controller.addListener(() => notifications += 1);
+
+      controller.themeMode = ThemeMode.dark;
+      await controller.pendingResolution;
+
+      expect(notifications, greaterThanOrEqualTo(1));
+      expect(controller.themeMode, ThemeMode.dark);
+      expect(controller.selectedFilename, 'dark_modern.json');
+    });
+  });
 }

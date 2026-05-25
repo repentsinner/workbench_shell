@@ -3,6 +3,8 @@
 
 #include <flutter/dart_project.h>
 #include <flutter/flutter_view_controller.h>
+#include <flutter/method_channel.h>
+#include <flutter/standard_method_codec.h>
 
 #include <memory>
 
@@ -23,11 +25,22 @@ class FlutterWindow : public Win32Window {
                          LPARAM const lparam) noexcept override;
 
  private:
+  // Apply a workbench-driven brightness override to the window's title
+  // bar via DwmSetWindowAttribute. Called by the
+  // `workbench_shell/window_chrome` method channel handler.
+  void ApplyBrightness(const std::string& payload);
+
   // The project to run.
   flutter::DartProject project_;
 
   // The Flutter instance hosted by this window.
   std::unique_ptr<flutter::FlutterViewController> flutter_controller_;
+
+  // Receives brightness updates from `WorkbenchThemeController`. The
+  // channel is unidirectional Dart→host (SPEC §7.5).
+  std::unique_ptr<
+      flutter::MethodChannel<flutter::EncodableValue>>
+      window_chrome_channel_;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

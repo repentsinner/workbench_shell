@@ -13,17 +13,79 @@
 // the bottom panel is hidden — the canonical focus-aware-content
 // pattern.
 //
-// The Settings sidebar exposes a theme picker driven by
+// The Settings sidebar mirrors VS Code's color-theme settings layout:
+// an "Auto detect color scheme" checkbox plus three dropdown fields
+// — "Color theme" (active when auto-detect is off), "Preferred dark
+// color theme", and "Preferred light color theme" — driven by
 // `WorkbenchThemeController`. Switching themes rebuilds the
 // `MaterialApp.theme` extension; every chrome surface (tab strip,
-// status bar, sidebar headings) updates in the same frame.
+// status bar, sidebar headings) updates in the same frame, and the
+// controller's brightness signal is forwarded across the canonical
+// `workbench_shell/window_chrome` method channel so the macOS /
+// Windows title bar tracks the workbench appearance (SPEC §7.5).
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:workbench_shell/workbench_shell.dart';
+
+/// Canonical method channel for forwarding workbench brightness to the
+/// host-window runner. Hosts that mirror this contract get the same
+/// per-platform native receivers the example ships with.
+///
+/// **Method:** `setBrightness`
+/// **Argument:** `String` — `'light'` or `'dark'`
+/// **Return:** none
+///
+/// The channel is unidirectional Dart→host. Hosts ignore unknown
+/// brightness payloads; Dart treats `MissingPluginException` as a
+/// no-op so the signal degrades cleanly on platforms without a
+/// receiver (e.g. Linux, iOS).
+const MethodChannel _windowChromeChannel = MethodChannel(
+  'workbench_shell/window_chrome',
+);
+
+/// String payload for the canonical `setBrightness` method. Kept
+/// stable so hosts can wire their runners against the same vocabulary
+/// without depending on Flutter's `Brightness` enum encoding.
+String _brightnessPayload(Brightness brightness) =>
+    brightness == Brightness.dark ? 'dark' : 'light';
+
+/// Forward [brightness] to the host-window runner. Best-effort —
+/// platforms without a receiver report `MissingPluginException`,
+/// which the example treats as a benign no-op.
+Future<void> _publishBrightness(Brightness brightness) async {
+  // The channel is only meaningful on the desktop targets that ship a
+  // window runner. Skip the round-trip on platforms where no native
+  // implementation exists; the platform's own appearance handling is
+  // already correct on those targets.
+  switch (defaultTargetPlatform) {
+    case TargetPlatform.macOS:
+    case TargetPlatform.windows:
+      break;
+    case TargetPlatform.linux:
+    case TargetPlatform.android:
+    case TargetPlatform.iOS:
+    case TargetPlatform.fuchsia:
+      return;
+  }
+  try {
+    await _windowChromeChannel.invokeMethod<void>(
+      'setBrightness',
+      _brightnessPayload(brightness),
+    );
+  } on MissingPluginException {
+    // Host has not registered the receiver yet (e.g. development
+    // start-up race). Subsequent calls succeed once the runner wires
+    // up.
+  } on PlatformException {
+    // Receiver rejected the payload. Swallow rather than crash the
+    // example — the chrome still flips in-process.
+  }
+}
 
 void main() {
   runApp(const WorkbenchExampleApp());
@@ -38,15 +100,16 @@ class WorkbenchExampleApp extends StatefulWidget {
 
 class _WorkbenchExampleAppState extends State<WorkbenchExampleApp> {
   late final WorkbenchThemeController _themeController;
+  Brightness? _publishedBrightness;
 
   @override
   void initState() {
     super.initState();
     // Seed with a synchronous fallback theme so the first frame
-    // paints with usable chrome. The real Dark Modern asset loads
-    // asynchronously after first frame; the controller calls
-    // notifyListeners() when it lands and the AnimatedBuilder
-    // below rebuilds.
+    // paints with usable chrome. The controller resolves the real
+    // bundled asset for the current brightness slot asynchronously
+    // (default themeMode: system), notifyListeners fires when it
+    // lands, and the AnimatedBuilder below rebuilds.
     _themeController = WorkbenchThemeController(
       initialTheme: WorkbenchTheme.fromVscodeColorMap(
         const VscodeColorMap(
@@ -56,11 +119,25 @@ class _WorkbenchExampleAppState extends State<WorkbenchExampleApp> {
         ),
       ),
     );
-    _themeController.selectTheme('dark_modern.json');
+    _themeController.addListener(_handleControllerChanged);
+    // Push the initial brightness once after the first frame so the
+    // host-window runner has its method channel registered before we
+    // call.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _handleControllerChanged();
+    });
+  }
+
+  void _handleControllerChanged() {
+    final next = _themeController.brightness;
+    if (next == _publishedBrightness) return;
+    _publishedBrightness = next;
+    unawaited(_publishBrightness(next));
   }
 
   @override
   void dispose() {
+    _themeController.removeListener(_handleControllerChanged);
     _themeController.dispose();
     super.dispose();
   }
@@ -70,10 +147,11 @@ class _WorkbenchExampleAppState extends State<WorkbenchExampleApp> {
     return AnimatedBuilder(
       animation: _themeController,
       builder: (context, _) {
+        final isDark = _themeController.brightness == Brightness.dark;
         return MaterialApp(
           title: 'workbench_shell example',
           debugShowCheckedModeBanner: false,
-          theme: ThemeData.dark().copyWith(
+          theme: (isDark ? ThemeData.dark() : ThemeData.light()).copyWith(
             extensions: [_themeController.theme],
           ),
           home: WorkbenchHome(themeController: _themeController),
@@ -282,11 +360,14 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   }
 }
 
-/// Settings sidebar — a theme picker driven by
-/// `WorkbenchThemeController`. The shell's `availableThemes` list
-/// covers the bundled VS Code themes; selecting one swaps the
-/// `WorkbenchTheme` extension on the surrounding `MaterialApp`,
-/// updating every chrome surface in the same frame.
+/// Settings sidebar — exposes the brightness-paired theme controls
+/// driven by [WorkbenchThemeController], mirroring VS Code's own
+/// settings layout: an "Auto detect color scheme" checkbox plus three
+/// dropdown fields ("Color theme", "Preferred dark color theme",
+/// "Preferred light color theme"). When auto-detect is on, the
+/// "Color theme" field is disabled and the active theme is paired to
+/// system brightness via the two preferred slots; when off, the
+/// active theme is whatever the "Color theme" dropdown picks.
 class _SettingsSidebar extends StatelessWidget {
   const _SettingsSidebar({required this.themeController});
 
@@ -297,22 +378,80 @@ class _SettingsSidebar extends StatelessWidget {
     return AnimatedBuilder(
       animation: themeController,
       builder: (context, _) {
+        final isSystem = themeController.themeMode == ThemeMode.system;
+        final lightThemes = themeController.availableThemes
+            .where((e) => e.brightness == Brightness.light)
+            .toList();
+        final darkThemes = themeController.availableThemes
+            .where((e) => e.brightness == Brightness.dark)
+            .toList();
         return SingleChildScrollView(
           padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingLg),
-          child: WorkbenchSection(
-            title: 'Color Theme',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final entry in themeController.availableThemes)
-                  _ThemeTile(
-                    entry: entry,
-                    isActive:
-                        themeController.selectedFilename == entry.filename,
-                    onTap: () => themeController.selectTheme(entry.filename),
-                  ),
-              ],
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _AutoDetectToggle(
+                isOn: isSystem,
+                onChanged: (next) {
+                  if (next) {
+                    themeController.themeMode = ThemeMode.system;
+                  } else {
+                    // Pin to whichever brightness is currently
+                    // displayed so flipping auto-detect off doesn't
+                    // visibly change the active theme.
+                    themeController.themeMode =
+                        themeController.brightness == Brightness.light
+                        ? ThemeMode.light
+                        : ThemeMode.dark;
+                  }
+                },
+              ),
+              const SizedBox(height: WorkbenchLayoutConstants.spacingXl),
+              _ThemeDropdownField(
+                label: 'Color theme',
+                description:
+                    'Specifies the color theme used in the workbench '
+                    'when "Auto detect color scheme" is off.',
+                entries: themeController.availableThemes,
+                value: themeController.selectedFilename,
+                enabled: !isSystem,
+                onChanged: (filename) {
+                  if (filename != null) {
+                    themeController.selectTheme(filename);
+                  }
+                },
+              ),
+              const SizedBox(height: WorkbenchLayoutConstants.spacingXl),
+              _ThemeDropdownField(
+                label: 'Preferred dark color theme',
+                description:
+                    'Used when the system is in dark mode and '
+                    '"Auto detect color scheme" is on.',
+                entries: darkThemes,
+                value: themeController.preferredDark,
+                enabled: true,
+                onChanged: (filename) {
+                  if (filename != null) {
+                    themeController.preferredDark = filename;
+                  }
+                },
+              ),
+              const SizedBox(height: WorkbenchLayoutConstants.spacingXl),
+              _ThemeDropdownField(
+                label: 'Preferred light color theme',
+                description:
+                    'Used when the system is in light mode and '
+                    '"Auto detect color scheme" is on.',
+                entries: lightThemes,
+                value: themeController.preferredLight,
+                enabled: true,
+                onChanged: (filename) {
+                  if (filename != null) {
+                    themeController.preferredLight = filename;
+                  }
+                },
+              ),
+            ],
           ),
         );
       },
@@ -320,51 +459,152 @@ class _SettingsSidebar extends StatelessWidget {
   }
 }
 
-class _ThemeTile extends StatelessWidget {
-  const _ThemeTile({
-    required this.entry,
-    required this.isActive,
-    required this.onTap,
-  });
+/// "Auto detect color scheme" checkbox row. Toggles
+/// [WorkbenchThemeController.themeMode] between [ThemeMode.system] and
+/// the manual slot matching whichever brightness is currently
+/// displayed, so flipping the checkbox doesn't visibly swap the theme
+/// the user is looking at.
+class _AutoDetectToggle extends StatelessWidget {
+  const _AutoDetectToggle({required this.isOn, required this.onChanged});
 
-  final WorkbenchThemeEntry entry;
-  final bool isActive;
-  final VoidCallback onTap;
+  final bool isOn;
+  final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
     return InkWell(
-      onTap: onTap,
+      onTap: () => onChanged(!isOn),
       child: Padding(
         padding: const EdgeInsets.symmetric(
-          horizontal: WorkbenchLayoutConstants.spacingSm,
           vertical: WorkbenchLayoutConstants.spacingSm,
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(
-              isActive
-                  ? Symbols.radio_button_checked
-                  : Symbols.radio_button_unchecked,
-              size: 16,
-              color: isActive
+              isOn ? Symbols.check_box : Symbols.check_box_outline_blank,
+              size: 18,
+              fill: isOn ? 1 : 0,
+              color: isOn
                   ? theme.tabBarIndicatorColor
                   : theme.descriptionForeground,
             ),
             const SizedBox(width: WorkbenchLayoutConstants.spacingSm),
             Expanded(
-              child: Text(
-                entry.label,
-                style: theme.bodyStyle.copyWith(
-                  color: isActive ? theme.foreground : theme.foreground,
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Auto detect color scheme',
+                    style: theme.bodyStyle.copyWith(
+                      color: theme.foreground,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: WorkbenchLayoutConstants.spacingXxs),
+                  Text(
+                    'Automatically select a color theme based on the '
+                    'system color mode.',
+                    style: theme.bodyStyle.copyWith(
+                      color: theme.descriptionForeground,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Labelled dropdown for a single theme slot. Disabled state greys
+/// out the control and ignores taps — used for "Color theme" while
+/// auto-detect is on, where the active theme is derived from the
+/// preferred slots rather than picked directly.
+class _ThemeDropdownField extends StatelessWidget {
+  const _ThemeDropdownField({
+    required this.label,
+    required this.description,
+    required this.entries,
+    required this.value,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String description;
+  final List<WorkbenchThemeEntry> entries;
+  final String value;
+  final bool enabled;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.workbenchTheme;
+    final labelColor = enabled
+        ? theme.foreground
+        : theme.foreground.withValues(alpha: 0.55);
+    final descriptionColor = enabled
+        ? theme.descriptionForeground
+        : theme.descriptionForeground.withValues(alpha: 0.55);
+    final itemColor = enabled
+        ? theme.foreground
+        : theme.foreground.withValues(alpha: 0.55);
+    // Defensive: if the supplied value isn't in the entry list (a
+    // stored preference for a theme that's no longer bundled), pass
+    // null to the dropdown so it doesn't assert. The user can pick a
+    // new value from the menu to re-seed the slot.
+    final resolvedValue = entries.any((e) => e.filename == value)
+        ? value
+        : null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: theme.sectionTitleStyle.copyWith(color: labelColor)),
+        const SizedBox(height: WorkbenchLayoutConstants.spacingXxs),
+        Text(
+          description,
+          style: theme.bodyStyle.copyWith(color: descriptionColor),
+        ),
+        const SizedBox(height: WorkbenchLayoutConstants.spacingSm),
+        Container(
+          decoration: BoxDecoration(
+            color: theme.inputBackground,
+            borderRadius: WorkbenchLayoutConstants.containerRadius,
+            border: Border.all(color: theme.inputBorder),
+          ),
+          padding: const EdgeInsets.symmetric(
+            horizontal: WorkbenchLayoutConstants.spacingSm,
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: resolvedValue,
+              isExpanded: true,
+              isDense: true,
+              dropdownColor: theme.dropdownBackground,
+              style: theme.bodyStyle.copyWith(color: itemColor),
+              iconEnabledColor: theme.descriptionForeground,
+              iconDisabledColor: theme.descriptionForeground.withValues(
+                alpha: 0.5,
+              ),
+              items: [
+                for (final entry in entries)
+                  DropdownMenuItem<String>(
+                    value: entry.filename,
+                    child: Text(
+                      entry.label,
+                      style: theme.bodyStyle.copyWith(color: theme.foreground),
+                    ),
+                  ),
+              ],
+              onChanged: enabled ? onChanged : null,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -26,13 +26,15 @@ void main() {
       findsOneWidget,
     );
 
-    // All five canonical panels render their tab labels.
+    // All five canonical panels render their tab labels. The tab
+    // strip uppercases labels per the §7.4 canon, so assert against
+    // the uppercased form.
     for (final label in const [
-      'Problems',
-      'Output',
-      'Debug Console',
-      'Terminal',
-      'Ports',
+      'PROBLEMS',
+      'OUTPUT',
+      'DEBUG CONSOLE',
+      'TERMINAL',
+      'PORTS',
     ]) {
       expect(find.text(label), findsWidgets, reason: 'tab "$label" missing');
     }
@@ -66,7 +68,9 @@ void main() {
     );
   });
 
-  testWidgets('Settings sidebar renders Color Theme picker', (tester) async {
+  testWidgets('Settings sidebar renders auto-detect and three theme slots', (
+    tester,
+  ) async {
     await tester.pumpWidget(const WorkbenchExampleApp());
     await tester.pumpAndSettle();
 
@@ -74,12 +78,11 @@ void main() {
     await tester.tap(find.byIcon(Symbols.settings_rounded));
     await tester.pumpAndSettle();
 
-    // Section heading rendered (uppercased by WorkbenchSection).
-    expect(find.text('COLOR THEME'), findsOneWidget);
-
-    // Bundled themes listed (sample two — full list lives in the
-    // shell's WorkbenchThemeController.defaultAvailableThemes).
-    expect(find.text('Dark Modern'), findsOneWidget);
-    expect(find.text('Solarized Dark'), findsOneWidget);
+    // Auto-detect checkbox row and the three labelled dropdown slots
+    // render, mirroring VS Code's settings layout.
+    expect(find.text('Auto detect color scheme'), findsOneWidget);
+    expect(find.text('Color theme'), findsOneWidget);
+    expect(find.text('Preferred dark color theme'), findsOneWidget);
+    expect(find.text('Preferred light color theme'), findsOneWidget);
   });
 }
