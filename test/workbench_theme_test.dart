@@ -280,6 +280,95 @@ void main() {
     });
   });
 
+  group('WorkbenchTheme notification tokens (§10)', () {
+    test('fall back to chrome neighbours when notifications.* omitted', () {
+      final map = loader.parse('''
+        {
+          "name": "Dark Minimal",
+          "type": "vs-dark",
+          "colors": {}
+        }
+        ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      // Card background falls back through input.background.
+      expect(theme.notificationBackground, theme.inputBackground);
+      // Border falls back to the panel border (translucent grey).
+      expect(theme.notificationBorder, theme.panelBorder);
+      // Foreground/close colors mirror the chrome semantics.
+      expect(theme.notificationForeground, theme.foreground);
+      expect(theme.notificationCloseForeground, theme.descriptionForeground);
+      // Action button reuses the chrome button accent chain.
+      expect(theme.notificationActionBackground, theme.buttonBackground);
+      expect(theme.notificationActionForeground, theme.buttonForeground);
+      expect(
+        theme.notificationActionHoverBackground,
+        theme.buttonHoverBackground,
+      );
+      // Progress fill uses the focus accent when progressBar.background
+      // is unset.
+      expect(theme.notificationProgressFill, theme.focusBorder);
+    });
+
+    test('honour explicit notifications.* tokens when present', () {
+      final map = loader.parse('''
+        {
+          "name": "Notif Test",
+          "type": "vs-dark",
+          "colors": {
+            "notifications.background": "#112233",
+            "notifications.border": "#445566",
+            "notifications.foreground": "#778899",
+            "notificationCenter.foreground": "#AABBCC",
+            "notificationCenterHeader.background": "#DDEEFF",
+            "progressBar.background": "#101010"
+          }
+        }
+        ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.notificationBackground, const Color(0xFF112233));
+      expect(theme.notificationBorder, const Color(0xFF445566));
+      expect(theme.notificationForeground, const Color(0xFF778899));
+      expect(theme.notificationCloseForeground, const Color(0xFFAABBCC));
+      expect(theme.notificationActionBackground, const Color(0xFFDDEEFF));
+      expect(theme.notificationProgressFill, const Color(0xFF101010));
+    });
+
+    test('severityForeground reuses existing semantic-status tokens', () {
+      final theme = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+      );
+      expect(
+        theme.severityForeground(NotificationSeverity.info),
+        theme.infoForeground,
+      );
+      expect(
+        theme.severityForeground(NotificationSeverity.success),
+        theme.successForeground,
+      );
+      expect(
+        theme.severityForeground(NotificationSeverity.warning),
+        theme.warningForeground,
+      );
+      expect(
+        theme.severityForeground(NotificationSeverity.error),
+        theme.errorForeground,
+      );
+    });
+
+    test('progress track is a translucent modulation of the border', () {
+      final theme = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+      );
+      // Track is dimmer than the border (alpha 0.3 fallback chain) —
+      // the panel-border default has 0x59 alpha (~0.349); track
+      // multiplies by 0.3 to 0x1A (~0.105).
+      expect(
+        theme.notificationProgressTrack.a,
+        lessThan(theme.notificationBorder.a),
+      );
+    });
+  });
+
   group('WorkbenchTheme.copyWith / lerp', () {
     final base = WorkbenchTheme.fromVscodeColorMap(
       const VscodeColorMap(name: 'Dark', baseType: 'vs-dark', colors: {}),
@@ -300,6 +389,46 @@ void main() {
       final b = base.copyWith(surfaceTone: 100);
       final mid = a.lerp(b, 0.5);
       expect(mid.surfaceTone, closeTo(50, 1e-9));
+    });
+
+    test('copyWith preserves notification tokens when unspecified', () {
+      final modified = base.copyWith(foreground: const Color(0xFFFF0000));
+      expect(
+        modified.notificationBackground,
+        equals(base.notificationBackground),
+      );
+      expect(modified.notificationBorder, equals(base.notificationBorder));
+      expect(
+        modified.notificationActionBackground,
+        equals(base.notificationActionBackground),
+      );
+    });
+
+    test('copyWith overrides notification tokens when specified', () {
+      const accent = Color(0xFFAB1234);
+      final modified = base.copyWith(notificationProgressFill: accent);
+      expect(modified.notificationProgressFill, equals(accent));
+      // Untouched fields keep their prior values.
+      expect(
+        modified.notificationBackground,
+        equals(base.notificationBackground),
+      );
+    });
+
+    test('lerp interpolates notification colours', () {
+      final a = base.copyWith(notificationBackground: const Color(0xFF000000));
+      final b = base.copyWith(notificationBackground: const Color(0xFFFFFFFF));
+      final mid = a.lerp(b, 0.5);
+      // Mid-grey on a linear lerp — exact midpoint depends on Flutter's
+      // Color.lerp implementation, so just assert it's neither endpoint.
+      expect(
+        mid.notificationBackground,
+        isNot(equals(a.notificationBackground)),
+      );
+      expect(
+        mid.notificationBackground,
+        isNot(equals(b.notificationBackground)),
+      );
     });
   });
 }

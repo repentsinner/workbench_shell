@@ -7,6 +7,11 @@ library;
 
 export 'src/activity_bar_item.dart';
 export 'src/layout_constants.dart';
+// Notification center (§10): service, value types, and host overlay
+// widget.
+export 'src/notifications/notification.dart';
+export 'src/notifications/notification_host.dart';
+export 'src/notifications/notification_service.dart';
 // UI extension slots (consumed by apps to extend the shell)
 export 'src/slots/sidebar_slot.dart';
 export 'src/slots/sidebar_zone.dart';

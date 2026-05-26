@@ -113,4 +113,41 @@ class WorkbenchLayoutConstants {
   static const BorderRadius containerRadius = BorderRadius.all(
     Radius.circular(4),
   );
+
+  // ==================== NOTIFICATION CENTER (§10) ====================
+
+  /// 4px — notification card border radius. Same scale as
+  /// [containerRadius]; named separately so a future visual revision
+  /// of notification cards (rounder pill, square, etc.) can change
+  /// without touching every other card surface.
+  static const BorderRadius notificationCardRadius = BorderRadius.all(
+    Radius.circular(4),
+  );
+
+  /// 360px — notification card width. Matches VS Code's notification
+  /// toast width; narrow enough to coexist with the bottom-panel and
+  /// status bar on a small window, wide enough to fit a couple of
+  /// action buttons on one row.
+  static const double notificationCardWidth = 360.0;
+
+  /// 16px — gap between the notification stack and the workbench
+  /// edge (bottom and right). Aligns with [spacingLg] so the stack
+  /// sits on the same grid as sidebar content.
+  static const double notificationStackInset = 16.0;
+
+  /// 8px — vertical gap between cards in the stack. One step below
+  /// [spacingMd] so cards feel grouped rather than separated.
+  static const double notificationStackGap = 8.0;
+
+  /// 5 — visible card budget. When more cards exist, the oldest
+  /// non-persistent ones collapse into a "+N more" summary card
+  /// occupying the top slot (SPEC §10).
+  static const int notificationMaxVisible = 5;
+
+  /// Auto-dismiss duration for info/success cards (SPEC §10
+  /// "Dismissal policy by severity").
+  static const Duration notificationAutoDismissDuration = Duration(seconds: 6);
+
+  /// 4px — progress bar track height inside a notification card.
+  static const double notificationProgressBarHeight = 4.0;
 }

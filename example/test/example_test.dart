@@ -85,4 +85,29 @@ void main() {
     expect(find.text('Preferred dark color theme'), findsOneWidget);
     expect(find.text('Preferred light color theme'), findsOneWidget);
   });
+
+  testWidgets('Notifications demo posts an info card via the host overlay', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const WorkbenchExampleApp());
+    await tester.pumpAndSettle();
+
+    // Notifications activity-bar item is present.
+    expect(find.byIcon(Symbols.notifications_rounded), findsOneWidget);
+
+    await tester.tap(find.byIcon(Symbols.notifications_rounded));
+    await tester.pumpAndSettle();
+
+    // Sidebar exposes the trigger buttons.
+    expect(find.text('Info'), findsOneWidget);
+    expect(find.text('Success'), findsOneWidget);
+    expect(find.text('Warning'), findsOneWidget);
+    expect(find.text('Error'), findsOneWidget);
+
+    // Triggering an info notification renders a card via the
+    // NotificationHost overlay.
+    await tester.tap(find.text('Info'));
+    await tester.pump();
+    expect(find.textContaining('Info notice'), findsOneWidget);
+  });
 }

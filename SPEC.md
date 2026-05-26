@@ -64,7 +64,9 @@ typography, spacing, and theming.
 - UI extension slots: `SlotRegistry`, `SidebarSlot`, `SidebarZone`,
   `SlotId`. Hosts register content for named slots; the shell
   renders registered slots in z-order per zone.
-- Notification Center (§7) — planned; not yet implemented.
+- Notification Center (§10): `NotificationService` plus
+  `NotificationHost` overlay. Progress controller is planned but
+  not yet implemented.
 
 **Out of scope**
 
@@ -908,7 +910,7 @@ any consumer.
 
 ## 10. Notification Center
 
-*Status: not started*
+*Status: in progress*
 
 Application events need non-blocking, non-modal user feedback
 for outcomes that do not warrant a dialog: file saved, profile

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:material_color_utilities/material_color_utilities.dart';
 
+import 'notifications/notification.dart';
 import 'theming/token_theme.dart';
 import 'theming/vscode_color_map.dart';
 
@@ -188,6 +189,56 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   // ---- Syntax token theme ----
   final TokenTheme tokenTheme;
 
+  // ---- Notification center (§10) ----
+  //
+  // Severity icons and accents reuse [infoForeground],
+  // [warningForeground], [errorForeground], and [successForeground]
+  // — the existing semantic-status tokens. The fields below cover
+  // the chrome that isn't already on the theme: card background,
+  // close button colour, action-button styling, and progress bar
+  // track / fill.
+  //
+  // VS Code surfaces these through the `notifications.*` colour
+  // namespace; the fallback chain prefers those tokens when present
+  // and falls back to neighbouring chrome tokens (input/list) so
+  // older themes still render coherent cards.
+
+  /// Card background. Falls back to [inputBackground] so cards read
+  /// as elevated chrome against the editor surface even on themes
+  /// that omit `notifications.background`.
+  final Color notificationBackground;
+
+  /// Card border colour. Falls back to [panelBorder] (which itself
+  /// defaults to translucent grey).
+  final Color notificationBorder;
+
+  /// Card foreground (message text). Falls back to [foreground].
+  final Color notificationForeground;
+
+  /// Close-button glyph colour. Falls back to [descriptionForeground]
+  /// so the affordance reads as secondary chrome.
+  final Color notificationCloseForeground;
+
+  /// Action-button background. Falls back to [buttonBackground].
+  final Color notificationActionBackground;
+
+  /// Action-button foreground. Falls back to [buttonForeground].
+  final Color notificationActionForeground;
+
+  /// Action-button hover background. Falls back to
+  /// [buttonHoverBackground].
+  final Color notificationActionHoverBackground;
+
+  /// Progress bar track (background of the bar). Falls back to a
+  /// 30 %-alpha modulation of [notificationBorder] so the track
+  /// reads as a recessed channel.
+  final Color notificationProgressTrack;
+
+  /// Progress bar fill (foreground of the bar). Falls back to
+  /// [focusBorder] — the same accent the rest of the chrome uses
+  /// for in-progress emphasis.
+  final Color notificationProgressFill;
+
   // ---- Domain color resolver input (§9.15) ----
   /// HCT tone (0–100) of the canonical chrome surface ([editorBackground]).
   ///
@@ -286,6 +337,15 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.loglineLevel,
     required this.loglineMessage,
     required this.tokenTheme,
+    required this.notificationBackground,
+    required this.notificationBorder,
+    required this.notificationForeground,
+    required this.notificationCloseForeground,
+    required this.notificationActionBackground,
+    required this.notificationActionForeground,
+    required this.notificationActionHoverBackground,
+    required this.notificationProgressTrack,
+    required this.notificationProgressFill,
     required this.surfaceTone,
   });
 
@@ -596,6 +656,41 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       loglineMessage: t(11, FontWeight.w400),
       // Syntax token theme
       tokenTheme: map.resolvedTokenTheme,
+      // Notification center (§10) — VS Code surfaces these through
+      // `notifications.*`; fall back to neighbouring chrome tokens
+      // when absent so older themes still render coherent cards.
+      notificationBackground: map.resolve(
+        'notifications.background',
+        map.resolve(
+          'input.background',
+          dl(const Color(0xFF3C3C3C), const Color(0xFFFFFFFF)),
+        ),
+      ),
+      notificationBorder: map.resolve('notifications.border', panelBorder),
+      notificationForeground: map.resolve('notifications.foreground', fg),
+      notificationCloseForeground: map.resolve(
+        'notificationCenter.foreground',
+        secondaryFg,
+      ),
+      notificationActionBackground: map.resolve(
+        'notificationCenterHeader.background',
+        map.resolve(
+          'button.background',
+          dl(const Color(0xFF0E639C), const Color(0xFF007ACC)),
+        ),
+      ),
+      notificationActionForeground: map.resolve(
+        'button.foreground',
+        const Color(0xFFFFFFFF),
+      ),
+      notificationActionHoverBackground: map.resolve(
+        'button.hoverBackground',
+        dl(const Color(0xFF1177BB), const Color(0xFF0062A3)),
+      ),
+      notificationProgressTrack: map
+          .resolve('notifications.border', panelBorder)
+          .withValues(alpha: 0.3),
+      notificationProgressFill: map.resolve('progressBar.background', accentFg),
       // HCT tone of the canonical chrome surface (editor background).
       // Domain themes read this to pick contrasting palette tones —
       // see RoveDomainTheme and SPEC §9.15.
@@ -693,6 +788,15 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     TextStyle? loglineLevel,
     TextStyle? loglineMessage,
     TokenTheme? tokenTheme,
+    Color? notificationBackground,
+    Color? notificationBorder,
+    Color? notificationForeground,
+    Color? notificationCloseForeground,
+    Color? notificationActionBackground,
+    Color? notificationActionForeground,
+    Color? notificationActionHoverBackground,
+    Color? notificationProgressTrack,
+    Color? notificationProgressFill,
     double? surfaceTone,
   }) {
     return WorkbenchTheme(
@@ -805,6 +909,24 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       loglineLevel: loglineLevel ?? this.loglineLevel,
       loglineMessage: loglineMessage ?? this.loglineMessage,
       tokenTheme: tokenTheme ?? this.tokenTheme,
+      notificationBackground:
+          notificationBackground ?? this.notificationBackground,
+      notificationBorder: notificationBorder ?? this.notificationBorder,
+      notificationForeground:
+          notificationForeground ?? this.notificationForeground,
+      notificationCloseForeground:
+          notificationCloseForeground ?? this.notificationCloseForeground,
+      notificationActionBackground:
+          notificationActionBackground ?? this.notificationActionBackground,
+      notificationActionForeground:
+          notificationActionForeground ?? this.notificationActionForeground,
+      notificationActionHoverBackground:
+          notificationActionHoverBackground ??
+          this.notificationActionHoverBackground,
+      notificationProgressTrack:
+          notificationProgressTrack ?? this.notificationProgressTrack,
+      notificationProgressFill:
+          notificationProgressFill ?? this.notificationProgressFill,
       surfaceTone: surfaceTone ?? this.surfaceTone,
     );
   }
@@ -977,6 +1099,39 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       loglineLevel: ts(loglineLevel, other.loglineLevel),
       loglineMessage: ts(loglineMessage, other.loglineMessage),
       tokenTheme: t < 0.5 ? tokenTheme : other.tokenTheme,
+      notificationBackground: c(
+        notificationBackground,
+        other.notificationBackground,
+      ),
+      notificationBorder: c(notificationBorder, other.notificationBorder),
+      notificationForeground: c(
+        notificationForeground,
+        other.notificationForeground,
+      ),
+      notificationCloseForeground: c(
+        notificationCloseForeground,
+        other.notificationCloseForeground,
+      ),
+      notificationActionBackground: c(
+        notificationActionBackground,
+        other.notificationActionBackground,
+      ),
+      notificationActionForeground: c(
+        notificationActionForeground,
+        other.notificationActionForeground,
+      ),
+      notificationActionHoverBackground: c(
+        notificationActionHoverBackground,
+        other.notificationActionHoverBackground,
+      ),
+      notificationProgressTrack: c(
+        notificationProgressTrack,
+        other.notificationProgressTrack,
+      ),
+      notificationProgressFill: c(
+        notificationProgressFill,
+        other.notificationProgressFill,
+      ),
       surfaceTone: surfaceTone + (other.surfaceTone - surfaceTone) * t,
     );
   }
@@ -1001,4 +1156,25 @@ extension WorkbenchThemeContentBorder on WorkbenchTheme {
   /// (jog controls, cards, sidebar chips) whose structural width must
   /// not change when the theme omits the border.
   Color get panelBorderOrTransparent => panelBorder ?? Colors.transparent;
+}
+
+/// Severity-keyed accents for notification cards. Reuses the
+/// existing semantic-status tokens
+/// ([WorkbenchTheme.infoForeground], etc.) so notification chrome
+/// stays consistent with other severity-aware surfaces (gutter
+/// icons, problems panel, etc.).
+extension WorkbenchThemeNotificationSeverity on WorkbenchTheme {
+  /// Foreground/icon color for [severity].
+  Color severityForeground(NotificationSeverity severity) {
+    switch (severity) {
+      case NotificationSeverity.info:
+        return infoForeground;
+      case NotificationSeverity.success:
+        return successForeground;
+      case NotificationSeverity.warning:
+        return warningForeground;
+      case NotificationSeverity.error:
+        return errorForeground;
+    }
+  }
 }

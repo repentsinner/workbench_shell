@@ -195,6 +195,13 @@ class WorkbenchHome extends StatefulWidget {
 class _WorkbenchHomeState extends State<WorkbenchHome> {
   bool _panelVisible = true;
   void Function(Object id)? _focusPanelById;
+  final NotificationService _notificationService = NotificationService();
+
+  @override
+  void dispose() {
+    _notificationService.dispose();
+    super.dispose();
+  }
 
   static const _activityBarItems = [
     ActivityBarItem(
@@ -206,6 +213,11 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
       id: 'search',
       label: 'Search',
       icon: Symbols.search_rounded,
+    ),
+    ActivityBarItem(
+      id: 'notifications',
+      label: 'Notifications',
+      icon: Symbols.notifications_rounded,
     ),
     ActivityBarItem(
       id: 'settings',
@@ -320,19 +332,22 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
               },
               child: WorkbenchMenuBar(
                 tabs: scope.viewMenuTabs,
-                child: WorkbenchLayout(
-                  activityBarItems: _activityBarItems,
-                  sidebarBuilder: _buildSidebar,
-                  editor: const _EditorPlaceholder(),
-                  bottomPanel: scope.tabbedPanel,
-                  showBottomPanel: _panelVisible,
-                  statusBar: const WorkbenchStatusBar(
-                    leading: [
-                      WorkbenchStatusBarItem(
-                        icon: Symbols.info_rounded,
-                        label: 'workbench_shell example',
-                      ),
-                    ],
+                child: NotificationHost(
+                  service: _notificationService,
+                  child: WorkbenchLayout(
+                    activityBarItems: _activityBarItems,
+                    sidebarBuilder: _buildSidebar,
+                    editor: const _EditorPlaceholder(),
+                    bottomPanel: scope.tabbedPanel,
+                    showBottomPanel: _panelVisible,
+                    statusBar: const WorkbenchStatusBar(
+                      leading: [
+                        WorkbenchStatusBarItem(
+                          icon: Symbols.info_rounded,
+                          label: 'workbench_shell example',
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -353,10 +368,164 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
         return const _SidebarBodyPlaceholder(
           text: 'Search sidebar — host-supplied content lands here.',
         );
+      case 'notifications':
+        return _NotificationsDemoSidebar(service: _notificationService);
       case 'settings':
         return _SettingsSidebar(themeController: widget.themeController);
     }
     return null;
+  }
+}
+
+/// Notifications demo sidebar — triggers cards through the
+/// [NotificationService] so an operator can exercise every API
+/// surface from the example app (SPEC §10 verify criteria).
+class _NotificationsDemoSidebar extends StatefulWidget {
+  const _NotificationsDemoSidebar({required this.service});
+
+  final NotificationService service;
+
+  @override
+  State<_NotificationsDemoSidebar> createState() =>
+      _NotificationsDemoSidebarState();
+}
+
+class _NotificationsDemoSidebarState extends State<_NotificationsDemoSidebar> {
+  int _counter = 0;
+
+  void _show(NotificationSeverity severity, String message) {
+    widget.service.show(severity: severity, message: '$message #${++_counter}');
+  }
+
+  void _showBurst(int count, NotificationSeverity severity) {
+    for (var i = 0; i < count; i++) {
+      _show(severity, severity.name);
+    }
+  }
+
+  void _showOverflowMix() {
+    widget.service.show(
+      severity: NotificationSeverity.warning,
+      message: 'Persistent warning — stays in the visible stack',
+    );
+    for (var i = 0; i < 5; i++) {
+      _show(NotificationSeverity.info, 'Burst info');
+    }
+  }
+
+  void _showWithAction() {
+    var dismissedId = Object();
+    dismissedId = widget.service.show(
+      severity: NotificationSeverity.info,
+      message: 'Tap Undo to dismiss in the same frame',
+      actions: [
+        NotificationAction(
+          label: 'Undo',
+          onInvoke: () {
+            // Demonstrate a follow-up notification — the action card
+            // is dismissed by the host immediately, so a new card
+            // here is the canonical pattern for "keep state visible".
+            widget.service.show(
+              severity: NotificationSeverity.success,
+              message: 'Undone (action ran on #${dismissedId.hashCode})',
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.workbenchTheme;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingLg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Notifications',
+            style: theme.sectionTitle.copyWith(color: theme.foreground),
+          ),
+          const SizedBox(height: WorkbenchLayoutConstants.spacingSm),
+          Text(
+            'Cards anchor bottom-right. Info and success self-dismiss '
+            'after 6 s; warning and error persist until dismissed. '
+            'Hover or backgrounding the window pauses the timer.',
+            style: theme.bodyText.copyWith(color: theme.descriptionForeground),
+          ),
+          const SizedBox(height: WorkbenchLayoutConstants.spacingLg),
+          _DemoButton(
+            label: 'Info',
+            onTap: () => _show(NotificationSeverity.info, 'Info notice'),
+          ),
+          _DemoButton(
+            label: 'Success',
+            onTap: () => _show(NotificationSeverity.success, 'Saved'),
+          ),
+          _DemoButton(
+            label: 'Warning',
+            onTap: () => _show(NotificationSeverity.warning, 'Heads up'),
+          ),
+          _DemoButton(
+            label: 'Error',
+            onTap: () => _show(NotificationSeverity.error, 'Failed'),
+          ),
+          const SizedBox(height: WorkbenchLayoutConstants.spacingLg),
+          _DemoButton(
+            label: 'Burst: 3 info (stack)',
+            onTap: () => _showBurst(3, NotificationSeverity.info),
+          ),
+          _DemoButton(
+            label: 'Burst: 7 info (overflow)',
+            onTap: () => _showBurst(7, NotificationSeverity.info),
+          ),
+          _DemoButton(label: 'Mix: warning + 5 info', onTap: _showOverflowMix),
+          const SizedBox(height: WorkbenchLayoutConstants.spacingLg),
+          _DemoButton(label: 'With action button', onTap: _showWithAction),
+          _DemoButton(label: 'Clear all', onTap: widget.service.clear),
+        ],
+      ),
+    );
+  }
+}
+
+/// Compact button used by the notifications demo sidebar.
+class _DemoButton extends StatelessWidget {
+  const _DemoButton({required this.label, required this.onTap});
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.workbenchTheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        vertical: WorkbenchLayoutConstants.spacingXxs,
+      ),
+      child: Material(
+        color: theme.buttonBackground,
+        borderRadius: WorkbenchLayoutConstants.containerRadius,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: WorkbenchLayoutConstants.containerRadius,
+          hoverColor: theme.buttonHoverBackground,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: WorkbenchLayoutConstants.spacingMd,
+              vertical: WorkbenchLayoutConstants.spacingSm,
+            ),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: theme.buttonTextStyle.copyWith(
+                color: theme.buttonForeground,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
