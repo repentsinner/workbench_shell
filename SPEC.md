@@ -931,14 +931,18 @@ stack.
 **Dismissal policy by severity**:
 
 - Info and success: auto-dismiss after 6 seconds unless the
-  pointer is hovering the card. Hover pauses the timer; leaving
-  resumes it.
+  pointer is hovering the card or the host window is unfocused.
+  Hover pauses the timer; leaving resumes it. The window-focus
+  pause prevents a card fired during a context switch from
+  ticking down invisibly while the operator is in another app.
 - Warning and error: remain until the operator dismisses them,
   or the host invokes the programmatic dismiss API. VS Code
   uses the same rule — problems that need acknowledgement must
   not disappear on their own.
-- Progress (indeterminate or determinate): remain until the
-  host completes or cancels them.
+- Progress: remains until the host's `complete()` or `fail()`
+  call resolves it, or until the operator cancels (cancellable
+  progress only). Progress is a separate API surface from
+  severity toasts — see *Progress notifications* below.
 
 **Why in `workbench_shell`**: the notification center is
 generic workbench chrome. A non-Rove application building on
@@ -975,6 +979,47 @@ ones.
 types, no BLoCs. `workbench_shell`'s Flutter-only dependency
 footprint is preserved.
 
+**Action invocation**: tapping a `NotificationAction` invokes
+its callback and dismisses the card. This matches VS Code: an
+action is a terminal interaction with the notification. A host
+that needs to keep state visible after an action runs calls
+`NotificationService.show(...)` from inside the callback to
+post a follow-up card. No "sticky action" flag — that complexity
+hasn't earned its place.
+
+**Progress notifications**: a separate API surface from severity
+toasts. The service exposes
+`showProgress({String message, bool cancellable})` returning a
+`NotificationProgressController` with:
+
+- `report({String? message, double? progress})` — push an
+  update. `progress` is 0.0–1.0 for determinate progress; omit
+  for indeterminate (spinner). Updates apply in-place; the card
+  does not re-stack on update.
+- `complete({String? successMessage})` — terminate successfully.
+  If `successMessage` is provided, the progress card converts to
+  a success toast bound by the standard 6-second dismissal rule;
+  otherwise the card disappears.
+- `fail(String errorMessage)` — terminate with failure. The
+  progress card converts to a persistent error toast so the
+  failure isn't silently lost.
+- `cancellation` — a `Future<void>` that completes when the
+  operator presses the cancel affordance (cancellable only).
+  The host observes this future and tears down its work; the
+  card persists until the host then calls `complete` or `fail`.
+
+Why a separate API: progress has a controller-shaped lifecycle
+(mutable value, cancel affordance, terminal `complete`/`fail`)
+that doesn't fit the fire-and-forget shape of severity toasts.
+VS Code's `window.withProgress` separates them for the same
+reason; Apple's Live Activities split from `UNUserNotification`
+on the same boundary. Windows AppNotifications unifies them but
+recommends *replacing* (not updating) on completion to handle
+layout changes — a workaround for the unified shape, not a
+feature. A separate controller keeps `NotificationService.show`
+trivial for the common case and gives progress callers exactly
+the affordances they need.
+
 **Observable behavior**:
 
 - Calling `NotificationService.show(severity, message)` causes
@@ -986,11 +1031,30 @@ footprint is preserved.
   of uninterrupted non-hover time; an error notification
   persists until the close button is tapped or `dismiss(id)` is
   called.
+- Auto-dismiss timers pause when the host window loses focus
+  (`AppLifecycleState.inactive` or `paused`) and resume on
+  refocus, so a card fired during a context switch survives
+  until the operator returns. Persistent severities (warning,
+  error) and in-progress cards have no timer and are unaffected.
+- Tapping a `NotificationAction` runs its callback and dismisses
+  the card in the same frame.
 - The notification stack renders above all workbench surfaces
   (sidebar, editor, bottom panel, status bar) but below
   platform modals (dialogs, menus).
-- When the stack exceeds five visible cards, older cards
-  collapse into a "+N more" summary card that expands on tap.
+- When more than five cards would render simultaneously, the
+  oldest non-persistent cards collapse into a "+N more" summary
+  card at the top of the visible stack; tapping the summary
+  expands the hidden cards into a scrollable list. Persistent
+  cards (warning, error, in-progress) are never collapsed —
+  they fill the visible slots first and push transient cards
+  into the summary.
+- Calling `showProgress(...)` returns a controller; the
+  resulting card appears in the bottom-right and remains until
+  the controller's `complete` or `fail` is called. `report()`
+  updates the card's message and progress bar in place without
+  re-stacking. On `complete(successMessage:)` the card converts
+  to a 6-second success toast; on `fail(message)` it converts
+  to a persistent error toast.
 
 ---
 
