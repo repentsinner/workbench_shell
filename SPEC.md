@@ -910,153 +910,105 @@ any consumer.
 
 ## 10. Notification Center
 
-*Status: in progress*
+*Status: complete*
 
 Application events need non-blocking, non-modal user feedback
 for outcomes that do not warrant a dialog: file saved, profile
-imported, operation failed, background task finished. The
-current Flutter convention (`ScaffoldMessenger.showSnackBar`)
-renders a single full-width bar at the bottom of the window,
-blocks the status bar, uses severity-incorrect colours, and
-dismisses previous notifications on every new event — a burst
-of three events shows only the last one.
+imported, operation failed, background task finished. Flutter's
+`ScaffoldMessenger.showSnackBar` renders a single full-width
+bar at the bottom of the window, blocks the status bar, uses
+severity-incorrect colours, and dismisses previous events on
+every new one — a burst of three events shows only the last.
 
 `workbench_shell` owns a notification center modelled on VS
-Code's. Notifications render as stacked toast cards anchored to
-the bottom-right of the workbench. Newest notification appears
-at the bottom of the stack; older notifications shift upward as
-new ones arrive. Each card carries a severity icon, message,
-optional action buttons, and a close affordance. When two or
-more cards are present, a "Clear All" control appears above the
-stack.
+Code's: stacked toast cards anchored bottom-right, severity-keyed
+dismissal, an injected `NotificationService`, and a separate
+progress-controller API for long-running tasks.
 
-**Dismissal policy by severity**:
-
-- Info and success: auto-dismiss after 6 seconds unless the
-  pointer is hovering the card or the host window is unfocused.
-  Hover pauses the timer; leaving resumes it. The window-focus
-  pause prevents a card fired during a context switch from
-  ticking down invisibly while the operator is in another app.
-- Warning and error: remain until the operator dismisses them,
-  or the host invokes the programmatic dismiss API. VS Code
-  uses the same rule — problems that need acknowledgement must
-  not disappear on their own.
-- Progress: remains until the host's `complete()` or `fail()`
-  call resolves it, or until the operator cancels (cancellable
-  progress only). Progress is a separate API surface from
-  severity toasts — see *Progress notifications* below.
-
-**Why in `workbench_shell`**: the notification center is
-generic workbench chrome. A non-Rove application building on
-the shell needs the same stacked-toast affordance with the same
-severity semantics. The boundary test applies: no host-specific
-types cross the API.
+**Why in `workbench_shell`**: the notification center is generic
+workbench chrome. A non-Rove host building on the shell needs
+the same stacked-toast affordance with the same severity
+semantics. The boundary test applies: no host-specific types
+cross the API — `NotificationSeverity`, `String` message,
+optional `List<NotificationAction>` only.
 
 **Why an injected service, not a widget API**: hosts should not
-need to plumb `Overlay` or `GlobalKey`s. `NotificationService`
-is a shell-provided service; hosts mount a single
+plumb `Overlay` or `GlobalKey`s. `NotificationService` is a
+shell-provided `ChangeNotifier`; hosts mount a single
 `NotificationHost` widget inside `WorkbenchLayout` and call
-`context.read<NotificationService>().show(...)` from anywhere
-in the subtree. This mirrors `ScaffoldMessenger`'s ergonomics
-without requiring a `Scaffold`.
+`context.read<NotificationService>().show(...)` anywhere in the
+subtree. This mirrors `ScaffoldMessenger`'s ergonomics without
+requiring a `Scaffold`. The service extends `ChangeNotifier`
+because the host widget subscribes to it; descendant hosts that
+only call `show` get `ChangeNotifierProvider.value` plumbing
+without observable rebuilds.
 
 **Why a stack rather than a queue**: a burst of events (three
 file writes completing in quick succession) is not transient
-noise the operator wants hidden — each event is a distinct
-outcome the operator may need to see. Stacking preserves them;
-a queue would hide all but the current one and defeat the
-purpose of having a notification system at all.
+noise — each is a distinct outcome the operator may need to
+see. Stacking preserves them; a queue would hide all but the
+current event and defeat the system's purpose.
 
-**Theming**: `WorkbenchTheme` gains notification tokens — card
-background, border radius, severity-keyed icon and accent
-colours, action-button styles, close-button colour. No widget
-reads host domain palettes directly. The severity palette reuses
-existing `infoForeground`, `warningForeground`, `errorForeground`,
-`successForeground` tokens rather than introducing parallel
-ones.
+**Why separate `showProgress` from `show`**: progress has a
+controller-shaped lifecycle (mutable value, cancel affordance,
+terminal `complete`/`fail`) that doesn't fit the fire-and-forget
+shape of severity toasts. VS Code's `window.withProgress`
+separates them for the same reason; Apple's Live Activities
+split from `UNUserNotification` on the same boundary. Windows
+AppNotifications unifies them but recommends *replacing* on
+completion as a workaround for the unified shape. A separate
+controller keeps `show` trivial for the common case and gives
+progress callers exactly the affordances they need.
 
-**Boundary**: the service API accepts primitive types —
-`NotificationSeverity` enum, `String` message, optional
-`List<NotificationAction>` with label and callback. No domain
-types, no BLoCs. `workbench_shell`'s Flutter-only dependency
-footprint is preserved.
+**Dismissal policy by severity**:
+
+| Severity | Lifetime |
+|---|---|
+| `info`, `success` | Auto-dismiss after 6 s of uninterrupted, non-hover, window-focused time |
+| `warning`, `error` | Persist until operator or host dismisses |
+| `progress` | Persist until controller's `complete`/`fail` (or operator `cancel` on cancellable) |
+
+Hover and window-focus pauses prevent a card fired during a
+context switch from ticking down invisibly while the operator
+is in another app. The pause persists `AppLifecycleState.inactive`
+and `paused`; `resumed` resumes from the remaining duration.
+
+**Theming**: `WorkbenchTheme` carries notification tokens — card
+background, border, foreground, severity-keyed accent (reusing
+the existing `infoForeground`, `successForeground`, etc.
+tokens), action-button colours, progress track and fill. No
+widget reads host palettes directly.
 
 **Action invocation**: tapping a `NotificationAction` invokes
-its callback and dismisses the card. This matches VS Code: an
-action is a terminal interaction with the notification. A host
-that needs to keep state visible after an action runs calls
-`NotificationService.show(...)` from inside the callback to
-post a follow-up card. No "sticky action" flag — that complexity
-hasn't earned its place.
-
-**Progress notifications**: a separate API surface from severity
-toasts. The service exposes
-`showProgress({String message, bool cancellable})` returning a
-`NotificationProgressController` with:
-
-- `report({String? message, double? progress})` — push an
-  update. `progress` is 0.0–1.0 for determinate progress; omit
-  for indeterminate (spinner). Updates apply in-place; the card
-  does not re-stack on update.
-- `complete({String? successMessage})` — terminate successfully.
-  If `successMessage` is provided, the progress card converts to
-  a success toast bound by the standard 6-second dismissal rule;
-  otherwise the card disappears.
-- `fail(String errorMessage)` — terminate with failure. The
-  progress card converts to a persistent error toast so the
-  failure isn't silently lost.
-- `cancellation` — a `Future<void>` that completes when the
-  operator presses the cancel affordance (cancellable only).
-  The host observes this future and tears down its work; the
-  card persists until the host then calls `complete` or `fail`.
-
-Why a separate API: progress has a controller-shaped lifecycle
-(mutable value, cancel affordance, terminal `complete`/`fail`)
-that doesn't fit the fire-and-forget shape of severity toasts.
-VS Code's `window.withProgress` separates them for the same
-reason; Apple's Live Activities split from `UNUserNotification`
-on the same boundary. Windows AppNotifications unifies them but
-recommends *replacing* (not updating) on completion to handle
-layout changes — a workaround for the unified shape, not a
-feature. A separate controller keeps `NotificationService.show`
-trivial for the common case and gives progress callers exactly
-the affordances they need.
+its callback and dismisses the card in the same frame —
+terminal interaction matching VS Code. Hosts that want to keep
+state visible after an action post a follow-up card from inside
+the callback. No sticky-action flag.
 
 **Observable behavior**:
 
-- Calling `NotificationService.show(severity, message)` causes
-  a themed card to appear in the bottom-right within one frame.
-- A second `show` call while the first is visible causes both
-  to render, stacked vertically, with the second below the
-  first.
-- An info notification disappears automatically after 6 seconds
-  of uninterrupted non-hover time; an error notification
-  persists until the close button is tapped or `dismiss(id)` is
-  called.
-- Auto-dismiss timers pause when the host window loses focus
-  (`AppLifecycleState.inactive` or `paused`) and resume on
-  refocus, so a card fired during a context switch survives
-  until the operator returns. Persistent severities (warning,
-  error) and in-progress cards have no timer and are unaffected.
-- Tapping a `NotificationAction` runs its callback and dismisses
-  the card in the same frame.
+- `show(severity, message)` causes a themed card to appear
+  bottom-right within one frame. Successive calls stack
+  vertically, newest at the bottom.
+- Auto-dismiss timers pause on hover, on window-unfocus, or
+  while the operator has any card hovered. Persistent
+  severities and in-flight progress cards have no timer.
 - The notification stack renders above all workbench surfaces
   (sidebar, editor, bottom panel, status bar) but below
   platform modals (dialogs, menus).
-- When more than five cards would render simultaneously, the
-  oldest non-persistent cards collapse into a "+N more" summary
-  card at the top of the visible stack; tapping the summary
-  expands the hidden cards into a scrollable list. Persistent
-  cards (warning, error, in-progress) are never collapsed —
-  they fill the visible slots first and push transient cards
-  into the summary.
-- Calling `showProgress(...)` returns a controller; the
-  resulting card appears in the bottom-right and remains until
-  the controller's `complete` or `fail` is called. `report()`
-  updates the card's message and progress bar in place without
-  re-stacking. On `complete(successMessage:)` the card converts
-  to a 6-second success toast; on `fail(message)` it converts
-  to a persistent error toast.
+- More than five simultaneous cards collapse the oldest
+  non-persistent ones into a "+N more" summary at the top of
+  the visible stack; tapping expands the hidden cards into a
+  scrollable list. Persistent cards (warning, error, progress)
+  fill visible slots first and push transient cards into the
+  summary.
+- `showProgress(...)` returns a `NotificationProgressController`
+  whose `report` updates the live card in place (same id, no
+  re-stacking), `complete(successMessage:)` converts the card
+  to a 6-second success toast, `fail(message)` converts to a
+  persistent error toast, and `cancellation` resolves when the
+  operator presses the cancel affordance or the card is
+  dismissed externally.
 
 ---
 

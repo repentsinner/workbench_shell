@@ -1175,6 +1175,11 @@ extension WorkbenchThemeNotificationSeverity on WorkbenchTheme {
         return warningForeground;
       case NotificationSeverity.error:
         return errorForeground;
+      case NotificationSeverity.progress:
+        // Progress cards reuse the determinate progress bar's fill
+        // colour for their accent stripe so the stripe and the
+        // progress indicator inside the card visually agree.
+        return notificationProgressFill;
     }
   }
 }

@@ -76,6 +76,62 @@ void main() {
       await tester.pump();
       expect(service.notifications, isEmpty);
     });
+
+    testWidgets('card wraps content in a Material so message Text inherits a '
+        'DefaultTextStyle even without a host Material ancestor', (
+      tester,
+    ) async {
+      // Production mounts the host inside an Overlay-style chain
+      // (WorkbenchMenuBar > NotificationHost > WorkbenchLayout) with
+      // no Material above the card. Without an in-card Material the
+      // message Text renders with the debug "missing default text
+      // style" yellow double-underline. Deliberately omit Scaffold
+      // here so the regression surfaces if the wrapper is removed.
+      final service = NotificationService();
+      service.show(severity: NotificationSeverity.info, message: 'Saved.');
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Theme(
+            data: ThemeData.dark().copyWith(extensions: [testWorkbenchTheme]),
+            child: NotificationHost(service: service),
+          ),
+        ),
+      );
+      await tester.pump();
+      final textFinder = find.text('Saved.');
+      expect(textFinder, findsOneWidget);
+      expect(
+        find.ancestor(of: textFinder, matching: find.byType(Material)),
+        findsAtLeast(1),
+      );
+    });
+
+    testWidgets('bottomInset reserves space at the bottom so cards float above '
+        'the configured offset (e.g. a workbench status bar)', (tester) async {
+      const inset = 25.0;
+      const surfaceHeight = 600.0;
+      await tester.binding.setSurfaceSize(const Size(800, surfaceHeight));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final service = NotificationService();
+      service.show(severity: NotificationSeverity.info, message: 'Saved.');
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [testWorkbenchTheme]),
+          home: Scaffold(
+            body: NotificationHost(service: service, bottomInset: inset),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final cardBottom = tester.getBottomLeft(find.text('Saved.')).dy;
+      // The card's text bottom must sit at least `inset` pixels above
+      // the surface bottom; any value greater than `surfaceHeight -
+      // inset` means the card has eaten into the reserved region.
+      expect(cardBottom, lessThanOrEqualTo(surfaceHeight - inset));
+    });
   });
 
   group('NotificationHost auto-dismiss', () {
@@ -256,5 +312,138 @@ void main() {
         expect(find.text('i5'), findsOneWidget);
       },
     );
+  });
+
+  group('NotificationHost progress card', () {
+    testWidgets('determinate progress renders a LinearProgressIndicator', (
+      tester,
+    ) async {
+      final service = NotificationService();
+      service.showProgress(message: 'Saving file');
+      await tester.pumpWidget(_host(service));
+      await tester.pump();
+
+      expect(find.text('Saving file'), findsOneWidget);
+      // No cancel button by default.
+      expect(find.text('Cancel'), findsNothing);
+      // Indeterminate spinner (no progress value).
+      final indicator = tester.widget<LinearProgressIndicator>(
+        find.byType(LinearProgressIndicator),
+      );
+      expect(indicator.value, isNull);
+    });
+
+    testWidgets('determinate progress reflects the reported value', (
+      tester,
+    ) async {
+      final service = NotificationService();
+      final controller = service.showProgress(message: 'Saving');
+      await tester.pumpWidget(_host(service));
+      await tester.pump();
+
+      controller.report(progress: 0.42);
+      await tester.pump();
+
+      final indicator = tester.widget<LinearProgressIndicator>(
+        find.byType(LinearProgressIndicator),
+      );
+      expect(indicator.value, closeTo(0.42, 1e-9));
+    });
+
+    testWidgets('report updates apply in place without re-stacking', (
+      tester,
+    ) async {
+      final service = NotificationService();
+      final controller = service.showProgress(message: 'Saving');
+      await tester.pumpWidget(_host(service));
+      await tester.pump();
+
+      final firstCardCenter = tester.getCenter(find.text('Saving'));
+      controller.report(progress: 0.5, message: 'Saving 50%');
+      await tester.pump();
+
+      // The card stays at the same screen position — it did not get
+      // popped to the bottom of the stack as a fresh card.
+      expect(find.text('Saving'), findsNothing);
+      expect(find.text('Saving 50%'), findsOneWidget);
+      final updatedCenter = tester.getCenter(find.text('Saving 50%'));
+      expect(updatedCenter.dy, closeTo(firstCardCenter.dy, 0.5));
+    });
+
+    testWidgets('cancellable progress renders a cancel affordance', (
+      tester,
+    ) async {
+      final service = NotificationService();
+      service.showProgress(message: 'Saving', cancellable: true);
+      await tester.pumpWidget(_host(service));
+      await tester.pump();
+
+      expect(find.text('Cancel'), findsOneWidget);
+    });
+
+    testWidgets('tapping cancel resolves the cancellation future', (
+      tester,
+    ) async {
+      final service = NotificationService();
+      final controller = service.showProgress(
+        message: 'Saving',
+        cancellable: true,
+      );
+      var fired = false;
+      // ignore: unawaited_futures
+      controller.cancellation.then((_) => fired = true);
+
+      await tester.pumpWidget(_host(service));
+      await tester.pump();
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pump();
+
+      expect(fired, isTrue);
+      // The card persists — the host owns the terminal transition.
+      expect(service.notifications, hasLength(1));
+    });
+
+    testWidgets(
+      'complete(successMessage:) converts the card to a success toast that '
+      'auto-dismisses after 6 seconds',
+      (tester) async {
+        final service = NotificationService();
+        final controller = service.showProgress(message: 'Saving');
+        await tester.pumpWidget(_host(service));
+        await tester.pump();
+
+        controller.complete(successMessage: 'Saved');
+        await tester.pump();
+
+        expect(find.text('Saved'), findsOneWidget);
+        expect(find.byType(LinearProgressIndicator), findsNothing);
+
+        // 6-second budget — wait it out plus the scheduler tick.
+        await tester.pump(const Duration(seconds: 6, milliseconds: 500));
+        await tester.pump();
+        expect(service.notifications, isEmpty);
+      },
+    );
+
+    testWidgets('fail(message) converts the card to a persistent error toast', (
+      tester,
+    ) async {
+      final service = NotificationService();
+      final controller = service.showProgress(
+        message: 'Saving',
+        cancellable: true,
+      );
+      await tester.pumpWidget(_host(service));
+      await tester.pump();
+
+      controller.fail('Disk full');
+      await tester.pump();
+
+      expect(find.text('Disk full'), findsOneWidget);
+      // Persistent — wait well past the auto-dismiss budget.
+      await tester.pump(const Duration(seconds: 30));
+      expect(service.notifications, hasLength(1));
+    });
   });
 }

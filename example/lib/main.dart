@@ -334,6 +334,7 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                 tabs: scope.viewMenuTabs,
                 child: NotificationHost(
                   service: _notificationService,
+                  bottomInset: WorkbenchLayoutConstants.statusBarHeight,
                   child: WorkbenchLayout(
                     activityBarItems: _activityBarItems,
                     sidebarBuilder: _buildSidebar,
@@ -393,6 +394,19 @@ class _NotificationsDemoSidebar extends StatefulWidget {
 class _NotificationsDemoSidebarState extends State<_NotificationsDemoSidebar> {
   int _counter = 0;
 
+  /// Outstanding progress demos so cancel/cleanup can find them. Keyed
+  /// by the controller's notification id.
+  final Map<Object, _DemoProgressJob> _jobs = {};
+
+  @override
+  void dispose() {
+    for (final job in _jobs.values) {
+      job.dispose();
+    }
+    _jobs.clear();
+    super.dispose();
+  }
+
   void _show(NotificationSeverity severity, String message) {
     widget.service.show(severity: severity, message: '$message #${++_counter}');
   }
@@ -411,6 +425,42 @@ class _NotificationsDemoSidebarState extends State<_NotificationsDemoSidebar> {
     for (var i = 0; i < 5; i++) {
       _show(NotificationSeverity.info, 'Burst info');
     }
+  }
+
+  /// Determinate progress — ticks from 0 to 100 % over ~5 s, then
+  /// converts the card to a 6 s success toast via
+  /// `complete(successMessage:)`.
+  void _showDeterminateProgress() {
+    final controller = widget.service.showProgress(
+      message: 'Saving project file…',
+    );
+    final job = _DemoProgressJob(controller);
+    _jobs[controller.id] = job;
+    job.runDeterminate(onDone: () => _jobs.remove(controller.id));
+  }
+
+  /// Indeterminate progress — runs until the demo timer elapses or the
+  /// host's `dispose` cleans it up. Demonstrates the spinner variant.
+  void _showIndeterminateProgress() {
+    final controller = widget.service.showProgress(
+      message: 'Refreshing index…',
+    );
+    final job = _DemoProgressJob(controller);
+    _jobs[controller.id] = job;
+    job.runIndeterminate(onDone: () => _jobs.remove(controller.id));
+  }
+
+  /// Cancellable indeterminate progress. When the operator presses
+  /// Cancel, the demo observes the cancellation future and converts
+  /// the card to a persistent error toast via `fail`.
+  void _showCancellableProgress() {
+    final controller = widget.service.showProgress(
+      message: 'Long-running upload…',
+      cancellable: true,
+    );
+    final job = _DemoProgressJob(controller);
+    _jobs[controller.id] = job;
+    job.runCancellable(onDone: () => _jobs.remove(controller.id));
   }
 
   void _showWithAction() {
@@ -483,6 +533,20 @@ class _NotificationsDemoSidebarState extends State<_NotificationsDemoSidebar> {
           _DemoButton(label: 'Mix: warning + 5 info', onTap: _showOverflowMix),
           const SizedBox(height: WorkbenchLayoutConstants.spacingLg),
           _DemoButton(label: 'With action button', onTap: _showWithAction),
+          const SizedBox(height: WorkbenchLayoutConstants.spacingLg),
+          _DemoButton(
+            label: 'Progress: determinate (5 s → success)',
+            onTap: _showDeterminateProgress,
+          ),
+          _DemoButton(
+            label: 'Progress: indeterminate (4 s → success)',
+            onTap: _showIndeterminateProgress,
+          ),
+          _DemoButton(
+            label: 'Progress: cancellable (cancel → error)',
+            onTap: _showCancellableProgress,
+          ),
+          const SizedBox(height: WorkbenchLayoutConstants.spacingLg),
           _DemoButton(label: 'Clear all', onTap: widget.service.clear),
         ],
       ),
@@ -889,5 +953,75 @@ class _OutputCounterBodyState extends State<_OutputCounterBody> {
         ],
       ),
     );
+  }
+}
+
+/// Bookkeeping for an in-flight notification progress demo. Owns a
+/// timer plus subscriptions so the sidebar can clean up if the
+/// operator hits Clear All or navigates away mid-run.
+class _DemoProgressJob {
+  _DemoProgressJob(this.controller);
+
+  final NotificationProgressController controller;
+  Timer? _timer;
+
+  /// Tick from 0 to 100 % over ~5 s, then complete with a success
+  /// message.
+  void runDeterminate({required VoidCallback onDone}) {
+    var step = 0;
+    const total = 20;
+    _timer = Timer.periodic(const Duration(milliseconds: 250), (timer) {
+      if (!controller.isActive) {
+        timer.cancel();
+        onDone();
+        return;
+      }
+      step += 1;
+      final value = step / total;
+      controller.report(
+        progress: value,
+        message: 'Saving project file… ${(value * 100).round()} %',
+      );
+      if (step >= total) {
+        timer.cancel();
+        controller.complete(successMessage: 'Project file saved.');
+        onDone();
+      }
+    });
+  }
+
+  /// Indeterminate spinner for ~4 s, then complete with a success
+  /// message.
+  void runIndeterminate({required VoidCallback onDone}) {
+    _timer = Timer(const Duration(seconds: 4), () {
+      if (!controller.isActive) {
+        onDone();
+        return;
+      }
+      controller.complete(successMessage: 'Index refreshed.');
+      onDone();
+    });
+  }
+
+  /// Cancellable indeterminate job — waits for the operator to press
+  /// Cancel. On cancel, terminates with a persistent error toast so
+  /// the failure is visible.
+  void runCancellable({required VoidCallback onDone}) {
+    controller.cancellation.then((_) {
+      if (!controller.isActive) {
+        onDone();
+        return;
+      }
+      controller.fail('Upload cancelled.');
+      onDone();
+    });
+  }
+
+  void dispose() {
+    _timer?.cancel();
+    _timer = null;
+    if (controller.isActive) {
+      controller.complete();
+    }
   }
 }

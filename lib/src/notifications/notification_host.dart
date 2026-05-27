@@ -41,7 +41,20 @@ class NotificationHost extends StatefulWidget {
   /// Typically the workbench layout itself.
   final Widget? child;
 
-  const NotificationHost({super.key, required this.service, this.child});
+  /// Pixels reserved at the bottom edge before the card stack begins.
+  /// Callers that wrap the host around content containing a status bar
+  /// (e.g. a workbench layout) should pass the status bar's height so
+  /// cards float above it instead of occluding it. Stacks with the
+  /// standard [WorkbenchLayoutConstants.notificationStackInset] applied
+  /// on top of this reservation.
+  final double bottomInset;
+
+  const NotificationHost({
+    super.key,
+    required this.service,
+    this.child,
+    this.bottomInset = 0,
+  });
 
   @override
   State<NotificationHost> createState() => _NotificationHostState();
@@ -220,7 +233,9 @@ class _NotificationHostState extends State<NotificationHost>
         if (widget.child != null) Positioned.fill(child: widget.child!),
         Positioned(
           right: WorkbenchLayoutConstants.notificationStackInset,
-          bottom: WorkbenchLayoutConstants.notificationStackInset,
+          bottom:
+              widget.bottomInset +
+              WorkbenchLayoutConstants.notificationStackInset,
           child: overlay,
         ),
       ],
@@ -396,6 +411,9 @@ class _NotificationOverlay extends StatelessWidget {
               theme: theme,
               onDismiss: () => service.dismiss(visible[i].id),
               onHoverChanged: (h) => onHoverChanged(visible[i].id, h),
+              onCancelProgress: visible[i].cancellable
+                  ? () => service.progressControllerFor(visible[i].id)?.cancel()
+                  : null,
             ),
             if (i != visible.length - 1)
               const SizedBox(
@@ -545,6 +563,11 @@ class _SummaryCard extends StatelessWidget {
                           // run timers — they are already past the
                           // visible budget. Hover-pause is irrelevant.
                         },
+                        onCancelProgress: overflow[i].cancellable
+                            ? () => service
+                                  .progressControllerFor(overflow[i].id)
+                                  ?.cancel()
+                            : null,
                       ),
                       if (i != overflow.length - 1)
                         const SizedBox(
@@ -570,11 +593,17 @@ class _NotificationCard extends StatelessWidget {
   final VoidCallback onDismiss;
   final ValueChanged<bool> onHoverChanged;
 
+  /// Invoked when the operator presses the progress card's cancel
+  /// affordance. Null disables the affordance (non-progress cards or
+  /// non-cancellable progress).
+  final VoidCallback? onCancelProgress;
+
   const _NotificationCard({
     required this.notification,
     required this.theme,
     required this.onDismiss,
     required this.onHoverChanged,
+    this.onCancelProgress,
   });
 
   IconData _iconFor(NotificationSeverity severity) {
@@ -587,6 +616,11 @@ class _NotificationCard extends StatelessWidget {
         return Symbols.warning_rounded;
       case NotificationSeverity.error:
         return Symbols.error_rounded;
+      case NotificationSeverity.progress:
+        // Progress cards render the indicator (determinate bar or
+        // indeterminate spinner) inside the card body; the header
+        // icon doubles as a "working" affordance.
+        return Symbols.sync_rounded;
     }
   }
 
@@ -597,105 +631,144 @@ class _NotificationCard extends StatelessWidget {
     // the rounded card. Flutter forbids mixing a non-uniform Border
     // with borderRadius, so the stripe is a sibling Positioned widget
     // rather than a fourth BorderSide.
-    return MouseRegion(
-      onEnter: (_) => onHoverChanged(true),
-      onExit: (_) => onHoverChanged(false),
-      child: ClipRRect(
-        borderRadius: WorkbenchLayoutConstants.notificationCardRadius,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: theme.notificationBackground,
-            borderRadius: WorkbenchLayoutConstants.notificationCardRadius,
-            border: Border.all(color: theme.notificationBorder),
-          ),
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Severity accent stripe — fills the card's full height
-                // even though the content column drives the intrinsic
-                // size.
-                SizedBox(width: 3, child: ColoredBox(color: severityColor)),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                      WorkbenchLayoutConstants.spacingMd,
-                      WorkbenchLayoutConstants.spacingSm,
-                      WorkbenchLayoutConstants.spacingSm,
-                      WorkbenchLayoutConstants.spacingSm,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(
-                              _iconFor(notification.severity),
-                              color: severityColor,
-                              size: WorkbenchLayoutConstants.iconMd,
-                            ),
-                            const SizedBox(
-                              width: WorkbenchLayoutConstants.spacingSm,
-                            ),
-                            Expanded(
-                              child: Padding(
-                                // Match the icon's optical baseline so
-                                // the message text sits next to the
-                                // glyph rather than against the top of
-                                // the icon box.
-                                padding: const EdgeInsets.only(top: 1),
-                                child: Text(
-                                  notification.message,
-                                  style: theme.bodyText.copyWith(
-                                    color: theme.notificationForeground,
+    //
+    // Material ancestor: the card lives inside an Overlay-style Stack
+    // with no Material in the parent chain, so descendant Text widgets
+    // would render with the debug "missing default text style" yellow
+    // double-underline. A transparent Material restores DefaultTextStyle
+    // without contributing its own visual chrome.
+    return Material(
+      type: MaterialType.transparency,
+      child: MouseRegion(
+        onEnter: (_) => onHoverChanged(true),
+        onExit: (_) => onHoverChanged(false),
+        child: ClipRRect(
+          borderRadius: WorkbenchLayoutConstants.notificationCardRadius,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: theme.notificationBackground,
+              borderRadius: WorkbenchLayoutConstants.notificationCardRadius,
+              border: Border.all(color: theme.notificationBorder),
+            ),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Severity accent stripe — fills the card's full height
+                  // even though the content column drives the intrinsic
+                  // size.
+                  SizedBox(width: 3, child: ColoredBox(color: severityColor)),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        WorkbenchLayoutConstants.spacingMd,
+                        WorkbenchLayoutConstants.spacingSm,
+                        WorkbenchLayoutConstants.spacingSm,
+                        WorkbenchLayoutConstants.spacingSm,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                _iconFor(notification.severity),
+                                color: severityColor,
+                                size: WorkbenchLayoutConstants.iconMd,
+                              ),
+                              const SizedBox(
+                                width: WorkbenchLayoutConstants.spacingSm,
+                              ),
+                              Expanded(
+                                child: Padding(
+                                  // Match the icon's optical baseline so
+                                  // the message text sits next to the
+                                  // glyph rather than against the top of
+                                  // the icon box.
+                                  padding: const EdgeInsets.only(top: 1),
+                                  child: Text(
+                                    notification.message,
+                                    style: theme.bodyText.copyWith(
+                                      color: theme.notificationForeground,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
+                              const SizedBox(
+                                width: WorkbenchLayoutConstants.spacingSm,
+                              ),
+                              _CloseButton(
+                                color: theme.notificationCloseForeground,
+                                onTap: onDismiss,
+                              ),
+                            ],
+                          ),
+                          if (notification.severity ==
+                              NotificationSeverity.progress) ...[
                             const SizedBox(
-                              width: WorkbenchLayoutConstants.spacingSm,
+                              height: WorkbenchLayoutConstants.spacingSm,
                             ),
-                            _CloseButton(
-                              color: theme.notificationCloseForeground,
-                              onTap: onDismiss,
+                            _ProgressIndicatorRow(
+                              value: notification.progress,
+                              theme: theme,
+                            ),
+                            if (onCancelProgress != null) ...[
+                              const SizedBox(
+                                height: WorkbenchLayoutConstants.spacingSm,
+                              ),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: _ActionButton(
+                                  action: NotificationAction(
+                                    label: 'Cancel',
+                                    onInvoke: onCancelProgress!,
+                                  ),
+                                  theme: theme,
+                                  // Cancel must not dismiss the card —
+                                  // the host owns the terminal transition
+                                  // via complete()/fail(). Invoke the
+                                  // host callback only.
+                                  onInvoke: onCancelProgress!,
+                                ),
+                              ),
+                            ],
+                          ],
+                          if (notification.actions.isNotEmpty) ...[
+                            const SizedBox(
+                              height: WorkbenchLayoutConstants.spacingSm,
+                            ),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: Wrap(
+                                spacing: WorkbenchLayoutConstants.spacingSm,
+                                runSpacing: WorkbenchLayoutConstants.spacingXs,
+                                children: [
+                                  for (final action in notification.actions)
+                                    _ActionButton(
+                                      action: action,
+                                      theme: theme,
+                                      onInvoke: () {
+                                        // Run host callback first, then
+                                        // dismiss synchronously in the
+                                        // same frame so the operator
+                                        // sees the card vanish as the
+                                        // action completes (SPEC §10).
+                                        action.onInvoke();
+                                        onDismiss();
+                                      },
+                                    ),
+                                ],
+                              ),
                             ),
                           ],
-                        ),
-                        if (notification.actions.isNotEmpty) ...[
-                          const SizedBox(
-                            height: WorkbenchLayoutConstants.spacingSm,
-                          ),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: Wrap(
-                              spacing: WorkbenchLayoutConstants.spacingSm,
-                              runSpacing: WorkbenchLayoutConstants.spacingXs,
-                              children: [
-                                for (final action in notification.actions)
-                                  _ActionButton(
-                                    action: action,
-                                    theme: theme,
-                                    onInvoke: () {
-                                      // Run host callback first, then
-                                      // dismiss synchronously in the
-                                      // same frame so the operator
-                                      // sees the card vanish as the
-                                      // action completes (SPEC §10).
-                                      action.onInvoke();
-                                      onDismiss();
-                                    },
-                                  ),
-                              ],
-                            ),
-                          ),
                         ],
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -759,6 +832,38 @@ class _ActionButton extends StatelessWidget {
             style: theme.buttonTextStyle.copyWith(
               color: theme.notificationActionForeground,
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Progress indicator inside a `NotificationSeverity.progress` card.
+/// Renders a [LinearProgressIndicator] driven by [value] — determinate
+/// when [value] is non-null, indeterminate otherwise. Theme tokens
+/// come from `notificationProgressTrack`/`notificationProgressFill`
+/// so the indicator stays consistent with workbench progress chrome.
+class _ProgressIndicatorRow extends StatelessWidget {
+  final double? value;
+  final WorkbenchTheme theme;
+
+  const _ProgressIndicatorRow({required this.value, required this.theme});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(
+        WorkbenchLayoutConstants.notificationProgressBarHeight / 2,
+      ),
+      child: SizedBox(
+        height: WorkbenchLayoutConstants.notificationProgressBarHeight,
+        child: LinearProgressIndicator(
+          value: value,
+          minHeight: WorkbenchLayoutConstants.notificationProgressBarHeight,
+          backgroundColor: theme.notificationProgressTrack,
+          valueColor: AlwaysStoppedAnimation<Color>(
+            theme.notificationProgressFill,
           ),
         ),
       ),

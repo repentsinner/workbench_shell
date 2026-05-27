@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'notification.dart';
+import 'notification_progress_controller.dart';
 
 /// Workbench-level notification service.
 ///
@@ -15,6 +16,8 @@ import 'notification.dart';
 /// See package SPEC §10 for design rationale.
 class NotificationService extends ChangeNotifier {
   final List<WorkbenchNotification> _notifications = <WorkbenchNotification>[];
+  final Map<Object, NotificationProgressController> _progressControllers =
+      <Object, NotificationProgressController>{};
   int _nextId = 0;
 
   /// Source of [DateTime.now] for the `createdAt` field. Injectable
@@ -56,6 +59,41 @@ class NotificationService extends ChangeNotifier {
     return id;
   }
 
+  /// Post an in-flight progress notification.
+  ///
+  /// Returns a [NotificationProgressController] the host uses to
+  /// [NotificationProgressController.report] updates,
+  /// [NotificationProgressController.complete] the task successfully,
+  /// or [NotificationProgressController.fail] with an error. When
+  /// [cancellable] is `true`, the card renders a cancel affordance
+  /// that resolves [NotificationProgressController.cancellation].
+  ///
+  /// The progress card persists until the controller terminates — it
+  /// is exempt from the standard auto-dismiss timer (SPEC §10
+  /// "Dismissal policy by severity").
+  NotificationProgressController showProgress({
+    required String message,
+    bool cancellable = false,
+  }) {
+    final id = _mintId();
+    final notification = WorkbenchNotification(
+      id: id,
+      severity: NotificationSeverity.progress,
+      message: message,
+      createdAt: _now(),
+      cancellable: cancellable,
+    );
+    _notifications.add(notification);
+    final controller = NotificationProgressController(
+      id: id,
+      service: this,
+      cancellable: cancellable,
+    );
+    _progressControllers[id] = controller;
+    notifyListeners();
+    return controller;
+  }
+
   /// Dismiss the notification with [id], if present.
   ///
   /// No-op when [id] does not match any live notification — callers
@@ -65,6 +103,8 @@ class NotificationService extends ChangeNotifier {
   void dismiss(Object id) {
     final removed = _notifications.length;
     _notifications.removeWhere((n) => n.id == id);
+    final controller = _progressControllers.remove(id);
+    controller?.onExternalDismiss();
     if (_notifications.length != removed) {
       notifyListeners();
     }
@@ -75,6 +115,67 @@ class NotificationService extends ChangeNotifier {
   void clear() {
     if (_notifications.isEmpty) return;
     _notifications.clear();
+    final controllers = _progressControllers.values.toList(growable: false);
+    _progressControllers.clear();
+    for (final controller in controllers) {
+      controller.onExternalDismiss();
+    }
+    notifyListeners();
+  }
+
+  /// Returns the live [NotificationProgressController] for [id], if
+  /// the notification still carries one. The host widget uses this to
+  /// wire the cancel affordance back to the controller without
+  /// threading callbacks through the [WorkbenchNotification] value
+  /// type.
+  NotificationProgressController? progressControllerFor(Object id) =>
+      _progressControllers[id];
+
+  /// Internal — update the message/progress of a live progress
+  /// notification in place. Used by
+  /// [NotificationProgressController.report]. The notification's [id]
+  /// and `createdAt` are preserved so the host widget updates without
+  /// re-stacking.
+  void updateProgress({
+    required Object id,
+    String? message,
+    double? progress,
+    required bool clearProgress,
+  }) {
+    final index = _notifications.indexWhere((n) => n.id == id);
+    if (index == -1) return;
+    final current = _notifications[index];
+    final next = current.copyWith(
+      message: message,
+      progress: clearProgress ? null : (progress ?? current.progress),
+    );
+    if (next == current) return;
+    _notifications[index] = next;
+    notifyListeners();
+  }
+
+  /// Internal — convert a live progress notification to a terminal
+  /// severity (success or error) in place. Used by
+  /// [NotificationProgressController.complete] and
+  /// [NotificationProgressController.fail].
+  void replaceSeverity({
+    required Object id,
+    required NotificationSeverity severity,
+    required String message,
+  }) {
+    final index = _notifications.indexWhere((n) => n.id == id);
+    if (index == -1) {
+      _progressControllers.remove(id);
+      return;
+    }
+    final current = _notifications[index];
+    _notifications[index] = current.copyWith(
+      severity: severity,
+      message: message,
+      progress: null,
+      cancellable: false,
+    );
+    _progressControllers.remove(id);
     notifyListeners();
   }
 

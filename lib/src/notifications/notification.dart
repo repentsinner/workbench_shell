@@ -4,8 +4,9 @@ import 'package:flutter/foundation.dart';
 /// Severity for a [Notification].
 ///
 /// Drives the card's icon, accent colour, and dismissal policy. Info
-/// and success auto-dismiss after a short interval; warning and error
-/// persist until the operator dismisses them (SPEC §10).
+/// and success auto-dismiss after a short interval; warning, error,
+/// and in-flight progress cards persist until manually or
+/// programmatically dismissed (SPEC §10).
 enum NotificationSeverity {
   /// Neutral informational notice. Auto-dismisses.
   info,
@@ -20,16 +21,22 @@ enum NotificationSeverity {
   /// Failure condition the operator must acknowledge. Persists until
   /// dismissed.
   error,
+
+  /// In-flight task tracked by a [NotificationProgressController].
+  /// Persists until the host's `complete` or `fail` call resolves it.
+  progress,
 }
 
 /// Convenience predicate for the persistence rule (SPEC §10
-/// "Dismissal policy by severity"). Warning and error cards stay
-/// until the operator dismisses them; info and success auto-dismiss.
+/// "Dismissal policy by severity"). Warning, error, and progress
+/// cards stay until manually or programmatically dismissed; info and
+/// success auto-dismiss.
 extension NotificationSeverityPersistence on NotificationSeverity {
   /// Whether this severity persists until manually dismissed.
   bool get persists =>
       this == NotificationSeverity.warning ||
-      this == NotificationSeverity.error;
+      this == NotificationSeverity.error ||
+      this == NotificationSeverity.progress;
 }
 
 /// A button rendered inside a notification card.
@@ -56,10 +63,12 @@ class NotificationAction extends Equatable {
 /// A live notification managed by [NotificationService].
 ///
 /// Identity is the opaque [id] minted by the service; hosts use it to
-/// dismiss programmatically. Cards never mutate after creation — a
-/// host that wants to update a message posts a new notification (the
-/// progress card API, defined in a later workstream, supplies the
-/// mutable surface).
+/// dismiss programmatically. Most cards never mutate after creation —
+/// a host that wants to update a message posts a new notification.
+/// Progress cards are the exception: `report`, `complete`, and `fail`
+/// on a [NotificationProgressController] replace the live card under
+/// the same [id] in place so the host widget can update without
+/// re-stacking.
 ///
 /// Named `WorkbenchNotification` rather than `Notification` to avoid
 /// colliding with Flutter's framework `Notification` class (the
@@ -88,14 +97,60 @@ class WorkbenchNotification extends Equatable {
   /// widget for stable ordering (newest at the bottom of the stack).
   final DateTime createdAt;
 
+  /// Progress value in `[0.0, 1.0]` for a determinate progress
+  /// notification, or `null` for indeterminate (spinner). Always
+  /// `null` for non-`progress` severities.
+  final double? progress;
+
+  /// Whether a `progress` notification renders a cancel affordance.
+  /// Always `false` for non-`progress` severities.
+  final bool cancellable;
+
   const WorkbenchNotification({
     required this.id,
     required this.severity,
     required this.message,
     required this.createdAt,
     this.actions = const [],
+    this.progress,
+    this.cancellable = false,
   });
 
+  /// Return a copy with selected fields replaced. Used by the
+  /// progress controller to mutate the live card in place without
+  /// breaking the immutable value contract.
+  WorkbenchNotification copyWith({
+    NotificationSeverity? severity,
+    String? message,
+    List<NotificationAction>? actions,
+    Object? progress = _sentinel,
+    bool? cancellable,
+  }) {
+    return WorkbenchNotification(
+      id: id,
+      severity: severity ?? this.severity,
+      message: message ?? this.message,
+      actions: actions ?? this.actions,
+      createdAt: createdAt,
+      progress: identical(progress, _sentinel)
+          ? this.progress
+          : progress as double?,
+      cancellable: cancellable ?? this.cancellable,
+    );
+  }
+
   @override
-  List<Object?> get props => [id, severity, message, actions, createdAt];
+  List<Object?> get props => [
+    id,
+    severity,
+    message,
+    actions,
+    createdAt,
+    progress,
+    cancellable,
+  ];
 }
+
+/// Sentinel so [WorkbenchNotification.copyWith] can distinguish
+/// "leave progress unchanged" from "clear progress to null".
+const Object _sentinel = Object();
