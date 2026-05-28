@@ -1163,6 +1163,143 @@ change.
 depend on `workbench_shell`. A third package for a handful of
 constants adds overhead with no new information.
 
+### 8.1 Layout Constants Canon §spec:layout-constants-canon
+
+*Status: not started*
+
+`WorkbenchLayoutConstants` (§8) mirrors VS Code's per-part
+geometry literals — both the values defined in workbench CSS
+(`part.css`, `statusbarpart.css`, `activitybarpart.css`) and the
+constants registered in TypeScript (`sidebarPart.ts`,
+`panelPart.ts`, `notificationsToasts.ts`, `baseSizes.ts`). Each
+constant whose purpose maps cleanly onto a VS Code part takes
+the value of its upstream literal. Slots without an upstream
+peer (default sizes that VS Code persists per user, package-
+local spacing and icon scales) keep their workbench_shell-chosen
+value with rationale recorded here.
+
+**Why typography canon (§7.6) is not enough.** §7.6 pinned font
+families and per-token sizes to VS Code's CSS, but did not touch
+container heights, widths, or padding scales. A 25px status bar
+against VS Code's 22px and a 200px sidebar minimum against VS
+Code's 170 produce the same "looks IDE-adjacent, not IDE-
+canonical" failure mode that §3 exists to remove. The fix is
+the same shape as §7.6: source-cite each value; leave drift no
+place to hide.
+
+**Canonical source table**:
+
+| Constant | Value | VS Code source |
+|---|---|---|
+| `activityBarWidth` | 48 | [`activitybarpart.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/activitybar/media/activitybarpart.css) — `width: 48px` |
+| `activityBarIndicatorWidth` | 2 | activity bar item left-border indicator (same file) |
+| `sidebarHeadingHeight` | 35 | [`part.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/media/part.css) — `.part > .title { height: 35px }` |
+| `panelTabStripHeight` | 35 | shared `.part > .title` (same file) |
+| `statusBarHeight` | 22 | [`statusbarpart.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/statusbar/media/statusbarpart.css) — `height: 22px`. Cross-confirmed by inline comment in `notificationsToasts.css`: `bottom: 25px; /* 22px status bar height + 3px */` |
+| `sidebarMinWidth` | 170 | [`sidebarPart.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/sidebar/sidebarPart.ts) — `readonly minimumWidth: number = 170` |
+| `panelMinHeight` | 77 | [`panelPart.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/panel/panelPart.ts) — `readonly minimumHeight: number = 77` |
+| `notificationCardWidth` | 450 | [`notificationsToasts.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/notifications/notificationsToasts.ts) — `private static readonly MAX_WIDTH = 450` |
+| `containerRadius` | 4 | [`baseSizes.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/platform/theme/common/sizes/baseSizes.ts) — `cornerRadius.small = 4px` |
+| `notificationCardRadius` | 4 | same as `containerRadius` (`cornerRadius.small`) |
+
+**Constants without a VS Code peer.** Some
+`WorkbenchLayoutConstants` slots intentionally diverge because
+VS Code resolves them at runtime (user-preference persistence,
+dynamic max bounded by workspace size, grid-sash machinery)
+rather than declaring a literal. The package picks a static
+default and records the rationale:
+
+| Constant | Value | Why no peer | Rationale |
+|---|---|---|---|
+| `sidebarDefaultWidth` | 300 | VS Code persists last user width | Common starting point that fits an Explorer-plus-OUTLINE column without truncation on a 1440-wide screen |
+| `panelDefaultHeight` | 200 | VS Code persists last user height | Tall enough to show a useful number of log lines without dominating the editor area |
+| `panelMaxHeight` | 400 | VS Code allows dynamic max bounded by editor area | Static cap keeps the shell from re-implementing VS Code's layout-service min/max negotiation; consumers that need taller panels override at the layout call site |
+| `sidebarMaxWidth` | 600 | VS Code caps at ~75% of window width dynamically | Same reasoning as `panelMaxHeight` |
+| `splitterWidth` | 2 | VS Code's grid sash uses a separate hit-target / visible-line split; no single CSS literal | Matches the visible-line width VS Code's sash renders by default |
+| Spacing scale (`spacingXxs` … `spacingXl`) | 2 / 4 / 6 / 8 / 12 / 16 / 24 | VS Code uses ad-hoc paddings throughout; no shared scale | Package-internal consistency so primitives (`WorkbenchSection`, `WorkbenchCard`) compose without hardcoded paddings at call sites |
+| Icon sizes (`iconXs`, `iconSm`, `iconMd`, `iconLg`, `iconXl`, `iconXxl`, `iconActivityBar`) | 12 / 14 / 16 / 18 / 20 / 32 / 24 | VS Code uses 16 for most codicons (`codiconFontSize` in `baseSizes.ts`), 12 for compact (`codiconFontSize.compact`) | Provides a scale around VS Code's 16 default for surfaces (close affordances, status indicators) where a single fixed icon size doesn't fit |
+| `notificationProgressBarHeight` | 4 | not surfaced within search scope of VS Code source | Matches the visible progress bar height VS Code renders |
+
+**Panel tab strip: coalesce the split.** The existing
+`panelTabStripPaddingY` (6) + `panelTabStripHeight` (22) +
+trailing padding (6) totalling 34px is a within-1px
+approximation of VS Code's 35px `.part > .title`. The internal
+three-constant split is workbench_shell's invention; VS Code
+lays the tab strip inside a single 35px container and centres
+its children with flex. The canon pass coalesces the three
+constants into one `panelTabStripHeight = 35` and lets
+`WorkbenchTabbedPanel`'s existing `Row` flex-align its children,
+matching VS Code's construction and removing the awkward
+"three constants for one dimension" surface from the public API.
+
+**Container radius: keep as constant, document the upstream.**
+`containerRadius` already matches VS Code's
+`cornerRadius.small = 4`. VS Code resolves it through a CSS
+custom property (`var(--vscode-cornerRadius-small)`) registered
+via `baseSizes.ts` — theoretically theme-overridable, but every
+shipped VS Code theme uses the same value (the registration uses
+`sizeForAllThemes(4, 'px')`, which the registration helper
+enforces as constant across themes). The package keeps the value
+as a constant; §8's "no runtime resolution for never-changing
+values" rationale stands. If a future VS Code release introduces
+per-theme overrides, the constant migrates to `WorkbenchTheme`
+as a token.
+
+**Rejected — keeping the existing values for "visual comfort".**
+Earlier defenses of the 25 / 200 / 100 / 360 deltas argued each
+one gives a more spacious feel than VS Code's tighter literals.
+The case fails on the same grounds as the typography canon:
+"workbench_shell as a more spacious VS Code" is a position the
+package has nowhere claimed and that consumers do not expect;
+under §3, matching VS Code's IDE-canonical density is the goal.
+
+**Rejected — making layout constants theme-driven.** Moving
+geometry onto `WorkbenchTheme` would let chrome themes ship
+their own status bar height or sidebar minimum. VS Code itself
+does not expose these as per-theme tokens (the values live in
+CSS and TS constants, not theme JSON), so the indirection would
+add no expressive power and would split the geometry surface
+between two ownership boundaries.
+
+**Tradeoffs accepted**.
+
+- *Breaking change for hosts laying out around the previous
+  status bar / sidebar / panel / notification widths.* Hosts
+  that pinned tooltips or computed offsets against the old 25px
+  status bar see a 3px shift; hosts that bounded their sidebar
+  content above 170px assumed a wider minimum. Acceptable while
+  the package is pre-1.0; one `[Unreleased]` CHANGELOG entry
+  under Changed covers the lot.
+- *Notification cards widen from 360 to 450.* On narrow window
+  widths (≤ 800px) the toast may push closer to the centre of
+  the screen than the old 360 did. The change matches VS Code's
+  own observable layout; consumers that need narrower toasts for
+  product-specific reasons re-pin via a future
+  `notificationCardWidth` override (not introduced in this
+  workstream — the canon value covers the known consumers).
+- *Three-constant panel tab strip split collapses into one.*
+  Any host that read `panelTabStripPaddingY` directly needs to
+  drop the reference. None do in the current workspace; the
+  removal ships in the same release as the rest of the canon
+  pass.
+
+**Observable behavior**.
+
+- The status bar renders at 22px (one row of `12 / w400` text
+  with VS Code's line-height). Side-by-side with VS Code, the
+  status bar height matches to the pixel.
+- The sidebar collapses to 170px when dragged to its minimum,
+  matching VS Code's collapse floor.
+- The bottom panel collapses to 77px at minimum, matching VS
+  Code's panel floor.
+- Notification toasts render 450px wide on every shipped theme,
+  matching VS Code's `MAX_WIDTH`.
+- Panel tab strip and sidebar heading both render in a 35px
+  container (one shared constant, not three split constants).
+- The bundled example app and `rove` render at the same pixel
+  measurements as VS Code for every chrome part with a canonical
+  upstream value.
+
 ---
 
 ## 9. UI Extension Slots
