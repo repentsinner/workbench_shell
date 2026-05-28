@@ -122,13 +122,16 @@ than a widget escape hatch. This invariant prevents
 cross-consumer drift — the failure mode that `workbench_shell`
 exists to remove (§1).
 
-The precedent is in the codebase: `WorkbenchSection` and
-`WorkbenchSubsection` headings render uppercase regardless of how
-the consumer cases the input string; `WorkbenchTabbedPanel` does
+The precedent is in the codebase: `WorkbenchSection` titles render
+uppercase regardless of how the consumer cases the input string,
+matching VS Code's pane header (§7.6); `WorkbenchTabbedPanel` does
 the same for tab labels and renders the inline count badge from
 a typed `PanelTabBadge` payload, painting the pill in VS Code's
-generic badge accent (`badge.background`). Every new chrome
-surface follows the same model.
+generic badge accent (`badge.background`). `WorkbenchSubsection`
+titles stay sentence-case — VS Code's sidebar-internal
+sub-grouping (settings categories and similar) is sentence-case,
+and an uppercase claim there would overclaim relative to the
+canon. Every new chrome surface follows the same model.
 
 ---
 
@@ -156,8 +159,8 @@ primitives exist to prevent.
 
 | Widget | Purpose |
 |---|---|
-| `WorkbenchSection` | Top-level section in a sidebar or panel body with title typography and padding |
-| `WorkbenchSubsection` | Nested section with smaller title typography |
+| `WorkbenchSection` | Top-level section in a sidebar or panel body. Title renders uppercase per §7.6 (VS Code pane-header canon), padded for section framing |
+| `WorkbenchSubsection` | Nested section with smaller, sentence-case title typography |
 | `WorkbenchCard` | Bordered container; the atom of sidebar content |
 | `WorkbenchToggleCard` | Card with a leading toggle and expand/collapse |
 | `WorkbenchEmptyState` | Canonical empty-state with icon, title, optional action |
@@ -868,6 +871,278 @@ near the widget tree root, so the dependency is satisfied in practice
 for every consumer; tests pass an explicit `PlatformDispatcher` (the
 binding's, with `platformBrightnessTestValue` overrides) so the
 subscription path is exercised deterministically.
+
+### 7.6 Chrome Typography Canon §spec:chrome-typography-canon
+
+*Status: not started*
+
+`workbench_shell`'s chrome typography — sidebar part titles, panel
+tab labels, status bar items, body text, buttons, badges, structural
+primitives — mirrors VS Code's workbench CSS literals. Both the
+family rules and the per-surface point sizes follow the upstream
+stylesheets, so a host running on the platform's default UI font
+renders chrome at the same density VS Code does with no per-call-site
+adjustment.
+
+**Why typography belongs in the §3 canon.** The package already
+enforces font-related canons elsewhere (uppercase tab labels in §5.2,
+text-only tab strip in §3). Typography drift is exactly the failure
+mode `workbench_shell` exists to remove — one sidebar's heading
+rendering at 13pt, the next at 14pt, neither matching VS Code
+itself. Pinning typography to VS Code's CSS literals at the theme
+construction layer removes the per-host tuning step that made drift
+inevitable. The package owned family *names* and per-token sizes,
+but did not anchor either to VS Code's actual values; consumers
+that brought a font asset (Rove with `google_fonts.inconsolataTextTheme`)
+got narrower glyphs that visually compressed the oversized sizes
+back toward VS Code's apparent density, while consumers without
+that asset (the bundled example app, future pub.dev hosts) rendered
+chrome a point or more larger than VS Code on the same surface.
+
+**Family rule: platform UI sans.** Chrome `fontFamily` defaults to
+`null`. Flutter then resolves to the platform's default UI font,
+matching VS Code's own rules in
+[`src/vs/workbench/browser/media/style.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/media/style.css):
+
+```css
+.monaco-workbench.mac     { font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+.monaco-workbench.windows { font-family: "Segoe WPC", "Segoe UI", sans-serif; }
+.monaco-workbench.linux   { font-family: system-ui, "Ubuntu", "Droid Sans", sans-serif; }
+```
+
+Variable-width sans, not monospace. Hosts that need a brand font
+override `chromeFontFamily` on
+`WorkbenchTheme.fromVscodeColorMap`; the override applies uniformly
+to every chrome surface.
+
+**Why not bundle a fixed chrome font.** Pinning a single family
+(Roboto, Inter, etc.) would force every consumer onto the same
+typeface regardless of OS context. VS Code deliberately follows
+the host OS appearance because OS appearance is what users have
+already tuned for legibility; the package follows the same rule.
+
+**Why not branch `chromeFontFamily` defaults on `defaultTargetPlatform`.**
+Returning `'SF Pro'` / `'Segoe UI'` / `'system-ui'` strings
+explicitly would resolve to the same platform fallback Flutter
+already picks for `fontFamily: null`, while introducing a
+maintenance surface that drifts as platforms ship new system
+fonts. The `null` default delegates to Flutter's existing platform
+resolution.
+
+**Surface-by-surface sizes.** The package mirrors VS Code's
+literal CSS values per surface, sourced from the workbench's own
+stylesheets:
+
+| Surface | VS Code source | Size / weight |
+|---|---|---|
+| Sidebar / panel part title ("EXPLORER") | `part.css` — `.title-label h2` | 11 / w400 |
+| Sidebar pane header ("OPEN EDITORS" twistie sub-section) | `paneview.css` — `.pane-header` | 11 / w700, uppercase |
+| Workbench body content | `part.css` — `.part > .content` | 13 / w400 |
+| Settings label / form label | `settingsEditor2.css` — `.setting-item-category` | 13 / w500 |
+| Status bar item | `statusbarpart.css` | 12 / w400 |
+| Button (default) | `button.css` | 12 / w400 |
+| Editor tab label | `editortabscontrol.css` | 13 / w400 |
+| Title bar / window title | `titlebarpart.css` | 12 / w400 |
+| Description / caption | inherits body, painted in `descriptionForeground` | 12 / w400 |
+| Badge pill (panel tab count, dense numeric labels) | `paneCompositeBar.css` activity / pane badge tier | 11 / w600 |
+
+`WorkbenchTheme`'s `sectionTitle`, `bodyText`, `labelText`,
+`statusText`, `statusBarTextStyle`, `buttonTextStyle`,
+`sidebarOrPanelHeading`, `captionText`, `helperStyle`, and
+`smallText` tokens carry these literals. The historical
+`sectionTitleStyle` / `sectionTitle` pair (same value, different
+names — accumulated from earlier semantic-token churn) coalesces
+into a single `sectionTitle` slot.
+
+**`sectionTitle` adopts pane-header semantics.** The token's
+declared role — top-level grouping inside a sidebar or panel body,
+per `WorkbenchSection` and `WorkbenchEmptyState` (§4) — maps
+directly onto VS Code's pane header (`.pane-header`,
+`11 / bold / uppercase`). `WorkbenchSection.title` renders
+uppercase in the shell regardless of input casing, parallel to the
+§5.2 tab-label canon, and §3's precedent paragraph already named
+this as the contract before the implementation caught up.
+`WorkbenchSubsection.title` stays sentence-case (see §3 amendment).
+
+**`smallText` retained as the badge tier.** The `smallText` slot
+is the internal token the panel-tab badge pill paints in, and the
+host analogue for dense numeric indicators (per-axis labels,
+counters in run-job readouts). VS Code's titlebar badge is
+`9 / w400` and the activity-bar / pane-composite badges are
+`11 / w600`; the package picks `11 / w600` to keep one shared
+token across in-strip and host badge surfaces.
+
+**Factory parameter rename: `fontFamily` → `chromeFontFamily`.**
+The existing `WorkbenchTheme.fromVscodeColorMap` parameter is
+renamed for symmetry with the new `editorFontFamily` (§7.7) and to
+make the override scope explicit (chrome only, not editor-derived
+surfaces). The default flips from `'Inconsolata'` to `null`.
+
+**Rejected — registering Inconsolata as a bundled chrome asset.**
+Earlier drafts bundled Inconsolata as a package asset and stamped
+it as `fontFamily` on every chrome token. The compensation worked
+in `rove` (which already registered Inconsolata via
+`google_fonts.inconsolataTextTheme()`) but the bundled example
+app — and any future pub.dev consumer — rendered chrome at the
+platform fallback because Inconsolata never landed. Even with the
+asset bundled, the choice contradicts VS Code: chrome is not a
+monospaced surface anywhere in the workbench. Platform UI sans is
+both the consumer-equivalent default and the canonically correct
+one.
+
+**Tradeoffs accepted.**
+
+- *Breaking change for hosts that overrode `fontFamily`.* The
+  parameter rename and the flipped default surface as an API
+  break. Acceptable while the package is pre-1.0 and the
+  unreleased `CHANGELOG.md` already accumulates other breaking
+  changes.
+- *Downstream call sites that compensated for Inconsolata's
+  narrow x-height will render at the new sizes and may need
+  layout adjustments.* In particular, `rove`'s sidebars that
+  reach for `sectionTitle` to style dialog titles, dropdown
+  items, or text-field input text
+  (`packages/rove_ui/lib/src/widgets/sidebars/app_settings.dart`)
+  will render at `11 / w700 / uppercase` and read as wrong.
+  Migrating those call sites to `bodyText` / `labelText` is a
+  downstream `rove` cleanup tracked separately; the chrome canon
+  change makes the misapplications visible.
+
+**Observable behavior.**
+
+- A `MaterialApp` consumer that constructs
+  `WorkbenchTheme.fromVscodeColorMap(...)` with no font override
+  renders every chrome surface in the platform's default UI sans
+  at VS Code's literal pixel values. The bundled example app and
+  `rove` render at the same density without `rove` registering
+  `Inconsolata` to compensate.
+- `WorkbenchSection.title` renders uppercase regardless of input
+  casing; the shell applies the transform internally.
+- `WorkbenchSubsection.title` renders sentence-case (whatever the
+  host passes).
+- Setting `chromeFontFamily` on the factory flips every chrome
+  surface in the next frame; no per-call-site changes required.
+- `WorkbenchTabbedPanel`, `WorkbenchStatusBar`,
+  `WorkbenchMenuBar`, and the structural primitives
+  (`WorkbenchSection`, `WorkbenchSubsection`, `WorkbenchCard`,
+  `WorkbenchToggleCard`, `WorkbenchEmptyState`) paint with the
+  same chrome family — host content composed against
+  `theme.bodyText` / `theme.sectionTitle` matches the package's
+  internal chrome.
+
+### 7.7 Editor-derived Surfaces §spec:editor-derived-surfaces
+
+*Status: not started*
+
+Log-line surfaces (output panels, terminal-style consoles) and
+host numeric surfaces (DRO readouts, tabular values) do not live
+in the chrome typography canon (§7.6) — they live in the editor's.
+VS Code uses configurable `editor.fontFamily` and `editor.fontSize`
+for these surfaces, both defaulting to a per-platform monospace via
+`EDITOR_FONT_DEFAULTS` in
+[`src/vs/editor/common/config/fontInfo.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/editor/common/config/fontInfo.ts).
+`workbench_shell` exposes the same anchor so log-line and value
+styles read from one place that downstream hosts can swap.
+
+**Anchor token: `editorStyle`.** `WorkbenchTheme` carries
+`editorFontFamily` (`String`) and `editorFontSize` (`double`)
+plus a derived `editorStyle` (`TextStyle`). Tokens whose role is
+editor-derived monospace — `loglineMessage` and `valueText` —
+derive from `editorStyle` via `copyWith` rather than fabricating
+their own font ladders.
+
+**Dropped — `loglineTime`, `loglineName`, `loglineLevel`.** The
+four-token logline design (time / name / level / message)
+anticipated a renderer that breaks each log-line field into its
+own styled widget. That renderer never landed; both consumers
+(`packages/rove_ui/lib/src/widgets/panels/log_output_panel.dart`,
+`packages/rove_ui/lib/src/widgets/panels/console.dart`) render
+the entire log line as one concatenated `Text` styled by
+`loglineMessage`. The three field-specific tokens have zero
+consumers anywhere in the workspace; they leave `WorkbenchTheme`
+in this workstream. A future log renderer that wants per-field
+styling can derive from `editorStyle.copyWith(...)` at the call
+site or re-introduce typed tokens then.
+
+**Per-platform defaults.** When `editorFontFamily` /
+`editorFontSize` are not overridden on the factory, the package
+mirrors VS Code's `EDITOR_FONT_DEFAULTS`:
+
+| Platform | `editorFontFamily` | `editorFontSize` |
+|---|---|---|
+| macOS | `Menlo, Monaco, 'Courier New', monospace` | 12 |
+| Windows | `Consolas, 'Courier New', monospace` | 14 |
+| Linux / Android | `'Droid Sans Mono', monospace` | 14 |
+
+Values match `DEFAULT_MAC_FONT_FAMILY`,
+`DEFAULT_WINDOWS_FONT_FAMILY`, `DEFAULT_LINUX_FONT_FAMILY`, and
+the `isMacintosh ? 12 : 14` size selector in upstream `fontInfo.ts`.
+
+**Why a single anchor rather than per-surface families.**
+Log-line, value, and DRO surfaces all want the same property —
+tabular monospace at a configurable family and size. Repeating
+the family resolution at every surface would let one surface
+drift (a future log style accidentally hardcodes `'Menlo'`); a
+single anchor makes the override path one parameter wide.
+
+**Host override path.** Hosts whose brand requires a specific
+monospace — `rove` ships `Inconsolata` via
+`google_fonts.inconsolataTextTheme()` — pass
+`editorFontFamily: 'Inconsolata'` on
+`WorkbenchTheme.fromVscodeColorMap`. The override flows through
+`editorStyle` to every editor-derived token without per-call-site
+changes. Hosts may override `editorFontSize` for compact readouts;
+tokens that need a different size per role (`loglineTime` shrinking
+relative to `loglineMessage`, DRO numerics enlarging relative to
+log lines) apply `copyWith` against `editorStyle` rather than
+re-resolving the family.
+
+**Rejected — separate `loglineFontFamily` and `droFontFamily`
+parameters.** Two parameters for the same underlying role would
+let a host wire log-lines to one family and DRO to another,
+splitting visual identity for no clear reason. VS Code uses one
+`editor.fontFamily` for both the Output panel and the editor; the
+single-anchor model matches.
+
+**Rejected — moving log-line and `valueText` tokens out of
+`WorkbenchTheme` entirely.** Pushing them host-side would force
+every consumer to reinvent the editor-derived ladder. The tokens
+are generic in shape (log timestamp / name / level / message,
+tabular numeric value) and only the family / size choice is
+host-tunable. Keeping them in `WorkbenchTheme` anchored to
+`editorStyle` preserves reuse while honoring per-host overrides.
+
+**Tradeoffs accepted.**
+
+- *DRO numerics inherit the editor family rather than a bespoke
+  one.* `rove`'s DRO previously used `valueText` (`12 / w600`,
+  chrome family); after the change the DRO renders in the editor
+  family (`Inconsolata` once `rove` sets `editorFontFamily`) at
+  editor size with `w600`. Same visual result for `rove`
+  (Inconsolata everywhere) and a coherent default for any other
+  host that adopts the package.
+- *Three previously-spec'd logline tokens leave the surface.*
+  Removing `loglineTime`, `loglineName`, `loglineLevel` is an API
+  break for any external consumer relying on them. None exist
+  inside this workspace (zero consumers); the package is pre-1.0
+  and the unreleased `CHANGELOG.md` already accumulates other
+  breaking changes, so the removal ships in the same release as
+  the chrome typography canon.
+
+**Observable behavior.**
+
+- `WorkbenchTheme.editorStyle` resolves to a `TextStyle` carrying
+  the active `editorFontFamily` / `editorFontSize`. Switching
+  chrome themes does not change either; switching
+  `editorFontFamily` on the factory does.
+- `loglineMessage` and `valueText` paint in the same family at
+  related sizes and weights — neither token reaches outside
+  `editorStyle` for its base.
+- A consumer that omits `editorFontFamily` gets the platform's
+  default monospace per the table above. `rove` continues to
+  render log-line and DRO surfaces in Inconsolata because the
+  application sets `editorFontFamily: 'Inconsolata'` on theme
+  construction.
 
 ## 8. Layout Constants
 
