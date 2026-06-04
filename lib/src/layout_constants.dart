@@ -114,6 +114,20 @@ class WorkbenchLayoutConstants {
     Radius.circular(4),
   );
 
+  /// 4px — button border radius. Sourced from VS Code's `button.css`
+  /// (`.monaco-text-button { border-radius: 4px; }`). Same scale as
+  /// [containerRadius] today; tokenized separately so a future visual
+  /// revision of button shape can diverge without touching every other
+  /// rounded surface (mirrors [containerRadius]/[notificationCardRadius]).
+  static const BorderRadius buttonRadius = BorderRadius.all(Radius.circular(4));
+
+  /// Button shape — applied to the app-level Material button themes
+  /// (Elevated/Outlined/Text). De-pills Material 3's default
+  /// `StadiumBorder` to match VS Code's rectangular-with-4px buttons.
+  static const RoundedRectangleBorder buttonShape = RoundedRectangleBorder(
+    borderRadius: buttonRadius,
+  );
+
   // ==================== NOTIFICATION CENTER (§10) ====================
 
   /// 4px — notification card border radius. Same scale as

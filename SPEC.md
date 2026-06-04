@@ -1110,6 +1110,7 @@ place to hide.
 | `notificationCardWidth` | 450 | [`notificationsToasts.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/notifications/notificationsToasts.ts) — `private static readonly MAX_WIDTH = 450` |
 | `containerRadius` | 4 | [`baseSizes.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/platform/theme/common/sizes/baseSizes.ts) — `cornerRadius.small = 4px` |
 | `notificationCardRadius` | 4 | same as `containerRadius` (`cornerRadius.small`) |
+| `buttonRadius` | 4 | [`button.css`](https://github.com/microsoft/vscode/blob/main/src/vs/base/browser/ui/button/button.css) — `.monaco-text-button { border-radius: 4px; }` |
 
 **Constants without a VS Code peer.** Some
 `WorkbenchLayoutConstants` slots intentionally diverge because
