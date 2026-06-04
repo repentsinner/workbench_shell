@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -199,6 +200,79 @@ void main() {
       await tester.tap(find.text('MDI'));
       await tester.pumpAndSettle();
       expect(invocations, ['mdi']);
+    });
+  });
+
+  group('WorkbenchMenuBar application menu label', () {
+    test('defaults to a neutral host-agnostic label, not "Rove"', () {
+      const bar = WorkbenchMenuBar(tabs: [], child: SizedBox.shrink());
+      expect(bar.applicationMenuLabel, isNotEmpty);
+      expect(bar.applicationMenuLabel, isNot('Rove'));
+    });
+
+    test('threads the configured label through the widget field', () {
+      const bar = WorkbenchMenuBar(
+        applicationMenuLabel: 'Rove',
+        tabs: [],
+        child: SizedBox.shrink(),
+      );
+      expect(bar.applicationMenuLabel, 'Rove');
+    });
+
+    testWidgets('macOS application menu uses applicationMenuLabel', (
+      tester,
+    ) async {
+      // Drive the macOS rendering path. PlatformMenuBar serializes its
+      // menus to the `flutter/menu` channel on mount; stub the channel
+      // so the native path mounts under the test host without a real
+      // NSMenu backend, letting us inspect the configured PlatformMenu.
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel('flutter/menu'),
+        (call) async => null,
+      );
+      addTearDown(() {
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          const MethodChannel('flutter/menu'),
+          null,
+        );
+      });
+
+      await tester.pumpWidget(
+        wrapWithTheme(
+          Actions(
+            actions: <Type, Action<Intent>>{
+              ToggleBottomPanelIntent: CallbackAction<ToggleBottomPanelIntent>(
+                onInvoke: (_) => null,
+              ),
+            },
+            child: const WorkbenchMenuBar(
+              useNativeMenuBar: true,
+              applicationMenuLabel: 'Acme',
+              // A non-empty tab keeps the View menu's
+              // PlatformMenuItemGroup valid during channel serialization.
+              tabs: [
+                WorkbenchViewMenuTab(
+                  intent: _FocusTestTabIntent('mdi'),
+                  label: 'MDI',
+                ),
+              ],
+              child: SizedBox(width: 400, height: 200),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final menuBar = tester.widget<PlatformMenuBar>(
+        find.byType(PlatformMenuBar),
+      );
+      final appMenu = menuBar.menus.first as PlatformMenu;
+      expect(appMenu.label, 'Acme');
+
+      // Reset inside the body: the framework checks foundation debug
+      // vars before addTearDown runs.
+      debugDefaultTargetPlatformOverride = null;
     });
   });
 

@@ -66,11 +66,29 @@ class WorkbenchMenuBar extends StatelessWidget {
   /// code should leave this null to use the platform default.
   final bool? useNativeMenuBar;
 
+  /// Label for the macOS application menu (the leftmost system-menu
+  /// entry, bold by convention). The shell carries no host identity,
+  /// so this defaults to the neutral [defaultApplicationMenuLabel];
+  /// hosts pass their own application name. macOS shows the bundle's
+  /// `CFBundleName` for the app-menu *title* regardless, but
+  /// `PlatformMenu.label` must still be non-empty.
+  ///
+  /// Only the macOS path consumes this; the in-window Material menu
+  /// bar renders no application menu.
+  final String applicationMenuLabel;
+
+  /// Neutral, host-agnostic default for [applicationMenuLabel]. Keeps
+  /// `workbench_shell` free of any host's name so third-party
+  /// consumers (and the standalone repo, §15.2) get a generic label
+  /// rather than "Rove".
+  static const String defaultApplicationMenuLabel = 'App';
+
   const WorkbenchMenuBar({
     super.key,
     required this.tabs,
     required this.child,
     this.useNativeMenuBar,
+    this.applicationMenuLabel = defaultApplicationMenuLabel,
   });
 
   @override
@@ -84,9 +102,9 @@ class WorkbenchMenuBar extends StatelessWidget {
   Widget _buildMacOSMenuBar(BuildContext context) {
     return PlatformMenuBar(
       menus: [
-        const PlatformMenu(
-          label: 'Rove',
-          menus: [
+        PlatformMenu(
+          label: applicationMenuLabel,
+          menus: const [
             PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.about),
             PlatformProvidedMenuItem(
               type: PlatformProvidedMenuItemType.servicesSubmenu,
