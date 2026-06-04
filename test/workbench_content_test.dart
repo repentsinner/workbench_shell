@@ -7,17 +7,43 @@ import 'test_theme.dart';
 
 void main() {
   group('WorkbenchSection', () {
-    testWidgets('renders title with sectionTitleStyle', (tester) async {
+    testWidgets('renders title uppercased with sectionTitle style', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         wrapWithTheme(
           const WorkbenchSection(title: 'Hello', child: Text('body')),
         ),
       );
-      final titleFinder = find.text('Hello');
+      // §7.6: WorkbenchSection adopts the pane-header canon —
+      // titles render uppercase regardless of input casing, parallel
+      // to the §5.2 tab-label canon.
+      final titleFinder = find.text('HELLO');
       expect(titleFinder, findsOneWidget);
+      expect(find.text('Hello'), findsNothing);
       expect(find.text('body'), findsOneWidget);
       final textWidget = tester.widget<Text>(titleFinder);
-      expect(textWidget.style, testWorkbenchTheme.sectionTitleStyle);
+      expect(textWidget.style, testWorkbenchTheme.sectionTitle);
+    });
+
+    testWidgets('uppercases title regardless of input casing', (tester) async {
+      // Mixed-case, all-lower, and already-upper inputs all render
+      // uppercase — the shell owns the transform so consumers cannot
+      // diverge (§3 canon enforcement).
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const Column(
+            children: [
+              WorkbenchSection(title: 'mixed Case', child: SizedBox.shrink()),
+              WorkbenchSection(title: 'all lower', child: SizedBox.shrink()),
+              WorkbenchSection(title: 'ALREADY UP', child: SizedBox.shrink()),
+            ],
+          ),
+        ),
+      );
+      expect(find.text('MIXED CASE'), findsOneWidget);
+      expect(find.text('ALL LOWER'), findsOneWidget);
+      expect(find.text('ALREADY UP'), findsOneWidget);
     });
 
     testWidgets('renders info tooltip when provided', (tester) async {

@@ -111,7 +111,9 @@ class WorkbenchThemeController extends ChangeNotifier {
   final VscodeColorThemeLoader _loader;
   final List<WorkbenchThemeEntry> _availableThemes;
   final Map<String, WorkbenchTheme> _cache = {};
-  final String _fontFamily;
+  final String? _chromeFontFamily;
+  final String? _editorFontFamily;
+  final double? _editorFontSize;
   final PlatformDispatcher _platformDispatcher;
 
   WorkbenchTheme _theme;
@@ -133,7 +135,9 @@ class WorkbenchThemeController extends ChangeNotifier {
     required String initialFilename,
     required List<WorkbenchThemeEntry> availableThemes,
     required VscodeColorThemeLoader loader,
-    required String fontFamily,
+    required String? chromeFontFamily,
+    required String? editorFontFamily,
+    required double? editorFontSize,
     required ThemeMode themeMode,
     required String preferredLight,
     required String preferredDark,
@@ -142,7 +146,9 @@ class WorkbenchThemeController extends ChangeNotifier {
        _selectedFilename = initialFilename,
        _availableThemes = List.unmodifiable(availableThemes),
        _loader = loader,
-       _fontFamily = fontFamily,
+       _chromeFontFamily = chromeFontFamily,
+       _editorFontFamily = editorFontFamily,
+       _editorFontSize = editorFontSize,
        _themeMode = themeMode,
        _preferredLight = preferredLight,
        _preferredDark = preferredDark,
@@ -176,7 +182,9 @@ class WorkbenchThemeController extends ChangeNotifier {
     String initialFilename = 'dark_modern.json',
     List<WorkbenchThemeEntry> availableThemes = defaultAvailableThemes,
     VscodeColorThemeLoader loader = const VscodeColorThemeLoader(),
-    String fontFamily = 'Inconsolata',
+    String? chromeFontFamily,
+    String? editorFontFamily,
+    double? editorFontSize,
     ThemeMode themeMode = ThemeMode.system,
     String preferredLight = 'light_modern.json',
     String preferredDark = 'dark_modern.json',
@@ -187,7 +195,9 @@ class WorkbenchThemeController extends ChangeNotifier {
       initialFilename: initialFilename,
       availableThemes: availableThemes,
       loader: loader,
-      fontFamily: fontFamily,
+      chromeFontFamily: chromeFontFamily,
+      editorFontFamily: editorFontFamily,
+      editorFontSize: editorFontSize,
       themeMode: themeMode,
       preferredLight: preferredLight,
       preferredDark: preferredDark,
@@ -365,7 +375,9 @@ class WorkbenchThemeController extends ChangeNotifier {
     if (_disposed) return;
     final resolved = WorkbenchTheme.fromVscodeColorMap(
       map,
-      fontFamily: _fontFamily,
+      chromeFontFamily: _chromeFontFamily,
+      editorFontFamily: _editorFontFamily,
+      editorFontSize: _editorFontSize,
     );
     _cache[filename] = resolved;
     _selectedFilename = filename;

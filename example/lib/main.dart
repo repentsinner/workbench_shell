@@ -796,7 +796,10 @@ class _ThemeDropdownField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: theme.sectionTitleStyle.copyWith(color: labelColor)),
+        // Form label — settings dropdown caption follows the §7.6
+        // `labelText` tier (13 / w500), not the pane-header tier
+        // that `sectionTitle` reserves for sidebar/panel grouping.
+        Text(label, style: theme.labelText.copyWith(color: labelColor)),
         const SizedBox(height: WorkbenchLayoutConstants.spacingXxs),
         Text(
           description,
@@ -947,8 +950,12 @@ class _OutputCounterBodyState extends State<_OutputCounterBody> {
           ),
           const SizedBox(height: WorkbenchLayoutConstants.spacingMd),
           Text(
+            // Value readout — `valueText` is the §7.7 editor-derived
+            // numeric tier (tabular monospace at editor size). Earlier
+            // drafts reached for `sectionTitle`, which the canon now
+            // reserves for sidebar/panel pane headers.
             'Counter: $_count',
-            style: theme.sectionTitle.copyWith(color: theme.foreground),
+            style: theme.valueText.copyWith(color: theme.foreground),
           ),
         ],
       ),

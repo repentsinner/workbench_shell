@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:material_color_utilities/material_color_utilities.dart';
 
@@ -128,8 +129,29 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   final Color sideBarBackgroundMuted;
   final Color editorBackgroundOverlay;
 
-  // ---- Base font ----
-  final String fontFamily;
+  // ---- Chrome font (§7.6) ----
+  //
+  // Defaults to `null` so Flutter resolves the platform's default UI
+  // sans (matching VS Code's `-apple-system` / `Segoe UI` / `system-ui`
+  // rules in `src/vs/workbench/browser/media/style.css`). Hosts pass a
+  // brand override (e.g. `'Inter'`) on
+  // [WorkbenchTheme.fromVscodeColorMap]; the override flows through
+  // every chrome semantic text style.
+  final String? chromeFontFamily;
+
+  // ---- Editor font (§7.7) ----
+  //
+  // Anchor for log-line and host numeric surfaces (DRO readouts,
+  // tabular values). VS Code uses `editor.fontFamily` /
+  // `editor.fontSize` for these surfaces and they default to a
+  // per-platform monospace via `EDITOR_FONT_DEFAULTS` in
+  // `src/vs/editor/common/config/fontInfo.ts`. Hosts override
+  // [editorFontFamily] / [editorFontSize] on the factory; the
+  // override flows through [editorStyle] to every editor-derived
+  // token without per-call-site changes.
+  final String editorFontFamily;
+  final double editorFontSize;
+  final TextStyle editorStyle;
 
   // ---- Tab strip chrome (consumed by WorkbenchTabbedPanel) ----
   final Color tabBarLabelColor;
@@ -145,8 +167,9 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   final Color badgeBackground;
   final Color badgeForeground;
 
-  // ---- Content primitive tokens ----
-  final TextStyle sectionTitleStyle;
+  // ---- Content primitive tokens (legacy slots retained for
+  // back-compat with widgets that read them; see §7.6 table for the
+  // canonical replacements). ----
   final TextStyle subsectionTitleStyle;
   final TextStyle bodyStyle;
   final TextStyle helperStyle;
@@ -181,9 +204,6 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
 
   final TextStyle valueText;
   final TextStyle sidebarOrPanelHeading;
-  final TextStyle loglineTime;
-  final TextStyle loglineName;
-  final TextStyle loglineLevel;
   final TextStyle loglineMessage;
 
   // ---- Syntax token theme ----
@@ -309,14 +329,16 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.sideBarBackgroundSubtle,
     required this.sideBarBackgroundMuted,
     required this.editorBackgroundOverlay,
-    required this.fontFamily,
+    required this.chromeFontFamily,
+    required this.editorFontFamily,
+    required this.editorFontSize,
+    required this.editorStyle,
     required this.tabBarLabelColor,
     required this.tabBarUnselectedLabelColor,
     required this.tabBarIndicatorColor,
     required this.tabBarDividerColor,
     required this.badgeBackground,
     required this.badgeForeground,
-    required this.sectionTitleStyle,
     required this.subsectionTitleStyle,
     required this.bodyStyle,
     required this.helperStyle,
@@ -332,9 +354,6 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.statusBarTextStyle,
     required this.valueText,
     required this.sidebarOrPanelHeading,
-    required this.loglineTime,
-    required this.loglineName,
-    required this.loglineLevel,
     required this.loglineMessage,
     required this.tokenTheme,
     required this.notificationBackground,
@@ -361,12 +380,27 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   /// Build a [WorkbenchTheme] from a parsed VS Code color theme.
   ///
   /// Resolves every chrome token with sensible fallbacks so themes
-  /// that omit tokens still produce a valid workbench theme. The
-  /// `fontFamily` parameter overrides the default (`Inconsolata`)
-  /// used across the semantic text styles.
+  /// that omit tokens still produce a valid workbench theme.
+  ///
+  /// [chromeFontFamily] overrides the default platform UI sans used
+  /// across chrome semantic text styles (sidebar headings, panel tab
+  /// labels, status bar items, body text, buttons). Null delegates to
+  /// Flutter's platform-default UI font, matching VS Code's
+  /// `-apple-system` / `Segoe UI` / `system-ui` resolution rules
+  /// (§7.6).
+  ///
+  /// [editorFontFamily] overrides the per-platform monospace used by
+  /// editor-derived surfaces ([editorStyle], [loglineMessage],
+  /// [valueText]). Null resolves to VS Code's `EDITOR_FONT_DEFAULTS`
+  /// primary family per host platform (§7.7).
+  ///
+  /// [editorFontSize] overrides the editor font size. Null resolves
+  /// to VS Code's per-platform default (12 on macOS, 14 elsewhere).
   factory WorkbenchTheme.fromVscodeColorMap(
     VscodeColorMap map, {
-    String fontFamily = 'Inconsolata',
+    String? chromeFontFamily,
+    String? editorFontFamily,
+    double? editorFontSize,
   }) {
     // Base-type-aware fallback: picks the correct default for dark vs
     // light themes. Values sourced from VS Code's color registry in
@@ -417,11 +451,31 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       const Color(0xFF2196F3),
     );
 
+    // Chrome typography: chrome surfaces honour [chromeFontFamily]
+    // (null → platform UI sans). The local helper carries the chrome
+    // family so a single decision propagates across every chrome
+    // token literal in the factory body.
     TextStyle t(double size, FontWeight weight, {Color? color}) => TextStyle(
-      fontFamily: fontFamily,
+      fontFamily: chromeFontFamily,
       color: color ?? fg,
       fontSize: size,
       fontWeight: weight,
+    );
+
+    // Editor typography: resolve [editorFontFamily] / [editorFontSize]
+    // against VS Code's EDITOR_FONT_DEFAULTS table when the host
+    // hasn't overridden either. Tokens whose role is editor-derived
+    // monospace (loglineMessage, valueText) derive from [editorStyle]
+    // via [TextStyle.copyWith] so the family resolution lives in one
+    // place (§7.7).
+    final resolvedEditorFamily =
+        editorFontFamily ?? _platformEditorFontFamily();
+    final resolvedEditorSize = editorFontSize ?? _platformEditorFontSize();
+    final editorStyle = TextStyle(
+      fontFamily: resolvedEditorFamily,
+      color: fg,
+      fontSize: resolvedEditorSize,
+      fontWeight: FontWeight.w400,
     );
 
     return WorkbenchTheme(
@@ -581,7 +635,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       sideBarBackgroundMuted: sideBarBg.withValues(alpha: 0.5),
       editorBackgroundOverlay: editorBg.withValues(alpha: 0.85),
       // Font / tab strip chrome
-      fontFamily: fontFamily,
+      chromeFontFamily: chromeFontFamily,
+      editorFontFamily: resolvedEditorFamily,
+      editorFontSize: resolvedEditorSize,
+      editorStyle: editorStyle,
       tabBarLabelColor: map.resolve('panelTitle.activeForeground', fg),
       tabBarUnselectedLabelColor: map.resolve(
         'panelTitle.inactiveForeground',
@@ -617,43 +674,54 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         'badge.foreground',
         map.resolve('activityBarBadge.foreground', const Color(0xFFFFFFFF)),
       ),
-      // Content primitive tokens (kept for widgets that already read them)
-      sectionTitleStyle: t(14, FontWeight.w600),
+      // Legacy content-primitive tokens (kept for widgets that read
+      // them; canonical replacements live in the §7.6 block below).
       subsectionTitleStyle: t(12, FontWeight.w500),
       bodyStyle: t(12, FontWeight.w400),
-      helperStyle: t(11, FontWeight.w400, color: secondaryFg),
       borderColor: panelBorder,
       focusBorderColor: accentFg,
-      // Semantic text styles (§9.6)
-      sectionTitle: t(14, FontWeight.w600),
-      labelText: t(12, FontWeight.w500),
-      bodyText: t(12, FontWeight.w400),
-      captionText: t(11, FontWeight.w400, color: secondaryFg),
-      smallText: t(10, FontWeight.w400, color: secondaryFg),
+      // Chrome typography canon (§7.6) — every literal is sourced
+      // from VS Code's workbench CSS. See SPEC §7.6 table for the
+      // upstream file and selector per token.
+      //
+      // sidebar / panel part title ("EXPLORER", "SETTINGS") —
+      // part.css `.title-label h2`.
+      sidebarOrPanelHeading: t(11, FontWeight.w400),
+      // pane header / WorkbenchSection title — paneview.css
+      // `.pane-header` (11 / bold / uppercase). The uppercase
+      // transform lives in WorkbenchSection's rendering, not the
+      // token literal.
+      sectionTitle: t(11, FontWeight.w700),
+      // workbench body content — part.css `.part > .content`.
+      bodyText: t(13, FontWeight.w400),
+      // settings label / form label — settingsEditor2.css
+      // `.setting-item-category`.
+      labelText: t(13, FontWeight.w500),
+      // status bar item — statusbarpart.css. Same metrics as
+      // [helperStyle]; paints in [statusBarForeground] so the text
+      // reads against the blue status bar background.
+      statusText: t(12, FontWeight.w400),
+      statusBarTextStyle: t(12, FontWeight.w400, color: statusBarFg),
+      // button (default) — button.css.
       buttonTextStyle: TextStyle(
-        fontFamily: fontFamily,
+        fontFamily: chromeFontFamily,
         fontSize: 12,
-        fontWeight: FontWeight.w500,
+        fontWeight: FontWeight.w400,
       ),
-      statusText: TextStyle(
-        fontFamily: fontFamily,
-        fontSize: 11,
-        fontWeight: FontWeight.w500,
-      ),
-      // Match the size/weight of helperStyle (11pt, w400) but paint
-      // in statusBar.foreground rather than descriptionForeground so
-      // status bar text reads against the blue status bar background.
-      statusBarTextStyle: t(11, FontWeight.w400, color: statusBarFg),
-      valueText: t(12, FontWeight.w600),
-      sidebarOrPanelHeading: t(13, FontWeight.w600),
-      loglineTime: t(11, FontWeight.w400, color: secondaryFg),
-      loglineName: t(11, FontWeight.w500, color: accentFg),
-      loglineLevel: TextStyle(
-        fontFamily: fontFamily,
-        fontSize: 11,
-        fontWeight: FontWeight.w600,
-      ),
-      loglineMessage: t(11, FontWeight.w400),
+      // description / caption — inherits body, painted in
+      // descriptionForeground (12 / w400).
+      captionText: t(12, FontWeight.w400, color: secondaryFg),
+      helperStyle: t(12, FontWeight.w400, color: secondaryFg),
+      // badge tier — paneCompositeBar.css (11 / w600). Internal
+      // token the panel-tab badge pill paints in and the host
+      // analogue for dense numeric indicators.
+      smallText: t(11, FontWeight.w600, color: secondaryFg),
+      // Editor-derived surfaces (§7.7) — DRO numerics and log lines
+      // anchor on [editorStyle] so the host's editor-font override
+      // flows through without per-call-site changes. DRO retains
+      // w600 for tabular numeric emphasis; log lines stay at w400.
+      valueText: editorStyle.copyWith(fontWeight: FontWeight.w600),
+      loglineMessage: editorStyle,
       // Syntax token theme
       tokenTheme: map.resolvedTokenTheme,
       // Notification center (§10) — VS Code surfaces these through
@@ -760,14 +828,16 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? sideBarBackgroundSubtle,
     Color? sideBarBackgroundMuted,
     Color? editorBackgroundOverlay,
-    String? fontFamily,
+    String? chromeFontFamily,
+    String? editorFontFamily,
+    double? editorFontSize,
+    TextStyle? editorStyle,
     Color? tabBarLabelColor,
     Color? tabBarUnselectedLabelColor,
     Color? tabBarIndicatorColor,
     Color? tabBarDividerColor,
     Color? badgeBackground,
     Color? badgeForeground,
-    TextStyle? sectionTitleStyle,
     TextStyle? subsectionTitleStyle,
     TextStyle? bodyStyle,
     TextStyle? helperStyle,
@@ -783,9 +853,6 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     TextStyle? statusBarTextStyle,
     TextStyle? valueText,
     TextStyle? sidebarOrPanelHeading,
-    TextStyle? loglineTime,
-    TextStyle? loglineName,
-    TextStyle? loglineLevel,
     TextStyle? loglineMessage,
     TokenTheme? tokenTheme,
     Color? notificationBackground,
@@ -879,7 +946,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           sideBarBackgroundMuted ?? this.sideBarBackgroundMuted,
       editorBackgroundOverlay:
           editorBackgroundOverlay ?? this.editorBackgroundOverlay,
-      fontFamily: fontFamily ?? this.fontFamily,
+      chromeFontFamily: chromeFontFamily ?? this.chromeFontFamily,
+      editorFontFamily: editorFontFamily ?? this.editorFontFamily,
+      editorFontSize: editorFontSize ?? this.editorFontSize,
+      editorStyle: editorStyle ?? this.editorStyle,
       tabBarLabelColor: tabBarLabelColor ?? this.tabBarLabelColor,
       tabBarUnselectedLabelColor:
           tabBarUnselectedLabelColor ?? this.tabBarUnselectedLabelColor,
@@ -887,7 +957,6 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       tabBarDividerColor: tabBarDividerColor ?? this.tabBarDividerColor,
       badgeBackground: badgeBackground ?? this.badgeBackground,
       badgeForeground: badgeForeground ?? this.badgeForeground,
-      sectionTitleStyle: sectionTitleStyle ?? this.sectionTitleStyle,
       subsectionTitleStyle: subsectionTitleStyle ?? this.subsectionTitleStyle,
       bodyStyle: bodyStyle ?? this.bodyStyle,
       helperStyle: helperStyle ?? this.helperStyle,
@@ -904,9 +973,6 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       valueText: valueText ?? this.valueText,
       sidebarOrPanelHeading:
           sidebarOrPanelHeading ?? this.sidebarOrPanelHeading,
-      loglineTime: loglineTime ?? this.loglineTime,
-      loglineName: loglineName ?? this.loglineName,
-      loglineLevel: loglineLevel ?? this.loglineLevel,
       loglineMessage: loglineMessage ?? this.loglineMessage,
       tokenTheme: tokenTheme ?? this.tokenTheme,
       notificationBackground:
@@ -1062,7 +1128,11 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         editorBackgroundOverlay,
         other.editorBackgroundOverlay,
       ),
-      fontFamily: t < 0.5 ? fontFamily : other.fontFamily,
+      chromeFontFamily: t < 0.5 ? chromeFontFamily : other.chromeFontFamily,
+      editorFontFamily: t < 0.5 ? editorFontFamily : other.editorFontFamily,
+      editorFontSize:
+          editorFontSize + (other.editorFontSize - editorFontSize) * t,
+      editorStyle: ts(editorStyle, other.editorStyle),
       tabBarLabelColor: c(tabBarLabelColor, other.tabBarLabelColor),
       tabBarUnselectedLabelColor: c(
         tabBarUnselectedLabelColor,
@@ -1072,7 +1142,6 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       tabBarDividerColor: c(tabBarDividerColor, other.tabBarDividerColor),
       badgeBackground: c(badgeBackground, other.badgeBackground),
       badgeForeground: c(badgeForeground, other.badgeForeground),
-      sectionTitleStyle: ts(sectionTitleStyle, other.sectionTitleStyle),
       subsectionTitleStyle: ts(
         subsectionTitleStyle,
         other.subsectionTitleStyle,
@@ -1094,9 +1163,6 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         sidebarOrPanelHeading,
         other.sidebarOrPanelHeading,
       ),
-      loglineTime: ts(loglineTime, other.loglineTime),
-      loglineName: ts(loglineName, other.loglineName),
-      loglineLevel: ts(loglineLevel, other.loglineLevel),
       loglineMessage: ts(loglineMessage, other.loglineMessage),
       tokenTheme: t < 0.5 ? tokenTheme : other.tokenTheme,
       notificationBackground: c(
@@ -1134,6 +1200,44 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       ),
       surfaceTone: surfaceTone + (other.surfaceTone - surfaceTone) * t,
     );
+  }
+}
+
+/// VS Code's `EDITOR_FONT_DEFAULTS` primary family per platform —
+/// mirrors `DEFAULT_MAC_FONT_FAMILY`, `DEFAULT_WINDOWS_FONT_FAMILY`,
+/// and `DEFAULT_LINUX_FONT_FAMILY` in
+/// `src/vs/editor/common/config/fontInfo.ts`. The CSS `font-family`
+/// list includes secondary fallbacks (`Monaco`, `'Courier New'`,
+/// `monospace`); Flutter's `TextStyle.fontFamily` takes a single name
+/// and falls back to the platform monospace if the primary is missing,
+/// which matches the upstream intent.
+String _platformEditorFontFamily() {
+  switch (defaultTargetPlatform) {
+    case TargetPlatform.macOS:
+    case TargetPlatform.iOS:
+      return 'Menlo';
+    case TargetPlatform.windows:
+      return 'Consolas';
+    case TargetPlatform.linux:
+    case TargetPlatform.android:
+    case TargetPlatform.fuchsia:
+      return 'Droid Sans Mono';
+  }
+}
+
+/// VS Code's `isMacintosh ? 12 : 14` size selector for the editor.
+/// Mirrored from `EDITOR_FONT_DEFAULTS.fontSize` in
+/// `src/vs/editor/common/config/fontInfo.ts`.
+double _platformEditorFontSize() {
+  switch (defaultTargetPlatform) {
+    case TargetPlatform.macOS:
+    case TargetPlatform.iOS:
+      return 12;
+    case TargetPlatform.windows:
+    case TargetPlatform.linux:
+    case TargetPlatform.android:
+    case TargetPlatform.fuchsia:
+      return 14;
   }
 }
 

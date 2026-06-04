@@ -22,8 +22,9 @@ BorderSide _contentBorderSide(WorkbenchTheme theme) => theme.borderColor == null
     : BorderSide(color: theme.borderColor!);
 
 /// Top-level grouping inside a sidebar or panel. Renders [title]
-/// using [WorkbenchTheme.sectionTitleStyle] with an optional info
-/// tooltip icon.
+/// uppercased — the shell owns the transform so consumers cannot
+/// diverge (§3 canon enforcement, §7.6 pane-header semantics) — in
+/// [WorkbenchTheme.sectionTitle] with an optional info tooltip icon.
 class WorkbenchSection extends StatelessWidget {
   final String title;
   final Widget child;
@@ -44,7 +45,9 @@ class WorkbenchSection extends StatelessWidget {
       children: [
         Row(
           children: [
-            Expanded(child: Text(title, style: theme.sectionTitleStyle)),
+            Expanded(
+              child: Text(title.toUpperCase(), style: theme.sectionTitle),
+            ),
             if (infoTooltip != null) ...[
               const SizedBox(width: WorkbenchLayoutConstants.spacingSm),
               Tooltip(
@@ -209,11 +212,7 @@ class WorkbenchEmptyState extends StatelessWidget {
               color: theme.descriptionForeground,
             ),
             const SizedBox(height: WorkbenchLayoutConstants.spacingMd),
-            Text(
-              title,
-              style: theme.sectionTitleStyle,
-              textAlign: TextAlign.center,
-            ),
+            Text(title, style: theme.sectionTitle, textAlign: TextAlign.center),
             if (subtitle != null) ...[
               const SizedBox(height: WorkbenchLayoutConstants.spacingXs),
               Text(

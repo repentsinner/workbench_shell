@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_color_utilities/material_color_utilities.dart';
@@ -204,8 +205,8 @@ void main() {
 
   group('WorkbenchTheme.statusBarTextStyle', () {
     // Primary status bar text matches the size/weight of helperStyle
-    // (11pt, w400) but paints in statusBar.foreground so it reads
-    // against the blue status bar background. The prior default
+    // (12pt, w400 per §7.6) but paints in statusBar.foreground so it
+    // reads against the blue status bar background. The prior default
     // (helperStyle) used descriptionForeground and produced an
     // illegible grey on blue.
     test('uses statusBar.foreground and helperStyle metrics', () {
@@ -429,6 +430,178 @@ void main() {
         mid.notificationBackground,
         isNot(equals(b.notificationBackground)),
       );
+    });
+  });
+
+  group('WorkbenchTheme chrome typography canon (§7.6)', () {
+    // Source-cited literals mirror VS Code's workbench CSS. Pin every
+    // chrome semantic token so a stray edit fails loudly — typography
+    // drift was the failure mode the canon exists to remove.
+    final theme = WorkbenchTheme.fromVscodeColorMap(
+      const VscodeColorMap(name: 'Canon', baseType: 'vs-dark', colors: {}),
+    );
+
+    test('sidebarOrPanelHeading is 11 / w400 (part.css .title-label h2)', () {
+      expect(theme.sidebarOrPanelHeading.fontSize, 11);
+      expect(theme.sidebarOrPanelHeading.fontWeight, FontWeight.w400);
+    });
+
+    test('sectionTitle is 11 / w700 (paneview.css .pane-header)', () {
+      expect(theme.sectionTitle.fontSize, 11);
+      expect(theme.sectionTitle.fontWeight, FontWeight.w700);
+    });
+
+    test('bodyText is 13 / w400 (part.css .part > .content)', () {
+      expect(theme.bodyText.fontSize, 13);
+      expect(theme.bodyText.fontWeight, FontWeight.w400);
+    });
+
+    test('labelText is 13 / w500 (settingsEditor2.css)', () {
+      expect(theme.labelText.fontSize, 13);
+      expect(theme.labelText.fontWeight, FontWeight.w500);
+    });
+
+    test('statusText is 12 / w400 (statusbarpart.css)', () {
+      expect(theme.statusText.fontSize, 12);
+      expect(theme.statusText.fontWeight, FontWeight.w400);
+    });
+
+    test('statusBarTextStyle is 12 / w400 (statusbarpart.css)', () {
+      expect(theme.statusBarTextStyle.fontSize, 12);
+      expect(theme.statusBarTextStyle.fontWeight, FontWeight.w400);
+    });
+
+    test('buttonTextStyle is 12 / w400 (button.css)', () {
+      expect(theme.buttonTextStyle.fontSize, 12);
+      expect(theme.buttonTextStyle.fontWeight, FontWeight.w400);
+    });
+
+    test('captionText is 12 / w400 (inherits body)', () {
+      expect(theme.captionText.fontSize, 12);
+      expect(theme.captionText.fontWeight, FontWeight.w400);
+    });
+
+    test('helperStyle is 12 / w400 (caption tier)', () {
+      expect(theme.helperStyle.fontSize, 12);
+      expect(theme.helperStyle.fontWeight, FontWeight.w400);
+    });
+
+    test('smallText is 11 / w600 (paneCompositeBar badge tier)', () {
+      expect(theme.smallText.fontSize, 11);
+      expect(theme.smallText.fontWeight, FontWeight.w600);
+    });
+
+    test('chromeFontFamily default null → resolves to platform UI sans', () {
+      // Family rule: chrome `fontFamily` defaults to null so Flutter
+      // resolves to the platform's default UI font, matching VS Code's
+      // `-apple-system` / `Segoe UI` / `system-ui` selectors.
+      expect(theme.sectionTitle.fontFamily, isNull);
+      expect(theme.bodyText.fontFamily, isNull);
+      expect(theme.labelText.fontFamily, isNull);
+      expect(theme.statusBarTextStyle.fontFamily, isNull);
+      expect(theme.buttonTextStyle.fontFamily, isNull);
+      expect(theme.helperStyle.fontFamily, isNull);
+      expect(theme.smallText.fontFamily, isNull);
+      expect(theme.sidebarOrPanelHeading.fontFamily, isNull);
+    });
+
+    test('chromeFontFamily override propagates uniformly', () {
+      final overridden = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+        chromeFontFamily: 'Inter',
+      );
+      expect(overridden.sectionTitle.fontFamily, 'Inter');
+      expect(overridden.bodyText.fontFamily, 'Inter');
+      expect(overridden.labelText.fontFamily, 'Inter');
+      expect(overridden.statusBarTextStyle.fontFamily, 'Inter');
+      expect(overridden.buttonTextStyle.fontFamily, 'Inter');
+      expect(overridden.helperStyle.fontFamily, 'Inter');
+      expect(overridden.smallText.fontFamily, 'Inter');
+      expect(overridden.sidebarOrPanelHeading.fontFamily, 'Inter');
+    });
+  });
+
+  group('WorkbenchTheme editor-derived surfaces (§7.7)', () {
+    // editor.fontFamily / editor.fontSize defaults mirror VS Code's
+    // EDITOR_FONT_DEFAULTS per platform. Tests pin the host platform's
+    // primary family so a drift fails loudly.
+    test('macOS default editorFontFamily is Menlo (size 12)', () {
+      final original = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = original);
+      final theme = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'Mac', baseType: 'vs-dark', colors: {}),
+      );
+      expect(theme.editorFontFamily, 'Menlo');
+      expect(theme.editorFontSize, 12);
+      expect(theme.editorStyle.fontFamily, 'Menlo');
+      expect(theme.editorStyle.fontSize, 12);
+    });
+
+    test('Windows default editorFontFamily is Consolas (size 14)', () {
+      final original = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      addTearDown(() => debugDefaultTargetPlatformOverride = original);
+      final theme = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'Win', baseType: 'vs-dark', colors: {}),
+      );
+      expect(theme.editorFontFamily, 'Consolas');
+      expect(theme.editorFontSize, 14);
+      expect(theme.editorStyle.fontFamily, 'Consolas');
+      expect(theme.editorStyle.fontSize, 14);
+    });
+
+    test('Linux default editorFontFamily is "Droid Sans Mono" (size 14)', () {
+      final original = debugDefaultTargetPlatformOverride;
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      addTearDown(() => debugDefaultTargetPlatformOverride = original);
+      final theme = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'Linux', baseType: 'vs-dark', colors: {}),
+      );
+      expect(theme.editorFontFamily, 'Droid Sans Mono');
+      expect(theme.editorFontSize, 14);
+    });
+
+    test('editorFontFamily override flows through editorStyle', () {
+      final theme = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+        editorFontFamily: 'Inconsolata',
+      );
+      expect(theme.editorFontFamily, 'Inconsolata');
+      expect(theme.editorStyle.fontFamily, 'Inconsolata');
+    });
+
+    test('editorFontSize override flows through editorStyle', () {
+      final theme = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+        editorFontSize: 16,
+      );
+      expect(theme.editorFontSize, 16);
+      expect(theme.editorStyle.fontSize, 16);
+    });
+
+    test('loglineMessage derives from editorStyle (same family)', () {
+      // §7.7: loglineMessage rebases on editorStyle.copyWith — the
+      // family resolution lives in one place so a host override flows
+      // through every editor-derived surface.
+      final theme = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+        editorFontFamily: 'Inconsolata',
+      );
+      expect(theme.loglineMessage.fontFamily, theme.editorStyle.fontFamily);
+      expect(theme.loglineMessage.fontFamily, 'Inconsolata');
+    });
+
+    test('valueText derives from editorStyle (same family)', () {
+      // §7.7: valueText sits in the editor canon alongside log lines
+      // — DRO numerics inherit the editor family rather than a bespoke
+      // chrome one.
+      final theme = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+        editorFontFamily: 'Inconsolata',
+      );
+      expect(theme.valueText.fontFamily, theme.editorStyle.fontFamily);
+      expect(theme.valueText.fontFamily, 'Inconsolata');
     });
   });
 }
