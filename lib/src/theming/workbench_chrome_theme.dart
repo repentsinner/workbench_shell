@@ -120,14 +120,5 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
     ),
-    // ElevatedButton is not a VS Code button tier, but the chrome still
-    // owns its 4px shape: the jog-control grid is the sole remaining
-    // ElevatedButton consumer (a specialized press-and-hold control that
-    // sets its own colours, border, and padding) and relies on the shared
-    // theme for its corner radius. Without this it falls back to Material
-    // 3's StadiumBorder pill. Shape only — no colour, size, or elevation.
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(shape: buttonShape),
-    ),
   );
 }

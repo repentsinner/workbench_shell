@@ -155,19 +155,13 @@ void main() {
       expect(side?.color, isNot(composed.colorScheme.secondaryContainer));
     });
 
-    test('elevated button theme carries buttonShape for the jog carve-out', () {
-      // ElevatedButton is not a VS Code tier, but the jog-control grid is
-      // the sole remaining consumer and relies on the chrome for its 4px
-      // shape (else it reverts to Material 3's StadiumBorder pill). Shape
-      // only — no colour, size, or elevation.
-      final shape = result.elevatedButtonTheme.style?.shape?.resolve({});
-      expect(shape, WorkbenchLayoutConstants.buttonShape);
-      expect(result.elevatedButtonTheme.style?.backgroundColor, isNull);
-    });
-
-    test('does not set an outlined button theme', () {
-      // §9.20 migrates every OutlinedButton to FilledButton.tonal, so the
-      // helper leaves the host's own outlined theme untouched.
+    test('does not set elevated or outlined button themes', () {
+      // §9.20 canonicalizes every button — including the jog grid — on
+      // FilledButton, so no ElevatedButton or OutlinedButton remains in
+      // the UI. The helper installs neither theme; the host's own are
+      // left untouched. One button widget, one theme, no parallel styling
+      // to drift out of sync.
+      expect(result.elevatedButtonTheme, base.elevatedButtonTheme);
       expect(result.outlinedButtonTheme, base.outlinedButtonTheme);
     });
 
