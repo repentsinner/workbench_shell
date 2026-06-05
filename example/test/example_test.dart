@@ -5,8 +5,10 @@
 // switch on tap, and the initial active panel (Problems) renders
 // its content body.
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:workbench_shell/workbench_shell.dart';
 import 'package:workbench_shell_example/main.dart';
 
 void main() {
@@ -110,4 +112,49 @@ void main() {
     await tester.pump();
     expect(find.textContaining('Info notice'), findsOneWidget);
   });
+
+  testWidgets(
+    'buttons review sidebar shows three flat VS Code tiers at rest (§9.20)',
+    (tester) async {
+      await tester.pumpWidget(const WorkbenchExampleApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Symbols.smart_button_rounded));
+      await tester.pumpAndSettle();
+
+      // Primary (FilledButton), secondary (FilledButton.tonal), and
+      // text/link (TextButton) tiers each render once in the review.
+      final primary = find.widgetWithText(FilledButton, 'Primary');
+      final secondary = find.widgetWithText(FilledButton, 'Secondary');
+      final link = find.widgetWithText(TextButton, 'Text / link');
+      expect(primary, findsOneWidget);
+      expect(secondary, findsOneWidget);
+      expect(link, findsOneWidget);
+
+      // All flat at rest: the filled tiers resolve 0 resting elevation
+      // (no at-rest shadow) and VS Code's 4px shape, not Material 3's
+      // pill. enabled == default WidgetState set.
+      const resting = <WidgetState>{};
+      for (final finder in [primary, secondary]) {
+        final style = tester
+            .widget<FilledButton>(finder)
+            .defaultStyleOf(tester.element(finder));
+        expect(style.elevation?.resolve(resting), 0);
+      }
+      final primaryShape = Theme.of(
+        tester.element(primary),
+      ).filledButtonTheme.style?.shape?.resolve(resting);
+      expect(primaryShape, WorkbenchLayoutConstants.buttonShape);
+
+      // Primary and secondary must render distinct fills — the tonal tier
+      // pulls secondaryContainer, not the primary accent (§9.20).
+      Color fillOf(Finder button) => tester
+          .widgetList<Material>(
+            find.descendant(of: button, matching: find.byType(Material)),
+          )
+          .first
+          .color!;
+      expect(fillOf(primary), isNot(fillOf(secondary)));
+    },
+  );
 }

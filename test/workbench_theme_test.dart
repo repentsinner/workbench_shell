@@ -176,6 +176,38 @@ void main() {
       final theme = WorkbenchTheme.fromVscodeColorMap(map);
       expect(theme.panelBorder, const Color(0x59808080));
     });
+
+    test('button.border resolves to transparent when omitted', () {
+      // VS Code has no registry default for button.border; older themes
+      // omit it and the §9.20 button border is transparent.
+      final map = loader.parse('''
+        {
+          "name": "Minimal Dark",
+          "type": "vs-dark",
+          "colors": {}
+        }
+        ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.buttonBorder, const Color(0x00000000));
+    });
+
+    test('button.border is preserved with alpha (Dark Modern case)', () {
+      // Dark Modern pairs a transparent secondary fill with a translucent
+      // border that keeps the secondary button visible at rest.
+      final map = loader.parse('''
+        {
+          "name": "Modern-like",
+          "type": "vs-dark",
+          "colors": {
+            "button.secondaryBackground": "#00000000",
+            "button.border": "#ffffff1a"
+          }
+        }
+        ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.buttonSecondaryBackground, const Color(0x00000000));
+      expect(theme.buttonBorder, const Color(0x1AFFFFFF));
+    });
   });
 
   group('WorkbenchTheme border fallbacks (Plus asset)', () {
@@ -367,6 +399,73 @@ void main() {
         theme.notificationProgressTrack.a,
         lessThan(theme.notificationBorder.a),
       );
+    });
+  });
+
+  group('WorkbenchTheme secondary button tokens (§9.20)', () {
+    test('fall back to neutral surfaces when button.secondary* omitted', () {
+      final theme = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+      );
+      // VS Code registry: button.secondaryBackground defaults to
+      // list.hoverBackground; button.secondaryForeground to foreground.
+      expect(theme.buttonSecondaryBackground, theme.listHoverBackground);
+      expect(theme.buttonSecondaryForeground, theme.foreground);
+    });
+
+    test('honour explicit button.secondary* tokens when present', () {
+      final map = loader.parse('''
+        {
+          "name": "Secondary Test",
+          "type": "vs-dark",
+          "colors": {
+            "button.secondaryBackground": "#3A3D41",
+            "button.secondaryForeground": "#CCCCCC"
+          }
+        }
+        ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.buttonSecondaryBackground, const Color(0xFF3A3D41));
+      expect(theme.buttonSecondaryForeground, const Color(0xFFCCCCCC));
+    });
+
+    test('copyWith preserves secondary button tokens when unspecified', () {
+      final base = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+      );
+      final modified = base.copyWith(foreground: const Color(0xFFFF0000));
+      expect(
+        modified.buttonSecondaryBackground,
+        equals(base.buttonSecondaryBackground),
+      );
+      expect(
+        modified.buttonSecondaryForeground,
+        equals(base.buttonSecondaryForeground),
+      );
+    });
+
+    test('copyWith overrides secondary button tokens when specified', () {
+      final base = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+      );
+      const bg = Color(0xFF112233);
+      const fg = Color(0xFF445566);
+      final modified = base.copyWith(
+        buttonSecondaryBackground: bg,
+        buttonSecondaryForeground: fg,
+      );
+      expect(modified.buttonSecondaryBackground, equals(bg));
+      expect(modified.buttonSecondaryForeground, equals(fg));
+    });
+
+    test('lerp interpolates secondary button colours', () {
+      final a = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'A', baseType: 'vs-dark', colors: {}),
+      ).copyWith(buttonSecondaryBackground: const Color(0xFF000000));
+      final b = a.copyWith(buttonSecondaryBackground: const Color(0xFFFFFFFF));
+      final mid = a.lerp(b, 0.5);
+      expect(mid.buttonSecondaryBackground, isNot(const Color(0xFF000000)));
+      expect(mid.buttonSecondaryBackground, isNot(const Color(0xFFFFFFFF)));
     });
   });
 

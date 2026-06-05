@@ -77,6 +77,23 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   final Color buttonForeground;
   final Color buttonHoverBackground;
 
+  /// Secondary-button fill. VS Code `button.secondaryBackground`,
+  /// falling back to [listHoverBackground] (a neutral surface) when the
+  /// theme omits it. Drives the §9.20 [FilledButton.tonal] tier.
+  final Color buttonSecondaryBackground;
+
+  /// Secondary-button label. VS Code `button.secondaryForeground`,
+  /// falling back to [foreground] when the theme omits it.
+  final Color buttonSecondaryForeground;
+
+  /// Button border. VS Code `button.border`, falling back to transparent
+  /// when the theme omits it. Modern themes (Dark Modern, Dark 2026) give
+  /// the secondary button a transparent `button.secondaryBackground` and
+  /// rely on this border to make it visible at rest; older themes omit it
+  /// and the secondary button is visible via its solid fill. Applied to
+  /// both §9.20 filled tiers.
+  final Color buttonBorder;
+
   // ---- Foreground / accent ----
   final Color foreground;
   final Color descriptionForeground;
@@ -297,6 +314,9 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.buttonBackground,
     required this.buttonForeground,
     required this.buttonHoverBackground,
+    required this.buttonSecondaryBackground,
+    required this.buttonSecondaryForeground,
+    required this.buttonBorder,
     required this.foreground,
     required this.descriptionForeground,
     required this.accentForeground,
@@ -450,6 +470,13 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       'editorInfo.foreground',
       const Color(0xFF2196F3),
     );
+    // Shared so [listHoverBackground] and the §9.20
+    // [buttonSecondaryBackground] fallback resolve from one value
+    // (VS Code: button.secondaryBackground defaults to list.hoverBackground).
+    final listHoverBg = map.resolve(
+      'list.hoverBackground',
+      dl(const Color(0xFF2A2D2E), const Color(0xFFF0F0F0)),
+    );
 
     // Chrome typography: chrome surfaces honour [chromeFontFamily]
     // (null → platform UI sans). The local helper carries the chrome
@@ -570,6 +597,16 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         'button.hoverBackground',
         dl(const Color(0xFF1177BB), const Color(0xFF0062A3)),
       ),
+      // §9.20 secondary tier. VS Code registry: secondaryBackground
+      // defaults to list.hoverBackground, secondaryForeground to foreground.
+      buttonSecondaryBackground: map.resolve(
+        'button.secondaryBackground',
+        listHoverBg,
+      ),
+      buttonSecondaryForeground: map.resolve('button.secondaryForeground', fg),
+      // §9.20 button border. VS Code has no registry default — themes opt
+      // in; transparent when absent, so older themes draw no border.
+      buttonBorder: map.resolve('button.border', const Color(0x00000000)),
       // Foregrounds / accent
       foreground: fg,
       descriptionForeground: secondaryFg,
@@ -583,10 +620,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       successForeground: successFg,
       infoForeground: infoFg,
       // List
-      listHoverBackground: map.resolve(
-        'list.hoverBackground',
-        dl(const Color(0xFF2A2D2E), const Color(0xFFF0F0F0)),
-      ),
+      listHoverBackground: listHoverBg,
       listActiveSelectionBackground: map.resolve(
         'list.activeSelectionBackground',
         dl(const Color(0xFF04395E), const Color(0xFF0060C0)),
@@ -796,6 +830,9 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? buttonBackground,
     Color? buttonForeground,
     Color? buttonHoverBackground,
+    Color? buttonSecondaryBackground,
+    Color? buttonSecondaryForeground,
+    Color? buttonBorder,
     Color? foreground,
     Color? descriptionForeground,
     Color? accentForeground,
@@ -904,6 +941,11 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       buttonForeground: buttonForeground ?? this.buttonForeground,
       buttonHoverBackground:
           buttonHoverBackground ?? this.buttonHoverBackground,
+      buttonSecondaryBackground:
+          buttonSecondaryBackground ?? this.buttonSecondaryBackground,
+      buttonSecondaryForeground:
+          buttonSecondaryForeground ?? this.buttonSecondaryForeground,
+      buttonBorder: buttonBorder ?? this.buttonBorder,
       foreground: foreground ?? this.foreground,
       descriptionForeground:
           descriptionForeground ?? this.descriptionForeground,
@@ -1066,6 +1108,15 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         buttonHoverBackground,
         other.buttonHoverBackground,
       ),
+      buttonSecondaryBackground: c(
+        buttonSecondaryBackground,
+        other.buttonSecondaryBackground,
+      ),
+      buttonSecondaryForeground: c(
+        buttonSecondaryForeground,
+        other.buttonSecondaryForeground,
+      ),
+      buttonBorder: c(buttonBorder, other.buttonBorder),
       foreground: c(foreground, other.foreground),
       descriptionForeground: c(
         descriptionForeground,

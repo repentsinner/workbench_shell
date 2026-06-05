@@ -152,11 +152,11 @@ class _WorkbenchExampleAppState extends State<WorkbenchExampleApp> {
           title: 'workbench_shell example',
           debugShowCheckedModeBanner: false,
           // Build the example's ThemeData through the chrome helper so
-          // standard Material buttons render with VS Code's 4px corners
-          // sourced from the chrome — no host wiring needed. This makes
-          // the example a self-contained chrome review surface (SPEC
-          // §9.19): chrome styling changes are reviewable by running the
-          // example standalone.
+          // the VS Code button tiers render with their resting fills and
+          // 4px corners sourced from the chrome — no host wiring needed.
+          // This makes the example a self-contained chrome review surface
+          // (SPEC §9.20): chrome styling changes are reviewable by
+          // running the example standalone.
           theme: applyWorkbenchChrome(
             isDark ? ThemeData.dark() : ThemeData.light(),
             _themeController.theme,
@@ -568,7 +568,10 @@ class _NotificationsDemoSidebarState extends State<_NotificationsDemoSidebar> {
   }
 }
 
-/// Compact button used by the notifications demo sidebar.
+/// Compact button used by the notifications demo sidebar. Renders the
+/// themed secondary tier ([FilledButton.tonal]); `applyWorkbenchChrome`
+/// supplies its neutral fill, label, and 4px shape — no hand-rolled
+/// chrome here (§9.20).
 class _DemoButton extends StatelessWidget {
   const _DemoButton({required this.label, required this.onTap});
   final String label;
@@ -576,33 +579,11 @@ class _DemoButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.workbenchTheme;
     return Padding(
       padding: const EdgeInsets.symmetric(
         vertical: WorkbenchLayoutConstants.spacingXxs,
       ),
-      child: Material(
-        color: theme.buttonBackground,
-        borderRadius: WorkbenchLayoutConstants.containerRadius,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: WorkbenchLayoutConstants.containerRadius,
-          hoverColor: theme.buttonHoverBackground,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: WorkbenchLayoutConstants.spacingMd,
-              vertical: WorkbenchLayoutConstants.spacingSm,
-            ),
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              style: theme.buttonTextStyle.copyWith(
-                color: theme.buttonForeground,
-              ),
-            ),
-          ),
-        ),
-      ),
+      child: FilledButton.tonal(onPressed: onTap, child: Text(label)),
     );
   }
 }
@@ -888,14 +869,15 @@ class _SidebarBodyPlaceholder extends StatelessWidget {
   }
 }
 
-/// Standard Material buttons rendered through the chrome helper —
-/// `applyWorkbenchChrome` installs Elevated/Outlined/Text button themes
-/// carrying VS Code's rectangular 4px corners
+/// VS Code's three button tiers rendered through the chrome helper —
+/// `applyWorkbenchChrome` themes [FilledButton] (primary),
+/// [FilledButton.tonal] (secondary), and [TextButton] (text/link),
+/// each flat at rest with VS Code's rectangular 4px corners
 /// ([WorkbenchLayoutConstants.buttonShape]). Without the helper these
-/// would render with Material 3's default pill ([StadiumBorder]). This
-/// is the self-contained chrome review surface (SPEC §9.19): run the
-/// example standalone to review button shape and future Material
-/// theming, no host needed.
+/// would render Material 3's accent/secondary-container colors and the
+/// default pill ([StadiumBorder]). This is the self-contained chrome
+/// review surface (SPEC §9.20): run the example standalone to review the
+/// button taxonomy, no host needed.
 class _ButtonsReviewSidebar extends StatelessWidget {
   const _ButtonsReviewSidebar();
 
@@ -908,21 +890,23 @@ class _ButtonsReviewSidebar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Material buttons',
+            'VS Code buttons',
             style: theme.sectionTitle.copyWith(color: theme.foreground),
           ),
           const SizedBox(height: WorkbenchLayoutConstants.spacingSm),
           Text(
-            'Standard Material buttons themed by applyWorkbenchChrome. '
-            'Corners are VS Code\'s 4px rectangle, not Material 3\'s pill.',
+            'The three VS Code button tiers, themed by applyWorkbenchChrome: '
+            'a primary (accent fill), a secondary (neutral fill), and a '
+            'text/link button. All flat at rest with VS Code\'s 4px '
+            'rectangle, not Material 3\'s pill — none casts an at-rest shadow.',
             style: theme.bodyText.copyWith(color: theme.descriptionForeground),
           ),
           const SizedBox(height: WorkbenchLayoutConstants.spacingLg),
-          ElevatedButton(onPressed: () {}, child: const Text('Elevated')),
+          FilledButton(onPressed: () {}, child: const Text('Primary')),
           const SizedBox(height: WorkbenchLayoutConstants.spacingSm),
-          OutlinedButton(onPressed: () {}, child: const Text('Outlined')),
+          FilledButton.tonal(onPressed: () {}, child: const Text('Secondary')),
           const SizedBox(height: WorkbenchLayoutConstants.spacingSm),
-          TextButton(onPressed: () {}, child: const Text('Text')),
+          TextButton(onPressed: () {}, child: const Text('Text / link')),
         ],
       ),
     );

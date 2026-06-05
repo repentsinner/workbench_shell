@@ -122,11 +122,26 @@ class WorkbenchLayoutConstants {
   static const BorderRadius buttonRadius = BorderRadius.all(Radius.circular(4));
 
   /// Button shape — applied to the app-level Material button themes
-  /// (Elevated/Outlined/Text). De-pills Material 3's default
-  /// `StadiumBorder` to match VS Code's rectangular-with-4px buttons.
+  /// (Filled/Text, §9.20). De-pills Material 3's default `StadiumBorder`
+  /// to match VS Code's rectangular-with-4px buttons.
   static const RoundedRectangleBorder buttonShape = RoundedRectangleBorder(
     borderRadius: buttonRadius,
   );
+
+  /// 32px — button height. VS Code's `.monaco-button` is a compact
+  /// ~26-28px control, but rove is far more button-heavy than VS Code, so
+  /// it trades a little density for a less cramped label; Material 3's
+  /// button family defaults to 40px in a 48px tap target. The §9.20 button
+  /// themes set this as the minimum height with
+  /// `MaterialTapTargetSize.shrinkWrap` so the rendered button matches
+  /// rove's density rather than Material's touch sizing. Single source of
+  /// truth — every chrome-themed button moves together when it changes.
+  static const double buttonHeight = 32;
+
+  /// Button horizontal padding. VS Code's `.monaco-text-button` pads
+  /// ~14px on each side; height is governed by [buttonHeight], so the
+  /// vertical component is zero.
+  static const EdgeInsets buttonPadding = EdgeInsets.symmetric(horizontal: 14);
 
   // ==================== NOTIFICATION CENTER (§10) ====================
 
