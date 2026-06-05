@@ -4,6 +4,15 @@
 
 ### Added
 
+- `applyWorkbenchChrome(base, chrome)` helper composes the chrome's
+  Material theming onto a host's base `ThemeData`: installs the
+  `WorkbenchTheme` extension (replacing any stale one, preserving other
+  host extensions) plus Elevated/Outlined/Text button themes carrying
+  `WorkbenchLayoutConstants.buttonShape` (VS Code's 4px corners). Hosts
+  obtain VS Code Material theming with one call instead of hand-wiring
+  each widget theme. The bundled example builds its `ThemeData` through
+  the helper and renders standard Material buttons, making it a
+  self-contained chrome review surface. See SPEC §9.19.
 - `ToggleBottomPanelIntent` public intent exported from
   `workbench_shell`. `WorkbenchViewMenuTab` now carries an arbitrary
   `Intent`; menu items dispatch via `Actions.maybeInvoke`. The View

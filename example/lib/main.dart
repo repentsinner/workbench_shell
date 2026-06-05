@@ -151,8 +151,15 @@ class _WorkbenchExampleAppState extends State<WorkbenchExampleApp> {
         return MaterialApp(
           title: 'workbench_shell example',
           debugShowCheckedModeBanner: false,
-          theme: (isDark ? ThemeData.dark() : ThemeData.light()).copyWith(
-            extensions: [_themeController.theme],
+          // Build the example's ThemeData through the chrome helper so
+          // standard Material buttons render with VS Code's 4px corners
+          // sourced from the chrome — no host wiring needed. This makes
+          // the example a self-contained chrome review surface (SPEC
+          // §9.19): chrome styling changes are reviewable by running the
+          // example standalone.
+          theme: applyWorkbenchChrome(
+            isDark ? ThemeData.dark() : ThemeData.light(),
+            _themeController.theme,
           ),
           home: WorkbenchHome(themeController: _themeController),
         );
@@ -213,6 +220,11 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
       id: 'search',
       label: 'Search',
       icon: Symbols.search_rounded,
+    ),
+    ActivityBarItem(
+      id: 'buttons',
+      label: 'Buttons',
+      icon: Symbols.smart_button_rounded,
     ),
     ActivityBarItem(
       id: 'notifications',
@@ -369,6 +381,8 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
         return const _SidebarBodyPlaceholder(
           text: 'Search sidebar — host-supplied content lands here.',
         );
+      case 'buttons':
+        return const _ButtonsReviewSidebar();
       case 'notifications':
         return _NotificationsDemoSidebar(service: _notificationService);
       case 'settings':
@@ -870,6 +884,47 @@ class _SidebarBodyPlaceholder extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingLg),
       child: Text(text, style: theme.bodyStyle),
+    );
+  }
+}
+
+/// Standard Material buttons rendered through the chrome helper —
+/// `applyWorkbenchChrome` installs Elevated/Outlined/Text button themes
+/// carrying VS Code's rectangular 4px corners
+/// ([WorkbenchLayoutConstants.buttonShape]). Without the helper these
+/// would render with Material 3's default pill ([StadiumBorder]). This
+/// is the self-contained chrome review surface (SPEC §9.19): run the
+/// example standalone to review button shape and future Material
+/// theming, no host needed.
+class _ButtonsReviewSidebar extends StatelessWidget {
+  const _ButtonsReviewSidebar();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.workbenchTheme;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingLg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Material buttons',
+            style: theme.sectionTitle.copyWith(color: theme.foreground),
+          ),
+          const SizedBox(height: WorkbenchLayoutConstants.spacingSm),
+          Text(
+            'Standard Material buttons themed by applyWorkbenchChrome. '
+            'Corners are VS Code\'s 4px rectangle, not Material 3\'s pill.',
+            style: theme.bodyText.copyWith(color: theme.descriptionForeground),
+          ),
+          const SizedBox(height: WorkbenchLayoutConstants.spacingLg),
+          ElevatedButton(onPressed: () {}, child: const Text('Elevated')),
+          const SizedBox(height: WorkbenchLayoutConstants.spacingSm),
+          OutlinedButton(onPressed: () {}, child: const Text('Outlined')),
+          const SizedBox(height: WorkbenchLayoutConstants.spacingSm),
+          TextButton(onPressed: () {}, child: const Text('Text')),
+        ],
+      ),
     );
   }
 }

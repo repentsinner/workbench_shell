@@ -20,6 +20,7 @@ export 'src/slots/slot_id.dart';
 export 'src/slots/slot_registry.dart';
 export 'src/theming/token_theme.dart';
 export 'src/theming/vscode_color_map.dart';
+export 'src/theming/workbench_chrome_theme.dart';
 export 'src/workbench_content.dart';
 export 'src/workbench_intents.dart';
 export 'src/workbench_layout.dart';
