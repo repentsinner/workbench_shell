@@ -166,6 +166,15 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
         shape: const WidgetStatePropertyAll(buttonShape),
         textStyle: WidgetStatePropertyAll(chrome.buttonTextStyle),
         minimumSize: const WidgetStatePropertyAll(buttonMinSize),
+        // Dense ladders pack 5–6 segments across a sidebar (jog distances,
+        // the G54–G59 WCS row). Flutter's default segment padding is sized
+        // for a handful of wide segments and squeezes a 6-up cell below its
+        // label width, wrapping "G54" to two lines. A tight horizontal pad
+        // keeps short labels single-line; the equal-width distribution and
+        // [buttonMinSize] still give every segment a comfortable tap target.
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: WorkbenchLayoutConstants.spacingXs),
+        ),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
     ),
