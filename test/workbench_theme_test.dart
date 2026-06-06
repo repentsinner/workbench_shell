@@ -208,6 +208,42 @@ void main() {
       expect(theme.buttonSecondaryBackground, const Color(0x00000000));
       expect(theme.buttonBorder, const Color(0x1AFFFFFF));
     });
+
+    test('inputOption.active* preserved, incl. alpha (Dark Modern case)', () {
+      // The SegmentedButton selected segment reads from these — a subtle
+      // translucent accent fill plus a solid accent border.
+      final map = loader.parse('''
+        {
+          "name": "Modern-like",
+          "type": "vs-dark",
+          "colors": {
+            "inputOption.activeBackground": "#2489DB82",
+            "inputOption.activeBorder": "#2488DB"
+          }
+        }
+        ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.inputOptionActiveBackground, const Color(0x822489DB));
+      expect(theme.inputOptionActiveBorder, const Color(0xFF2488DB));
+    });
+
+    test('inputOption.active* fall back to the focusBorder accent', () {
+      // Older themes (Dark+) omit inputOption.*; the selected segment still
+      // gets an accent treatment from focusBorder rather than disappearing.
+      final map = loader.parse('''
+        {
+          "name": "Minimal Dark",
+          "type": "vs-dark",
+          "colors": { "focusBorder": "#007ACC" }
+        }
+        ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.inputOptionActiveBorder, const Color(0xFF007ACC));
+      expect(
+        theme.inputOptionActiveBackground,
+        const Color(0xFF007ACC).withValues(alpha: 0.25),
+      );
+    });
   });
 
   group('WorkbenchTheme border fallbacks (Plus asset)', () {

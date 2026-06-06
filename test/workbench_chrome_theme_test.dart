@@ -155,6 +155,56 @@ void main() {
       expect(side?.color, isNot(composed.colorScheme.secondaryContainer));
     });
 
+    test('segmented button theme carries the 4px buttonShape', () {
+      final shape = result.segmentedButtonTheme.style?.shape?.resolve({});
+      expect(shape, WorkbenchLayoutConstants.buttonShape);
+    });
+
+    test('segmented button theme carries the compact size and text style', () {
+      final style = result.segmentedButtonTheme.style;
+      expect(style?.textStyle?.resolve({}), testWorkbenchTheme.buttonTextStyle);
+      expect(
+        style?.minimumSize?.resolve({})?.height,
+        WorkbenchLayoutConstants.buttonHeight,
+      );
+      expect(style?.tapTargetSize, MaterialTapTargetSize.shrinkWrap);
+    });
+
+    test('segmented selected segment uses the active-toggle accent, '
+        'not the primary-action blue', () {
+      // The selected segment reads as "active" via VS Code's
+      // inputOption.active* toggle treatment — a subtle accent tint plus a
+      // solid accent border — distinct from the primary-action FilledButton
+      // blue (buttonBackground), so the two don't compete.
+      final style = result.segmentedButtonTheme.style;
+      final selectedFill = style?.backgroundColor?.resolve({
+        WidgetState.selected,
+      });
+      expect(selectedFill, testWorkbenchTheme.inputOptionActiveBackground);
+      expect(selectedFill, isNot(testWorkbenchTheme.buttonBackground));
+
+      final selectedSide = style?.side?.resolve({WidgetState.selected});
+      expect(selectedSide?.color, testWorkbenchTheme.inputOptionActiveBorder);
+    });
+
+    test('segmented disabled segment dims its label so it reads as '
+        'unavailable, not merely unselected', () {
+      // The capped distance ladders disable segments; a disabled segment
+      // must look different from an enabled-unselected one. M3 dims
+      // disabled foreground; our override preserves that via the muted
+      // descriptionForeground (an earlier version clobbered it).
+      final fg = result.segmentedButtonTheme.style?.foregroundColor;
+      expect(
+        fg?.resolve({WidgetState.disabled}),
+        testWorkbenchTheme.descriptionForeground,
+      );
+      expect(fg?.resolve(<WidgetState>{}), testWorkbenchTheme.foreground);
+      expect(
+        fg?.resolve({WidgetState.disabled}),
+        isNot(fg?.resolve(<WidgetState>{})),
+      );
+    });
+
     test('does not set elevated or outlined button themes', () {
       // §9.20 canonicalizes every button — including the jog grid — on
       // FilledButton, so no ElevatedButton or OutlinedButton remains in

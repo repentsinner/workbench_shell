@@ -94,6 +94,18 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   /// both §9.20 filled tiers.
   final Color buttonBorder;
 
+  /// Active-toggle fill. VS Code `inputOption.activeBackground` (the
+  /// find/search toggle "on" state), a subtle accent tint; falls back to a
+  /// translucent [focusBorder] accent. Marks the selected segment of the
+  /// §9.20 jog `SegmentedButton`s — an *active* colour, distinct from the
+  /// primary-action fill and from a dimmed-disabled segment.
+  final Color inputOptionActiveBackground;
+
+  /// Active-toggle border. VS Code `inputOption.activeBorder`, a solid
+  /// accent; falls back to [focusBorder]. The prominent "selected" signal
+  /// on the active segment, paired with [inputOptionActiveBackground].
+  final Color inputOptionActiveBorder;
+
   // ---- Foreground / accent ----
   final Color foreground;
   final Color descriptionForeground;
@@ -317,6 +329,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.buttonSecondaryBackground,
     required this.buttonSecondaryForeground,
     required this.buttonBorder,
+    required this.inputOptionActiveBackground,
+    required this.inputOptionActiveBorder,
     required this.foreground,
     required this.descriptionForeground,
     required this.accentForeground,
@@ -607,6 +621,18 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // §9.20 button border. VS Code has no registry default — themes opt
       // in; transparent when absent, so older themes draw no border.
       buttonBorder: map.resolve('button.border', const Color(0x00000000)),
+      // §9.20 active-toggle (SegmentedButton selected segment). VS Code's
+      // find/search toggle "on" state: a subtle accent tint plus a solid
+      // accent border. Fall back to a translucent / solid focusBorder
+      // accent when the theme omits them.
+      inputOptionActiveBackground: map.resolve(
+        'inputOption.activeBackground',
+        accentFg.withValues(alpha: 0.25),
+      ),
+      inputOptionActiveBorder: map.resolve(
+        'inputOption.activeBorder',
+        accentFg,
+      ),
       // Foregrounds / accent
       foreground: fg,
       descriptionForeground: secondaryFg,
@@ -833,6 +859,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? buttonSecondaryBackground,
     Color? buttonSecondaryForeground,
     Color? buttonBorder,
+    Color? inputOptionActiveBackground,
+    Color? inputOptionActiveBorder,
     Color? foreground,
     Color? descriptionForeground,
     Color? accentForeground,
@@ -946,6 +974,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       buttonSecondaryForeground:
           buttonSecondaryForeground ?? this.buttonSecondaryForeground,
       buttonBorder: buttonBorder ?? this.buttonBorder,
+      inputOptionActiveBackground:
+          inputOptionActiveBackground ?? this.inputOptionActiveBackground,
+      inputOptionActiveBorder:
+          inputOptionActiveBorder ?? this.inputOptionActiveBorder,
       foreground: foreground ?? this.foreground,
       descriptionForeground:
           descriptionForeground ?? this.descriptionForeground,
@@ -1117,6 +1149,14 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         other.buttonSecondaryForeground,
       ),
       buttonBorder: c(buttonBorder, other.buttonBorder),
+      inputOptionActiveBackground: c(
+        inputOptionActiveBackground,
+        other.inputOptionActiveBackground,
+      ),
+      inputOptionActiveBorder: c(
+        inputOptionActiveBorder,
+        other.inputOptionActiveBorder,
+      ),
       foreground: c(foreground, other.foreground),
       descriptionForeground: c(
         descriptionForeground,

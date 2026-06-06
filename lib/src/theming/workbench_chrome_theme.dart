@@ -21,6 +21,11 @@ import '../workbench_theme.dart';
 ///     label `button.secondaryForeground`, via the `secondaryContainer` /
 ///     `onSecondaryContainer` roles;
 ///   - [TextButton] (text / link): label the link accent.
+/// - a [SegmentedButtonThemeData] for the single-select jog selectors
+///   (mode toggle, distance ladders, percent), inheriting the same 4px
+///   shape and compact height with a **neutral** selected-segment fill
+///   (`button.secondaryBackground`) that reads as "chosen" without
+///   competing with the primary-action blue (§8.1, §9.20).
 ///
 /// All three are flat — elevation pinned to 0 across every state. The
 /// helper keeps [FilledButton]'s hover/pressed state-layer *overlay* (the
@@ -117,6 +122,50 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
         textStyle: chrome.buttonTextStyle,
         minimumSize: buttonMinSize,
         padding: buttonPadding,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+    ),
+    // Single-select segmented control — the jog mode toggle, distance
+    // ladders, and percent selector (§8.1). The control inherits the
+    // same 4px shape, compact height, and text style as the button
+    // tiers so the dense ladders stay aligned with the rest of the
+    // chrome.
+    //
+    // The selected segment fills with the **neutral** secondary token
+    // (`button.secondaryBackground`), NOT the primary-action blue
+    // (`button.background`). Driving the selected fill from the primary
+    // accent — as the old `jogButtonStyle(selected: true)` did via
+    // `focusBorder` — makes "this option is chosen" compete with "this
+    // is the primary action": two blues, one meaning. The neutral fill
+    // reads as a selection highlight without that collision (§9.20).
+    // Call sites suppress the default checkmark (`showSelectedIcon:
+    // false`) so the 5-up ladders aren't crowded.
+    // Single-select jog selectors (§9.20). The selected segment uses VS
+    // Code's active-toggle treatment — a subtle accent tint plus a solid
+    // accent border (`inputOption.active*`) — an *active* colour distinct
+    // from both the primary-action fill and a dimmed-disabled segment.
+    // Disabled segments dim their label (descriptionForeground) so a
+    // capped distance reads clearly as unavailable, not merely unselected.
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      style: ButtonStyle(
+        backgroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? chrome.inputOptionActiveBackground
+              : null,
+        ),
+        foregroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.disabled)
+              ? chrome.descriptionForeground
+              : chrome.foreground,
+        ),
+        side: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? BorderSide(color: chrome.inputOptionActiveBorder)
+              : BorderSide(color: chrome.panelBorderOrTransparent),
+        ),
+        shape: const WidgetStatePropertyAll(buttonShape),
+        textStyle: WidgetStatePropertyAll(chrome.buttonTextStyle),
+        minimumSize: const WidgetStatePropertyAll(buttonMinSize),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
     ),
