@@ -22,11 +22,8 @@ example/macos/
 example/linux/
 example/windows/
 
-# --- Internal-only material ---
-# Governance docs and tests have no runtime or consumer-reference value;
-# README links back to the repo for anyone who wants the design rationale.
-# Kept in git, excluded from the pub.dev archive.
-SPEC.md
-ROADMAP.md
-test/
-example/test/
+# Nothing else is excluded. A published Dart package is a full source
+# distribution (pub ships tests, docs, and examples by default), and the
+# size limit is 100 MB gzip — we are ~6 orders of magnitude under it. So
+# SPEC.md, ROADMAP.md, and test/ stay in the archive as source and design
+# intent; only non-source artifacts and regenerable scaffolding are cut.
