@@ -21,3 +21,12 @@ example/ios/
 example/macos/
 example/linux/
 example/windows/
+
+# --- Internal-only material ---
+# Governance docs and tests have no runtime or consumer-reference value;
+# README links back to the repo for anyone who wants the design rationale.
+# Kept in git, excluded from the pub.dev archive.
+SPEC.md
+ROADMAP.md
+test/
+example/test/
