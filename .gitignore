@@ -1,0 +1,20 @@
+# Generated Dart/Flutter artifacts. None of these are source; all are
+# reproduced by `pub get`, `build_runner`, or `dart doc`. Patterns without
+# a leading slash match at any depth, so they also cover example/.
+
+# Tool and build caches.
+.dart_tool/
+build/
+**/doc/api/
+
+# Library lockfile. workbench_shell is a published package, not an app:
+# it must resolve against a range of consumer versions, so pinning its own
+# lockfile gives false confidence and has no effect on consumers.
+# See https://dart.dev/tools/pub/private-files#pubspeclock.
+/pubspec.lock
+
+# OS and editor noise.
+.DS_Store
+*.swp
+*.iml
+.idea/
