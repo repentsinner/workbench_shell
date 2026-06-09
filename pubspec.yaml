@@ -5,11 +5,9 @@ description: >-
   structural primitives. Depends only on Flutter.
 version: 0.1.0
 
-resolution: workspace
-
-homepage: https://github.com/repentsinner/ghsender
-repository: https://github.com/repentsinner/ghsender/tree/main/packages/workbench_shell
-issue_tracker: https://github.com/repentsinner/ghsender/issues
+homepage: https://github.com/repentsinner/workbench_shell
+repository: https://github.com/repentsinner/workbench_shell
+issue_tracker: https://github.com/repentsinner/workbench_shell/issues
 topics:
   - workbench
   - vscode
