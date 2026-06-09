@@ -1,0 +1,10 @@
+# Exclude the standalone example app — it is an independent package
+# pointed back at workbench_shell via a local path and has its own deps
+# (workbench_shell_example, flutter_lints). Without this exclude,
+# dependency_validator reports workbench_shell_example as a missing
+# dev_dependency of workbench_shell.
+#
+# This config lives here rather than under a pubspec.yaml key, which
+# `pub publish` rejects as an unrecognized key.
+exclude:
+  - 'example/**'
