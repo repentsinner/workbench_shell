@@ -1,0 +1,14 @@
+# Trim the published archive. The example's per-platform scaffolding
+# (Xcode projects, gradle wrappers, app icons, CMake) is generated, not
+# source, and inflates the package to ~10x its real size. Excluding it
+# ships only the example's Dart source. A consumer regenerates the
+# platform folders by running `flutter create .` in example/, then
+# `flutter run` — the example remains runnable on all platforms.
+#
+# .pubignore (not .gitignore) so these stay tracked in git but absent
+# from the pub.dev archive.
+example/android/
+example/ios/
+example/macos/
+example/linux/
+example/windows/
