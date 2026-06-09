@@ -37,12 +37,3 @@ dev_dependencies:
 flutter:
   assets:
     - assets/themes/
-
-# Exclude the standalone example app — it is an independent package
-# pointed back at workbench_shell via a local path and has its own
-# deps (workbench_shell_example, flutter_lints). Without this
-# exclude, dependency_validator reports workbench_shell_example as a
-# missing dev_dependency of workbench_shell.
-dependency_validator:
-  exclude:
-    - 'example/**'
