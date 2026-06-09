@@ -1,12 +1,21 @@
-# Trim the published archive. The example's per-platform scaffolding
-# (Xcode projects, gradle wrappers, app icons, CMake) is generated, not
-# source, and inflates the package to ~10x its real size. Excluding it
-# ships only the example's Dart source. A consumer regenerates the
-# platform folders by running `flutter create .` in example/, then
-# `flutter run` — the example remains runnable on all platforms.
-#
-# .pubignore (not .gitignore) so these stay tracked in git but absent
-# from the pub.dev archive.
+# This file fully overrides the root .gitignore for `dart pub publish`
+# (pub ignores a directory's .gitignore when a .pubignore sits beside it).
+# It must therefore re-state every .gitignore exclusion that matters for
+# the archive, or build artifacts flood back in. Patterns without a
+# leading slash match at any depth, so `build/` also covers example/.
+
+# --- Mirror of .gitignore (non-hidden artifacts; dotfiles are dropped
+# --- automatically as hidden, but listed here for clarity). ---
+.dart_tool/
+build/
+**/doc/api/
+/pubspec.lock
+
+# --- Example scaffolding ---
+# The example's generated per-platform folders (Xcode, gradle, CMake,
+# app icons) are not source and inflate the archive ~10x. Consumers
+# regenerate them with `flutter create .` in example/, then `flutter run`,
+# so the example stays runnable on all platforms.
 example/android/
 example/ios/
 example/macos/
