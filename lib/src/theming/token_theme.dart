@@ -100,11 +100,15 @@ class TokenTheme {
 
     for (final entry in tokenColors) {
       if (entry is! Map<String, dynamic>) continue;
-      final settings = entry['settings'] as Map<String, dynamic>?;
-      if (settings == null) continue;
+      final settings = entry['settings'];
+      if (settings is! Map<String, dynamic>) continue;
 
-      final foreground = _parseColor(settings['foreground'] as String?);
-      final fontStyle = settings['fontStyle'] as String? ?? '';
+      final foregroundValue = settings['foreground'];
+      final foreground = _parseColor(
+        foregroundValue is String ? foregroundValue : null,
+      );
+      final fontStyleValue = settings['fontStyle'];
+      final fontStyle = fontStyleValue is String ? fontStyleValue : '';
       final bold = fontStyle.contains('bold');
       final italic = fontStyle.contains('italic');
       final underline = fontStyle.contains('underline');

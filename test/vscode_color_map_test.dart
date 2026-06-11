@@ -187,4 +187,75 @@ void main() {
       expect(bg.a, closeTo(1.0, 0.01));
     });
   });
+
+  group('VscodeColorThemeLoader.parse — malformed input', () {
+    // A host loading community/user-supplied theme JSON must not crash
+    // the app on structurally invalid input. Wrong-typed fields are
+    // skipped or defaulted; only a non-object root is rejected, and with
+    // a documented FormatException rather than a raw TypeError.
+
+    test('throws FormatException (not TypeError) on a non-object root', () {
+      expect(() => loader.parse('[]'), throwsFormatException);
+      expect(() => loader.parse('42'), throwsFormatException);
+      expect(() => loader.parse('"x"'), throwsFormatException);
+    });
+
+    test('non-string name falls back to Untitled', () {
+      final map = loader.parse('{"name": 7, "type": "vs-dark", "colors": {}}');
+      expect(map.name, 'Untitled');
+    });
+
+    test('non-object colors is treated as empty', () {
+      final map = loader.parse('{"name": "X", "type": "vs-dark", "colors": []}');
+      expect(map['editor.background'], isNull);
+    });
+
+    test('non-string color values are skipped, valid ones retained', () {
+      final map = loader.parse('''
+      {
+        "name": "X",
+        "type": "vs-dark",
+        "colors": {
+          "editor.foreground": 16777215,
+          "editor.background": "#1E1E1E"
+        }
+      }''');
+      expect(map['editor.foreground'], isNull);
+      expect(map['editor.background'], const Color(0xFF1E1E1E));
+    });
+
+    test('non-list tokenColors is treated as empty', () {
+      final map = loader.parse(
+        '{"name": "X", "type": "vs-dark", "colors": {}, "tokenColors": {}}',
+      );
+      expect(map.tokenTheme, isNotNull);
+    });
+
+    test('non-string type field falls through to inference', () {
+      final map = loader.parse(
+        '{"name": "My Light", "type": 3, "colors": {}}',
+      );
+      expect(map.baseType, 'vs');
+    });
+
+    test('malformed token rule does not abort the parse', () {
+      // A single bad rule (settings as a list, foreground as a number)
+      // must not throw; valid rules in the same array still resolve.
+      final map = loader.parse('''
+      {
+        "name": "X",
+        "type": "vs-dark",
+        "colors": {"editor.foreground": "#CCCCCC"},
+        "tokenColors": [
+          {"scope": "broken", "settings": []},
+          {"scope": "number", "settings": {"foreground": 123}},
+          {"scope": "comment", "settings": {"foreground": "#6A9955"}}
+        ]
+      }''');
+      expect(
+        map.resolvedTokenTheme.resolve('comment').foreground,
+        const Color(0xFF6A9955),
+      );
+    });
+  });
 }
