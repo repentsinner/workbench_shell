@@ -79,8 +79,7 @@ class WorkbenchMenuBar extends StatelessWidget {
 
   /// Neutral, host-agnostic default for [applicationMenuLabel]. Keeps
   /// `workbench_shell` free of any host's name so third-party
-  /// consumers (and the standalone repo, §15.2) get a generic label
-  /// rather than "Rove".
+  /// consumers get a generic label rather than a specific product name.
   static const String defaultApplicationMenuLabel = 'App';
 
   const WorkbenchMenuBar({

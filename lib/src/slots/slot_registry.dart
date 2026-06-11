@@ -6,8 +6,8 @@ import 'slot_id.dart';
 /// Registry mapping [SlotId]s to widget builders and holding
 /// [SidebarSlot] registrations for the activity bar.
 ///
-/// The pro edition populates slots during DI configuration.
-/// The open edition registers an empty registry (all slots return null).
+/// A host populates slots when it constructs the registry; an empty
+/// registry leaves every slot unregistered, so each lookup returns null.
 class SlotRegistry {
   final Map<SlotId, Widget Function(BuildContext)> _builders;
   final List<SidebarSlot> sidebarSlots;
@@ -17,7 +17,7 @@ class SlotRegistry {
     this.sidebarSlots = const [],
   }) : _builders = builders;
 
-  /// Backward-compatible unnamed constructor for open edition.
+  /// Registry with no slots registered; every lookup returns null.
   const SlotRegistry.empty() : _builders = const {}, sidebarSlots = const [];
 
   /// Returns the widget for [id], or null if no builder is registered.

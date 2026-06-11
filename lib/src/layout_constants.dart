@@ -129,12 +129,12 @@ class WorkbenchLayoutConstants {
   );
 
   /// 32px — button height. VS Code's `.monaco-button` is a compact
-  /// ~26-28px control, but rove is far more button-heavy than VS Code, so
-  /// it trades a little density for a less cramped label; Material 3's
-  /// button family defaults to 40px in a 48px tap target. The §9.20 button
-  /// themes set this as the minimum height with
-  /// `MaterialTapTargetSize.shrinkWrap` so the rendered button matches
-  /// rove's density rather than Material's touch sizing. Single source of
+  /// ~26-28px control, but this shell targets more button-heavy UIs than
+  /// VS Code, so it trades a little density for a less cramped label;
+  /// Material 3's button family defaults to 40px in a 48px tap target. The
+  /// §9.20 button themes set this as the minimum height with
+  /// `MaterialTapTargetSize.shrinkWrap` so the rendered button matches the
+  /// shell's density rather than Material's touch sizing. Single source of
   /// truth — every chrome-themed button moves together when it changes.
   static const double buttonHeight = 32;
 

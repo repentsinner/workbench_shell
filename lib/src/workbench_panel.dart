@@ -10,7 +10,7 @@ import 'package:flutter/material.dart';
 /// surfaces the tab.
 ///
 /// VS Code does not vary the badge background by severity (a multi-
-/// severity collection like Rove's UserTasks has no obvious "summary
+/// severity collection such as a task list has no obvious "summary
 /// severity" — highest? most populous? — so painting one colour per
 /// tab would surface an arbitrary choice). The pill simply communicates
 /// "N items" using the tab strip's own accent.

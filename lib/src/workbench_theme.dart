@@ -291,8 +291,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   // ---- Domain color resolver input (§9.15) ----
   /// HCT tone (0–100) of the canonical chrome surface ([editorBackground]).
   ///
-  /// Domain themes (e.g. `RoveDomainTheme`) read this to pick a tone
-  /// from a tonal palette that contrasts the active chrome. Dark
+  /// A host's domain theme reads this to pick a tone from a tonal
+  /// palette that contrasts the active chrome. Dark
   /// chrome (low tone) selects high palette tones; light chrome
   /// selects low palette tones. See SPEC §9.15.
   final double surfaceTone;
@@ -820,8 +820,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           .withValues(alpha: 0.3),
       notificationProgressFill: map.resolve('progressBar.background', accentFg),
       // HCT tone of the canonical chrome surface (editor background).
-      // Domain themes read this to pick contrasting palette tones —
-      // see RoveDomainTheme and SPEC §9.15.
+      // A host's domain theme reads this to pick contrasting palette
+      // tones — see SPEC §9.15.
       surfaceTone: hctToneFor(editorBg),
     );
   }
