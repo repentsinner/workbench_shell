@@ -284,4 +284,42 @@ void main() {
       expect(controller.selectedFilename, 'dark_modern.json');
     });
   });
+
+  group('WorkbenchThemeController platform-brightness subscription', () {
+    test('restores the dispatcher handler after out-of-order disposal', () {
+      final binding = TestWidgetsFlutterBinding.ensureInitialized();
+      final dispatcher = binding.platformDispatcher;
+      final original = dispatcher.onPlatformBrightnessChanged;
+
+      final a = WorkbenchThemeController(initialTheme: _placeholderTheme());
+      final b = WorkbenchThemeController(initialTheme: _placeholderTheme());
+
+      // Dispose in creation order (non-LIFO). Single-slot handler chaining
+      // used to resurrect A's handler here, leaving the dispatcher pointing
+      // at a disposed controller.
+      a.dispose();
+      b.dispose();
+
+      expect(dispatcher.onPlatformBrightnessChanged, same(original));
+    });
+
+    test('a surviving controller still reacts after another is disposed', () async {
+      final binding = TestWidgetsFlutterBinding.ensureInitialized();
+      final dispatcher = binding.platformDispatcher;
+      dispatcher.platformBrightnessTestValue = Brightness.light;
+      addTearDown(dispatcher.clearPlatformBrightnessTestValue);
+
+      final a = WorkbenchThemeController(initialTheme: _placeholderTheme());
+      addTearDown(a.dispose);
+      final b = WorkbenchThemeController(initialTheme: _placeholderTheme());
+      b.dispose();
+      await a.pendingResolution;
+
+      dispatcher.platformBrightnessTestValue = Brightness.dark;
+      dispatcher.onPlatformBrightnessChanged?.call();
+      await a.pendingResolution;
+
+      expect(a.brightness, Brightness.dark);
+    });
+  });
 }
