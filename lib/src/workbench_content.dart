@@ -9,8 +9,8 @@ import 'workbench_theme.dart';
 /// `workbench_shell` deliberately scopes this surface to structural
 /// grouping (sections, subsections, cards, toggle cards, empty states).
 /// Form controls — text fields, dropdowns, toggles, action buttons —
-/// live in `rove_ui` as application helpers. See SPEC §9.14 for
-/// rationale and the re-promotion gate.
+/// live in the host application as application helpers. See SPEC §9.14
+/// for rationale and the re-promotion gate.
 
 /// Resolve a content-primitive border side from the theme's nullable
 /// [WorkbenchTheme.borderColor]. When the theme suppresses the border,

@@ -24,14 +24,24 @@ construction.
   `WorkbenchToggleCard`, `WorkbenchEmptyState` — structural primitives
   that encode the workbench's visual hierarchy.
 - `WorkbenchTheme` + `WorkbenchThemeController` — VS Code theme JSON
-  loader, token map, and active theme state. Bundled themes: Dark
-  Modern, Light Modern, Dark (Visual Studio), Light (Visual Studio).
+  loader, token map, and active theme state. Bundled themes: Dark/Light
+  2026, Dark/Light Modern, Dark+/Light+ (Visual Studio), Monokai, and
+  Solarized Dark/Light.
 - `TokenTheme` — syntax-highlighting companion surface populated from
   `tokenColors`.
+- `NotificationService`, `NotificationHost`, `NotificationProgressController`
+  — stacked toast cards anchored bottom-right, with progress and
+  auto-dismiss.
 - `WorkbenchLayoutConstants` — fixed geometry (activity bar width,
   sidebar widths, status bar height, spacing scale, icon sizes).
 - `SlotRegistry`, `SidebarSlot`, `SidebarZone` — extension points for
   sidebar composition.
+
+## Install
+
+```bash
+flutter pub add workbench_shell
+```
 
 ## Usage
 
@@ -39,29 +49,35 @@ construction.
 import 'package:flutter/material.dart';
 import 'package:workbench_shell/workbench_shell.dart';
 
-void main() {
-  runApp(const ExampleApp());
-}
+void main() => runApp(const ExampleApp());
 
 class ExampleApp extends StatelessWidget {
   const ExampleApp({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Build a WorkbenchTheme from VS Code theme JSON. This resolves an
+    // empty map to dark defaults; load a bundled palette (Dark Modern,
+    // Monokai, …) at runtime via WorkbenchThemeController.
+    final workbench = WorkbenchTheme.fromVscodeColorMap(
+      const VscodeColorMap(name: 'Dark', baseType: 'vs-dark', colors: {}),
+    );
+
     return MaterialApp(
-      theme: ThemeData.dark().copyWith(
-        extensions: [WorkbenchTheme.darkDefault()],
-      ),
+      theme: ThemeData.dark().copyWith(extensions: [workbench]),
       home: Scaffold(
         body: WorkbenchLayout(
           activityBarItems: const [
-            ActivityBarItem(id: 'explorer', icon: Icons.folder),
-            ActivityBarItem(id: 'search', icon: Icons.search),
+            ActivityBarItem(id: 'explorer', label: 'Explorer', icon: Icons.folder),
+            ActivityBarItem(id: 'search', label: 'Search', icon: Icons.search),
           ],
-          sidebarBuilder: (context, sectionId) =>
-              WorkbenchSection(title: sectionId, children: const []),
-          editorBuilder: (context) => const Center(child: Text('Editor')),
-          statusBarItems: const [],
+          sidebarBuilder: (sectionId) => WorkbenchSection(
+            title: sectionId,
+            child: const SizedBox.shrink(),
+          ),
+          editor: const Center(child: Text('Editor')),
+          bottomPanel: const SizedBox.shrink(),
+          statusBar: const WorkbenchStatusBar(),
         ),
       ),
     );
@@ -69,8 +85,8 @@ class ExampleApp extends StatelessWidget {
 }
 ```
 
-A runnable example with two sidebars, a tabbed bottom panel, and a
-status bar lives under [`example/`](example/).
+A runnable example with five sidebars, a tabbed bottom panel, a
+notification demo, and a status bar lives under [`example/`](example/).
 
 ## Design
 

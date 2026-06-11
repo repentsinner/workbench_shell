@@ -1,4 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
+
+import 'hex_color.dart';
 
 /// Visual style for a single syntax token scope.
 ///
@@ -99,11 +102,15 @@ class TokenTheme {
 
     for (final entry in tokenColors) {
       if (entry is! Map<String, dynamic>) continue;
-      final settings = entry['settings'] as Map<String, dynamic>?;
-      if (settings == null) continue;
+      final settings = entry['settings'];
+      if (settings is! Map<String, dynamic>) continue;
 
-      final foreground = _parseColor(settings['foreground'] as String?);
-      final fontStyle = settings['fontStyle'] as String? ?? '';
+      final foregroundValue = settings['foreground'];
+      final foreground = parseVscodeHexColor(
+        foregroundValue is String ? foregroundValue : null,
+      );
+      final fontStyleValue = settings['fontStyle'];
+      final fontStyle = fontStyleValue is String ? fontStyleValue : '';
       final bold = fontStyle.contains('bold');
       final italic = fontStyle.contains('italic');
       final underline = fontStyle.contains('underline');
@@ -196,24 +203,15 @@ class TokenTheme {
     return targetScope.startsWith('$ruleScope.');
   }
 
-  /// Parse a hex color, or null for missing/invalid values.
-  static Color? _parseColor(String? hex) {
-    if (hex == null || !hex.startsWith('#')) return null;
-    final stripped = hex.substring(1);
-    switch (stripped.length) {
-      case 6:
-        final value = int.tryParse(stripped, radix: 16);
-        if (value == null) return null;
-        return Color(0xFF000000 | value);
-      case 8:
-        final rgb = int.tryParse(stripped.substring(0, 6), radix: 16);
-        final alpha = int.tryParse(stripped.substring(6, 8), radix: 16);
-        if (rgb == null || alpha == null) return null;
-        return Color((alpha << 24) | rgb);
-      default:
-        return null;
-    }
-  }
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TokenTheme &&
+          defaultForeground == other.defaultForeground &&
+          listEquals(_rules, other._rules);
+
+  @override
+  int get hashCode => Object.hash(defaultForeground, Object.hashAll(_rules));
 }
 
 /// A scope → style rule from the theme's tokenColors array.
@@ -221,4 +219,12 @@ class _TokenRule {
   final String scope;
   final TokenStyle style;
   const _TokenRule(this.scope, this.style);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _TokenRule && scope == other.scope && style == other.style;
+
+  @override
+  int get hashCode => Object.hash(scope, style);
 }

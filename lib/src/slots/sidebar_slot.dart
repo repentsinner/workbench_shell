@@ -3,7 +3,7 @@ import 'package:flutter/widgets.dart';
 
 import 'sidebar_zone.dart';
 
-/// A sidebar extension slot registered by the pro edition.
+/// A sidebar extension slot registered by the host.
 ///
 /// Each slot appears as an icon in the activity bar and renders
 /// its [contentBuilder] in the primary sidebar when selected.

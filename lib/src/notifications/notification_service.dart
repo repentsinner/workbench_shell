@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import 'package:flutter/foundation.dart';
 
 import 'notification.dart';
@@ -33,8 +35,12 @@ class NotificationService extends ChangeNotifier {
   /// Current notifications, oldest first. Returned as an unmodifiable
   /// view — mutations must go through [show] / [dismiss] so observers
   /// receive change notifications.
-  List<WorkbenchNotification> get notifications =>
-      List.unmodifiable(_notifications);
+  ///
+  /// The view wraps the backing list once and reflects later mutations
+  /// live, so repeated reads (the host reads it several times per change
+  /// cycle) allocate nothing.
+  late final List<WorkbenchNotification> notifications =
+      UnmodifiableListView(_notifications);
 
   /// Post a new notification.
   ///

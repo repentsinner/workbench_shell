@@ -107,11 +107,29 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
   // ignore: avoid-late-keyword
   late TabController _tabController;
 
-  int _initialIndex() {
+  /// Controller index that should be active for the current tab list.
+  ///
+  /// Honors [WorkbenchTabbedPanel.initialTabId] — which the host
+  /// re-passes as its preserved active id on every build — falling back
+  /// to [fallback] (clamped) when the id is null or no longer present.
+  int _resolvedIndex(int fallback) {
     final id = widget.initialTabId;
-    if (id == null) return 0;
-    final index = widget.tabs.indexWhere((t) => t.id == id);
-    return index < 0 ? 0 : index;
+    if (id != null) {
+      final index = widget.tabs.indexWhere((t) => t.id == id);
+      if (index >= 0) return index;
+    }
+    return fallback.clamp(0, widget.tabs.length - 1);
+  }
+
+  static bool _sameTabIds(
+    List<WorkbenchPanelTab> a,
+    List<WorkbenchPanelTab> b,
+  ) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id) return false;
+    }
+    return true;
   }
 
   @override
@@ -119,7 +137,7 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
     super.initState();
     _tabController = TabController(
       length: widget.tabs.length,
-      initialIndex: _initialIndex(),
+      initialIndex: _resolvedIndex(0),
       vsync: this,
     );
     _tabController.addListener(_onTabChanged);
@@ -135,16 +153,34 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
   @override
   void didUpdateWidget(covariant WorkbenchTabbedPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (_sameTabIds(oldWidget.tabs, widget.tabs)) return;
+
+    // The tab set changed (length, reorder, or swap). Re-seed the active
+    // index from the host's preserved id so the rendered tab stays aligned
+    // with the host's active-tab / PanelLifecycle focus state.
+    final desiredIndex = _resolvedIndex(_tabController.index);
+
     if (oldWidget.tabs.length != widget.tabs.length) {
-      final oldIndex = _tabController.index;
       _tabController.removeListener(_onTabChanged);
       _tabController.dispose();
       _tabController = TabController(
         length: widget.tabs.length,
-        initialIndex: oldIndex.clamp(0, widget.tabs.length - 1),
+        initialIndex: desiredIndex,
         vsync: this,
       );
       _tabController.addListener(_onTabChanged);
+      // Constructing a controller does not fire the listener; notify the
+      // host after the frame so it learns the active id when the
+      // previously active tab was removed.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        widget.onActiveTabChanged?.call(widget.tabs[_tabController.index].id);
+      });
+    } else if (_tabController.index != desiredIndex) {
+      // Same length but the active id moved position (reorder/swap).
+      // Realign the retained controller; this fires _onTabChanged, which
+      // re-emits the active id to the host.
+      _tabController.index = desiredIndex;
     }
   }
 

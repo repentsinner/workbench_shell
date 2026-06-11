@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 
+import 'hex_color.dart';
 import 'token_theme.dart';
 
 /// Parsed representation of a VS Code color theme JSON file.
@@ -75,23 +76,36 @@ class VscodeColorThemeLoader {
   }
 
   /// Parse a VS Code color theme JSON string.
+  ///
+  /// Throws [FormatException] if the JSON root is not an object.
+  /// Structurally invalid fields below the root (wrong-typed colors,
+  /// token rules, metadata) are skipped or defaulted rather than
+  /// throwing, so a single malformed entry in a community theme does
+  /// not abort the whole parse.
   VscodeColorMap parse(String jsonStr) {
-    final Map<String, dynamic> json =
-        jsonDecode(jsonStr) as Map<String, dynamic>;
-    return parseJson(json);
+    final decoded = jsonDecode(jsonStr);
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException('theme JSON root must be an object');
+    }
+    return parseJson(decoded);
   }
 
   /// Parse a decoded JSON map.
   VscodeColorMap parseJson(Map<String, dynamic> json) {
-    final name = json['name'] as String? ?? 'Untitled';
+    final nameValue = json['name'];
+    final name = nameValue is String ? nameValue : 'Untitled';
     final baseType = _resolveBaseType(json);
-    final colorsJson = json['colors'] as Map<String, dynamic>? ?? {};
+    final colorsJson = json['colors'];
 
     final colors = <String, Color>{};
-    for (final entry in colorsJson.entries) {
-      final color = parseHexColor(entry.value as String);
-      if (color != null) {
-        colors[entry.key] = color;
+    if (colorsJson is Map<String, dynamic>) {
+      for (final entry in colorsJson.entries) {
+        final value = entry.value;
+        if (value is! String) continue;
+        final color = parseHexColor(value);
+        if (color != null) {
+          colors[entry.key] = color;
+        }
       }
     }
 
@@ -108,7 +122,10 @@ class VscodeColorThemeLoader {
             ? const Color(0xFFCCCCCC)
             : const Color(0xFF000000));
 
-    final tokenColorsJson = json['tokenColors'] as List<dynamic>? ?? [];
+    final tokenColorsValue = json['tokenColors'];
+    final tokenColorsJson = tokenColorsValue is List<dynamic>
+        ? tokenColorsValue
+        : const <dynamic>[];
     final tokenTheme = TokenTheme.fromJson(
       tokenColorsJson,
       defaultForeground: editorFg,
@@ -124,47 +141,32 @@ class VscodeColorThemeLoader {
 
   /// Parse a hex color string: `#RRGGBB` or `#RRGGBBAA`.
   ///
-  /// Returns `null` for invalid input.
-  static Color? parseHexColor(String hex) {
-    if (!hex.startsWith('#')) return null;
-    final stripped = hex.substring(1);
-    switch (stripped.length) {
-      case 6:
-        final value = int.tryParse(stripped, radix: 16);
-        if (value == null) return null;
-        return Color(0xFF000000 | value);
-      case 8:
-        // VS Code uses #RRGGBBAA — Dart Color expects 0xAARRGGBB.
-        final rgb = int.tryParse(stripped.substring(0, 6), radix: 16);
-        final alpha = int.tryParse(stripped.substring(6, 8), radix: 16);
-        if (rgb == null || alpha == null) return null;
-        return Color((alpha << 24) | rgb);
-      default:
-        return null;
-    }
-  }
+  /// Returns `null` for invalid input. Delegates to the shared
+  /// [parseVscodeHexColor].
+  static Color? parseHexColor(String hex) => parseVscodeHexColor(hex);
 
   /// Determine the base type from the JSON.
   ///
   /// Normalizes `"dark"` → `"vs-dark"` and `"light"` → `"vs"` so
   /// community themes using short-form type values are handled.
   String _resolveBaseType(Map<String, dynamic> json) {
-    final type = json['type'] as String?;
-    if (type != null) {
+    final type = json['type'];
+    if (type is String) {
       if (type == 'dark' || type == 'vs-dark') return 'vs-dark';
       if (type == 'light' || type == 'vs') return 'vs';
       // Includes 'hc-black', 'hc-light' — fall through to infer
     }
 
     // Infer from uiTheme field (used in .vsix manifests).
-    final uiTheme = json['uiTheme'] as String?;
-    if (uiTheme != null) {
+    final uiTheme = json['uiTheme'];
+    if (uiTheme is String) {
       if (uiTheme.contains('dark')) return 'vs-dark';
       return 'vs';
     }
 
     // Fallback: guess from name.
-    final name = (json['name'] as String? ?? '').toLowerCase();
+    final nameValue = json['name'];
+    final name = (nameValue is String ? nameValue : '').toLowerCase();
     if (name.contains('light')) return 'vs';
     return 'vs-dark';
   }

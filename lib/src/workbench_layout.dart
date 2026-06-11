@@ -81,6 +81,13 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   bool _isDraggingPanel = false;
   double _panelHeight = WorkbenchLayoutConstants.panelDefaultHeight;
 
+  // Activity-bar items partitioned by zone and sorted by sortOrder.
+  // Derived once from widget.activityBarItems (which is immutable for a
+  // given widget) rather than on every rebuild — the layout rebuilds on
+  // every sidebar/panel drag frame.
+  List<ActivityBarItem> _mainActivityItems = const [];
+  List<ActivityBarItem> _bottomActivityItems = const [];
+
   String get _activeSectionId =>
       widget.activeSectionId ?? _internalActiveSectionId;
 
@@ -92,6 +99,30 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
         (widget.activityBarItems.isNotEmpty
             ? widget.activityBarItems.first.id
             : '');
+    _partitionActivityItems();
+  }
+
+  @override
+  void didUpdateWidget(covariant WorkbenchLayout oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.activityBarItems, widget.activityBarItems)) {
+      _partitionActivityItems();
+    }
+  }
+
+  void _partitionActivityItems() {
+    int byOrder(ActivityBarItem a, ActivityBarItem b) =>
+        a.sortOrder.compareTo(b.sortOrder);
+    _mainActivityItems =
+        widget.activityBarItems
+            .where((i) => i.zone == ActivityBarZone.main)
+            .toList()
+          ..sort(byOrder);
+    _bottomActivityItems =
+        widget.activityBarItems
+            .where((i) => i.zone == ActivityBarZone.bottom)
+            .toList()
+          ..sort(byOrder);
   }
 
   void _setActiveSection(String sectionId) {
@@ -143,7 +174,8 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
                 children: [
                   // Activity Bar
                   _ActivityBar(
-                    items: widget.activityBarItems,
+                    mainItems: _mainActivityItems,
+                    bottomItems: _bottomActivityItems,
                     activeSectionId: _activeSectionId,
                     sidebarVisible: _sidebarVisible,
                     onSectionSelected: _setActiveSection,
@@ -294,15 +326,20 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
 }
 
 /// Activity bar — vertical icon strip on the left edge.
+///
+/// Receives items already partitioned by zone and sorted by sortOrder;
+/// the owning state derives those once rather than on every rebuild.
 class _ActivityBar extends StatelessWidget {
-  final List<ActivityBarItem> items;
+  final List<ActivityBarItem> mainItems;
+  final List<ActivityBarItem> bottomItems;
   final String activeSectionId;
   final bool sidebarVisible;
   final ValueChanged<String> onSectionSelected;
   final WorkbenchTheme theme;
 
   const _ActivityBar({
-    required this.items,
+    required this.mainItems,
+    required this.bottomItems,
     required this.activeSectionId,
     required this.sidebarVisible,
     required this.onSectionSelected,
@@ -311,13 +348,6 @@ class _ActivityBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mainItems =
-        items.where((i) => i.zone == ActivityBarZone.main).toList()
-          ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-    final bottomItems =
-        items.where((i) => i.zone == ActivityBarZone.bottom).toList()
-          ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-
     // Null activityBarBorder → theme registry default (modern themes).
     // Skip the BorderSide entirely instead of flat-grey fallback.
     return Container(

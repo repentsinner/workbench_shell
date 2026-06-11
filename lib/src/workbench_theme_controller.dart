@@ -108,6 +108,11 @@ class WorkbenchThemeController extends ChangeNotifier {
     ),
   ];
 
+  /// Shared brightness subscriptions, keyed by dispatcher, so multiple
+  /// controllers can observe one [PlatformDispatcher] and unsubscribe in
+  /// any order. See [_BrightnessHub].
+  static final Map<PlatformDispatcher, _BrightnessHub> _brightnessHubs = {};
+
   final VscodeColorThemeLoader _loader;
   final List<WorkbenchThemeEntry> _availableThemes;
   final Map<String, WorkbenchTheme> _cache = {};
@@ -123,12 +128,6 @@ class WorkbenchThemeController extends ChangeNotifier {
   String _preferredDark;
   Future<void> _pendingResolution = Future.value();
   bool _disposed = false;
-
-  // The previous `onPlatformBrightnessChanged` callback. The
-  // dispatcher only stores one handler at a time, so we chain
-  // through the previous one to play nicely with other subscribers
-  // (Flutter's own `WidgetsBinding`, for example).
-  VoidCallback? _previousPlatformBrightnessHandler;
 
   WorkbenchThemeController._({
     required WorkbenchTheme initialTheme,
@@ -386,23 +385,24 @@ class WorkbenchThemeController extends ChangeNotifier {
   }
 
   void _installPlatformBrightnessListener() {
-    _previousPlatformBrightnessHandler =
-        _platformDispatcher.onPlatformBrightnessChanged;
-    _platformDispatcher.onPlatformBrightnessChanged =
-        _handlePlatformBrightnessChanged;
+    final hub = _brightnessHubs.putIfAbsent(
+      _platformDispatcher,
+      () => _BrightnessHub(_platformDispatcher),
+    );
+    hub.add(_handlePlatformBrightnessChanged);
   }
 
   void _removePlatformBrightnessListener() {
-    if (_platformDispatcher.onPlatformBrightnessChanged ==
-        _handlePlatformBrightnessChanged) {
-      _platformDispatcher.onPlatformBrightnessChanged =
-          _previousPlatformBrightnessHandler;
+    final hub = _brightnessHubs[_platformDispatcher];
+    if (hub == null) return;
+    hub.remove(_handlePlatformBrightnessChanged);
+    if (hub.isEmpty) {
+      hub.restore();
+      _brightnessHubs.remove(_platformDispatcher);
     }
-    _previousPlatformBrightnessHandler = null;
   }
 
   void _handlePlatformBrightnessChanged() {
-    _previousPlatformBrightnessHandler?.call();
     if (_disposed) return;
     if (_themeMode != ThemeMode.system) return;
     _pendingResolution = _resolveActiveTheme();
@@ -413,5 +413,42 @@ class WorkbenchThemeController extends ChangeNotifier {
     _disposed = true;
     _removePlatformBrightnessListener();
     super.dispose();
+  }
+}
+
+/// Fans one [PlatformDispatcher.onPlatformBrightnessChanged] slot out to
+/// any number of [WorkbenchThemeController]s sharing that dispatcher.
+///
+/// The dispatcher stores a single handler. Chaining controllers through
+/// it directly cannot be unwound for out-of-order disposal: a controller
+/// restoring its captured "previous" handler resurrects an already-
+/// disposed controller's callback. The hub keeps an order-independent
+/// subscriber list and restores the original handler only once the last
+/// subscriber leaves.
+class _BrightnessHub {
+  _BrightnessHub(this._dispatcher)
+    : _previous = _dispatcher.onPlatformBrightnessChanged {
+    _dispatcher.onPlatformBrightnessChanged = _dispatch;
+  }
+
+  final PlatformDispatcher _dispatcher;
+  final VoidCallback? _previous;
+  final List<VoidCallback> _handlers = [];
+
+  bool get isEmpty => _handlers.isEmpty;
+
+  void add(VoidCallback handler) => _handlers.add(handler);
+
+  void remove(VoidCallback handler) => _handlers.remove(handler);
+
+  void restore() => _dispatcher.onPlatformBrightnessChanged = _previous;
+
+  void _dispatch() {
+    _previous?.call();
+    // Copy first: a handler may dispose its controller mid-dispatch,
+    // mutating _handlers.
+    for (final handler in List.of(_handlers)) {
+      handler();
+    }
   }
 }

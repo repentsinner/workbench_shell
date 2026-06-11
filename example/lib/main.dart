@@ -1,12 +1,12 @@
 // workbench_shell example app.
 //
-// Renders a minimal workbench with three activity-bar sidebars
-// (Explorer, Search, Settings), VS Code's five canonical bottom
-// panels (Problems, Output, Debug Console, Terminal, Ports) with
-// their default keyboard bindings, and a status bar. Demonstrates
-// the canonical integration pattern for pub.dev consumers: host
-// owns its tab vocabulary and focus intent; the shell owns chrome
-// and the panel-toggle default.
+// Renders a minimal workbench with five activity-bar items
+// (Explorer, Search, Buttons, Notifications, Settings), VS Code's five
+// canonical bottom panels (Problems, Output, Debug Console, Terminal,
+// Ports) with their default keyboard bindings, a notification-center
+// demo, and a status bar. Demonstrates the canonical integration
+// pattern for pub.dev consumers: host owns its tab vocabulary and focus
+// intent; the shell owns chrome and the panel-toggle default.
 //
 // The Output panel observes its `PanelLifecycle.isFocused` to drive
 // a once-per-second counter that pauses while the tab is blurred or
@@ -33,17 +33,19 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:workbench_shell/workbench_shell.dart';
 
 /// Canonical method channel for forwarding workbench brightness to the
-/// host-window runner. Hosts that mirror this contract get the same
-/// per-platform native receivers the example ships with.
+/// host-window runner.
 ///
 /// **Method:** `setBrightness`
 /// **Argument:** `String` — `'light'` or `'dark'`
 /// **Return:** none
 ///
-/// The channel is unidirectional Dart→host. Hosts ignore unknown
-/// brightness payloads; Dart treats `MissingPluginException` as a
-/// no-op so the signal degrades cleanly on platforms without a
-/// receiver (e.g. Linux, iOS).
+/// The macOS and Windows runners in this example's source tree implement
+/// the receiver (the title bar tracks the workbench appearance). The
+/// published package archive omits the platform folders, so a consumer
+/// who regenerates runners with `flutter create .` gets no receiver until
+/// they add one. The channel is unidirectional Dart→host; Dart treats
+/// `MissingPluginException` as a no-op, so the signal degrades cleanly
+/// where no receiver exists (e.g. Linux, iOS, or a fresh runner).
 const MethodChannel _windowChromeChannel = MethodChannel(
   'workbench_shell/window_chrome',
 );

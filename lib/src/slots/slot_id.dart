@@ -1,21 +1,15 @@
-/// Identifiers for UI extension slots.
+/// Identifiers for UI extension slots a host can populate.
 ///
-/// The pro edition registers custom widget builders for these slots.
-/// The open edition leaves them empty (default behavior).
+/// A host registers custom widget builders for these slots through a
+/// [SlotRegistry]; an empty registry leaves them unpopulated, so the
+/// shell renders only its built-in chrome.
 enum SlotId {
-  /// Additional sidebar sections (e.g., pro-only tools).
+  /// Additional sidebar sections contributed by the host.
   sidebarExtension,
 
-  /// Additional bottom panel tabs (e.g., advanced diagnostics).
+  /// Additional bottom-panel tabs contributed by the host.
   bottomPanelExtension,
 
-  /// Additional status bar indicators (e.g., license status).
+  /// Additional status-bar indicators contributed by the host.
   statusBarExtension,
-
-  /// Replaces the default jog controls in session initialization.
-  jogControls,
-
-  /// Pro route settings inserted after the clearance height fields
-  /// in Machine Profile settings. Empty in opencore.
-  proRouteSettings,
 }

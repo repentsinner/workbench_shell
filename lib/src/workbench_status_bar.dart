@@ -60,24 +60,15 @@ class WorkbenchStatusBarItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.workbenchTheme;
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: WorkbenchLayoutConstants.spacingSm,
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(
-              icon,
-              size: WorkbenchLayoutConstants.iconStatusBar,
-              color: iconColor ?? theme.statusBarTextStyle.color,
-            ),
-            const SizedBox(width: WorkbenchLayoutConstants.spacingXs),
-          ],
-          Text(label, style: textStyle ?? theme.statusBarTextStyle),
-        ],
+      child: _StatusBarLabel(
+        icon: icon,
+        label: label,
+        iconColor: iconColor,
+        textStyle: textStyle,
       ),
     );
   }
@@ -106,24 +97,15 @@ class WorkbenchStatusBarAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.workbenchTheme;
     final child = Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: WorkbenchLayoutConstants.spacingSm,
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(
-              icon,
-              size: WorkbenchLayoutConstants.iconStatusBar,
-              color: iconColor ?? theme.statusBarTextStyle.color,
-            ),
-            const SizedBox(width: WorkbenchLayoutConstants.spacingXs),
-          ],
-          Text(label, style: textStyle ?? theme.statusBarTextStyle),
-        ],
+      child: _StatusBarLabel(
+        icon: icon,
+        label: label,
+        iconColor: iconColor,
+        textStyle: textStyle,
       ),
     );
     final tappable = InkWell(onTap: onTap, child: child);
@@ -167,7 +149,6 @@ class WorkbenchStatusBarProblemsItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.workbenchTheme;
     final child = Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: WorkbenchLayoutConstants.spacingSm,
@@ -175,11 +156,14 @@ class WorkbenchStatusBarProblemsItem extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _badge(theme, icon: Symbols.error_rounded, count: errorCount),
+          _StatusBarLabel(icon: Symbols.error_rounded, label: '$errorCount'),
           const SizedBox(width: WorkbenchLayoutConstants.spacingSm),
-          _badge(theme, icon: Symbols.warning_rounded, count: warningCount),
+          _StatusBarLabel(
+            icon: Symbols.warning_rounded,
+            label: '$warningCount',
+          ),
           const SizedBox(width: WorkbenchLayoutConstants.spacingSm),
-          _badge(theme, icon: Symbols.info_rounded, count: infoCount),
+          _StatusBarLabel(icon: Symbols.info_rounded, label: '$infoCount'),
         ],
       ),
     );
@@ -190,22 +174,41 @@ class WorkbenchStatusBarProblemsItem extends StatelessWidget {
       child: InkWell(onTap: onTap, child: child),
     );
   }
+}
 
-  Widget _badge(
-    WorkbenchTheme theme, {
-    required IconData icon,
-    required int count,
-  }) {
+/// Icon + label row shared by status-bar leaf widgets.
+///
+/// Renders an optional [icon] followed by [label], both resolving to
+/// [WorkbenchTheme.statusBarTextStyle] unless overridden. Centralizes the
+/// icon size, gap, and colour fallback the status-bar widgets share.
+class _StatusBarLabel extends StatelessWidget {
+  final IconData? icon;
+  final String label;
+  final Color? iconColor;
+  final TextStyle? textStyle;
+
+  const _StatusBarLabel({
+    required this.label,
+    this.icon,
+    this.iconColor,
+    this.textStyle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.workbenchTheme;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icon,
-          size: WorkbenchLayoutConstants.iconStatusBar,
-          color: theme.statusBarTextStyle.color,
-        ),
-        const SizedBox(width: WorkbenchLayoutConstants.spacingXs),
-        Text('$count', style: theme.statusBarTextStyle),
+        if (icon != null) ...[
+          Icon(
+            icon,
+            size: WorkbenchLayoutConstants.iconStatusBar,
+            color: iconColor ?? theme.statusBarTextStyle.color,
+          ),
+          const SizedBox(width: WorkbenchLayoutConstants.spacingXs),
+        ],
+        Text(label, style: textStyle ?? theme.statusBarTextStyle),
       ],
     );
   }
