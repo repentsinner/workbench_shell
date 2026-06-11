@@ -15,8 +15,8 @@ class WorkbenchLayoutConstants {
   /// Sidebar default width.
   static const double sidebarDefaultWidth = 300.0;
 
-  /// Sidebar minimum width.
-  static const double sidebarMinWidth = 200.0;
+  /// Sidebar minimum width. VS Code `sidebarPart.ts` `minimumWidth = 170`.
+  static const double sidebarMinWidth = 170.0;
 
   /// Sidebar maximum width.
   static const double sidebarMaxWidth = 600.0;
@@ -24,14 +24,15 @@ class WorkbenchLayoutConstants {
   /// Bottom panel default height.
   static const double panelDefaultHeight = 200.0;
 
-  /// Bottom panel minimum height.
-  static const double panelMinHeight = 100.0;
+  /// Bottom panel minimum height. VS Code `panelPart.ts`
+  /// `minimumHeight = 77`.
+  static const double panelMinHeight = 77.0;
 
   /// Bottom panel maximum height.
   static const double panelMaxHeight = 400.0;
 
-  /// Status bar height.
-  static const double statusBarHeight = 25.0;
+  /// Status bar height. VS Code `statusbarpart.css` `height: 22px`.
+  static const double statusBarHeight = 22.0;
 
   /// Splitter width (drag handle for sidebar/panel resizers).
   static const double splitterWidth = 2.0;
@@ -83,17 +84,18 @@ class WorkbenchLayoutConstants {
   static const double iconActivityBar = 30.0;
 
   /// Status bar icon size (17px — between iconMd and iconLg for
-  /// optical balance in the 25px-tall status bar).
+  /// optical balance in the 22px-tall status bar).
   static const double iconStatusBar = 17.0;
 
   /// Sidebar heading row height.
   static const double sidebarHeadingHeight = 35.0;
 
-  /// Tab strip row height inside the bottom panel.
-  static const double panelTabStripHeight = 22.0;
-
-  /// Vertical padding above and below the tab strip.
-  static const double panelTabStripPaddingY = 6.0;
+  /// Tab strip row height inside the bottom panel. Shares VS Code's
+  /// `.part > .title { height: 35px }` (`part.css`) with
+  /// [sidebarHeadingHeight]. The strip's `Row` flex-centres its children
+  /// inside this single container — VS Code lays the tab strip out the
+  /// same way, with no separate vertical padding constants.
+  static const double panelTabStripHeight = 35.0;
 
   /// Width/height of the resizer drag-target zone.
   static const double resizerHitTargetSize = 4.0;
@@ -153,11 +155,10 @@ class WorkbenchLayoutConstants {
     Radius.circular(4),
   );
 
-  /// 360px — notification card width. Matches VS Code's notification
-  /// toast width; narrow enough to coexist with the bottom-panel and
-  /// status bar on a small window, wide enough to fit a couple of
-  /// action buttons on one row.
-  static const double notificationCardWidth = 360.0;
+  /// 450px — notification card width. VS Code `notificationsToasts.ts`
+  /// `MAX_WIDTH = 450`. Wide enough to fit a couple of action buttons
+  /// on one row; matches VS Code's observable toast layout.
+  static const double notificationCardWidth = 450.0;
 
   /// 16px — gap between the notification stack and the workbench
   /// edge (bottom and right). Aligns with [spacingLg] so the stack
