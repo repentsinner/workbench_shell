@@ -739,4 +739,59 @@ void main() {
       expect(theme.valueText.fontFamily, 'Inconsolata');
     });
   });
+
+  group('WorkbenchTheme equality', () {
+    const json = '''
+    {
+      "name": "Eq Test",
+      "type": "vs-dark",
+      "colors": {
+        "editor.background": "#1F1F1F",
+        "editor.foreground": "#CCCCCC",
+        "statusBar.background": "#007ACC"
+      },
+      "tokenColors": [
+        {"scope": "comment", "settings": {"foreground": "#6A9955", "fontStyle": "italic"}},
+        {"scope": ["keyword", "storage"], "settings": {"foreground": "#569CD6"}}
+      ]
+    }''';
+
+    test('two themes built from separate parses of the same JSON are equal', () {
+      // The host-rebuilds-each-frame path: independent parses produce
+      // distinct TokenTheme instances, so value equality must compare
+      // the token rules — not just object identity — for Flutter to
+      // elide ThemeExtension-driven rebuilds.
+      final a = WorkbenchTheme.fromVscodeColorMap(loader.parse(json));
+      final b = WorkbenchTheme.fromVscodeColorMap(loader.parse(json));
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+    });
+
+    test('copyWith with no changes preserves equality', () {
+      final a = WorkbenchTheme.fromVscodeColorMap(loader.parse(json));
+      expect(a.copyWith(), equals(a));
+      expect(a.copyWith().hashCode, equals(a.hashCode));
+    });
+
+    test('changing a single field breaks equality', () {
+      final a = WorkbenchTheme.fromVscodeColorMap(loader.parse(json));
+      final b = a.copyWith(foreground: const Color(0xFF123456));
+      expect(b, isNot(equals(a)));
+    });
+
+    test('differing token themes break equality', () {
+      final a = WorkbenchTheme.fromVscodeColorMap(loader.parse(json));
+      final other = loader.parse('''
+      {
+        "name": "Eq Test",
+        "type": "vs-dark",
+        "colors": {"editor.background": "#1F1F1F", "editor.foreground": "#CCCCCC", "statusBar.background": "#007ACC"},
+        "tokenColors": [
+          {"scope": "comment", "settings": {"foreground": "#FF0000"}}
+        ]
+      }''');
+      final b = WorkbenchTheme.fromVscodeColorMap(other);
+      expect(b, isNot(equals(a)));
+    });
+  });
 }

@@ -1292,6 +1292,219 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       surfaceTone: surfaceTone + (other.surfaceTone - surfaceTone) * t,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WorkbenchTheme &&
+          activityBarBackground == other.activityBarBackground &&
+          activityBarBorder == other.activityBarBorder &&
+          activityBarForeground == other.activityBarForeground &&
+          activityBarInactiveForeground == other.activityBarInactiveForeground &&
+          sideBarBackground == other.sideBarBackground &&
+          sideBarBorder == other.sideBarBorder &&
+          sideBarForeground == other.sideBarForeground &&
+          editorBackground == other.editorBackground &&
+          panelBackground == other.panelBackground &&
+          panelBorder == other.panelBorder &&
+          panelTitleActiveForeground == other.panelTitleActiveForeground &&
+          panelTitleInactiveForeground == other.panelTitleInactiveForeground &&
+          statusBarBackground == other.statusBarBackground &&
+          statusBarBorder == other.statusBarBorder &&
+          statusBarForeground == other.statusBarForeground &&
+          tabActiveBackground == other.tabActiveBackground &&
+          tabInactiveBackground == other.tabInactiveBackground &&
+          tabActiveForeground == other.tabActiveForeground &&
+          tabInactiveForeground == other.tabInactiveForeground &&
+          tabBorder == other.tabBorder &&
+          inputBackground == other.inputBackground &&
+          inputForeground == other.inputForeground &&
+          inputBorder == other.inputBorder &&
+          inputPlaceholderForeground == other.inputPlaceholderForeground &&
+          dropdownBackground == other.dropdownBackground &&
+          buttonBackground == other.buttonBackground &&
+          buttonForeground == other.buttonForeground &&
+          buttonHoverBackground == other.buttonHoverBackground &&
+          buttonSecondaryBackground == other.buttonSecondaryBackground &&
+          buttonSecondaryForeground == other.buttonSecondaryForeground &&
+          buttonBorder == other.buttonBorder &&
+          inputOptionActiveBackground == other.inputOptionActiveBackground &&
+          inputOptionActiveBorder == other.inputOptionActiveBorder &&
+          foreground == other.foreground &&
+          descriptionForeground == other.descriptionForeground &&
+          accentForeground == other.accentForeground &&
+          errorForeground == other.errorForeground &&
+          warningForeground == other.warningForeground &&
+          successForeground == other.successForeground &&
+          infoForeground == other.infoForeground &&
+          listHoverBackground == other.listHoverBackground &&
+          listActiveSelectionBackground == other.listActiveSelectionBackground &&
+          focusBorder == other.focusBorder &&
+          sashHoverBackground == other.sashHoverBackground &&
+          menuBarBackground == other.menuBarBackground &&
+          menuBarForeground == other.menuBarForeground &&
+          menuBarHoverBackground == other.menuBarHoverBackground &&
+          menuBarBorder == other.menuBarBorder &&
+          focusBorderSubtle == other.focusBorderSubtle &&
+          focusBorderMuted == other.focusBorderMuted &&
+          focusBorderProminent == other.focusBorderProminent &&
+          descriptionBadgeBackground == other.descriptionBadgeBackground &&
+          descriptionDisabledBackground == other.descriptionDisabledBackground &&
+          descriptionMuted == other.descriptionMuted &&
+          descriptionSecondary == other.descriptionSecondary &&
+          errorBorderMuted == other.errorBorderMuted &&
+          warningBackgroundSubtle == other.warningBackgroundSubtle &&
+          warningBorderMuted == other.warningBorderMuted &&
+          infoBackgroundSubtle == other.infoBackgroundSubtle &&
+          infoBorderMuted == other.infoBorderMuted &&
+          successBackgroundSubtle == other.successBackgroundSubtle &&
+          successBorderMuted == other.successBorderMuted &&
+          sideBarBackgroundSubtle == other.sideBarBackgroundSubtle &&
+          sideBarBackgroundMuted == other.sideBarBackgroundMuted &&
+          editorBackgroundOverlay == other.editorBackgroundOverlay &&
+          chromeFontFamily == other.chromeFontFamily &&
+          editorFontFamily == other.editorFontFamily &&
+          editorFontSize == other.editorFontSize &&
+          editorStyle == other.editorStyle &&
+          tabBarLabelColor == other.tabBarLabelColor &&
+          tabBarUnselectedLabelColor == other.tabBarUnselectedLabelColor &&
+          tabBarIndicatorColor == other.tabBarIndicatorColor &&
+          tabBarDividerColor == other.tabBarDividerColor &&
+          badgeBackground == other.badgeBackground &&
+          badgeForeground == other.badgeForeground &&
+          subsectionTitleStyle == other.subsectionTitleStyle &&
+          bodyStyle == other.bodyStyle &&
+          helperStyle == other.helperStyle &&
+          borderColor == other.borderColor &&
+          focusBorderColor == other.focusBorderColor &&
+          sectionTitle == other.sectionTitle &&
+          labelText == other.labelText &&
+          bodyText == other.bodyText &&
+          captionText == other.captionText &&
+          smallText == other.smallText &&
+          buttonTextStyle == other.buttonTextStyle &&
+          statusText == other.statusText &&
+          statusBarTextStyle == other.statusBarTextStyle &&
+          valueText == other.valueText &&
+          sidebarOrPanelHeading == other.sidebarOrPanelHeading &&
+          loglineMessage == other.loglineMessage &&
+          tokenTheme == other.tokenTheme &&
+          notificationBackground == other.notificationBackground &&
+          notificationBorder == other.notificationBorder &&
+          notificationForeground == other.notificationForeground &&
+          notificationCloseForeground == other.notificationCloseForeground &&
+          notificationActionBackground == other.notificationActionBackground &&
+          notificationActionForeground == other.notificationActionForeground &&
+          notificationActionHoverBackground == other.notificationActionHoverBackground &&
+          notificationProgressTrack == other.notificationProgressTrack &&
+          notificationProgressFill == other.notificationProgressFill &&
+          surfaceTone == other.surfaceTone;
+
+  @override
+  int get hashCode => Object.hashAll(<Object?>[
+    activityBarBackground,
+    activityBarBorder,
+    activityBarForeground,
+    activityBarInactiveForeground,
+    sideBarBackground,
+    sideBarBorder,
+    sideBarForeground,
+    editorBackground,
+    panelBackground,
+    panelBorder,
+    panelTitleActiveForeground,
+    panelTitleInactiveForeground,
+    statusBarBackground,
+    statusBarBorder,
+    statusBarForeground,
+    tabActiveBackground,
+    tabInactiveBackground,
+    tabActiveForeground,
+    tabInactiveForeground,
+    tabBorder,
+    inputBackground,
+    inputForeground,
+    inputBorder,
+    inputPlaceholderForeground,
+    dropdownBackground,
+    buttonBackground,
+    buttonForeground,
+    buttonHoverBackground,
+    buttonSecondaryBackground,
+    buttonSecondaryForeground,
+    buttonBorder,
+    inputOptionActiveBackground,
+    inputOptionActiveBorder,
+    foreground,
+    descriptionForeground,
+    accentForeground,
+    errorForeground,
+    warningForeground,
+    successForeground,
+    infoForeground,
+    listHoverBackground,
+    listActiveSelectionBackground,
+    focusBorder,
+    sashHoverBackground,
+    menuBarBackground,
+    menuBarForeground,
+    menuBarHoverBackground,
+    menuBarBorder,
+    focusBorderSubtle,
+    focusBorderMuted,
+    focusBorderProminent,
+    descriptionBadgeBackground,
+    descriptionDisabledBackground,
+    descriptionMuted,
+    descriptionSecondary,
+    errorBorderMuted,
+    warningBackgroundSubtle,
+    warningBorderMuted,
+    infoBackgroundSubtle,
+    infoBorderMuted,
+    successBackgroundSubtle,
+    successBorderMuted,
+    sideBarBackgroundSubtle,
+    sideBarBackgroundMuted,
+    editorBackgroundOverlay,
+    chromeFontFamily,
+    editorFontFamily,
+    editorFontSize,
+    editorStyle,
+    tabBarLabelColor,
+    tabBarUnselectedLabelColor,
+    tabBarIndicatorColor,
+    tabBarDividerColor,
+    badgeBackground,
+    badgeForeground,
+    subsectionTitleStyle,
+    bodyStyle,
+    helperStyle,
+    borderColor,
+    focusBorderColor,
+    sectionTitle,
+    labelText,
+    bodyText,
+    captionText,
+    smallText,
+    buttonTextStyle,
+    statusText,
+    statusBarTextStyle,
+    valueText,
+    sidebarOrPanelHeading,
+    loglineMessage,
+    tokenTheme,
+    notificationBackground,
+    notificationBorder,
+    notificationForeground,
+    notificationCloseForeground,
+    notificationActionBackground,
+    notificationActionForeground,
+    notificationActionHoverBackground,
+    notificationProgressTrack,
+    notificationProgressFill,
+    surfaceTone,
+  ]);
 }
 
 /// VS Code's `EDITOR_FONT_DEFAULTS` primary family per platform —

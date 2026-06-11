@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
 /// Visual style for a single syntax token scope.
@@ -214,6 +215,16 @@ class TokenTheme {
         return null;
     }
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TokenTheme &&
+          defaultForeground == other.defaultForeground &&
+          listEquals(_rules, other._rules);
+
+  @override
+  int get hashCode => Object.hash(defaultForeground, Object.hashAll(_rules));
 }
 
 /// A scope → style rule from the theme's tokenColors array.
@@ -221,4 +232,12 @@ class _TokenRule {
   final String scope;
   final TokenStyle style;
   const _TokenRule(this.scope, this.style);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _TokenRule && scope == other.scope && style == other.style;
+
+  @override
+  int get hashCode => Object.hash(scope, style);
 }
