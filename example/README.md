@@ -1,9 +1,10 @@
 # workbench_shell example
 
 Minimal Flutter app demonstrating `workbench_shell` chrome without any
-host-application dependencies. Renders two activity-bar entries
-(Explorer, Search), their sidebars, VS Code's five canonical bottom
-panels with default keybindings, and a status bar.
+host-application dependencies. Renders five activity-bar entries
+(Explorer, Search, Buttons, Notifications, Settings), their sidebars,
+VS Code's five canonical bottom panels with default keybindings, a
+notification-center demo, and a status bar.
 
 ## Run
 
@@ -19,14 +20,16 @@ flutter run -d macos      # or -d linux / -d windows
 flutter test
 ```
 
-The widget test in `test/example_test.dart` asserts both activity-bar
+The widget test in `test/example_test.dart` asserts the activity-bar
 icons render, the default sidebar body is visible, all five panel
-tabs are present, the initial Problems tab body shows, and the
-activity bar switches sidebars on tap.
+tabs are present, the initial Problems tab body shows, the activity
+bar switches sidebars on tap, the Settings sidebar exposes the theme
+slots, and the Notifications demo posts a toast.
 
 ## Layout
 
-- Activity bar with two icons.
+- Activity bar with five icons (Explorer, Search, Buttons,
+  Notifications in the upper zone; Settings in the lower zone).
 - Collapsible sidebar per active icon.
 - Editor area placeholder in the main region.
 - Tabbed bottom panel (close via its own affordance; toggle
@@ -53,5 +56,6 @@ The example defines its own `ExamplePanel` enum and
 This is the canonical integration pattern for pub.dev consumers:
 hosts declare their own tabs and intents; the shell handles chrome.
 
-No Rove, CNC, or notification-center code — the notification center
-is a separate workstream that lands alongside §10 of the package SPEC.
+The Notifications sidebar posts toast cards through `NotificationService`
+and `NotificationHost` (package SPEC §10), demonstrating the
+notification-center API. No host-application or domain code.
