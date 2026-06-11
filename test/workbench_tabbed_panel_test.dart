@@ -299,6 +299,111 @@ void main() {
       );
     });
 
+    testWidgets(
+      'tab-list length change keeps the active tab aligned with initialTabId',
+      (tester) async {
+        final activeIds = <String>[];
+        late StateSetter rebuild;
+        var current = <WorkbenchPanelTab>[
+          WorkbenchPanelTab(
+            id: 'a',
+            label: 'A',
+            contentBuilder: (_) => const Text('content-a'),
+          ),
+          WorkbenchPanelTab(
+            id: 'b',
+            label: 'B',
+            contentBuilder: (_) => const Text('content-b'),
+          ),
+          WorkbenchPanelTab(
+            id: 'c',
+            label: 'C',
+            contentBuilder: (_) => const Text('content-c'),
+          ),
+        ];
+
+        await tester.pumpWidget(
+          wrapWithTheme(
+            StatefulBuilder(
+              builder: (context, setState) {
+                rebuild = setState;
+                return SizedBox(
+                  width: 400,
+                  height: 300,
+                  child: WorkbenchTabbedPanel(
+                    tabs: current,
+                    // Host preserves its active id and re-passes it.
+                    initialTabId: 'b',
+                    onTogglePanel: () {},
+                    onActiveTabChanged: activeIds.add,
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 1);
+
+        // Remove the first tab. The host still considers 'b' active, so
+        // the rendered tab must follow 'b' (now index 0), not clamp to
+        // the old numeric index 1 (which is now 'c').
+        rebuild(() => current = [current[1], current[2]]);
+        await tester.pump();
+
+        final controller = tester.widget<TabBar>(find.byType(TabBar)).controller!;
+        expect(controller.index, 0);
+        expect(find.text('content-b'), findsOneWidget);
+        expect(activeIds.last, 'b');
+      },
+    );
+
+    testWidgets('same-length reorder follows initialTabId', (tester) async {
+      final activeIds = <String>[];
+      late StateSetter rebuild;
+      final a = WorkbenchPanelTab(
+        id: 'a',
+        label: 'A',
+        contentBuilder: (_) => const Text('content-a'),
+      );
+      final b = WorkbenchPanelTab(
+        id: 'b',
+        label: 'B',
+        contentBuilder: (_) => const Text('content-b'),
+      );
+      var current = <WorkbenchPanelTab>[a, b];
+
+      await tester.pumpWidget(
+        wrapWithTheme(
+          StatefulBuilder(
+            builder: (context, setState) {
+              rebuild = setState;
+              return SizedBox(
+                width: 400,
+                height: 300,
+                child: WorkbenchTabbedPanel(
+                  tabs: current,
+                  initialTabId: 'a',
+                  onTogglePanel: () {},
+                  onActiveTabChanged: activeIds.add,
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 0);
+
+      // Swap order; host keeps 'a' active. 'a' is now index 1.
+      rebuild(() => current = [b, a]);
+      await tester.pump();
+
+      final controller = tester.widget<TabBar>(find.byType(TabBar)).controller!;
+      expect(controller.index, 1);
+      expect(activeIds.last, 'a');
+    });
+
     testWidgets('hover on active tab does not change its label color', (
       tester,
     ) async {
