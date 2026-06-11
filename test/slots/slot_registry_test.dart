@@ -20,16 +20,16 @@ void main() {
       expect(registry.has(.bottomPanelExtension), isFalse);
     });
 
-    test('has(jogControls) returns false when not registered', () {
+    test('has(statusBarExtension) returns false when not registered', () {
       const registry = SlotRegistry.empty();
-      expect(registry.has(.jogControls), isFalse);
+      expect(registry.has(.statusBarExtension), isFalse);
     });
 
-    test('has(jogControls) returns true when registered', () {
+    test('has(statusBarExtension) returns true when registered', () {
       final registry = SlotRegistry(
-        builders: {.jogControls: (_) => const SizedBox()},
+        builders: {.statusBarExtension: (_) => const SizedBox()},
       );
-      expect(registry.has(.jogControls), isTrue);
+      expect(registry.has(.statusBarExtension), isTrue);
     });
 
     testWidgets('build() returns widget from registered builder', (
