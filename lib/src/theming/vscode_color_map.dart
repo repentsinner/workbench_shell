@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 
+import 'hex_color.dart';
 import 'token_theme.dart';
 
 /// Parsed representation of a VS Code color theme JSON file.
@@ -140,25 +141,9 @@ class VscodeColorThemeLoader {
 
   /// Parse a hex color string: `#RRGGBB` or `#RRGGBBAA`.
   ///
-  /// Returns `null` for invalid input.
-  static Color? parseHexColor(String hex) {
-    if (!hex.startsWith('#')) return null;
-    final stripped = hex.substring(1);
-    switch (stripped.length) {
-      case 6:
-        final value = int.tryParse(stripped, radix: 16);
-        if (value == null) return null;
-        return Color(0xFF000000 | value);
-      case 8:
-        // VS Code uses #RRGGBBAA — Dart Color expects 0xAARRGGBB.
-        final rgb = int.tryParse(stripped.substring(0, 6), radix: 16);
-        final alpha = int.tryParse(stripped.substring(6, 8), radix: 16);
-        if (rgb == null || alpha == null) return null;
-        return Color((alpha << 24) | rgb);
-      default:
-        return null;
-    }
-  }
+  /// Returns `null` for invalid input. Delegates to the shared
+  /// [parseVscodeHexColor].
+  static Color? parseHexColor(String hex) => parseVscodeHexColor(hex);
 
   /// Determine the base type from the JSON.
   ///

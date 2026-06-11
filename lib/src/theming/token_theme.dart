@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
+import 'hex_color.dart';
+
 /// Visual style for a single syntax token scope.
 ///
 /// Resolved from a VS Code theme's `tokenColors` array. Carries
@@ -104,7 +106,7 @@ class TokenTheme {
       if (settings is! Map<String, dynamic>) continue;
 
       final foregroundValue = settings['foreground'];
-      final foreground = _parseColor(
+      final foreground = parseVscodeHexColor(
         foregroundValue is String ? foregroundValue : null,
       );
       final fontStyleValue = settings['fontStyle'];
@@ -199,25 +201,6 @@ class TokenTheme {
     if (ruleScope.isEmpty) return true;
     if (targetScope == ruleScope) return true;
     return targetScope.startsWith('$ruleScope.');
-  }
-
-  /// Parse a hex color, or null for missing/invalid values.
-  static Color? _parseColor(String? hex) {
-    if (hex == null || !hex.startsWith('#')) return null;
-    final stripped = hex.substring(1);
-    switch (stripped.length) {
-      case 6:
-        final value = int.tryParse(stripped, radix: 16);
-        if (value == null) return null;
-        return Color(0xFF000000 | value);
-      case 8:
-        final rgb = int.tryParse(stripped.substring(0, 6), radix: 16);
-        final alpha = int.tryParse(stripped.substring(6, 8), radix: 16);
-        if (rgb == null || alpha == null) return null;
-        return Color((alpha << 24) | rgb);
-      default:
-        return null;
-    }
   }
 
   @override
