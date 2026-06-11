@@ -1,6 +1,9 @@
 Bundled VS Code Color Themes — License Attribution
 ====================================================
 
+All bundled themes ship with Microsoft VS Code and are licensed MIT.
+Source repository: https://github.com/microsoft/vscode
+
 dark_modern.json / light_modern.json
   Source: Microsoft VS Code built-in themes
   License: MIT
@@ -14,14 +17,21 @@ dark_plus.json / light_plus.json
   License: MIT
   URL: https://github.com/microsoft/vscode
 
-nord.json
-  Source: Nord for Visual Studio Code
-  Author: Arctic Ice Studio / Sven Greb
+2026_dark.json / 2026_light.json
+  Source: Microsoft VS Code built-in default themes ("2026 Dark" /
+  "2026 Light"), introduced as the new defaults in VS Code 1.113.
   License: MIT
-  URL: https://github.com/arcticicestudio/nord-visual-studio-code
+  URL: https://github.com/microsoft/vscode
 
-one_dark_pro.json
-  Source: One Dark Pro
-  Author: binaryify
+monokai.json
+  Source: Microsoft VS Code built-in theme (extensions/theme-monokai).
+  Derived from the original Monokai color scheme by Wimer Hazenberg.
   License: MIT
-  URL: https://github.com/Binaryify/OneDark-Pro
+  URL: https://github.com/microsoft/vscode
+
+solarized_dark.json / solarized_light.json
+  Source: Microsoft VS Code built-in themes
+  (extensions/theme-solarized-{dark,light}). Derived from the
+  Solarized color scheme by Ethan Schoonover.
+  License: MIT
+  URL: https://github.com/microsoft/vscode
