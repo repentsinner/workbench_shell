@@ -1,0 +1,26 @@
+# Publishes to pub.dev when Flywheel pushes a release tag.
+#
+# pub.dev's OIDC publishing only accepts workflows triggered by a git
+# tag push (not release: published). Flywheel's App pushes the v* tag
+# pointing at the chore(release) commit, whose pubspec.yaml already
+# carries the matching version — both pub.dev requirements hold by
+# construction.
+#
+# Counterpart configuration:
+# - pub.dev package Admin tab: automated publishing from GitHub Actions
+#   enabled for repentsinner/workbench_shell, tag pattern v{{version}},
+#   "Require GitHub Actions environment" = pub.dev.
+# - GitHub Settings → Environments → pub.dev (required reviewers
+#   optional — adds an approval click before each publish).
+name: Publish to pub.dev
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+jobs:
+  publish:
+    permissions:
+      id-token: write # required for pub.dev OIDC token exchange
+    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
+    with:
+      environment: pub.dev
