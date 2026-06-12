@@ -58,9 +58,6 @@ typography, spacing, and theming.
   `WorkbenchThemeController` (theme switching, VS Code JSON
   loader, `TokenTheme` for syntax highlighting), `TokenTheme`,
   `WorkbenchLayoutConstants` (fixed geometry).
-- UI extension slots: `SlotRegistry`, `SidebarSlot`, `SidebarZone`,
-  `SlotId`. Hosts register content for named slots; the shell
-  renders registered slots in z-order per zone.
 - Notification Center (§spec:notification-center): `NotificationService` plus
   `NotificationHost` overlay. Progress controller is planned but
   not yet implemented.
@@ -1262,24 +1259,6 @@ between two ownership boundaries.
   container (one shared constant, not three split constants).
 - The bundled example app renders at the same pixel measurements
   as VS Code for every chrome part with a canonical upstream value.
-
----
-
-## UI Extension Slots §spec:extension-slots
-
-*Status: complete*
-
-`SlotRegistry`, `SidebarSlot`, and `SidebarZone` are the shell's
-extension points for hosts that want to compose sidebar content
-from independent modules. A host registers `SidebarSlot`
-instances against a named `SlotId` in a chosen `SidebarZone`;
-the shell renders registered slots in z-order per zone.
-
-**Why in the shell**: the slot types are pure widget-factory
-shapes with no knowledge of the host's module system. Placing
-them in the shell keeps sidebar composition decoupled from
-application layering and makes the extension point available to
-any consumer.
 
 ---
 

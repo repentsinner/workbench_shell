@@ -34,8 +34,6 @@ construction.
   auto-dismiss.
 - `WorkbenchLayoutConstants` — fixed geometry (activity bar width,
   sidebar widths, status bar height, spacing scale, icon sizes).
-- `SlotRegistry`, `SidebarSlot`, `SidebarZone` — extension points for
-  sidebar composition.
 
 ## Install
 
