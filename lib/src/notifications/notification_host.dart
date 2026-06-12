@@ -17,7 +17,7 @@ import 'notification_service.dart';
 /// surfaces). The widget subscribes to [service] and rebuilds on
 /// change.
 ///
-/// Behaviour summary (SPEC §10):
+/// Behaviour summary (SPEC §spec:notification-center):
 ///
 /// - Cards render newest-at-bottom.
 /// - Info/success auto-dismiss after 6 s of uninterrupted
@@ -167,7 +167,7 @@ class _NotificationHostState extends State<NotificationHost>
   }
 
   /// Partition the notification list into visible and overflow
-  /// according to SPEC §10: persistent cards (warning, error) fill
+  /// according to SPEC §spec:notification-center: persistent cards (warning, error) fill
   /// the visible slots first; the oldest non-persistent cards
   /// overflow into the summary.
   _PartitionedNotifications _partition(List<WorkbenchNotification> all) {
@@ -754,7 +754,7 @@ class _NotificationCard extends StatelessWidget {
                                         // dismiss synchronously in the
                                         // same frame so the operator
                                         // sees the card vanish as the
-                                        // action completes (SPEC §10).
+                                        // action completes (SPEC §spec:notification-center).
                                         action.onInvoke();
                                         onDismiss();
                                       },

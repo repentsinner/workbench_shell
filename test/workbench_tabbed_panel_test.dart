@@ -36,7 +36,7 @@ void main() {
       );
       await tester.pump();
 
-      // Shell uppercases natural-case labels per §3 canon enforcement.
+      // Shell uppercases natural-case labels per §spec:capability-boundary canon enforcement.
       expect(find.text('OUTPUT'), findsOneWidget);
       expect(find.text('DEBUG CONSOLE'), findsOneWidget);
       expect(find.text('Output'), findsNothing);
@@ -205,7 +205,7 @@ void main() {
       },
     );
 
-    // Suppressing the Material hover overlay is part of the §7.4 canon
+    // Suppressing the Material hover overlay is part of the §spec:tab-strip-canon canon
     // contract — every state must resolve to transparent so no box
     // paints behind the tab content.
     testWidgets('TabBar.overlayColor resolves to transparent for every state', (

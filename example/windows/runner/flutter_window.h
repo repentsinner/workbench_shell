@@ -37,7 +37,7 @@ class FlutterWindow : public Win32Window {
   std::unique_ptr<flutter::FlutterViewController> flutter_controller_;
 
   // Receives brightness updates from `WorkbenchThemeController`. The
-  // channel is unidirectional Dart→host (SPEC §7.5).
+  // channel is unidirectional Dart→host (SPEC §spec:platform-brightness-sync).
   std::unique_ptr<
       flutter::MethodChannel<flutter::EncodableValue>>
       window_chrome_channel_;

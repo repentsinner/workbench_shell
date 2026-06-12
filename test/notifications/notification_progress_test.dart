@@ -1,4 +1,4 @@
-// Tests for the NotificationService progress API (SPEC §10
+// Tests for the NotificationService progress API (SPEC §spec:notification-center
 // "Progress notifications").
 //
 // Pure-Dart tests — the controller has no widget dependencies; the

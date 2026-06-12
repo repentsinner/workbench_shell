@@ -124,7 +124,7 @@ class WorkbenchLayoutConstants {
   static const BorderRadius buttonRadius = BorderRadius.all(Radius.circular(4));
 
   /// Button shape — applied to the app-level Material button themes
-  /// (Filled/Text, §9.20). De-pills Material 3's default `StadiumBorder`
+  /// (Filled/Text, §spec:chrome-material-theming). De-pills Material 3's default `StadiumBorder`
   /// to match VS Code's rectangular-with-4px buttons.
   static const RoundedRectangleBorder buttonShape = RoundedRectangleBorder(
     borderRadius: buttonRadius,
@@ -134,7 +134,7 @@ class WorkbenchLayoutConstants {
   /// ~26-28px control, but this shell targets more button-heavy UIs than
   /// VS Code, so it trades a little density for a less cramped label;
   /// Material 3's button family defaults to 40px in a 48px tap target. The
-  /// §9.20 button themes set this as the minimum height with
+  /// §spec:chrome-material-theming button themes set this as the minimum height with
   /// `MaterialTapTargetSize.shrinkWrap` so the rendered button matches the
   /// shell's density rather than Material's touch sizing. Single source of
   /// truth — every chrome-themed button moves together when it changes.
@@ -145,7 +145,7 @@ class WorkbenchLayoutConstants {
   /// vertical component is zero.
   static const EdgeInsets buttonPadding = EdgeInsets.symmetric(horizontal: 14);
 
-  // ==================== NOTIFICATION CENTER (§10) ====================
+  // ==================== NOTIFICATION CENTER (§spec:notification-center) ====================
 
   /// 4px — notification card border radius. Same scale as
   /// [containerRadius]; named separately so a future visual revision
@@ -171,10 +171,10 @@ class WorkbenchLayoutConstants {
 
   /// 5 — visible card budget. When more cards exist, the oldest
   /// non-persistent ones collapse into a "+N more" summary card
-  /// occupying the top slot (SPEC §10).
+  /// occupying the top slot (SPEC §spec:notification-center).
   static const int notificationMaxVisible = 5;
 
-  /// Auto-dismiss duration for info/success cards (SPEC §10
+  /// Auto-dismiss duration for info/success cards (SPEC §spec:notification-center
   /// "Dismissal policy by severity").
   static const Duration notificationAutoDismissDuration = Duration(seconds: 6);
 

@@ -1,4 +1,4 @@
-// Widget tests for the NotificationHost overlay (SPEC §10).
+// Widget tests for the NotificationHost overlay (SPEC §spec:notification-center).
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';

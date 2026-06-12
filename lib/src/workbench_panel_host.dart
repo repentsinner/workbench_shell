@@ -61,7 +61,7 @@ typedef WorkbenchPanelScopeBuilder =
 /// no intent to dispatch on selection). Consumers that need the
 /// menu entry must supply the intent and register a matching
 /// `Action<Intent>` in a surrounding `Actions` widget — the existing
-/// §5.6 contract.
+/// §spec:action-dispatch contract.
 ///
 /// **Builder pattern**. The widget exposes its derived scope through
 /// [builder] rather than rendering chrome itself, so consumers stay

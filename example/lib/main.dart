@@ -22,7 +22,7 @@
 // status bar, sidebar headings) updates in the same frame, and the
 // controller's brightness signal is forwarded across the canonical
 // `workbench_shell/window_chrome` method channel so the macOS /
-// Windows title bar tracks the workbench appearance (SPEC §7.5).
+// Windows title bar tracks the workbench appearance (SPEC §spec:platform-brightness-sync).
 
 import 'dart:async';
 
@@ -157,7 +157,7 @@ class _WorkbenchExampleAppState extends State<WorkbenchExampleApp> {
           // the VS Code button tiers render with their resting fills and
           // 4px corners sourced from the chrome — no host wiring needed.
           // This makes the example a self-contained chrome review surface
-          // (SPEC §9.20): chrome styling changes are reviewable by
+          // (SPEC §spec:chrome-material-theming): chrome styling changes are reviewable by
           // running the example standalone.
           theme: applyWorkbenchChrome(
             isDark ? ThemeData.dark() : ThemeData.light(),
@@ -396,7 +396,7 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
 
 /// Notifications demo sidebar — triggers cards through the
 /// [NotificationService] so an operator can exercise every API
-/// surface from the example app (SPEC §10 verify criteria).
+/// surface from the example app (SPEC §spec:notification-center verify criteria).
 class _NotificationsDemoSidebar extends StatefulWidget {
   const _NotificationsDemoSidebar({required this.service});
 
@@ -573,7 +573,7 @@ class _NotificationsDemoSidebarState extends State<_NotificationsDemoSidebar> {
 /// Compact button used by the notifications demo sidebar. Renders the
 /// themed secondary tier ([FilledButton.tonal]); `applyWorkbenchChrome`
 /// supplies its neutral fill, label, and 4px shape — no hand-rolled
-/// chrome here (§9.20).
+/// chrome here (§spec:chrome-material-theming).
 class _DemoButton extends StatelessWidget {
   const _DemoButton({required this.label, required this.onTap});
   final String label;
@@ -793,7 +793,7 @@ class _ThemeDropdownField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Form label — settings dropdown caption follows the §7.6
+        // Form label — settings dropdown caption follows the §spec:chrome-typography-canon
         // `labelText` tier (13 / w500), not the pane-header tier
         // that `sectionTitle` reserves for sidebar/panel grouping.
         Text(label, style: theme.labelText.copyWith(color: labelColor)),
@@ -878,7 +878,7 @@ class _SidebarBodyPlaceholder extends StatelessWidget {
 /// ([WorkbenchLayoutConstants.buttonShape]). Without the helper these
 /// would render Material 3's accent/secondary-container colors and the
 /// default pill ([StadiumBorder]). This is the self-contained chrome
-/// review surface (SPEC §9.20): run the example standalone to review the
+/// review surface (SPEC §spec:chrome-material-theming): run the example standalone to review the
 /// button taxonomy, no host needed.
 class _ButtonsReviewSidebar extends StatelessWidget {
   const _ButtonsReviewSidebar();
@@ -991,7 +991,7 @@ class _OutputCounterBodyState extends State<_OutputCounterBody> {
           ),
           const SizedBox(height: WorkbenchLayoutConstants.spacingMd),
           Text(
-            // Value readout — `valueText` is the §7.7 editor-derived
+            // Value readout — `valueText` is the §spec:editor-derived-surfaces editor-derived
             // numeric tier (tabular monospace at editor size). Earlier
             // drafts reached for `sectionTitle`, which the canon now
             // reserves for sidebar/panel pane headers.

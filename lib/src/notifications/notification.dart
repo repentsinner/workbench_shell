@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 /// Drives the card's icon, accent colour, and dismissal policy. Info
 /// and success auto-dismiss after a short interval; warning, error,
 /// and in-flight progress cards persist until manually or
-/// programmatically dismissed (SPEC §10).
+/// programmatically dismissed (SPEC §spec:notification-center).
 enum NotificationSeverity {
   /// Neutral informational notice. Auto-dismisses.
   info,
@@ -27,7 +27,7 @@ enum NotificationSeverity {
   progress,
 }
 
-/// Convenience predicate for the persistence rule (SPEC §10
+/// Convenience predicate for the persistence rule (SPEC §spec:notification-center
 /// "Dismissal policy by severity"). Warning, error, and progress
 /// cards stay until manually or programmatically dismissed; info and
 /// success auto-dismiss.
@@ -42,7 +42,7 @@ extension NotificationSeverityPersistence on NotificationSeverity {
 /// A button rendered inside a notification card.
 ///
 /// Tapping the action runs [onInvoke] and dismisses the card in the
-/// same frame (SPEC §10 "Action invocation"). Hosts that need to keep
+/// same frame (SPEC §spec:notification-center "Action invocation"). Hosts that need to keep
 /// state visible after an action runs post a follow-up notification
 /// from inside [onInvoke].
 class NotificationAction extends Equatable {

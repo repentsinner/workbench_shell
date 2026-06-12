@@ -24,8 +24,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   /// (Dark+, Light+) whose VS Code registry default is null —
   /// widgets shall skip painting the separator entirely rather than
   /// falling back to a neighboring border color. Dark Modern and
-  /// similar themes set this explicitly. See SPEC §9.6 Token
-  /// Semantics: Null and Alpha.
+  /// similar themes set this explicitly. See SPEC
+  /// §spec:vscode-theme-format (null and alpha token semantics).
   final Color? activityBarBorder;
 
   final Color activityBarForeground;
@@ -79,7 +79,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
 
   /// Secondary-button fill. VS Code `button.secondaryBackground`,
   /// falling back to [listHoverBackground] (a neutral surface) when the
-  /// theme omits it. Drives the §9.20 [FilledButton.tonal] tier.
+  /// theme omits it. Drives the §spec:chrome-material-theming [FilledButton.tonal] tier.
   final Color buttonSecondaryBackground;
 
   /// Secondary-button label. VS Code `button.secondaryForeground`,
@@ -91,13 +91,13 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   /// the secondary button a transparent `button.secondaryBackground` and
   /// rely on this border to make it visible at rest; older themes omit it
   /// and the secondary button is visible via its solid fill. Applied to
-  /// both §9.20 filled tiers.
+  /// both §spec:chrome-material-theming filled tiers.
   final Color buttonBorder;
 
   /// Active-toggle fill. VS Code `inputOption.activeBackground` (the
   /// find/search toggle "on" state), a subtle accent tint; falls back to a
   /// translucent [focusBorder] accent. Marks the selected segment of the
-  /// §9.20 jog `SegmentedButton`s — an *active* colour, distinct from the
+  /// §spec:chrome-material-theming jog `SegmentedButton`s — an *active* colour, distinct from the
   /// primary-action fill and from a dimmed-disabled segment.
   final Color inputOptionActiveBackground;
 
@@ -114,7 +114,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   /// Icon-button glyph color. VS Code `icon.foreground` — near-full
   /// contrast, deliberately distinct from [foreground] (body text) and
   /// [descriptionForeground] (secondary text). Drives bare `IconButton`s
-  /// composed under the chrome (§7.8).
+  /// composed under the chrome (§spec:chrome-material-theming).
   final Color iconForeground;
 
   // ---- Semantic status ----
@@ -145,7 +145,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   final Color menuBarHoverBackground;
   final Color menuBarBorder;
 
-  // ---- Pre-mixed opacity variants (semantic color modifiers, §9.6) ----
+  // ---- Pre-mixed opacity variants (semantic color modifiers, §spec:theming) ----
   final Color focusBorderSubtle;
   final Color focusBorderMuted;
   final Color focusBorderProminent;
@@ -164,7 +164,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   final Color sideBarBackgroundMuted;
   final Color editorBackgroundOverlay;
 
-  // ---- Chrome font (§7.6) ----
+  // ---- Chrome font (§spec:chrome-typography-canon) ----
   //
   // Defaults to `null` so Flutter resolves the platform's default UI
   // sans (matching VS Code's `-apple-system` / `Segoe UI` / `system-ui`
@@ -174,7 +174,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   // every chrome semantic text style.
   final String? chromeFontFamily;
 
-  // ---- Editor font (§7.7) ----
+  // ---- Editor font (§spec:editor-derived-surfaces) ----
   //
   // Anchor for log-line and host numeric surfaces (DRO readouts,
   // tabular values). VS Code uses `editor.fontFamily` /
@@ -203,7 +203,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   final Color badgeForeground;
 
   // ---- Content primitive tokens (legacy slots retained for
-  // back-compat with widgets that read them; see §7.6 table for the
+  // back-compat with widgets that read them; see §spec:chrome-typography-canon table for the
   // canonical replacements). ----
   final TextStyle subsectionTitleStyle;
   final TextStyle bodyStyle;
@@ -218,7 +218,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
 
   final Color focusBorderColor;
 
-  // ---- Semantic text styles (§9.6 Text Styles) ----
+  // ---- Semantic text styles (§spec:chrome-typography-canon) ----
   final TextStyle sectionTitle;
   final TextStyle labelText;
   final TextStyle bodyText;
@@ -244,7 +244,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   // ---- Syntax token theme ----
   final TokenTheme tokenTheme;
 
-  // ---- Notification center (§10) ----
+  // ---- Notification center (§spec:notification-center) ----
   //
   // Severity icons and accents reuse [infoForeground],
   // [warningForeground], [errorForeground], and [successForeground]
@@ -294,13 +294,13 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   /// for in-progress emphasis.
   final Color notificationProgressFill;
 
-  // ---- Domain color resolver input (§9.15) ----
+  // ---- Domain color resolver input (§spec:hct-tonal-resolution) ----
   /// HCT tone (0–100) of the canonical chrome surface ([editorBackground]).
   ///
   /// A host's domain theme reads this to pick a tone from a tonal
   /// palette that contrasts the active chrome. Dark
   /// chrome (low tone) selects high palette tones; light chrome
-  /// selects low palette tones. See SPEC §9.15.
+  /// selects low palette tones. See SPEC §spec:hct-tonal-resolution.
   final double surfaceTone;
 
   const WorkbenchTheme({
@@ -428,12 +428,12 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   /// labels, status bar items, body text, buttons). Null delegates to
   /// Flutter's platform-default UI font, matching VS Code's
   /// `-apple-system` / `Segoe UI` / `system-ui` resolution rules
-  /// (§7.6).
+  /// (§spec:chrome-typography-canon).
   ///
   /// [editorFontFamily] overrides the per-platform monospace used by
   /// editor-derived surfaces ([editorStyle], [loglineMessage],
   /// [valueText]). Null resolves to VS Code's `EDITOR_FONT_DEFAULTS`
-  /// primary family per host platform (§7.7).
+  /// primary family per host platform (§spec:editor-derived-surfaces).
   ///
   /// [editorFontSize] overrides the editor font size. Null resolves
   /// to VS Code's per-platform default (12 on macOS, 14 elsewhere).
@@ -491,7 +491,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       'editorInfo.foreground',
       const Color(0xFF2196F3),
     );
-    // Shared so [listHoverBackground] and the §9.20
+    // Shared so [listHoverBackground] and the §spec:chrome-material-theming
     // [buttonSecondaryBackground] fallback resolve from one value
     // (VS Code: button.secondaryBackground defaults to list.hoverBackground).
     final listHoverBg = map.resolve(
@@ -515,7 +515,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     // hasn't overridden either. Tokens whose role is editor-derived
     // monospace (loglineMessage, valueText) derive from [editorStyle]
     // via [TextStyle.copyWith] so the family resolution lives in one
-    // place (§7.7).
+    // place (§spec:editor-derived-surfaces).
     final resolvedEditorFamily =
         editorFontFamily ?? _platformEditorFontFamily();
     final resolvedEditorSize = editorFontSize ?? _platformEditorFontSize();
@@ -534,7 +534,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       ),
       // Null when the theme omits it — VS Code's ACTIVITY_BAR_BORDER
       // registry default is null in dark/light themes. Widgets skip
-      // painting the separator when null (see SPEC §9.6).
+      // painting the separator when null (see SPEC §spec:vscode-theme-format).
       activityBarBorder: map['activityBar.border'],
       activityBarForeground: map.resolve(
         'activityBar.foreground',
@@ -618,17 +618,17 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         'button.hoverBackground',
         dl(const Color(0xFF1177BB), const Color(0xFF0062A3)),
       ),
-      // §9.20 secondary tier. VS Code registry: secondaryBackground
+      // §spec:chrome-material-theming secondary tier. VS Code registry: secondaryBackground
       // defaults to list.hoverBackground, secondaryForeground to foreground.
       buttonSecondaryBackground: map.resolve(
         'button.secondaryBackground',
         listHoverBg,
       ),
       buttonSecondaryForeground: map.resolve('button.secondaryForeground', fg),
-      // §9.20 button border. VS Code has no registry default — themes opt
+      // §spec:chrome-material-theming button border. VS Code has no registry default — themes opt
       // in; transparent when absent, so older themes draw no border.
       buttonBorder: map.resolve('button.border', const Color(0x00000000)),
-      // §9.20 active-toggle (SegmentedButton selected segment). VS Code's
+      // §spec:chrome-material-theming active-toggle (SegmentedButton selected segment). VS Code's
       // find/search toggle "on" state: a subtle accent tint plus a solid
       // accent border. Fall back to a translucent / solid focusBorder
       // accent when the theme omits them.
@@ -746,13 +746,13 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         map.resolve('activityBarBadge.foreground', const Color(0xFFFFFFFF)),
       ),
       // Legacy content-primitive tokens (kept for widgets that read
-      // them; canonical replacements live in the §7.6 block below).
+      // them; canonical replacements live in the §spec:chrome-typography-canon block below).
       subsectionTitleStyle: t(12, FontWeight.w500),
       bodyStyle: t(12, FontWeight.w400),
       borderColor: panelBorder,
       focusBorderColor: accentFg,
-      // Chrome typography canon (§7.6) — every literal is sourced
-      // from VS Code's workbench CSS. See SPEC §7.6 table for the
+      // Chrome typography canon (§spec:chrome-typography-canon) — every literal is sourced
+      // from VS Code's workbench CSS. See SPEC §spec:chrome-typography-canon table for the
       // upstream file and selector per token.
       //
       // sidebar / panel part title ("EXPLORER", "SETTINGS") —
@@ -787,7 +787,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // token the panel-tab badge pill paints in and the host
       // analogue for dense numeric indicators.
       smallText: t(11, FontWeight.w600, color: secondaryFg),
-      // Editor-derived surfaces (§7.7) — DRO numerics and log lines
+      // Editor-derived surfaces (§spec:editor-derived-surfaces) — DRO numerics and log lines
       // anchor on [editorStyle] so the host's editor-font override
       // flows through without per-call-site changes. DRO retains
       // w600 for tabular numeric emphasis; log lines stay at w400.
@@ -795,7 +795,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       loglineMessage: editorStyle,
       // Syntax token theme
       tokenTheme: map.resolvedTokenTheme,
-      // Notification center (§10) — VS Code surfaces these through
+      // Notification center (§spec:notification-center) — VS Code surfaces these through
       // `notifications.*`; fall back to neighbouring chrome tokens
       // when absent so older themes still render coherent cards.
       notificationBackground: map.resolve(
@@ -832,7 +832,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       notificationProgressFill: map.resolve('progressBar.background', accentFg),
       // HCT tone of the canonical chrome surface (editor background).
       // A host's domain theme reads this to pick contrasting palette
-      // tones — see SPEC §9.15.
+      // tones — see SPEC §spec:hct-tonal-resolution.
       surfaceTone: hctToneFor(editorBg),
     );
   }

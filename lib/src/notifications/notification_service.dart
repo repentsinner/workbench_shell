@@ -15,7 +15,7 @@ import 'notification_progress_controller.dart';
 /// view through [notifications]; the host widget observes this list
 /// via [ChangeNotifier] subscription and rebuilds when it changes.
 ///
-/// See package SPEC §10 for design rationale.
+/// See package SPEC §spec:notification-center for design rationale.
 class NotificationService extends ChangeNotifier {
   final List<WorkbenchNotification> _notifications = <WorkbenchNotification>[];
   final Map<Object, NotificationProgressController> _progressControllers =
@@ -75,7 +75,7 @@ class NotificationService extends ChangeNotifier {
   /// that resolves [NotificationProgressController.cancellation].
   ///
   /// The progress card persists until the controller terminates — it
-  /// is exempt from the standard auto-dismiss timer (SPEC §10
+  /// is exempt from the standard auto-dismiss timer (SPEC §spec:notification-center
   /// "Dismissal policy by severity").
   NotificationProgressController showProgress({
     required String message,

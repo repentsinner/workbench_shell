@@ -6,8 +6,8 @@ import 'workbench_intents.dart';
 import 'workbench_theme.dart';
 
 /// Descriptor for a bottom-panel tab the View menu can select. The
-/// shell does not own tab content (see package SPEC §9.14 item 2 —
-/// tabbed-panel primitive); it only owns the menu chrome.
+/// shell does not own tab content (see package SPEC
+/// §spec:tabbed-panel); it only owns the menu chrome.
 ///
 /// The menu item label is static. Selection semantics — focus the
 /// tab, or hide the panel if the tab is already focused — are

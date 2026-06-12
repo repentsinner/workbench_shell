@@ -29,7 +29,7 @@ void main() {
     );
 
     // All five canonical panels render their tab labels. The tab
-    // strip uppercases labels per the §7.4 canon, so assert against
+    // strip uppercases labels per the §spec:tab-strip-canon canon, so assert against
     // the uppercased form.
     for (final label in const [
       'PROBLEMS',
@@ -114,7 +114,7 @@ void main() {
   });
 
   testWidgets(
-    'buttons review sidebar shows three flat VS Code tiers at rest (§9.20)',
+    'buttons review sidebar shows three flat VS Code tiers at rest (§spec:chrome-material-theming)',
     (tester) async {
       await tester.pumpWidget(const WorkbenchExampleApp());
       await tester.pumpAndSettle();
@@ -147,7 +147,7 @@ void main() {
       expect(primaryShape, WorkbenchLayoutConstants.buttonShape);
 
       // Primary and secondary must render distinct fills — the tonal tier
-      // pulls secondaryContainer, not the primary accent (§9.20).
+      // pulls secondaryContainer, not the primary accent (§spec:chrome-material-theming).
       Color fillOf(Finder button) => tester
           .widgetList<Material>(
             find.descendant(of: button, matching: find.byType(Material)),

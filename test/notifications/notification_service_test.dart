@@ -1,4 +1,4 @@
-// Tests for the NotificationService API surface (SPEC §10).
+// Tests for the NotificationService API surface (SPEC §spec:notification-center).
 //
 // Pure-Dart tests — the service has no widget dependencies, so
 // `package:test` is sufficient. Widget tests for the host overlay live

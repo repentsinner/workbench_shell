@@ -262,7 +262,7 @@ void main() {
     });
 
     test('does not set elevated or outlined button themes', () {
-      // §9.20 canonicalizes every button — including the jog grid — on
+      // §spec:chrome-material-theming canonicalizes every button — including the jog grid — on
       // FilledButton, so no ElevatedButton or OutlinedButton remains in
       // the UI. The helper installs neither theme; the host's own are
       // left untouched. One button widget, one theme, no parallel styling

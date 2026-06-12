@@ -13,7 +13,7 @@ import 'workbench_theme.dart';
 /// backs the theme, and the [brightness] of that theme. `filename`
 /// is the stable identifier used for persistence and selection;
 /// `brightness` is the pairing key the controller uses in
-/// [ThemeMode.system] mode (§7.5).
+/// [ThemeMode.system] mode (§spec:platform-brightness-sync).
 @immutable
 class WorkbenchThemeEntry {
   final String label;
@@ -57,7 +57,7 @@ class WorkbenchThemeEntry {
 /// active theme paired with the OS appearance via [preferredLight] /
 /// [preferredDark]. In [ThemeMode.light] / [ThemeMode.dark] the
 /// platform signal is ignored and the active theme is the preferred
-/// slot of the named brightness. See SPEC §7.5.
+/// slot of the named brightness. See SPEC §spec:platform-brightness-sync.
 class WorkbenchThemeController extends ChangeNotifier {
   /// Default bundled themes shipped with `workbench_shell`.
   static const List<WorkbenchThemeEntry> defaultAvailableThemes = [
@@ -231,7 +231,7 @@ class WorkbenchThemeController extends ChangeNotifier {
   ///
   /// Reads the entry's declared [WorkbenchThemeEntry.brightness] when
   /// the active filename matches a known entry. Hosts wire this to
-  /// platform-native window-chrome APIs (§7.5).
+  /// platform-native window-chrome APIs (§spec:platform-brightness-sync).
   Brightness get brightness => _brightnessFor(_selectedFilename);
 
   /// A future that completes when any in-flight theme resolution
@@ -282,7 +282,7 @@ class WorkbenchThemeController extends ChangeNotifier {
   /// based on the picked theme's brightness. Picking a theme of the
   /// brightness opposite the current OS in [ThemeMode.system] flips
   /// `themeMode` to [ThemeMode.light] / [ThemeMode.dark] to match
-  /// (§7.5 observable behaviour).
+  /// (§spec:platform-brightness-sync observable behaviour).
   ///
   /// No-op if the theme is already active. Results are cached so
   /// re-selecting a theme is synchronous on subsequent calls. If the

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Only lint when governance files are staged
+staged=$(git diff --cached --name-only)
+if echo "$staged" | grep -qE '^(SPEC|ROADMAP|README)\.md$'; then
+  npx markdownlint-cli2 SPEC.md ROADMAP.md README.md
+fi

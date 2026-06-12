@@ -3,7 +3,7 @@ import FlutterMacOS
 
 /// Canonical method-channel name for forwarding workbench brightness
 /// to the host window runner. Matches the Dart-side `MethodChannel`
-/// declared in `lib/main.dart` (SPEC §7.5).
+/// declared in `lib/main.dart` (SPEC §spec:platform-brightness-sync).
 private let kWindowChromeChannel = "workbench_shell/window_chrome"
 
 class MainFlutterWindow: NSWindow {

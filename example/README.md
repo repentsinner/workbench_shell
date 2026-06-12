@@ -57,5 +57,5 @@ This is the canonical integration pattern for pub.dev consumers:
 hosts declare their own tabs and intents; the shell handles chrome.
 
 The Notifications sidebar posts toast cards through `NotificationService`
-and `NotificationHost` (package SPEC §10), demonstrating the
+and `NotificationHost` (package SPEC §spec:notification-center), demonstrating the
 notification-center API. No host-application or domain code.

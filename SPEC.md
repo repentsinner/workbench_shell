@@ -14,7 +14,7 @@ consuming application.
 
 ---
 
-## 1. Problem Statement
+## Problem Statement §spec:problem-statement
 
 *Status: complete*
 
@@ -33,7 +33,7 @@ typography, spacing, and theming.
 
 ---
 
-## 2. Scope
+## Scope §spec:scope
 
 *Status: complete*
 
@@ -61,14 +61,14 @@ typography, spacing, and theming.
 - UI extension slots: `SlotRegistry`, `SidebarSlot`, `SidebarZone`,
   `SlotId`. Hosts register content for named slots; the shell
   renders registered slots in z-order per zone.
-- Notification Center (§10): `NotificationService` plus
+- Notification Center (§spec:notification-center): `NotificationService` plus
   `NotificationHost` overlay. Progress controller is planned but
   not yet implemented.
 
 **Out of scope**
 
 - Form controls (text fields, dropdowns, toggles, action
-  buttons). See §6 for the re-promotion gate.
+  buttons). See §spec:form-controls-excluded for the re-promotion gate.
 - Host-specific domain types, BLoCs, or state management.
 - Editor widgets (text editing, syntax-highlighted viewers).
   Consumers supply their own editor content inside
@@ -76,7 +76,7 @@ typography, spacing, and theming.
 
 ---
 
-## 3. Shell Capability Boundary
+## Shell Capability Boundary §spec:capability-boundary
 
 *Status: complete*
 
@@ -115,11 +115,11 @@ canon allows get a typed structured primitive (e.g., a
 `PanelTabBadge(count)` field for the count badge case) rather
 than a widget escape hatch. This invariant prevents
 cross-consumer drift — the failure mode that `workbench_shell`
-exists to remove (§1).
+exists to remove (§spec:problem-statement).
 
 The precedent is in the codebase: `WorkbenchSection` titles render
 uppercase regardless of how the consumer cases the input string,
-matching VS Code's pane header (§7.6); `WorkbenchTabbedPanel` does
+matching VS Code's pane header (§spec:chrome-typography-canon); `WorkbenchTabbedPanel` does
 the same for tab labels and renders the inline count badge from
 a typed `PanelTabBadge` payload, painting the pill in VS Code's
 generic badge accent (`badge.background`). `WorkbenchSubsection`
@@ -130,7 +130,7 @@ canon. Every new chrome surface follows the same model.
 
 ---
 
-## 4. Structural Primitives
+## Structural Primitives §spec:structural-primitives
 
 *Status: complete*
 
@@ -154,7 +154,7 @@ primitives exist to prevent.
 
 | Widget | Purpose |
 |---|---|
-| `WorkbenchSection` | Top-level section in a sidebar or panel body. Title renders uppercase per §7.6 (VS Code pane-header canon), padded for section framing |
+| `WorkbenchSection` | Top-level section in a sidebar or panel body. Title renders uppercase per §spec:chrome-typography-canon (VS Code pane-header canon), padded for section framing |
 | `WorkbenchSubsection` | Nested section with smaller, sentence-case title typography |
 | `WorkbenchCard` | Bordered container; the atom of sidebar content |
 | `WorkbenchToggleCard` | Card with a leading toggle and expand/collapse |
@@ -169,11 +169,11 @@ and typography come from `WorkbenchTheme`.
 
 ---
 
-## 5. Chrome Widgets
+## Chrome Widgets §spec:chrome-widgets
 
 *Status: complete*
 
-### 5.1 WorkbenchLayout
+### WorkbenchLayout §spec:workbench-layout
 
 `WorkbenchLayout` composes activity bar + sidebar + editor +
 bottom panel + status bar. It accepts `activeSectionId` and
@@ -182,7 +182,7 @@ navigation (for example, a bottom-panel action that switches
 sidebars) while the shell still supports an uncontrolled mode for
 callers that do not need external control.
 
-### 5.2 WorkbenchTabbedPanel and WorkbenchPanelTab
+### WorkbenchTabbedPanel and WorkbenchPanelTab §spec:tabbed-panel
 
 `WorkbenchTabbedPanel` and `WorkbenchPanelTab` own the bottom
 panel's `TabController`, scrollable tab strip, close button,
@@ -198,7 +198,7 @@ controller. `WorkbenchTheme` carries the tab strip tokens
 patch `Theme.of(context).copyWith(tabBarTheme: …)` around the
 primitive.
 
-**Canonical tab strip rendering**. Per §3 enforcement, the tab
+**Canonical tab strip rendering**. Per §spec:capability-boundary enforcement, the tab
 strip is text-only and labels render uppercase. The shell applies
 both invariants in its rendering — consumers pass `String` labels
 in natural case (`'Output'`, `'Debug Console'`) and the shell
@@ -212,7 +212,7 @@ a multi-severity collection (e.g. a task list mixing error /
 warning / info) has no obvious "summary severity" to project
 (highest? most populous?), so the count stands on its own.
 
-### 5.3 Status Bar
+### Status Bar §spec:status-bar
 
 `WorkbenchStatusBar`, `WorkbenchStatusBarItem`,
 `WorkbenchStatusBarAction`, and `WorkbenchStatusBarProblemsItem`
@@ -240,7 +240,7 @@ item.
 toggles belong to the View menu, not the status bar, which
 separates "current state readout" from "navigation affordance."
 
-### 5.4 WorkbenchMenuBar
+### WorkbenchMenuBar §spec:menu-bar
 
 `WorkbenchMenuBar` owns a top-level View menu and the standard
 app/Window menus that frame it. The View menu lists a static
@@ -248,7 +248,7 @@ app/Window menus that frame it. The View menu lists a static
 `WorkbenchViewMenuTab`. Each `WorkbenchViewMenuTab` carries an
 arbitrary `Intent` the host defines; the menu item dispatches
 that intent via `Actions.maybeInvoke`. The "Panel" entry always
-dispatches `ToggleBottomPanelIntent` (§5.6). `WorkbenchMenuBar`
+dispatches `ToggleBottomPanelIntent` (§spec:action-dispatch). `WorkbenchMenuBar`
 itself takes no callback props.
 
 **Platform menu rendering**:
@@ -313,12 +313,12 @@ window-frame takeover (merging the menu bar into a custom title
 bar à la `bitsdojo_window`) is explicitly out of scope —
 `workbench_shell` does not reskin the OS window.
 
-### 5.5 WorkbenchShortcuts
+### WorkbenchShortcuts §spec:shortcuts
 
 `WorkbenchShortcuts` installs the one keyboard binding every
 workbench ships: Cmd+J and Ctrl+J both dispatch
 `ToggleBottomPanelIntent` through Flutter's `Shortcuts`/`Actions`
-pair (§5.6). Both activators are registered so the same intent
+pair (§spec:action-dispatch). Both activators are registered so the same intent
 fires regardless of the platform the user is on; the macOS system
 menu bar renders the Cmd glyph separately via
 `WorkbenchMenuBar`'s `PlatformMenuItem` shortcut hint.
@@ -331,11 +331,11 @@ widget. The shell deliberately does not ship any tab-focus
 bindings: which tabs exist is a host concern, so the host owns
 both the intents and their activators.
 
-### 5.6 Action Dispatch
+### Action Dispatch §spec:action-dispatch
 
 *Status: complete*
 
-Menu entries (§5.4) and keyboard shortcuts (§5.5) dispatch
+Menu entries (§spec:menu-bar) and keyboard shortcuts (§spec:shortcuts) dispatch
 through Flutter's `Actions`/`Intent` machinery. The shell
 publishes exactly one public intent: `ToggleBottomPanelIntent`.
 Every other command is host-defined — `WorkbenchViewMenuTab`
@@ -367,7 +367,7 @@ intent so the Cmd+J binding can be installed in the shell.
 **Why public intent types**. `Actions` keys on `Type`; the
 host's `Action<Intent>` declaration names the intent at compile
 time. Private intents cannot satisfy this — any intent a menu
-item or shortcut dispatches must be declared publicly either by
+item or shortcut dispatches shall be declared publicly either by
 the shell or by the host.
 
 **Enable state**. Menu items render with a null `onPressed` (the
@@ -408,18 +408,18 @@ to adopt another host's layout. Each host defines its own intents
 its own `Shortcuts` map around the shell.
 
 **Scope**. Covers the View menu + Cmd/Ctrl+J. Notification-center
-dispatch (§10) is out of scope — that section defines its own
+dispatch (§spec:notification-center) is out of scope — that section defines its own
 intents. Host-defined shortcuts continue to pass through
 `extraShortcuts` or a surrounding `Shortcuts` widget.
 
-### 5.7 Bottom Panel Lifecycle
+### Bottom Panel Lifecycle §spec:panel-lifecycle
 
 *Status: complete*
 
 `WorkbenchPanel` is the single declaration for one bottom-panel
 tab; `WorkbenchPanelHost` consumes an ordered list of them and
-derives the View menu (§5.4), keyboard-shortcut map, tab strip
-(§5.2), and per-panel `PanelLifecycle` instances. Consumers
+derives the View menu (§spec:menu-bar), keyboard-shortcut map, tab strip
+(§spec:tabbed-panel), and per-panel `PanelLifecycle` instances. Consumers
 declare panels once; the shell keeps the four surfaces consistent
 by construction.
 
@@ -480,11 +480,11 @@ their own intents into the active-tab notifier from
 additively if a future use case requires drive-through outside
 the `BuildContext` scope.
 
-**Coexistence with §5.2**. `WorkbenchTabbedPanel` and
+**Coexistence with §spec:tabbed-panel**. `WorkbenchTabbedPanel` and
 `WorkbenchPanelTab` remain as the low-level tab-strip primitive.
 `WorkbenchPanelHost` composes them internally. Consumers that
 need a tab strip outside the shell's menu-integrated model
-continue to use §5.2 directly. The §5.2 descriptor itself is
+continue to use §spec:tabbed-panel directly. The §spec:tabbed-panel descriptor itself is
 now `String`-labelled with the same `PanelTabBadge` field — the
 canon-enforcement applies regardless of which entry point the
 host uses.
@@ -497,15 +497,15 @@ the active tab. Panels with `focusIntent: null` appear in the
 tab strip but not the View menu — the shell does not synthesize
 a default focus intent.
 
-**Scope**. Bottom panel only. Sidebars (§5.1) compose
+**Scope**. Bottom panel only. Sidebars (§spec:workbench-layout) compose
 differently — single builder per activity-bar section, not a
 tabbed stack — and do not need a parallel lifecycle abstraction.
-Notification-center surfaces (§10) live outside the bottom-panel
+Notification-center surfaces (§spec:notification-center) live outside the bottom-panel
 model and do not participate in this contract.
 
 ---
 
-## 6. Form Controls Are Excluded
+## Form Controls Are Excluded §spec:form-controls-excluded
 
 *Status: complete*
 
@@ -551,7 +551,7 @@ warrant one.
 
 ---
 
-## 7. Theming
+## Theming §spec:theming
 
 *Status: complete*
 
@@ -588,7 +588,7 @@ themes — JSON assets, parser, token map, active theme state.
 Domain colors in the host adapt automatically via HCT tonal
 resolution driven by `WorkbenchTheme.surfaceTone`.
 
-### 7.1 VS Code Theme Format
+### VS Code Theme Format §spec:vscode-theme-format
 
 Color themes use the VS Code color theme JSON format: a `colors`
 object mapping [VS Code workbench color
@@ -607,7 +607,7 @@ backed by the largest theme ecosystem in existence. Adopting it
 gives consumers access to thousands of themes without designing
 a bespoke format or building a theme editor.
 
-### 7.2 HCT Tonal Resolution Contract
+### HCT Tonal Resolution Contract §spec:hct-tonal-resolution
 
 `WorkbenchTheme.surfaceTone` exposes the active theme's HCT
 tone on the editor background. Consuming applications declare
@@ -636,7 +636,7 @@ same frame. Domain colors adjust tone automatically against the
 new `surfaceTone` while staying identifiable by hue (red is
 still red, blue is still blue).
 
-### 7.3 TokenTheme
+### TokenTheme §spec:token-theme
 
 `TokenTheme` is the syntax-highlighting companion surface,
 populated from a VS Code theme's `tokenColors` section. The
@@ -644,12 +644,12 @@ controller exposes it alongside `WorkbenchTheme` so syntax
 highlighters in consuming apps resolve against the same theme
 switch.
 
-### 7.4 Tab strip canon
+### Tab strip canon §spec:tab-strip-canon
 
 *Status: complete*
 
 `WorkbenchTabbedPanel`'s tab strip renders three VS Code-canonical
-treatments the shell owns under §3: the active-tab underline reads
+treatments the shell owns under §spec:capability-boundary: the active-tab underline reads
 from
 [`panelTitle.activeBorder`](https://code.visualstudio.com/api/references/theme-color#panel-colors)
 with the resolved foreground as fallback; pointer hover over an
@@ -718,7 +718,7 @@ tracks per-button hover under Material.
   themes that distinguish them (e.g. Light Modern) render
   correctly without consumer wiring.
 
-### 7.5 Platform Brightness Sync §spec:platform-brightness-sync
+### Platform Brightness Sync §spec:platform-brightness-sync
 
 *Status: complete*
 
@@ -730,7 +730,7 @@ which sits outside the Flutter view — follows the same signal so the
 window chrome stays coherent across the OS-managed and Flutter-managed
 surfaces.
 
-§7.5 introduces a three-mode theme preference (System / Light / Dark),
+§spec:platform-brightness-sync introduces a three-mode theme preference (System / Light / Dark),
 nominates the active theme via a brightness-indexed registry, and
 emits a brightness signal hosts wire into per-platform window-chrome
 APIs.
@@ -806,7 +806,7 @@ Per-platform receivers:
 
 `workbench_shell` ships the brightness signal and demonstrates the
 wiring in the bundled example app's runners. The package itself does
-not ship a platform plugin — its pure-Dart dependency footprint (§3)
+not ship a platform plugin — its pure-Dart dependency footprint (§spec:capability-boundary)
 is preserved, and the native code stays in each host's runner where
 the window is already constructed.
 
@@ -854,7 +854,7 @@ honours the OS until the user expresses a preference.
 **Persistence**
 
 The host owns persistence for `themeMode`, `preferredLight`, and
-`preferredDark` (consistent with §7's existing position that the host
+`preferredDark` (consistent with §spec:theming's existing position that the host
 persists theme selection). The controller accepts initial values for
 all three on construction.
 
@@ -867,7 +867,7 @@ for every consumer; tests pass an explicit `PlatformDispatcher` (the
 binding's, with `platformBrightnessTestValue` overrides) so the
 subscription path is exercised deterministically.
 
-### 7.6 Chrome Typography Canon §spec:chrome-typography-canon
+### Chrome Typography Canon §spec:chrome-typography-canon
 
 *Status: complete*
 
@@ -879,7 +879,7 @@ stylesheets, so a host running on the platform's default UI font
 renders chrome at the same density VS Code does with no per-call-site
 adjustment.
 
-**Why typography belongs in the §3 canon.** Typography drift is the
+**Why typography belongs in the §spec:capability-boundary canon.** Typography drift is the
 failure mode the package exists to remove — one sidebar's heading
 rendering at 13pt, the next at 14pt, neither matching VS Code
 itself. Pinning typography to VS Code's CSS literals at the theme
@@ -936,11 +936,11 @@ workbench CSS:
 
 **`sectionTitle` adopts pane-header semantics.** The token's role —
 top-level grouping inside a sidebar or panel body, per
-`WorkbenchSection` and `WorkbenchEmptyState` (§4) — maps onto VS
+`WorkbenchSection` and `WorkbenchEmptyState` (§spec:structural-primitives) — maps onto VS
 Code's pane header (`.pane-header`, `11 / bold / uppercase`).
 `WorkbenchSection.title` renders uppercase in the shell regardless
-of input casing, parallel to the §5.2 tab-label canon.
-`WorkbenchSubsection.title` stays sentence-case (see §3 amendment).
+of input casing, parallel to the §spec:tabbed-panel tab-label canon.
+`WorkbenchSubsection.title` stays sentence-case (see §spec:capability-boundary amendment).
 
 **`smallText` is the badge tier.** Internal token the panel-tab
 badge pill paints in, and the host analogue for dense numeric
@@ -971,13 +971,13 @@ consumer-equivalent default and the canonically correct one.
   — host content composed against `theme.bodyText` /
   `theme.sectionTitle` matches the package's internal chrome.
 
-### 7.7 Editor-derived Surfaces §spec:editor-derived-surfaces
+### Editor-derived Surfaces §spec:editor-derived-surfaces
 
 *Status: complete*
 
 Log-line surfaces (output panels, terminal-style consoles) and host
 numeric surfaces (DRO readouts, tabular values) do not live in the
-chrome typography canon (§7.6) — they live in the editor's. VS Code
+chrome typography canon (§spec:chrome-typography-canon) — they live in the editor's. VS Code
 uses configurable `editor.fontFamily` and `editor.fontSize` for
 these surfaces, both defaulting to a per-platform monospace via
 `EDITOR_FONT_DEFAULTS` in
@@ -1048,7 +1048,7 @@ are generic in shape; only the family / size choice is host-tunable.
   and value surfaces in a brand monospace (e.g. Inconsolata) by
   setting `editorFontFamily` on theme construction.
 
-### 7.8 Chrome Material Theming Contract §spec:chrome-material-theming
+### Chrome Material Theming Contract §spec:chrome-material-theming
 
 *Status: complete*
 
@@ -1065,19 +1065,19 @@ themed siblings do. A surface the chrome covers only partially inherits
 whatever the host's base `ThemeData` carries — typically a default
 Material role the chrome never remaps, rendering uncontrolled and often
 low-contrast against the chrome background. Partial coverage reintroduces
-the per-widget drift the shell exists to remove (§3). The invariant is
+the per-widget drift the shell exists to remove (§spec:capability-boundary). The invariant is
 therefore all-or-nothing per surface: if the chrome themes a widget
 family, it themes every member, and no member reads from a role the
 chrome leaves unset.
 
-**Why this is not a §6 violation.** §6 excludes Material *primitives* —
+**Why this is not a §spec:form-controls-excluded violation.** §spec:form-controls-excluded excludes Material *primitives* —
 the shell publishes no reusable widget. This contract themes the host's
 *own* Material widgets; it adds no primitive. No widget is exposed, yet
 no host widget escapes chrome control.
 
 **Currently owned surface: the button family.** The chrome themes the
 full Material button family at a shared flat, compact VS Code sizing
-(§8.1: elevation 0, 4px shape, compact height, shrink-wrapped tap
+(§spec:layout-constants-canon: elevation 0, 4px shape, compact height, shrink-wrapped tap
 target):
 
 - `FilledButton` (primary) / `FilledButton.tonal` (secondary) — fills
@@ -1120,7 +1120,7 @@ with a `toolbar.hoverBackground` background, not a foreground shift.
   (← VS Code `icon.foreground`), never from the base
   `ColorScheme.onSurfaceVariant` the chrome leaves unset.
 
-## 8. Layout Constants
+## Layout Constants §spec:layout-constants
 
 *Status: complete*
 
@@ -1139,11 +1139,11 @@ change.
 depend on `workbench_shell`. A third package for a handful of
 constants adds overhead with no new information.
 
-### 8.1 Layout Constants Canon §spec:layout-constants-canon
+### Layout Constants Canon §spec:layout-constants-canon
 
 *Status: complete*
 
-`WorkbenchLayoutConstants` (§8) mirrors VS Code's per-part
+`WorkbenchLayoutConstants` (§spec:layout-constants) mirrors VS Code's per-part
 geometry literals — both the values defined in workbench CSS
 (`part.css`, `statusbarpart.css`, `activitybarpart.css`) and the
 constants registered in TypeScript (`sidebarPart.ts`,
@@ -1154,13 +1154,13 @@ peer (default sizes that VS Code persists per user, package-
 local spacing and icon scales) keep their workbench_shell-chosen
 value with rationale recorded here.
 
-**Why typography canon (§7.6) is not enough.** §7.6 pinned font
+**Why typography canon (§spec:chrome-typography-canon) is not enough.** §spec:chrome-typography-canon pinned font
 families and per-token sizes to VS Code's CSS, but did not touch
 container heights, widths, or padding scales. A 25px status bar
 against VS Code's 22px and a 200px sidebar minimum against VS
 Code's 170 produce the same "looks IDE-adjacent, not IDE-
-canonical" failure mode that §3 exists to remove. The fix is
-the same shape as §7.6: source-cite each value; leave drift no
+canonical" failure mode that §spec:capability-boundary exists to remove. The fix is
+the same shape as §spec:chrome-typography-canon: source-cite each value; leave drift no
 place to hide.
 
 **Canonical source table**:
@@ -1215,7 +1215,7 @@ via `baseSizes.ts` — theoretically theme-overridable, but every
 shipped VS Code theme uses the same value (the registration uses
 `sizeForAllThemes(4, 'px')`, which the registration helper
 enforces as constant across themes). The package keeps the value
-as a constant; §8's "no runtime resolution for never-changing
+as a constant; §spec:layout-constants's "no runtime resolution for never-changing
 values" rationale stands. If a future VS Code release introduces
 per-theme overrides, the constant migrates to `WorkbenchTheme`
 as a token.
@@ -1226,7 +1226,7 @@ one gives a more spacious feel than VS Code's tighter literals.
 The case fails on the same grounds as the typography canon:
 "workbench_shell as a more spacious VS Code" is a position the
 package has nowhere claimed and that consumers do not expect;
-under §3, matching VS Code's IDE-canonical density is the goal.
+under §spec:capability-boundary, matching VS Code's IDE-canonical density is the goal.
 
 **Rejected — making layout constants theme-driven.** Moving
 geometry onto `WorkbenchTheme` would let chrome themes ship
@@ -1241,7 +1241,7 @@ between two ownership boundaries.
 - *Geometry shifts for hosts laying out around the previous
   status bar / sidebar / panel / notification widths.* A host that
   pinned offsets against the old 25px status bar, bounded sidebar
-  content above 170px, or sized toasts against 360px must adapt to
+  content above 170px, or sized toasts against 360px shall adapt to
   the canon values. The shifts match VS Code's observable layout;
   consumers needing product-specific geometry re-pin at the layout
   call site (no per-value override is exposed — the canon covers
@@ -1265,7 +1265,7 @@ between two ownership boundaries.
 
 ---
 
-## 9. UI Extension Slots
+## UI Extension Slots §spec:extension-slots
 
 *Status: complete*
 
@@ -1283,7 +1283,7 @@ any consumer.
 
 ---
 
-## 10. Notification Center
+## Notification Center §spec:notification-center
 
 *Status: complete*
 
@@ -1386,7 +1386,7 @@ the callback. No sticky-action flag.
 
 ---
 
-## 11. Testing Strategy
+## Testing Strategy §spec:testing-strategy
 
 *Status: complete*
 

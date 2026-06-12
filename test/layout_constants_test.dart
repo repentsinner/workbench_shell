@@ -25,9 +25,9 @@ void main() {
     });
   });
 
-  group('WorkbenchLayoutConstants VS Code canon (SPEC §8.1)', () {
+  group('WorkbenchLayoutConstants VS Code canon (SPEC §spec:layout-constants-canon)', () {
     // Records the canonical literal values so an accidental edit fails
-    // loudly. Each value cites its VS Code upstream in SPEC §8.1's
+    // loudly. Each value cites its VS Code upstream in SPEC §spec:layout-constants-canon's
     // canonical source table.
     test('statusBarHeight matches statusbarpart.css (22px)', () {
       expect(WorkbenchLayoutConstants.statusBarHeight, 22.0);
