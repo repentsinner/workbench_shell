@@ -210,10 +210,9 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
       color: theme.panelBackground,
       child: Column(
         children: [
-          const SizedBox(
-            height: WorkbenchLayoutConstants.panelTabStripPaddingY,
-          ),
           SizedBox(
+            // Single 35px container (VS Code's `.part > .title`); the Row
+            // flex-centres its children vertically with no extra padding.
             height: WorkbenchLayoutConstants.panelTabStripHeight,
             child: Row(
               children: [
@@ -281,9 +280,6 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
                 ),
               ],
             ),
-          ),
-          const SizedBox(
-            height: WorkbenchLayoutConstants.panelTabStripPaddingY,
           ),
           Expanded(
             child: TabBarView(

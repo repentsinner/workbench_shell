@@ -1074,7 +1074,7 @@ constants adds overhead with no new information.
 
 ### 8.1 Layout Constants Canon §spec:layout-constants-canon
 
-*Status: not started*
+*Status: complete*
 
 `WorkbenchLayoutConstants` (§8) mirrors VS Code's per-part
 geometry literals — both the values defined in workbench CSS
@@ -1130,17 +1130,15 @@ default and records the rationale:
 | Icon sizes (`iconXs`, `iconSm`, `iconMd`, `iconLg`, `iconXl`, `iconXxl`, `iconActivityBar`) | 12 / 14 / 16 / 18 / 20 / 32 / 24 | VS Code uses 16 for most codicons (`codiconFontSize` in `baseSizes.ts`), 12 for compact (`codiconFontSize.compact`) | Provides a scale around VS Code's 16 default for surfaces (close affordances, status indicators) where a single fixed icon size doesn't fit |
 | `notificationProgressBarHeight` | 4 | not surfaced within search scope of VS Code source | Matches the visible progress bar height VS Code renders |
 
-**Panel tab strip: coalesce the split.** The existing
-`panelTabStripPaddingY` (6) + `panelTabStripHeight` (22) +
-trailing padding (6) totalling 34px is a within-1px
-approximation of VS Code's 35px `.part > .title`. The internal
-three-constant split is workbench_shell's invention; VS Code
-lays the tab strip inside a single 35px container and centres
-its children with flex. The canon pass coalesces the three
-constants into one `panelTabStripHeight = 35` and lets
-`WorkbenchTabbedPanel`'s existing `Row` flex-align its children,
-matching VS Code's construction and removing the awkward
-"three constants for one dimension" surface from the public API.
+**Panel tab strip: one container, not three constants.** VS Code
+lays the tab strip inside a single 35px `.part > .title` container
+and flex-centres its children. `panelTabStripHeight` is that single
+constant; `WorkbenchTabbedPanel`'s `Row` flex-aligns its children
+with no padding constants. An earlier split
+(`panelTabStripPaddingY` + a 22px height + trailing padding ≈ 34px)
+was a workbench_shell invention that approximated 35px while
+exposing "three constants for one dimension" on the public API;
+it is removed.
 
 **Container radius: keep as constant, document the upstream.**
 `containerRadius` already matches VS Code's
@@ -1173,25 +1171,14 @@ between two ownership boundaries.
 
 **Tradeoffs accepted**.
 
-- *Breaking change for hosts laying out around the previous
-  status bar / sidebar / panel / notification widths.* Hosts
-  that pinned tooltips or computed offsets against the old 25px
-  status bar see a 3px shift; hosts that bounded their sidebar
-  content above 170px assumed a wider minimum. Acceptable while
-  the package is pre-1.0; one `[Unreleased]` CHANGELOG entry
-  under Changed covers the lot.
-- *Notification cards widen from 360 to 450.* On narrow window
-  widths (≤ 800px) the toast may push closer to the centre of
-  the screen than the old 360 did. The change matches VS Code's
-  own observable layout; consumers that need narrower toasts for
-  product-specific reasons re-pin via a future
-  `notificationCardWidth` override (not introduced in this
-  workstream — the canon value covers the known consumers).
-- *Three-constant panel tab strip split collapses into one.*
-  Any host that read `panelTabStripPaddingY` directly needs to
-  drop the reference. None do in the current workspace; the
-  removal ships in the same release as the rest of the canon
-  pass.
+- *Geometry shifts for hosts laying out around the previous
+  status bar / sidebar / panel / notification widths.* A host that
+  pinned offsets against the old 25px status bar, bounded sidebar
+  content above 170px, or sized toasts against 360px must adapt to
+  the canon values. The shifts match VS Code's observable layout;
+  consumers needing product-specific geometry re-pin at the layout
+  call site (no per-value override is exposed — the canon covers
+  the known consumers).
 
 **Observable behavior**.
 
