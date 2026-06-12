@@ -10,7 +10,7 @@ namespace {
 
 // Canonical method-channel name for forwarding workbench brightness
 // to the host window runner. Matches the Dart-side declaration in
-// `lib/main.dart` (SPEC §7.5).
+// `lib/main.dart` (SPEC §spec:platform-brightness-sync).
 constexpr const char* kWindowChromeChannel = "workbench_shell/window_chrome";
 
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE

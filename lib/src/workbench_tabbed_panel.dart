@@ -13,7 +13,7 @@ import 'workbench_theme.dart';
 /// only carries identity, label string, optional badge, and the
 /// content builder.
 ///
-/// **Canonical rendering**. Per §3 of the workbench_shell spec, tabs
+/// **Canonical rendering**. Per §spec:capability-boundary of the workbench_shell spec, tabs
 /// render uppercase regardless of how the consumer cases the input.
 /// Hosts pass natural-case labels (`'Output'`, `'Debug Console'`)
 /// and the shell paints `'OUTPUT'` / `'DEBUG CONSOLE'`. Hosts that
@@ -231,7 +231,7 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
                     ),
                     dividerColor: theme.tabBarDividerColor,
                     // Suppress Material's hover/focus/pressed overlay box;
-                    // the §7.4 canon is a label-colour transition with no
+                    // the §spec:tab-strip-canon canon is a label-colour transition with no
                     // background overlay.
                     overlayColor: const WidgetStatePropertyAll(
                       Colors.transparent,
@@ -297,7 +297,7 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
 
   /// Canonical tab label: uppercased text plus an optional severity
   /// pill. The shell owns this rendering so consumers cannot diverge
-  /// (§3 canon enforcement).
+  /// (§spec:capability-boundary canon enforcement).
   Widget _buildTabLabel(WorkbenchTheme theme, WorkbenchPanelTab tab) {
     final upper = tab.label.toUpperCase();
     final badge = tab.badge;

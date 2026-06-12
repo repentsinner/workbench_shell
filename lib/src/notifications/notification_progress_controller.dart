@@ -15,7 +15,7 @@ import 'notification_service.dart';
 /// crash. The [cancellation] future also completes when the card is
 /// terminated externally so awaiting hosts don't leak.
 ///
-/// See package SPEC §10 "Progress notifications".
+/// See package SPEC §spec:notification-center "Progress notifications".
 class NotificationProgressController {
   /// The id of the live notification this controller drives.
   final Object id;

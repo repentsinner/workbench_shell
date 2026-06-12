@@ -9,8 +9,8 @@ import 'workbench_theme.dart';
 /// `workbench_shell` deliberately scopes this surface to structural
 /// grouping (sections, subsections, cards, toggle cards, empty states).
 /// Form controls — text fields, dropdowns, toggles, action buttons —
-/// live in the host application as application helpers. See SPEC §9.14
-/// for rationale and the re-promotion gate.
+/// live in the host application as application helpers. See SPEC
+/// §spec:form-controls-excluded for rationale and the re-promotion gate.
 
 /// Resolve a content-primitive border side from the theme's nullable
 /// [WorkbenchTheme.borderColor]. When the theme suppresses the border,
@@ -23,7 +23,7 @@ BorderSide _contentBorderSide(WorkbenchTheme theme) => theme.borderColor == null
 
 /// Top-level grouping inside a sidebar or panel. Renders [title]
 /// uppercased — the shell owns the transform so consumers cannot
-/// diverge (§3 canon enforcement, §7.6 pane-header semantics) — in
+/// diverge (§spec:capability-boundary canon enforcement, §spec:chrome-typography-canon pane-header semantics) — in
 /// [WorkbenchTheme.sectionTitle] with an optional info tooltip icon.
 class WorkbenchSection extends StatelessWidget {
   final String title;

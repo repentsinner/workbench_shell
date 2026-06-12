@@ -15,9 +15,9 @@ void main() {
           const WorkbenchSection(title: 'Hello', child: Text('body')),
         ),
       );
-      // §7.6: WorkbenchSection adopts the pane-header canon —
+      // §spec:chrome-typography-canon: WorkbenchSection adopts the pane-header canon —
       // titles render uppercase regardless of input casing, parallel
-      // to the §5.2 tab-label canon.
+      // to the §spec:tabbed-panel tab-label canon.
       final titleFinder = find.text('HELLO');
       expect(titleFinder, findsOneWidget);
       expect(find.text('Hello'), findsNothing);
@@ -29,7 +29,7 @@ void main() {
     testWidgets('uppercases title regardless of input casing', (tester) async {
       // Mixed-case, all-lower, and already-upper inputs all render
       // uppercase — the shell owns the transform so consumers cannot
-      // diverge (§3 canon enforcement).
+      // diverge (§spec:capability-boundary canon enforcement).
       await tester.pumpWidget(
         wrapWithTheme(
           const Column(

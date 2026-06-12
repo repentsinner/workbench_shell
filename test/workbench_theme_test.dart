@@ -161,7 +161,7 @@ void main() {
     });
 
     test('preserves alpha channel from #RRGGBBAA', () {
-      // Spec §9.6: "Color tokens expressed as #RRGGBBAA retain their
+      // Spec §spec:vscode-theme-format: "Color tokens expressed as #RRGGBBAA retain their
       // alpha channel from parse through paint." Reject any
       // opaque-coercion downstream.
       final map = loader.parse('''
@@ -179,7 +179,7 @@ void main() {
 
     test('button.border resolves to transparent when omitted', () {
       // VS Code has no registry default for button.border; older themes
-      // omit it and the §9.20 button border is transparent.
+      // omit it and the §spec:chrome-material-theming button border is transparent.
       final map = loader.parse('''
         {
           "name": "Minimal Dark",
@@ -273,7 +273,7 @@ void main() {
 
   group('WorkbenchTheme.statusBarTextStyle', () {
     // Primary status bar text matches the size/weight of helperStyle
-    // (12pt, w400 per §7.6) but paints in statusBar.foreground so it
+    // (12pt, w400 per §spec:chrome-typography-canon) but paints in statusBar.foreground so it
     // reads against the blue status bar background. The prior default
     // (helperStyle) used descriptionForeground and produced an
     // illegible grey on blue.
@@ -349,7 +349,7 @@ void main() {
     });
   });
 
-  group('WorkbenchTheme notification tokens (§10)', () {
+  group('WorkbenchTheme notification tokens (§spec:notification-center)', () {
     test('fall back to chrome neighbours when notifications.* omitted', () {
       final map = loader.parse('''
         {
@@ -438,7 +438,7 @@ void main() {
     });
   });
 
-  group('WorkbenchTheme secondary button tokens (§9.20)', () {
+  group('WorkbenchTheme secondary button tokens (§spec:chrome-material-theming)', () {
     test('fall back to neutral surfaces when button.secondary* omitted', () {
       final theme = WorkbenchTheme.fromVscodeColorMap(
         const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
@@ -568,7 +568,7 @@ void main() {
     });
   });
 
-  group('WorkbenchTheme chrome typography canon (§7.6)', () {
+  group('WorkbenchTheme chrome typography canon (§spec:chrome-typography-canon)', () {
     // Source-cited literals mirror VS Code's workbench CSS. Pin every
     // chrome semantic token so a stray edit fails loudly — typography
     // drift was the failure mode the canon exists to remove.
@@ -656,7 +656,7 @@ void main() {
     });
   });
 
-  group('WorkbenchTheme editor-derived surfaces (§7.7)', () {
+  group('WorkbenchTheme editor-derived surfaces (§spec:editor-derived-surfaces)', () {
     // editor.fontFamily / editor.fontSize defaults mirror VS Code's
     // EDITOR_FONT_DEFAULTS per platform. Tests pin the host platform's
     // primary family so a drift fails loudly.
@@ -716,7 +716,7 @@ void main() {
     });
 
     test('loglineMessage derives from editorStyle (same family)', () {
-      // §7.7: loglineMessage rebases on editorStyle.copyWith — the
+      // §spec:editor-derived-surfaces: loglineMessage rebases on editorStyle.copyWith — the
       // family resolution lives in one place so a host override flows
       // through every editor-derived surface.
       final theme = WorkbenchTheme.fromVscodeColorMap(
@@ -728,7 +728,7 @@ void main() {
     });
 
     test('valueText derives from editorStyle (same family)', () {
-      // §7.7: valueText sits in the editor canon alongside log lines
+      // §spec:editor-derived-surfaces: valueText sits in the editor canon alongside log lines
       // — DRO numerics inherit the editor family rather than a bespoke
       // chrome one.
       final theme = WorkbenchTheme.fromVscodeColorMap(

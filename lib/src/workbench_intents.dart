@@ -13,7 +13,7 @@ import 'package:flutter/widgets.dart';
 /// use host-defined intents; `WorkbenchViewMenuTab` carries an arbitrary
 /// [Intent] so hosts can wire their own vocabulary through the menu.
 ///
-/// See package SPEC §5.6 for rationale.
+/// See package SPEC §spec:action-dispatch for rationale.
 
 /// Toggles bottom-panel visibility. Emitted by the View menu's "Panel"
 /// entry and by the default Cmd+J / Ctrl+J keyboard binding installed

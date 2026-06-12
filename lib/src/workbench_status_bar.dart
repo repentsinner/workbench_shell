@@ -12,7 +12,7 @@ import 'workbench_theme.dart';
 /// or [WorkbenchStatusBarAction] children carrying domain data.
 ///
 /// The status bar shall not carry panel-visibility toggles —
-/// those are a View-menu concern (see SPEC.md §9.14 item 5).
+/// those are a View-menu concern (see SPEC §spec:status-bar).
 class WorkbenchStatusBar extends StatelessWidget {
   /// Items aligned to the left edge of the status bar.
   final List<Widget> leading;

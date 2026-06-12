@@ -7,7 +7,7 @@ library;
 
 export 'src/activity_bar_item.dart';
 export 'src/layout_constants.dart';
-// Notification center (§10): service, value types, progress
+// Notification center (§spec:notification-center): service, value types, progress
 // controller, and host overlay widget.
 export 'src/notifications/notification.dart';
 export 'src/notifications/notification_host.dart';
