@@ -88,6 +88,11 @@ class ExampleApp extends StatelessWidget {
 A runnable example with five sidebars, a tabbed bottom panel, a
 notification demo, and a status bar lives under [`example/`](example/).
 
+## API
+
+Full API documentation is generated from source and published at
+[pub.dev/documentation/workbench_shell](https://pub.dev/documentation/workbench_shell/latest/).
+
 ## Design
 
 Chrome that is generic to a VS Code-style workbench belongs in
