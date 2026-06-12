@@ -1085,11 +1085,28 @@ target):
   `secondaryContainer`/`onSecondaryContainer` roles.
 - `TextButton` (text / link) — link-accent label.
 - `SegmentedButton` (single-select selectors) — neutral selected fill.
-- `IconButton` — chrome-controlled foreground.
+- `IconButton` — foreground from a dedicated `iconForeground` token
+  mapping VS Code's
+  [`icon.foreground`](https://code.visualstudio.com/api/references/theme-color#icon-colors).
 
 The set is extensible: input decoration and other Material surfaces can
 join the contract without changing call sites. Each addition obeys
 parity — it themes the whole widget, not a subset of its states.
+
+**Why `IconButton` maps `icon.foreground`, not `foreground` or
+`descriptionForeground`.** VS Code colors workbench icon buttons (toolbar
+and view-title action icons) from a dedicated `icon.foreground` token —
+near-full contrast (`#C5C5C5` dark / `#424242` light), deliberately
+distinct from `foreground` (body text) and `descriptionForeground`
+(secondary text, derived as 70%-opacity foreground). Reusing an existing
+chrome token would diverge from VS Code: `descriptionForeground` renders
+icon buttons dimmer than upstream and conflates an actionable affordance
+with secondary text; `foreground` overshoots. The chrome therefore
+carries its own `iconForeground` token mapping `icon.foreground`, the
+same token-per-VS-Code-semantic pattern every other chrome token follows.
+Hover is left to Material's default state-layer overlay rather than a
+glyph-color change — matching VS Code, which signals icon-button hover
+with a `toolbar.hoverBackground` background, not a foreground shift.
 
 **Observable behavior.**
 
@@ -1099,6 +1116,9 @@ parity — it themes the whole widget, not a subset of its states.
 - A stock instance of any owned widget, placed bare under the chrome,
   renders legibly against the chrome background on both light and dark
   themes, at the chrome's sizing.
+- A bare `IconButton` resolves its foreground from `iconForeground`
+  (← VS Code `icon.foreground`), never from the base
+  `ColorScheme.onSurfaceVariant` the chrome leaves unset.
 
 ## 8. Layout Constants
 
