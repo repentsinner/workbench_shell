@@ -1,0 +1,17 @@
+flywheel:
+  streams:
+    - name: main-line
+      branches:
+        - name: main
+          release: production
+          # Non-bumping types auto-merge once required checks pass.
+          # feat / fix / perf / any `!` breaking variant routes to
+          # human review — every release stays human-gated.
+          auto_merge: [chore, docs, style, test, ci, build, refactor]
+
+  release_files:
+    # pub.dev package: plain semver, no +build suffix (that segment
+    # exists for store-distributed app binaries, not packages).
+    - path: pubspec.yaml
+      pattern: '^version: .*'
+      replacement: 'version: ${version}'

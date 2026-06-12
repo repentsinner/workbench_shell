@@ -1,0 +1,16 @@
+name: Flywheel — Push
+on:
+  push:
+    branches: ["**"]
+concurrency:
+  group: flywheel-push-${{ github.ref_name }}
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: point-source/flywheel@v2
+        with:
+          event: push
+          app-id: ${{ vars.FLYWHEEL_GH_APP_ID }}
+          app-private-key: ${{ secrets.FLYWHEEL_GH_APP_PRIVATE_KEY }}
