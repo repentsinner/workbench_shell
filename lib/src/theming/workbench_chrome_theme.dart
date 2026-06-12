@@ -25,7 +25,10 @@ import '../workbench_theme.dart';
 ///   (mode toggle, distance ladders, percent), inheriting the same 4px
 ///   shape and compact height with a **neutral** selected-segment fill
 ///   (`button.secondaryBackground`) that reads as "chosen" without
-///   competing with the primary-action blue (§8.1, §9.20).
+///   competing with the primary-action blue (§8.1).
+/// - an [IconButtonThemeData] for bare [IconButton]s, glyph color from
+///   the `iconForeground` token (VS Code `icon.foreground`) at the same
+///   flat compact sizing (§7.8).
 ///
 /// All three are flat — elevation pinned to 0 across every state. The
 /// helper keeps [FilledButton]'s hover/pressed state-layer *overlay* (the
@@ -35,7 +38,7 @@ import '../workbench_theme.dart';
 /// animation in themes whose secondary fill is transparent. Flat-always
 /// removes the flash and matches VS Code, which never elevates buttons.
 /// Hover colour is left to FilledButton — not a pixel-perfect VS Code
-/// hover recreation (§9.20). The border is transparent in themes that
+/// hover recreation. The border is transparent in themes that
 /// omit `button.border`; modern themes (Dark Modern, Dark 2026) set a
 /// transparent secondary fill and rely on the border to keep the
 /// secondary tier visible.
@@ -58,7 +61,7 @@ import '../workbench_theme.dart';
 /// primary-driven Material controls (switches, sliders, focus rings)
 /// adopt the VS Code accent — the coherent mapping for a VS Code chrome.
 /// A host obtains VS Code Material theming with one call instead of
-/// hand-wiring each widget theme. See SPEC §9.20.
+/// hand-wiring each widget theme. See SPEC §7.8.
 ///
 /// Extensible by design: button theming and shape are the first Material
 /// surfaces the chrome owns. Input decoration and other surfaces can be
@@ -137,10 +140,10 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
     // accent — as the old `jogButtonStyle(selected: true)` did via
     // `focusBorder` — makes "this option is chosen" compete with "this
     // is the primary action": two blues, one meaning. The neutral fill
-    // reads as a selection highlight without that collision (§9.20).
+    // reads as a selection highlight without that collision (§7.8).
     // Call sites suppress the default checkmark (`showSelectedIcon:
     // false`) so the 5-up ladders aren't crowded.
-    // Single-select jog selectors (§9.20). The selected segment uses VS
+    // Single-select jog selectors (§7.8). The selected segment uses VS
     // Code's active-toggle treatment — a subtle accent tint plus a solid
     // accent border (`inputOption.active*`) — an *active* colour distinct
     // from both the primary-action fill and a dimmed-disabled segment.
@@ -175,6 +178,23 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
         padding: const WidgetStatePropertyAll(
           EdgeInsets.symmetric(horizontal: WorkbenchLayoutConstants.spacingXs),
         ),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+    ),
+    // Bare IconButton — glyph color from the dedicated iconForeground
+    // token (VS Code icon.foreground), at the shared flat compact sizing.
+    // Without this, an IconButton placed under the chrome falls back to
+    // the host base ThemeData's onSurfaceVariant — a role the chrome
+    // leaves unset, rendering the glyph near-invisible against the chrome
+    // background (§7.8). Hover is left to Material's default IconButton
+    // state-layer overlay, matching VS Code, which signals icon-button
+    // hover with a background, not a foreground shift.
+    iconButtonTheme: IconButtonThemeData(
+      style: IconButton.styleFrom(
+        foregroundColor: chrome.iconForeground,
+        shape: buttonShape,
+        minimumSize: buttonMinSize,
+        padding: buttonPadding,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
     ),

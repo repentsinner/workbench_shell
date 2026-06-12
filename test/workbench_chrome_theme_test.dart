@@ -205,6 +205,62 @@ void main() {
       );
     });
 
+    test('icon button theme carries the 4px buttonShape and compact size', () {
+      final style = result.iconButtonTheme.style;
+      expect(style?.shape?.resolve({}), WorkbenchLayoutConstants.buttonShape);
+      expect(
+        style?.minimumSize?.resolve({})?.height,
+        WorkbenchLayoutConstants.buttonHeight,
+      );
+      expect(style?.tapTargetSize, MaterialTapTargetSize.shrinkWrap);
+    });
+
+    test('bare IconButton resolves its foreground from iconForeground, '
+        'not the base onSurfaceVariant', () {
+      // The issue (#9) MCVE: a bare IconButton must read its glyph color
+      // from the chrome's iconForeground token, never fall back to the
+      // host base ThemeData's onSurfaceVariant — the role the chrome
+      // leaves unset, which renders icons near-invisible against the
+      // chrome background.
+      final fg = result.iconButtonTheme.style?.foregroundColor?.resolve({});
+      expect(fg, isNotNull);
+      expect(fg, testWorkbenchTheme.iconForeground);
+      expect(fg, isNot(base.colorScheme.onSurfaceVariant));
+    });
+
+    test(
+      'iconForeground resolves icon.foreground when the theme defines it',
+      () {
+        // A theme that sets icon.foreground drives the token directly.
+        final defined = WorkbenchTheme.fromVscodeColorMap(
+          const VscodeColorMap(
+            name: 'Defined',
+            baseType: 'vs-dark',
+            colors: {'icon.foreground': Color(0xFFCCCCCC)},
+          ),
+        );
+        final composed = applyWorkbenchChrome(ThemeData.dark(), defined);
+        final fg = composed.iconButtonTheme.style?.foregroundColor?.resolve({});
+        expect(fg, const Color(0xFFCCCCCC));
+      },
+    );
+
+    test('iconForeground falls back to the VS Code default when the theme '
+        'omits icon.foreground', () {
+      // A theme without icon.foreground falls back to VS Code's registered
+      // default (#C5C5C5 dark), not a base ColorScheme role.
+      final undefined = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(
+          name: 'Undefined',
+          baseType: 'vs-dark',
+          colors: {},
+        ),
+      );
+      final composed = applyWorkbenchChrome(ThemeData.dark(), undefined);
+      final fg = composed.iconButtonTheme.style?.foregroundColor?.resolve({});
+      expect(fg, const Color(0xFFC5C5C5));
+    });
+
     test('does not set elevated or outlined button themes', () {
       // §9.20 canonicalizes every button — including the jog grid — on
       // FilledButton, so no ElevatedButton or OutlinedButton remains in
