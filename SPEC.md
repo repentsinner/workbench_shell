@@ -8,12 +8,9 @@ depends only on Flutter and a handful of general-purpose
 pub.dev libraries, so any Flutter desktop or mobile app can adopt
 the chrome without inheriting a host application's domain model.
 
-Rove consumes this package from the monorepo via `path:` during
-development; on pub.dev the same package will ship with an
-independent semver track (§15.2 in the upstream Rove SPEC). The
-governance here is package-local — it describes the workbench
-shell's design intent as the standalone published artifact, not
-the consuming application.
+The governance here is package-local — it describes the workbench
+shell's design intent as the standalone published artifact, not any
+consuming application.
 
 ---
 
@@ -87,18 +84,16 @@ Chrome that is generic to a VS Code-style workbench belongs in
 `workbench_shell`; chrome that encodes a specific product's
 domain belongs outside.
 
-**Boundary test**: could a non-Rove application use the shell
-without knowing Rove exists? Section navigation, status-bar
-chrome, the View menu, and tabbed bottom-panel composition
-satisfy this test.
+**Boundary test**: could an arbitrary application use the shell
+without knowing any particular host exists? Section navigation,
+status-bar chrome, the View menu, and tabbed bottom-panel
+composition satisfy this test.
 
-**Dependency footprint**: `workbench_shell/lib/` imports only
-Flutter, `equatable`, `material_color_utilities`, and
-`material_symbols_icons`. A CI gate
-(`tools/lint-workbench-shell-boundary.sh` in the consuming
-monorepo) fails the build if any file under `lib/` imports a
-Rove or CNC-specific package. The package ships with its own
-allowlist so downstream consumers can add an equivalent gate.
+**Dependency footprint**: `lib/` imports only Flutter, `equatable`,
+`material_color_utilities`, and `material_symbols_icons`. No file
+under `lib/` imports a host- or domain-specific package; consuming
+applications can enforce an equivalent import boundary with a lint
+gate of their own.
 
 **No BLoCs, no domain types, no state beyond what a tabbed
 panel's `TabController` requires**. Pure widgets, theme
@@ -213,9 +208,9 @@ only) which the shell renders inline next to the uppercased label,
 painting the pill in VS Code's generic badge accent
 (`badge.background` / `badge.foreground`) — a separate slot from
 the panel-active underline. The badge does not vary by severity:
-a multi-severity collection (Rove's UserTasks has error / warning
-/ info) has no obvious "summary severity" to project (highest?
-most populous?), so the count stands on its own.
+a multi-severity collection (e.g. a task list mixing error /
+warning / info) has no obvious "summary severity" to project
+(highest? most populous?), so the count stands on its own.
 
 ### 5.3 Status Bar
 
@@ -290,7 +285,7 @@ into one strip (`window.titleBarStyle: "custom"`). Replicating
 that in Flutter requires taking over the window frame via
 `bitsdojo_window` or equivalent, which adds custom drag regions,
 custom min/max/close button rendering, HiDPI handling, Wayland
-fallout, and a separate traffic-light story on macOS. Rove is
+fallout, and a separate traffic-light story on macOS. The shell is
 not trying to reskin the window — it only needs the View menu to
 live somewhere predictable and platform-appropriate. The in-
 window `MenuBar` strip below the standard OS title bar achieves
@@ -408,9 +403,9 @@ An earlier draft had the shell publish `FocusMdiIntent`,
 `FocusTasksIntent`, etc. and default-shortcut bindings for each.
 Dropped: the shell cannot know what tabs a host runs, so any
 fixed vocabulary is either useless to other hosts or forces them
-to adopt Rove's layout. Each host defines its own intents
-(Rove's is `FocusBottomPanelTabIntent(BottomPanelTabIds tab)`)
-and installs its own `Shortcuts` map around the shell.
+to adopt another host's layout. Each host defines its own intents
+(for example `FocusBottomPanelTabIntent(MyTabId tab)`) and installs
+its own `Shortcuts` map around the shell.
 
 **Scope**. Covers the View menu + Cmd/Ctrl+J. Notification-center
 dispatch (§10) is out of scope — that section defines its own
@@ -523,9 +518,9 @@ primitives.
 **Why form controls are not primitives yet**:
 
 - *Single-consumer in practice.* Each form-control variant in
-  the current Rove app has one to three call sites. "Reusable
-  primitive" is aspirational framing for what is currently a
-  locally-extracted helper.
+  the host this package was extracted from had one to three call
+  sites. "Reusable primitive" is aspirational framing for what is
+  currently a locally-extracted helper.
 - *Not actually VS Code-coded.* VS Code's form controls have
   specific visual grammar: inset borders, hover fade timing,
   focus ring geometry, font sizing tied to `editor.fontSize`,
@@ -568,7 +563,7 @@ alarm severities) via their own `ThemeExtension` and bridge to
 contrast-safe colors are required against the chrome background.
 
 **Reference integration**: the bundled example app
-(`packages/workbench_shell/example/`) wires
+([`example/`](example/)) wires
 `WorkbenchThemeController` end-to-end — a top-level
 `AnimatedBuilder` rebuilds `MaterialApp.theme` when the active
 theme changes, and a "Settings" sidebar exposes the bundled
@@ -1049,9 +1044,9 @@ are generic in shape; only the family / size choice is host-tunable.
 - `loglineMessage` and `valueText` paint in the same family —
   neither reaches outside `editorStyle` for its base.
 - A consumer that omits `editorFontFamily` gets the platform's
-  default monospace per the table above. `rove` renders log-line
-  and DRO surfaces in Inconsolata because the application sets
-  `editorFontFamily: 'Inconsolata'` on theme construction.
+  default monospace per the table above. A host can render log-line
+  and value surfaces in a brand monospace (e.g. Inconsolata) by
+  setting `editorFontFamily` on theme construction.
 
 ## 8. Layout Constants
 
@@ -1206,9 +1201,8 @@ between two ownership boundaries.
   matching VS Code's `MAX_WIDTH`.
 - Panel tab strip and sidebar heading both render in a 35px
   container (one shared constant, not three split constants).
-- The bundled example app and `rove` render at the same pixel
-  measurements as VS Code for every chrome part with a canonical
-  upstream value.
+- The bundled example app renders at the same pixel measurements
+  as VS Code for every chrome part with a canonical upstream value.
 
 ---
 
@@ -1248,9 +1242,8 @@ dismissal, an injected `NotificationService`, and a separate
 progress-controller API for long-running tasks.
 
 **Why in `workbench_shell`**: the notification center is generic
-workbench chrome. A non-Rove host building on the shell needs
-the same stacked-toast affordance with the same severity
-semantics. The boundary test applies: no host-specific types
+workbench chrome. Any host building on the shell needs the same
+stacked-toast affordance with the same severity semantics. The boundary test applies: no host-specific types
 cross the API — `NotificationSeverity`, `String` message,
 optional `List<NotificationAction>` only.
 

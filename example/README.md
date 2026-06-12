@@ -9,7 +9,7 @@ notification-center demo, and a status bar.
 ## Run
 
 ```bash
-cd packages/workbench_shell/example
+cd example
 flutter pub get
 flutter run -d macos      # or -d linux / -d windows
 ```
