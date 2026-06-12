@@ -22,6 +22,13 @@ example/macos/
 example/linux/
 example/windows/
 
+# --- Repo tooling ---
+# Contributor-facing tooling, not package source: agent instructions
+# and the Vale prose-lint styles. (.flywheel.yml, .vale.ini, .githooks/
+# and friends are dotfiles, dropped automatically as hidden.)
+CLAUDE.md
+styles/
+
 # Nothing else is excluded. A published Dart package is a full source
 # distribution (pub ships tests, docs, and examples by default), and the
 # size limit is 100 MB gzip — we are ~6 orders of magnitude under it. So
