@@ -1,3 +1,10 @@
+## [0.2.1](https://github.com/repentsinner/workbench_shell/compare/v0.2.0...v0.2.1) (2026-06-12)
+
+
+### Bug Fixes
+
+* exclude repo tooling from the pub archive ([20ecf00](https://github.com/repentsinner/workbench_shell/commit/20ecf00c0d21cf012aaecea8cdbd2e4c0a4708f9))
+
 # [0.2.0](https://github.com/repentsinner/workbench_shell/compare/v0.1.0...v0.2.0) (2026-06-12)
 
 
