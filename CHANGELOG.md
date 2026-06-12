@@ -6,6 +6,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `iconForeground` chrome token (VS Code `icon.foreground`).
+
+### Fixed
+
+- Bare `IconButton` now themed by the chrome instead of falling back to
+  the host base `onSurfaceVariant` (#9).
+
 ## 0.1.0 - 2026-06-10
 
 Initial release.
