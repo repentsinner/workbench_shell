@@ -6,7 +6,11 @@ on:
   merge_group: # required for merge-queue compatibility
 
 jobs:
-  lint:
+  # Job id `governance` makes the check-run name `governance / lint` —
+  # the context string registered as a required status check in the
+  # `Flywheel - review` ruleset. Renaming it means re-pointing the
+  # ruleset entry.
+  governance:
     uses: repentsinner/symphonize/.github/workflows/governance-lint.yml@notation--v0
     with:
       readme-type: "library"
