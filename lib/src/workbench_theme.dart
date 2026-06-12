@@ -111,6 +111,12 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   final Color descriptionForeground;
   final Color accentForeground;
 
+  /// Icon-button glyph color. VS Code `icon.foreground` — near-full
+  /// contrast, deliberately distinct from [foreground] (body text) and
+  /// [descriptionForeground] (secondary text). Drives bare `IconButton`s
+  /// composed under the chrome (§7.8).
+  final Color iconForeground;
+
   // ---- Semantic status ----
   final Color errorForeground;
   final Color warningForeground;
@@ -334,6 +340,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.foreground,
     required this.descriptionForeground,
     required this.accentForeground,
+    required this.iconForeground,
     required this.errorForeground,
     required this.warningForeground,
     required this.successForeground,
@@ -640,6 +647,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         'textLink.foreground',
         const Color(0xFF569CD6),
       ),
+      iconForeground: map.resolve(
+        'icon.foreground',
+        dl(const Color(0xFFC5C5C5), const Color(0xFF424242)),
+      ),
       // Semantic status
       errorForeground: errorFg,
       warningForeground: warningFg,
@@ -864,6 +875,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? foreground,
     Color? descriptionForeground,
     Color? accentForeground,
+    Color? iconForeground,
     Color? errorForeground,
     Color? warningForeground,
     Color? successForeground,
@@ -982,6 +994,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       descriptionForeground:
           descriptionForeground ?? this.descriptionForeground,
       accentForeground: accentForeground ?? this.accentForeground,
+      iconForeground: iconForeground ?? this.iconForeground,
       errorForeground: errorForeground ?? this.errorForeground,
       warningForeground: warningForeground ?? this.warningForeground,
       successForeground: successForeground ?? this.successForeground,
@@ -1163,6 +1176,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         other.descriptionForeground,
       ),
       accentForeground: c(accentForeground, other.accentForeground),
+      iconForeground: c(iconForeground, other.iconForeground),
       errorForeground: c(errorForeground, other.errorForeground),
       warningForeground: c(warningForeground, other.warningForeground),
       successForeground: c(successForeground, other.successForeground),
@@ -1300,7 +1314,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           activityBarBackground == other.activityBarBackground &&
           activityBarBorder == other.activityBarBorder &&
           activityBarForeground == other.activityBarForeground &&
-          activityBarInactiveForeground == other.activityBarInactiveForeground &&
+          activityBarInactiveForeground ==
+              other.activityBarInactiveForeground &&
           sideBarBackground == other.sideBarBackground &&
           sideBarBorder == other.sideBarBorder &&
           sideBarForeground == other.sideBarForeground &&
@@ -1333,12 +1348,14 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           foreground == other.foreground &&
           descriptionForeground == other.descriptionForeground &&
           accentForeground == other.accentForeground &&
+          iconForeground == other.iconForeground &&
           errorForeground == other.errorForeground &&
           warningForeground == other.warningForeground &&
           successForeground == other.successForeground &&
           infoForeground == other.infoForeground &&
           listHoverBackground == other.listHoverBackground &&
-          listActiveSelectionBackground == other.listActiveSelectionBackground &&
+          listActiveSelectionBackground ==
+              other.listActiveSelectionBackground &&
           focusBorder == other.focusBorder &&
           sashHoverBackground == other.sashHoverBackground &&
           menuBarBackground == other.menuBarBackground &&
@@ -1349,7 +1366,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           focusBorderMuted == other.focusBorderMuted &&
           focusBorderProminent == other.focusBorderProminent &&
           descriptionBadgeBackground == other.descriptionBadgeBackground &&
-          descriptionDisabledBackground == other.descriptionDisabledBackground &&
+          descriptionDisabledBackground ==
+              other.descriptionDisabledBackground &&
           descriptionMuted == other.descriptionMuted &&
           descriptionSecondary == other.descriptionSecondary &&
           errorBorderMuted == other.errorBorderMuted &&
@@ -1395,7 +1413,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           notificationCloseForeground == other.notificationCloseForeground &&
           notificationActionBackground == other.notificationActionBackground &&
           notificationActionForeground == other.notificationActionForeground &&
-          notificationActionHoverBackground == other.notificationActionHoverBackground &&
+          notificationActionHoverBackground ==
+              other.notificationActionHoverBackground &&
           notificationProgressTrack == other.notificationProgressTrack &&
           notificationProgressFill == other.notificationProgressFill &&
           surfaceTone == other.surfaceTone;
@@ -1438,6 +1457,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     foreground,
     descriptionForeground,
     accentForeground,
+    iconForeground,
     errorForeground,
     warningForeground,
     successForeground,
