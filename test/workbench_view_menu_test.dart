@@ -204,19 +204,22 @@ void main() {
   });
 
   group('WorkbenchMenuBar application menu label', () {
-    test('defaults to a neutral host-agnostic label, not "Rove"', () {
+    test('defaults to the neutral host-agnostic label', () {
       const bar = WorkbenchMenuBar(tabs: [], child: SizedBox.shrink());
       expect(bar.applicationMenuLabel, isNotEmpty);
-      expect(bar.applicationMenuLabel, isNot('Rove'));
+      expect(
+        bar.applicationMenuLabel,
+        WorkbenchMenuBar.defaultApplicationMenuLabel,
+      );
     });
 
     test('threads the configured label through the widget field', () {
       const bar = WorkbenchMenuBar(
-        applicationMenuLabel: 'Rove',
+        applicationMenuLabel: 'Acme',
         tabs: [],
         child: SizedBox.shrink(),
       );
-      expect(bar.applicationMenuLabel, 'Rove');
+      expect(bar.applicationMenuLabel, 'Acme');
     });
 
     testWidgets('macOS application menu uses applicationMenuLabel', (
