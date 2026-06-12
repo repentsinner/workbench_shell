@@ -1048,6 +1048,58 @@ are generic in shape; only the family / size choice is host-tunable.
   and value surfaces in a brand monospace (e.g. Inconsolata) by
   setting `editorFontFamily` on theme construction.
 
+### 7.8 Chrome Material Theming Contract §spec:chrome-material-theming
+
+*Status: in progress*
+
+`applyWorkbenchChrome` composes VS Code styling onto a host's
+`ThemeData` so the standard Material widgets a host places inherit chrome
+control without per-widget wiring. The contract is **parity**: every
+Material surface the chrome composes onto is brought fully under chrome
+control; none falls back to a `ColorScheme` role or base `ThemeData`
+value the chrome leaves unset.
+
+**Why parity, not a curated subset.** A host that drops a stock Material
+widget into the chrome expects it to read as VS Code chrome, the way its
+themed siblings do. A surface the chrome covers only partially inherits
+whatever the host's base `ThemeData` carries — typically a default
+Material role the chrome never remaps, rendering uncontrolled and often
+low-contrast against the chrome background. Partial coverage reintroduces
+the per-widget drift the shell exists to remove (§3). The invariant is
+therefore all-or-nothing per surface: if the chrome themes a widget
+family, it themes every member, and no member reads from a role the
+chrome leaves unset.
+
+**Why this is not a §6 violation.** §6 excludes Material *primitives* —
+the shell publishes no reusable widget. This contract themes the host's
+*own* Material widgets; it adds no primitive. No widget is exposed, yet
+no host widget escapes chrome control.
+
+**Currently owned surface: the button family.** The chrome themes the
+full Material button family at a shared flat, compact VS Code sizing
+(§8.1: elevation 0, 4px shape, compact height, shrink-wrapped tap
+target):
+
+- `FilledButton` (primary) / `FilledButton.tonal` (secondary) — fills
+  driven through the `primary`/`onPrimary` and
+  `secondaryContainer`/`onSecondaryContainer` roles.
+- `TextButton` (text / link) — link-accent label.
+- `SegmentedButton` (single-select selectors) — neutral selected fill.
+- `IconButton` — chrome-controlled foreground.
+
+The set is extensible: input decoration and other Material surfaces can
+join the contract without changing call sites. Each addition obeys
+parity — it themes the whole widget, not a subset of its states.
+
+**Observable behavior.**
+
+- For every owned widget family, `applyWorkbenchChrome` installs the
+  corresponding `*ThemeData`; no member resolves a foreground or fill
+  from a `ColorScheme` role the chrome's override leaves unset.
+- A stock instance of any owned widget, placed bare under the chrome,
+  renders legibly against the chrome background on both light and dark
+  themes, at the chrome's sizing.
+
 ## 8. Layout Constants
 
 *Status: complete*
