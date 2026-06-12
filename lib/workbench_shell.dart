@@ -13,11 +13,6 @@ export 'src/notifications/notification.dart';
 export 'src/notifications/notification_host.dart';
 export 'src/notifications/notification_progress_controller.dart';
 export 'src/notifications/notification_service.dart';
-// UI extension slots (consumed by apps to extend the shell)
-export 'src/slots/sidebar_slot.dart';
-export 'src/slots/sidebar_zone.dart';
-export 'src/slots/slot_id.dart';
-export 'src/slots/slot_registry.dart';
 export 'src/theming/token_theme.dart';
 export 'src/theming/vscode_color_map.dart';
 export 'src/theming/workbench_chrome_theme.dart';
