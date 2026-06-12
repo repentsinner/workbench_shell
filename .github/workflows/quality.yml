@@ -1,0 +1,41 @@
+# quality — PR + merge-queue compatible quality gate.
+#
+# GitHub names a required status check after the JOB, not the workflow.
+# The job id `quality` is the check-run name to register in the branch
+# ruleset under "Required status checks".
+name: quality
+on:
+  pull_request:
+  merge_group: # required for merge-queue compatibility
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      # Classify the triggering commit/PR so Flywheel-emitted commits
+      # (chore(release):, back-merge) skip the suite. A step-level `if:`
+      # that evaluates false still reports `success` to the required-
+      # status-checks rule, so the gate stays satisfied. Pinned to the
+      # same major as the main Flywheel action.
+      - id: classify
+        uses: point-source/flywheel/classify@v2
+      - uses: actions/checkout@v6
+        if: steps.classify.outputs.derived_release_commit != 'true'
+      - uses: subosito/flutter-action@v2
+        if: steps.classify.outputs.derived_release_commit != 'true'
+        with:
+          channel: stable
+          cache: true
+      - name: Analyze
+        if: steps.classify.outputs.derived_release_commit != 'true'
+        run: |
+          flutter pub get
+          flutter analyze
+      - name: Test (package)
+        if: steps.classify.outputs.derived_release_commit != 'true'
+        run: flutter test
+      - name: Test (example)
+        if: steps.classify.outputs.derived_release_commit != 'true'
+        working-directory: example
+        run: |
+          flutter pub get
+          flutter test
