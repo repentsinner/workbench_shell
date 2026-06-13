@@ -1,3 +1,10 @@
+# [0.3.0](https://github.com/repentsinner/workbench_shell/compare/v0.2.1...v0.3.0) (2026-06-13)
+
+
+### Features
+
+* remove the UI extension-slot API ([8e63893](https://github.com/repentsinner/workbench_shell/commit/8e63893d46b61c05c55be36e633a1882c954f9f9))
+
 ## [0.2.1](https://github.com/repentsinner/workbench_shell/compare/v0.2.0...v0.2.1) (2026-06-12)
 
 
