@@ -58,9 +58,9 @@ typography, spacing, and theming.
   `WorkbenchThemeController` (theme switching, VS Code JSON
   loader, `TokenTheme` for syntax highlighting), `TokenTheme`,
   `WorkbenchLayoutConstants` (fixed geometry).
-- Notification Center (§spec:notification-center): `NotificationService` plus
-  `NotificationHost` overlay. Progress controller is planned but
-  not yet implemented.
+- Notification Center (§spec:notification-center): `NotificationService`,
+  `NotificationHost` overlay, and `NotificationProgressController`
+  for long-running tasks.
 
 **Out of scope**
 
