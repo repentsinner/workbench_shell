@@ -276,18 +276,15 @@ owned by the embedder and exposes no menu-button slot for Dart
 code. Embedder work to host a Dart-defined menu in the GTK
 `HeaderBar` exceeds the value of doing so.
 
-**Why not custom window chrome**: VS Code on Windows defaults to
-a custom title bar that merges the menu bar and window controls
-into one strip (`window.titleBarStyle: "custom"`). Replicating
-that in Flutter requires taking over the window frame via
-`bitsdojo_window` or equivalent, which adds custom drag regions,
-custom min/max/close button rendering, HiDPI handling, Wayland
-fallout, and a separate traffic-light story on macOS. The shell is
-not trying to reskin the window — it only needs the View menu to
-live somewhere predictable and platform-appropriate. The in-
-window `MenuBar` strip below the standard OS title bar achieves
-this with no custom chrome; VS Code itself supports the same
-layout via `window.titleBarStyle: "native"`.
+**Why the menu lives below the OS title bar**: the shell does not
+take over the window frame, so the View menu needs a home that is
+predictable and platform-appropriate without one. The in-window
+`MenuBar` strip below the standard OS title bar achieves this; VS
+Code supports the same layout via `window.titleBarStyle:
+"native"`. The custom-title-bar alternative
+(`window.titleBarStyle: "custom"`), which would merge the menu and
+window controls into one shell-drawn strip, is a deferred shape
+documented in §spec:custom-window-chrome — not a flat exclusion.
 
 **Tradeoffs accepted**: the in-window menu strip on Windows and
 Linux costs one row of vertical space below the OS title bar
@@ -306,9 +303,9 @@ background, foreground, hover, and border colours from
 `menuBarHoverBackground`, `menuBarBorder`) rather than the
 ambient `Theme.of(context)` defaults, so the strip reads as
 workbench chrome rather than a generic Material surface. Custom
-window-frame takeover (merging the menu bar into a custom title
-bar à la `bitsdojo_window`) is explicitly out of scope —
-`workbench_shell` does not reskin the OS window.
+window-frame takeover (merging the menu bar into a shell-drawn
+title bar) is deferred, not flatly excluded; its shape and
+promotion gate live in §spec:custom-window-chrome.
 
 ### WorkbenchShortcuts §spec:shortcuts
 
@@ -545,6 +542,77 @@ differ in styling across consuming apps until the re-promotion
 gate is met. That variance is explicitly tolerated over the
 cost of a publish-grade primitive surface that does not yet
 warrant one.
+
+---
+
+## Custom Window Chrome Is Deferred §spec:custom-window-chrome
+
+*Status: complete*
+
+`workbench_shell` does **not** take over the OS window frame. On
+every platform the host application keeps the standard title bar
+with native min/max/close (or macOS traffic lights), and the shell
+renders its chrome below that bar. VS Code's
+`window.titleBarStyle: "custom"` — a shell-drawn title bar that
+merges window controls, menu, and title into one strip and
+reclaims the row the OS bar occupies — is recorded here as a
+deferred shape, not a current capability.
+
+**Why deferred, not rejected**: stock OS title bars are now the
+minority for app-like software, so the custom look has product
+value. But the cost is platform-fragmented (below) and the
+shell's existing invariants constrain who can pay it. The decision
+is "not now," with the shape recorded so a future promotion starts
+from a design rather than a blank page.
+
+**Why the shell cannot ship it turnkey**: §spec:capability-boundary
+fixes `lib/`'s dependency footprint at Flutter, `equatable`,
+`material_color_utilities`, and `material_symbols_icons`. Frame
+takeover needs a desktop window plugin (e.g. `window_manager`),
+`main()` initialization before `runApp`, and native runner edits
+(`MainFlutterWindow.swift`, `main.cpp`, `my_application.cc`) — all
+of which live in the consuming application, not a published widget
+library. A self-contained "add custom chrome" package change is
+therefore impossible without breaking the dependency invariant.
+
+**The shape if promoted** — a host/shell split:
+
+- *Shell owns* a typed title-bar widget that renders defined
+  chrome (the window title per §spec:chrome-typography-canon, and
+  on Windows/Linux shell-drawn min/max/close glyphs) themed from
+  `WorkbenchTheme`, plus an abstract window-controller interface
+  carrying drag/minimize/maximize/close intents. Per the
+  canon-enforcement rule in §spec:capability-boundary the bar is
+  **not** a host-fillable `Widget` slot — it renders canon chrome
+  from typed inputs, like every other shell surface.
+- *Host owns* the frame takeover: the plugin dependency, `main()`
+  init, native runner configuration, and the concrete
+  implementation of the controller interface. Mobile and web bind
+  no implementation, so the contract is a no-op there and tablet
+  builds are unaffected.
+
+**Platform cost gradient** (why one flag will not cover it):
+
+- *macOS* — cheapest. A full-size content view with a transparent
+  title bar keeps the native traffic lights inset over shell
+  content; the shell draws no window buttons and the menu stays in
+  the system bar (§spec:menu-bar), so nothing conflicts. This is
+  the only platform where custom chrome is close to free.
+- *Windows* — the shell must draw its own min/max/close and handle
+  `WM_NCHITTEST` for the Win11 snap-layouts hover. Reclaims the
+  in-window `MenuBar` row that §spec:menu-bar lists as an accepted
+  loss.
+- *Linux* — most expensive. Flutter's embedder owns the GTK
+  `HeaderBar`; going frameless makes the host responsible for
+  resize borders, shadows, and Wayland edge cases.
+
+**Promotion gate**: custom window chrome earns shell support when
+(a) a consuming application demonstrates the macOS host wiring and
+the shell title-bar widget against a real product surface, and (b)
+the typed title-bar and controller contract is specified against
+that working integration rather than designed in the abstract.
+Until then the shell ships chrome below the OS bar on every
+platform.
 
 ---
 
