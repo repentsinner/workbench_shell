@@ -509,6 +509,23 @@ those in their own UI packages, themed against `WorkbenchTheme`
 so theme switching still works but not exposed as reusable
 primitives.
 
+**The seam is stock-widget duplication, not widget ownership.** The
+exclusion holds because every control VS Code uses has had a stock
+Flutter equivalent the chrome themes in place
+(§spec:chrome-material-theming); owning a `workbench_shell` widget
+would only duplicate Flutter. The boundary is "do not reimplement a
+control Flutter already ships," not "never own a control." A VS Code
+control with **no** stock Flutter widget is the exception — theming
+cannot reach it because there is nothing to theme — so it is a
+legitimate shell-ownership candidate rather than an excluded
+duplicate. `SplitButton` (VS Code's Commit and Run/Debug controls) is
+the first such case; Flutter ships no split button. The set of VS Code
+controls lacking a Flutter equivalent is expected to stay small — VS
+Code's control vocabulary is conventional. Such a control still passes
+the re-promotion gate below: until promoted it lives in the consuming
+app, composed from the chrome-themed button family and reading
+`WorkbenchTheme` tokens so theme switching still applies.
+
 **Why form controls are not primitives yet**:
 
 - *Single-consumer in practice.* Each form-control variant in
