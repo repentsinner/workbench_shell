@@ -166,6 +166,49 @@ and typography come from `WorkbenchTheme`.
 
 ---
 
+## Section Header Actions §spec:section-header-actions
+
+*Status: not started*
+
+`WorkbenchSection` renders host-supplied actions inline on its
+header row, right of the uppercased title and vertically centered
+with it — the VS Code pane-header convention, where refresh, add,
+and collapse sit beside the title.
+
+**Problem**: the section header carries only the title and an
+optional `infoTooltip` icon. A host's sole content insertion point
+is `child`, which renders beneath the header, so a section action
+lands on its own row instead of inline with the title. Section
+headers across consuming apps then drift from the IDE-canonical
+layout the shell exists to guarantee (§spec:problem-statement).
+
+**Why this is chrome, not a form control**: the slot positions
+host-supplied widgets within a shell-owned header row; it does not
+reimplement a control Flutter ships. The shell owns header layout
+the same way `WorkbenchTabbedPanel` owns its close button
+(§spec:tabbed-panel). The host still supplies the action widgets and
+themes them against `WorkbenchTheme`, so §spec:form-controls-excluded
+is not engaged — no control is duplicated, only placed.
+
+**Why inline placement, not hover-reveal, is the contract**: VS Code
+reveals section actions on header hover. The shell's invariant is
+*placement* — actions share the title row — because that is what the
+`child`-only API cannot express. Hover-reveal is visual polish the
+implementation may add but consumers shall not depend on; binding
+the contract to placement keeps it verifiable without a
+pointer-event harness.
+
+**Observable behavior**:
+
+- `WorkbenchSection` accepts an ordered list of action widgets,
+  empty by default.
+- When actions are present they render inline on the header row,
+  right-aligned, their vertical center matching the title's.
+- When no actions are supplied the header renders unchanged; the
+  `infoTooltip` affordance is unaffected in either case.
+
+---
+
 ## Chrome Widgets §spec:chrome-widgets
 
 *Status: complete*
