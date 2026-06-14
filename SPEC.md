@@ -206,7 +206,10 @@ order. The title group is left (`Expanded`); `infoTooltip` — the
 shell's metadata affordance, the analog of `.description` — sits
 immediately right of the title; the actions occupy the rightmost
 zone. A section using both then reads like a VS Code pane: metadata
-hugs the title, operations hug the right edge.
+hugs the title, operations hug the right edge. When the section is
+collapsible (§spec:section-disclosure) a leading twistie chevron
+precedes the title, matching the canon order twisty → title →
+metadata → actions.
 
 **The shell places actions raw, without a size constraint**: action
 widgets render as supplied and the header row grows to the tallest
@@ -237,6 +240,95 @@ the host pass any themed control while the shell owns only placement.
   `infoTooltip` affordance is unaffected in either case.
 - The header row's height follows the tallest action; the shell
   applies no height clamp.
+
+---
+
+## Section Disclosure §spec:section-disclosure
+
+*Status: not started*
+
+A `WorkbenchSection` can collapse to its header, hiding its body, and
+expand to reveal it again — the VS Code sidebar pane affordance. The
+shell owns the twistie chevron, the toggle gesture, and the
+expanded/collapsed state; disclosure is opt-in and off by default.
+
+**Problem**: `WorkbenchSection` renders its `child` unconditionally —
+there is no collapse. VS Code stacks several panes in one sidebar and
+lets the user collapse the ones they are not using to reclaim vertical
+space; it is a core sidebar affordance, not a refinement. A host
+cannot offer it today, and cannot fake it canonically: a host-supplied
+chevron in the `actions` slot (§spec:section-header-actions) would
+reimplement disclosure per call site and drift from the canon — the
+exact failure §spec:capability-boundary exists to prevent.
+
+**Why disclosure is shell-owned, not a widget slot**: the chevron
+glyph, its orientation, the pointer/keyboard toggle, and the
+expanded/collapsed state are canonical chrome. Per
+§spec:capability-boundary's canon-enforcement rule the shell owns the
+renderable and the behavior as typed parameters — it does not expose a
+`Widget` escape hatch and ask hosts not to put a non-canon chevron in
+it. This is the same distinction that makes `actions` legitimately a
+widget slot while disclosure is not: actions are host-owned content the
+shell only places (§spec:section-header-actions); disclosure is
+shell-owned chrome the shell renders and drives.
+
+**Why opt-in params on `WorkbenchSection`, not a separate primitive**:
+VS Code's pane is itself the collapsible unit — there is no distinct
+"collapsible section" type. Folding disclosure into `WorkbenchSection`
+keeps one section concept; a non-collapsible section stays the default
+and renders exactly as before, so existing call sites are unaffected.
+A second primitive would duplicate the header layout and force every
+host to choose between two section types.
+
+**Controlled and uncontrolled, mirroring §spec:workbench-layout**: a
+host that does not need to drive state seeds the initial state and the
+shell holds expansion internally; a host that drives state supplies the
+current value and is notified of toggles. This is the same
+controlled/uncontrolled split §spec:workbench-layout uses for section
+navigation. The internal expanded state is UI state of the same
+category §spec:capability-boundary already permits (the `TabController`
+precedent) — not a domain type or a BLoC. The tradeoff is that
+`WorkbenchSection` becomes stateful to back the uncontrolled mode; this
+is the `ExpansionTile` pattern and the only way to offer uncontrolled
+convenience without forcing every host to manage a bool.
+
+**Header gesture, and its interaction with actions**: when a section is
+collapsible the header is the toggle target — activating the title or
+the metadata region toggles the section. The `actions` zone
+(§spec:section-header-actions) is excluded: activating an action runs
+the action and does not toggle the section, matching VS Code, whose
+header toolbar stops the toggle from firing. Specifying the two
+together means the header builds one gesture model — a toggle surface
+with the actions zone carved out — rather than retrofitting gesture
+suppression after the actions slot ships.
+
+**Canonical rendering**: when collapsible, a twistie chevron leads the
+header, left of the title — VS Code builds the header as twisty → title
+→ metadata → actions, the chevron leftmost. The chevron orientation
+reflects state. The shell draws it from `material_symbols_icons`,
+consistent with every other shell glyph. The header carries
+accessibility semantics — the toggle reports an expanded/collapsed
+state and is keyboard-operable (Flutter `Semantics(expanded: …)`) —
+because a mouse-only disclosure control is not canon-complete. Whether
+the body transition animates is left to the implementation; the
+contract is body visibility, not motion.
+
+**Observable behavior**:
+
+- A `WorkbenchSection` is non-collapsible by default and renders its
+  body unconditionally, exactly as before this section.
+- When the host opts into collapsing, the header shows a leading
+  twistie chevron whose orientation reflects expanded vs collapsed.
+- Activating the header by pointer or keyboard toggles between
+  expanded and collapsed; collapsed hides the body, expanded shows it.
+- Activating a widget in the `actions` zone runs that action and does
+  not toggle the section.
+- In uncontrolled mode the shell holds the expanded state, seeded by
+  the host's initial value; in controlled mode the rendered state
+  follows the host's supplied value and every toggle is reported back
+  to the host.
+- A collapsible header exposes an expanded/collapsed accessibility
+  state and responds to keyboard activation.
 
 ---
 
