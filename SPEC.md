@@ -198,14 +198,45 @@ implementation may add but consumers shall not depend on; binding
 the contract to placement keeps it verifiable without a
 pointer-event harness.
 
+**Header layout follows VS Code's pane-header structure**: VS Code
+builds the pane header left-to-right as title, an optional dimmed
+`.description` (section metadata), then a rightmost `.actions`
+toolbar (`viewPane.ts` `renderHeader`). The shell mirrors that
+order. The title group is left (`Expanded`); `infoTooltip` — the
+shell's metadata affordance, the analog of `.description` — sits
+immediately right of the title; the actions occupy the rightmost
+zone. A section using both then reads like a VS Code pane: metadata
+hugs the title, operations hug the right edge.
+
+**The shell places actions raw, without a size constraint**: action
+widgets render as supplied and the header row grows to the tallest
+action. The shell does not clamp action height to the ~22px
+pane-header canon, because clamping would impose geometry on
+host-owned controls — the shell owns header *placement*, not control
+*sizing* (§spec:form-controls-excluded). A host wanting VS Code
+action density supplies compact widgets (small icon, shrunk tap
+target); a host that drops in a stock `IconButton` accepts the
+taller row. The slot's contract is position, not dimension.
+
+**API shape**: `actions` is an ordered `List<Widget>`, empty by
+default — not a typed action descriptor. A typed descriptor would
+require the shell to define an action-button control, which
+§spec:form-controls-excluded keeps in the host. `List<Widget>` lets
+the host pass any themed control while the shell owns only placement.
+
 **Observable behavior**:
 
-- `WorkbenchSection` accepts an ordered list of action widgets,
+- `WorkbenchSection` accepts an ordered `List<Widget>` of actions,
   empty by default.
-- When actions are present they render inline on the header row,
-  right-aligned, their vertical center matching the title's.
+- When actions are present they render in the header's rightmost
+  zone, after the title and the optional `infoTooltip` icon, in the
+  order supplied; each action's vertical center matches the title's.
+- When both `actions` and `infoTooltip` are supplied, the info icon
+  sits between the title and the actions (title → info → actions).
 - When no actions are supplied the header renders unchanged; the
   `infoTooltip` affordance is unaffected in either case.
+- The header row's height follows the tallest action; the shell
+  applies no height clamp.
 
 ---
 
