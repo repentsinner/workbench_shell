@@ -1,3 +1,10 @@
+# [0.5.0](https://github.com/repentsinner/workbench_shell/compare/v0.4.0...v0.5.0) (2026-06-15)
+
+
+### Features
+
+* add opt-in collapse to WorkbenchViewPane ([9710d60](https://github.com/repentsinner/workbench_shell/commit/9710d60e5d6298435324e28f41e3d937080fb446))
+
 # [0.4.0](https://github.com/repentsinner/workbench_shell/compare/v0.3.0...v0.4.0) (2026-06-15)
 
 
