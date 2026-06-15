@@ -56,9 +56,8 @@ typography, spacing, and theming.
   on Windows and Linux.
 - Keyboard bindings (`WorkbenchShortcuts`) aligned with VS Code
   defaults.
-- Structural primitives: `WorkbenchSection` (renamed `WorkbenchViewPane`
-  per §spec:view-stack), `WorkbenchSubsection`, `WorkbenchCard`,
-  `WorkbenchToggleCard`, `WorkbenchEmptyState`.
+- Structural primitives: `WorkbenchViewPane`, `WorkbenchSubsection`,
+  `WorkbenchCard`, `WorkbenchToggleCard`, `WorkbenchEmptyState`.
 - Theming: `WorkbenchTheme` (chrome tokens),
   `WorkbenchThemeController` (theme switching, VS Code JSON
   loader, `TokenTheme` for syntax highlighting), `TokenTheme`,
@@ -123,7 +122,7 @@ than a widget escape hatch. This invariant prevents
 cross-consumer drift — the failure mode that `workbench_shell`
 exists to remove (§spec:problem-statement).
 
-The precedent is in the codebase: `WorkbenchSection` titles render
+The precedent is in the codebase: `WorkbenchViewPane` titles render
 uppercase regardless of how the consumer cases the input string,
 matching VS Code's pane header (§spec:chrome-typography-canon); `WorkbenchTabbedPanel` does
 the same for tab labels and renders the inline count badge from
@@ -144,7 +143,7 @@ removing the last whole-surface escape hatch in the chrome.
 *Status: complete*
 
 Structural primitives encode the workbench's visual hierarchy as
-types. A sidebar that uses `WorkbenchSection` inside a
+types. A sidebar that uses `WorkbenchViewPane` inside a
 `WorkbenchSubsection` inside a `WorkbenchCard` gets consistent
 heading sizes, card borders, and section padding by construction.
 Every sidebar and panel reads the same `WorkbenchTheme` tokens
@@ -163,7 +162,7 @@ primitives exist to prevent.
 
 | Widget | Purpose |
 |---|---|
-| `WorkbenchSection` | Top-level section in a sidebar or panel body. Title renders uppercase per §spec:chrome-typography-canon (VS Code pane-header canon), padded for section framing |
+| `WorkbenchViewPane` | Top-level view pane in a sidebar or panel body. Title renders uppercase per §spec:chrome-typography-canon (VS Code pane-header canon), padded for pane framing |
 | `WorkbenchSubsection` | Nested section with smaller, sentence-case title typography |
 | `WorkbenchCard` | Bordered container; the atom of sidebar content |
 | `WorkbenchToggleCard` | Card with a leading toggle and expand/collapse |
@@ -176,14 +175,15 @@ cards and toggle cards at the same border radius and border
 color. Layout tokens come from `WorkbenchLayoutConstants`; colors
 and typography come from `WorkbenchTheme`.
 
-**Planned rename**: §spec:view-stack renames `WorkbenchSection` to
-`WorkbenchViewPane` (the canonical "view pane" noun) and adds the
-stacked view-container model. The other primitives —
-`WorkbenchSubsection`, `WorkbenchCard`, `WorkbenchToggleCard`,
-`WorkbenchEmptyState` — are content stylings inside a view-pane body
-and keep their names. Hierarchical tree rows (a folder's disclosure
-triangle) are a distinct VS Code concept (`TreeItem`) the shell does
-not own; view bodies are host content (§spec:scope).
+**The top-level primitive is `WorkbenchViewPane`** (the canonical "view
+pane" noun; renamed from the shell-invented `WorkbenchSection` per
+§spec:scope). §spec:view-stack builds the stacked view-container model
+around it. The other primitives — `WorkbenchSubsection`,
+`WorkbenchCard`, `WorkbenchToggleCard`, `WorkbenchEmptyState` — are
+content stylings inside a view-pane body and keep their names.
+Hierarchical tree rows (a folder's disclosure triangle) are a distinct
+VS Code concept (`TreeItem`) the shell does not own; view bodies are
+host content (§spec:scope).
 
 ---
 
@@ -203,7 +203,7 @@ This section documents the shell's deviations, not VS Code's internals.)
 
 **Problem**: the sidebar renders one host-built body at a time. The
 activity bar switches between bodies, and the host composes each body as
-a free-form widget tree (today a `Column` of `WorkbenchSection`s inside
+a free-form widget tree (today a `Column` of `WorkbenchViewPane`s inside
 the host's own scroll view). VS Code instead stacks several views in one
 container — Explorer shows Open Editors, the file tree, Outline, and
 Timeline as four independently collapsible panes sharing the sidebar's
@@ -1307,7 +1307,7 @@ workbench CSS:
 | Surface | VS Code source | Size / weight |
 |---|---|---|
 | Sidebar / panel part title ("EXPLORER") | `part.css` — `.title-label h2` | 11 / w400 |
-| Sidebar pane header / `WorkbenchSection` | `paneview.css` — `.pane-header` | 11 / w700, uppercase |
+| Sidebar pane header / `WorkbenchViewPane` | `paneview.css` — `.pane-header` | 11 / w700, uppercase |
 | Workbench body content | `part.css` — `.part > .content` | 13 / w400 |
 | Settings label / form label | `settingsEditor2.css` — `.setting-item-category` | 13 / w500 |
 | Status bar item | `statusbarpart.css` | 12 / w400 |
@@ -1324,9 +1324,9 @@ workbench CSS:
 
 **`sectionTitle` adopts pane-header semantics.** The token's role —
 top-level grouping inside a sidebar or panel body, per
-`WorkbenchSection` and `WorkbenchEmptyState` (§spec:structural-primitives) — maps onto VS
+`WorkbenchViewPane` and `WorkbenchEmptyState` (§spec:structural-primitives) — maps onto VS
 Code's pane header (`.pane-header`, `11 / bold / uppercase`).
-`WorkbenchSection.title` renders uppercase in the shell regardless
+`WorkbenchViewPane.title` renders uppercase in the shell regardless
 of input casing, parallel to the §spec:tabbed-panel tab-label canon.
 `WorkbenchSubsection.title` stays sentence-case (see §spec:capability-boundary amendment).
 
@@ -1349,7 +1349,7 @@ consumer-equivalent default and the canonically correct one.
   `WorkbenchTheme.fromVscodeColorMap(...)` with no font override
   renders every chrome surface in the platform's default UI sans at
   VS Code's literal pixel values.
-- `WorkbenchSection.title` renders uppercase regardless of input
+- `WorkbenchViewPane.title` renders uppercase regardless of input
   casing; the shell applies the transform internally.
   `WorkbenchSubsection.title` renders sentence-case.
 - Setting `chromeFontFamily` on the factory flips every chrome
@@ -1581,7 +1581,7 @@ default and records the rationale:
 | `panelMaxHeight` | 400 | VS Code allows dynamic max bounded by editor area | Static cap keeps the shell from re-implementing VS Code's layout-service min/max negotiation; consumers that need taller panels override at the layout call site |
 | `sidebarMaxWidth` | 600 | VS Code caps at ~75% of window width dynamically | Same reasoning as `panelMaxHeight` |
 | `splitterWidth` | 2 | VS Code's grid sash uses a separate hit-target / visible-line split; no single CSS literal | Matches the visible-line width VS Code's sash renders by default |
-| Spacing scale (`spacingXxs` … `spacingXl`) | 2 / 4 / 6 / 8 / 12 / 16 / 24 | VS Code uses ad-hoc paddings throughout; no shared scale | Package-internal consistency so primitives (`WorkbenchSection`, `WorkbenchCard`) compose without hardcoded paddings at call sites |
+| Spacing scale (`spacingXxs` … `spacingXl`) | 2 / 4 / 6 / 8 / 12 / 16 / 24 | VS Code uses ad-hoc paddings throughout; no shared scale | Package-internal consistency so primitives (`WorkbenchViewPane`, `WorkbenchCard`) compose without hardcoded paddings at call sites |
 | Icon sizes (`iconXs`, `iconSm`, `iconMd`, `iconLg`, `iconXl`, `iconXxl`, `iconActivityBar`) | 12 / 14 / 16 / 18 / 20 / 32 / 24 | VS Code uses 16 for most codicons (`codiconFontSize` in `baseSizes.ts`), 12 for compact (`codiconFontSize.compact`) | Provides a scale around VS Code's 16 default for surfaces (close affordances, status indicators) where a single fixed icon size doesn't fit |
 | `notificationProgressBarHeight` | 4 | not surfaced within search scope of VS Code source | Matches the visible progress bar height VS Code renders |
 
