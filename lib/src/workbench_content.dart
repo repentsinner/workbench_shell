@@ -25,44 +25,127 @@ BorderSide _contentBorderSide(WorkbenchTheme theme) => theme.borderColor == null
 /// uppercased — the shell owns the transform so consumers cannot
 /// diverge (§spec:capability-boundary canon enforcement, §spec:chrome-typography-canon pane-header semantics) — in
 /// [WorkbenchTheme.sectionTitle] with an optional info tooltip icon.
-class WorkbenchViewPane extends StatelessWidget {
+///
+/// Opt-in disclosure (§spec:section-disclosure): set [collapsible] to add a
+/// leading twistie chevron and let the header toggle body visibility. The
+/// shell owns the chevron, the gesture, and the state — disclosure is not a
+/// host widget slot. Two control modes mirror §spec:workbench-layout:
+///
+/// - *Uncontrolled*: omit [expanded]; the pane holds its own state, seeded
+///   by [initiallyExpanded] (the `ExpansionTile` pattern).
+/// - *Controlled*: pass [expanded] and [onExpandedChanged]; the host drives
+///   the value and the pane reflects it, reporting each requested toggle.
+///
+/// A non-collapsible pane renders its body unconditionally, exactly as a
+/// plain title + child — disclosure adds nothing to existing call sites.
+class WorkbenchViewPane extends StatefulWidget {
   final String title;
   final Widget child;
   final String? infoTooltip;
+
+  /// When true, the header shows a leading twistie and toggles the body.
+  /// Off by default: a non-collapsible pane renders its body always.
+  final bool collapsible;
+
+  /// Initial expansion for uncontrolled (no [expanded]) collapsible panes.
+  final bool initiallyExpanded;
+
+  /// Controlled expansion. When non-null the host drives the state and the
+  /// pane reflects this value rather than holding its own.
+  final bool? expanded;
+
+  /// Fired when header activation requests a new expanded state. In
+  /// uncontrolled mode the pane has already applied the change; in
+  /// controlled mode the host must push the new [expanded] value to apply it.
+  final ValueChanged<bool>? onExpandedChanged;
 
   const WorkbenchViewPane({
     super.key,
     required this.title,
     required this.child,
     this.infoTooltip,
+    this.collapsible = false,
+    this.initiallyExpanded = true,
+    this.expanded,
+    this.onExpandedChanged,
   });
+
+  @override
+  State<WorkbenchViewPane> createState() => _WorkbenchViewPaneState();
+}
+
+class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
+  late bool _expanded = widget.initiallyExpanded;
+
+  /// The expansion the pane renders: the host's value when controlled,
+  /// otherwise the internal state.
+  bool get _isExpanded => widget.expanded ?? _expanded;
+
+  void _handleToggle() {
+    final next = !_isExpanded;
+    // Uncontrolled panes apply the change themselves; controlled panes wait
+    // for the host to push the new value.
+    if (widget.expanded == null) {
+      setState(() => _expanded = next);
+    }
+    widget.onExpandedChanged?.call(next);
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
+    // Header order follows VS Code's pane header: twisty → title → metadata
+    // (§spec:section-header-actions). Actions are a separate, later concern.
+    final header = Row(
+      children: [
+        if (widget.collapsible) ...[
+          Icon(
+            _isExpanded
+                ? Symbols.expand_more_rounded
+                : Symbols.chevron_right_rounded,
+            size: WorkbenchLayoutConstants.iconMd,
+            color: theme.descriptionForeground,
+          ),
+          const SizedBox(width: WorkbenchLayoutConstants.spacingXs),
+        ],
+        Expanded(
+          child: Text(widget.title.toUpperCase(), style: theme.sectionTitle),
+        ),
+        if (widget.infoTooltip != null) ...[
+          const SizedBox(width: WorkbenchLayoutConstants.spacingSm),
+          Tooltip(
+            message: widget.infoTooltip!,
+            child: Icon(
+              Symbols.info_rounded,
+              size: WorkbenchLayoutConstants.iconMd,
+              color: theme.descriptionForeground,
+            ),
+          ),
+        ],
+      ],
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(title.toUpperCase(), style: theme.sectionTitle),
+        if (widget.collapsible)
+          // Pointer + keyboard toggle with an expanded/collapsed a11y state.
+          // A mouse-only disclosure control is not canon-complete
+          // (§spec:section-disclosure).
+          Semantics(
+            button: true,
+            expanded: _isExpanded,
+            child: InkWell(
+              onTap: _handleToggle,
+              child: header,
             ),
-            if (infoTooltip != null) ...[
-              const SizedBox(width: WorkbenchLayoutConstants.spacingSm),
-              Tooltip(
-                message: infoTooltip!,
-                child: Icon(
-                  Symbols.info_rounded,
-                  size: WorkbenchLayoutConstants.iconMd,
-                  color: theme.descriptionForeground,
-                ),
-              ),
-            ],
-          ],
-        ),
-        const SizedBox(height: WorkbenchLayoutConstants.spacingMd),
-        child,
+          )
+        else
+          header,
+        if (!widget.collapsible || _isExpanded) ...[
+          const SizedBox(height: WorkbenchLayoutConstants.spacingMd),
+          widget.child,
+        ],
       ],
     );
   }

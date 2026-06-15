@@ -22,11 +22,11 @@ void main() {
     expect(find.byIcon(Symbols.folder_rounded), findsOneWidget);
     expect(find.byIcon(Symbols.search_rounded), findsOneWidget);
 
-    // Default sidebar (Explorer) body rendered.
-    expect(
-      find.text('Explorer sidebar — host-supplied content lands here.'),
-      findsOneWidget,
-    );
+    // Default sidebar (Explorer) renders its collapsible view panes
+    // (§spec:section-disclosure). Titles uppercase per the pane-header canon.
+    expect(find.text('OPEN EDITORS'), findsOneWidget);
+    expect(find.text('OUTLINE'), findsOneWidget);
+    expect(find.text('TIMELINE'), findsOneWidget);
 
     // All five canonical panels render their tab labels. The tab
     // strip uppercases labels per the §spec:tab-strip-canon canon, so assert against
@@ -64,10 +64,29 @@ void main() {
       find.text('Search sidebar — host-supplied content lands here.'),
       findsOneWidget,
     );
-    expect(
-      find.text('Explorer sidebar — host-supplied content lands here.'),
-      findsNothing,
-    );
+    // Explorer's collapsible panes are gone once Search is active.
+    expect(find.text('OPEN EDITORS'), findsNothing);
+  });
+
+  testWidgets('Explorer view pane collapses and expands on header tap', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const WorkbenchExampleApp());
+    await tester.pumpAndSettle();
+
+    // The "Open Editors" pane starts expanded: chevron down, body visible.
+    expect(find.text('main.dart\nworkbench_content.dart'), findsOneWidget);
+    expect(find.byIcon(Symbols.expand_more_rounded), findsWidgets);
+
+    // Tapping the header collapses it — body hidden, chevron flips right.
+    await tester.tap(find.text('OPEN EDITORS'));
+    await tester.pumpAndSettle();
+    expect(find.text('main.dart\nworkbench_content.dart'), findsNothing);
+
+    // Tapping again restores the body.
+    await tester.tap(find.text('OPEN EDITORS'));
+    await tester.pumpAndSettle();
+    expect(find.text('main.dart\nworkbench_content.dart'), findsOneWidget);
   });
 
   testWidgets('Settings sidebar renders auto-detect and three theme slots', (

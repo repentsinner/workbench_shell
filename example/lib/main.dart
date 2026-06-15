@@ -376,9 +376,7 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   Widget? _buildSidebar(String sectionId) {
     switch (sectionId) {
       case 'explorer':
-        return const _SidebarBodyPlaceholder(
-          text: 'Explorer sidebar — host-supplied content lands here.',
-        );
+        return const _ExplorerSidebar();
       case 'search':
         return const _SidebarBodyPlaceholder(
           text: 'Search sidebar — host-supplied content lands here.',
@@ -867,6 +865,53 @@ class _SidebarBodyPlaceholder extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingLg),
       child: Text(text, style: theme.bodyStyle),
+    );
+  }
+}
+
+/// Explorer sidebar — demonstrates opt-in view-pane disclosure
+/// (SPEC §spec:section-disclosure). Two collapsible [WorkbenchViewPane]s
+/// (uncontrolled, the `ExpansionTile` pattern) sit above a plain
+/// non-collapsible pane: click a collapsible header — or focus it and press
+/// Enter/Space — to hide and show its body while the leading chevron flips.
+/// The non-collapsible pane renders its body unconditionally, showing the
+/// off-by-default behavior. The stacked-container redistribution of freed
+/// height is §spec:view-stack work, not built yet.
+class _ExplorerSidebar extends StatelessWidget {
+  const _ExplorerSidebar();
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingLg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: const [
+          WorkbenchViewPane(
+            title: 'Open Editors',
+            collapsible: true,
+            child: _SidebarBodyPlaceholder(
+              text: 'main.dart\nworkbench_content.dart',
+            ),
+          ),
+          SizedBox(height: WorkbenchLayoutConstants.spacingLg),
+          WorkbenchViewPane(
+            title: 'Outline',
+            collapsible: true,
+            initiallyExpanded: false,
+            child: _SidebarBodyPlaceholder(
+              text: 'WorkbenchViewPane\nWorkbenchSubsection\nWorkbenchCard',
+            ),
+          ),
+          SizedBox(height: WorkbenchLayoutConstants.spacingLg),
+          WorkbenchViewPane(
+            title: 'Timeline',
+            child: _SidebarBodyPlaceholder(
+              text: 'Non-collapsible pane — body always shown.',
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

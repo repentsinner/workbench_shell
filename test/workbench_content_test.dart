@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:workbench_shell/workbench_shell.dart';
@@ -66,6 +67,188 @@ void main() {
         ),
       );
       expect(find.byIcon(Symbols.info_rounded), findsNothing);
+    });
+  });
+
+  group('WorkbenchViewPane disclosure', () {
+    // §spec:section-disclosure: disclosure is opt-in and off by default.
+    testWidgets(
+      'non-collapsible pane renders body unconditionally with no chevron',
+      (tester) async {
+        await tester.pumpWidget(
+          wrapWithTheme(
+            const WorkbenchViewPane(title: 'Hello', child: Text('body')),
+          ),
+        );
+        expect(find.text('body'), findsOneWidget);
+        expect(find.byIcon(Symbols.expand_more_rounded), findsNothing);
+        expect(find.byIcon(Symbols.chevron_right_rounded), findsNothing);
+      },
+    );
+
+    testWidgets('collapsible pane shows a leading chevron', (tester) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const WorkbenchViewPane(
+            title: 'Hello',
+            collapsible: true,
+            child: Text('body'),
+          ),
+        ),
+      );
+      // Expanded by default → downward chevron, body visible.
+      expect(find.byIcon(Symbols.expand_more_rounded), findsOneWidget);
+      expect(find.text('body'), findsOneWidget);
+    });
+
+    testWidgets('header tap toggles body visibility and chevron orientation', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const WorkbenchViewPane(
+            title: 'Hello',
+            collapsible: true,
+            child: Text('body'),
+          ),
+        ),
+      );
+      expect(find.text('body'), findsOneWidget);
+      expect(find.byIcon(Symbols.expand_more_rounded), findsOneWidget);
+
+      await tester.tap(find.text('HELLO'));
+      await tester.pumpAndSettle();
+
+      // Collapsed → body hidden, chevron points right.
+      expect(find.text('body'), findsNothing);
+      expect(find.byIcon(Symbols.chevron_right_rounded), findsOneWidget);
+      expect(find.byIcon(Symbols.expand_more_rounded), findsNothing);
+
+      await tester.tap(find.text('HELLO'));
+      await tester.pumpAndSettle();
+      expect(find.text('body'), findsOneWidget);
+      expect(find.byIcon(Symbols.expand_more_rounded), findsOneWidget);
+    });
+
+    testWidgets('starts collapsed when initiallyExpanded is false', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const WorkbenchViewPane(
+            title: 'Hello',
+            collapsible: true,
+            initiallyExpanded: false,
+            child: Text('body'),
+          ),
+        ),
+      );
+      expect(find.text('body'), findsNothing);
+      expect(find.byIcon(Symbols.chevron_right_rounded), findsOneWidget);
+    });
+
+    testWidgets('keyboard Enter and Space toggle the pane', (tester) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const WorkbenchViewPane(
+            title: 'Hello',
+            collapsible: true,
+            child: Text('body'),
+          ),
+        ),
+      );
+      expect(find.text('body'), findsOneWidget);
+
+      // The header toggle is an InkWell — focus it via traversal, then drive
+      // activation through the keyboard (Enter/Space fire ActivateIntent on
+      // the focused InkWell). Tab moves primary focus to the focusable header.
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(primaryFocus, isNotNull);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(find.text('body'), findsNothing);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pumpAndSettle();
+      expect(find.text('body'), findsOneWidget);
+    });
+
+    testWidgets('collapsible header exposes Semantics(expanded:)', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const WorkbenchViewPane(
+            title: 'Hello',
+            collapsible: true,
+            child: Text('body'),
+          ),
+        ),
+      );
+      // Expanded by default.
+      expect(
+        tester.getSemantics(find.text('HELLO')),
+        matchesSemantics(
+          isButton: true,
+          hasExpandedState: true,
+          isExpanded: true,
+          label: 'HELLO',
+          hasTapAction: true,
+          hasFocusAction: true,
+          isFocusable: true,
+        ),
+      );
+
+      await tester.tap(find.text('HELLO'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSemantics(find.text('HELLO')),
+        matchesSemantics(
+          isButton: true,
+          hasExpandedState: true,
+          // isExpanded omitted — defaults to false, asserting collapsed.
+          label: 'HELLO',
+          hasTapAction: true,
+          hasFocusAction: true,
+          isFocusable: true,
+        ),
+      );
+      handle.dispose();
+    });
+
+    testWidgets('controlled mode reflects expanded and fires callback', (
+      tester,
+    ) async {
+      bool? reported;
+      Widget build(bool expanded) => wrapWithTheme(
+        WorkbenchViewPane(
+          title: 'Hello',
+          collapsible: true,
+          expanded: expanded,
+          onExpandedChanged: (value) => reported = value,
+          child: const Text('body'),
+        ),
+      );
+
+      await tester.pumpWidget(build(true));
+      expect(find.text('body'), findsOneWidget);
+
+      // Tapping reports the requested next state but does not self-toggle:
+      // the host drives the value.
+      await tester.tap(find.text('HELLO'));
+      await tester.pumpAndSettle();
+      expect(reported, isFalse);
+      // Still expanded because the host has not pushed a new value.
+      expect(find.text('body'), findsOneWidget);
+
+      // Host pushes the collapsed value → body hides.
+      await tester.pumpWidget(build(false));
+      await tester.pumpAndSettle();
+      expect(find.text('body'), findsNothing);
+      expect(find.byIcon(Symbols.chevron_right_rounded), findsOneWidget);
     });
   });
 
