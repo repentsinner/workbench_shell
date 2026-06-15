@@ -1,3 +1,10 @@
+# [0.4.0](https://github.com/repentsinner/workbench_shell/compare/v0.3.0...v0.4.0) (2026-06-15)
+
+
+### Features
+
+* rename WorkbenchSection to WorkbenchViewPane ([15e36a3](https://github.com/repentsinner/workbench_shell/commit/15e36a3802d9cf9f48cb2b8b78d2cce404e3df4b))
+
 # [0.3.0](https://github.com/repentsinner/workbench_shell/compare/v0.2.1...v0.3.0) (2026-06-13)
 
 
