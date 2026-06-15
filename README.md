@@ -20,7 +20,7 @@ construction.
 - `WorkbenchShortcuts` — ships the Cmd/Ctrl+J bottom-panel toggle;
   hosts register additional shortcuts via `extraShortcuts` or a
   surrounding `Shortcuts` widget.
-- `WorkbenchSection`, `WorkbenchSubsection`, `WorkbenchCard`,
+- `WorkbenchViewPane`, `WorkbenchSubsection`, `WorkbenchCard`,
   `WorkbenchToggleCard`, `WorkbenchEmptyState` — structural primitives
   that encode the workbench's visual hierarchy.
 - `WorkbenchTheme` + `WorkbenchThemeController` — VS Code theme JSON
@@ -69,8 +69,8 @@ class ExampleApp extends StatelessWidget {
             ActivityBarItem(id: 'explorer', label: 'Explorer', icon: Icons.folder),
             ActivityBarItem(id: 'search', label: 'Search', icon: Icons.search),
           ],
-          sidebarBuilder: (sectionId) => WorkbenchSection(
-            title: sectionId,
+          sidebarBuilder: (viewId) => WorkbenchViewPane(
+            title: viewId,
             child: const SizedBox.shrink(),
           ),
           editor: const Center(child: Text('Editor')),
