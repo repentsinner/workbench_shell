@@ -292,85 +292,71 @@ Reselecting the active container toggles sidebar visibility, unchanged.
 
 ## View Pane Header Actions §spec:section-header-actions
 
-*Status: not started*
+*Status: complete*
 
-A `WorkbenchViewPane` renders host-supplied actions in its header,
-right-aligned — hidden until the header is hovered or focused, shown
-only while the pane is expanded. This is the VS Code pane-header
-convention: refresh, add, and collapse sit beside the title, appear on
-hover, and vanish when the pane collapses.
+A `WorkbenchViewPane` renders host-supplied `actions` (a `List<Widget>`)
+in its header's rightmost zone — hidden until the header is hovered or
+focused, shown only while the pane is expanded. This is the VS Code
+pane-header convention: refresh, add, and collapse sit beside the title,
+appear on hover, and vanish when the pane collapses.
 
-**Problem**: the pane header carries only the title and an optional
-`infoTooltip` icon. A host's sole content insertion point is the body,
-which renders beneath the header, so a pane action lands on its own row
-instead of inline with the title — and a host cannot reproduce VS Code's
-hover-revealed, collapse-aware toolbar at all. Pane headers across
+**Problem**: the pane header carried only the title and an optional
+`infoTooltip` icon. A host's sole content insertion point was the body,
+which renders beneath the header, so a pane action landed on its own row
+instead of inline with the title — and a host could not reproduce VS
+Code's hover-revealed, collapse-aware toolbar at all. Pane headers across
 consuming apps then drift from the IDE-canonical layout the shell exists
 to guarantee (§spec:problem-statement).
 
-**Why this is chrome, not a form control**: the slot positions
+**Why this is chrome, not a form control**: the slot *places and reveals*
 host-supplied widgets within a shell-owned header row; it does not
 reimplement a control Flutter ships. The shell owns header layout the
 same way `WorkbenchTabbedPanel` owns its close button (§spec:tabbed-panel).
 The host supplies the action widgets and themes them against
 `WorkbenchTheme`, so §spec:form-controls-excluded is not engaged — no
-control is duplicated, only placed and revealed.
+control is duplicated.
 
-**Visibility is contractual: hover/focus-reveal, hide-on-collapse**:
-actions are hidden by default; they appear when the pane header is
-hovered or focused **and** the pane is expanded, and they hide entirely
-when the pane is collapsed. VS Code gates both with a single compound
-rule (`.pane-header.expanded:hover .actions`), so hover-reveal and
-hide-on-collapse are one inseparable behavior, not two. This reverses
-the earlier position that hover-reveal was optional polish: with the
-package now committed to VS Code fidelity (§spec:view-stack), visibility
-*is* the contract. Verifying it requires simulating pointer hover and
-focus in a widget test — a cost the fidelity goal now justifies. A
-per-pane *always-visible* mode pins the actions on regardless of hover,
-for actions a host wants permanently shown (VS Code's
-`ViewPaneShowActions.Always`).
+**Visibility is one contractual rule, not two**: actions appear when the
+header is hovered or focused **and** the pane is expanded; collapsing the
+pane hides them entirely. VS Code gates both with a single compound rule
+(`.pane-header.expanded:hover .actions`), so hover-reveal and
+hide-on-collapse are inseparable. A per-pane *always-visible* mode
+(`actionsAlwaysVisible`) pins the actions on regardless of hover/focus,
+still only while expanded (VS Code's `ViewPaneShowActions.Always`).
+Reveal gates the same way on a non-collapsible pane — there is no
+collapsed state to hide on, so hover/focus alone governs.
 
-**Header layout follows VS Code's pane-header structure**: VS Code builds
-the header left-to-right as twisty → icon → title → dimmed `.description`
-(metadata) → rightmost `.actions` toolbar (`viewPane.ts` `renderHeader`).
-The shell mirrors that order: a leading twistie when the pane is
-collapsible (§spec:section-disclosure), the title, the `infoTooltip` icon
-(the shell's analog of `.description`) immediately right of the title,
-and the actions in the rightmost zone. Metadata hugs the title;
-operations hug the right edge.
+**Header layout order**: twisty (when collapsible, §spec:section-disclosure)
+→ title → `infoTooltip` icon (the shell's analog of VS Code's dimmed
+`.description` metadata) → actions (rightmost). Metadata hugs the title;
+operations hug the right edge; each action's vertical center matches the
+title's.
 
-**The shell places actions raw, without a size constraint**: action
-widgets render as supplied and the header row grows to the tallest
-action. The shell does not clamp action height to the pane-header canon
-(§spec:layout-constants), because clamping would impose geometry on
-host-owned controls — the shell owns header *placement and visibility*,
-not control *sizing* (§spec:form-controls-excluded). A host wanting VS
-Code action density supplies compact widgets; a host that drops in a
-stock `IconButton` accepts the taller row.
+**The shell places actions raw, without a size constraint**: the header
+row grows to the tallest action. Clamping action height to the
+pane-header canon (§spec:layout-constants) would impose geometry on
+host-owned controls — the shell owns *placement and visibility*, not
+control *sizing* (§spec:form-controls-excluded). A host wanting VS Code
+action density supplies compact widgets; a stock `IconButton` yields a
+taller row.
 
-**API shape**: `actions` is an ordered `List<Widget>` on the view
-descriptor, empty by default — not a typed action descriptor. A typed
-descriptor would require the shell to define an action-button control,
-which §spec:form-controls-excluded keeps in the host. `List<Widget>` lets
-the host pass any themed control while the shell owns placement and
+**Why `List<Widget>`, not a typed action descriptor**: a typed descriptor
+would require the shell to define an action-button control, which
+§spec:form-controls-excluded keeps in the host. `List<Widget>` lets the
+host pass any themed control while the shell owns placement and
 visibility.
 
 **Observable behavior**:
 
-- A view pane accepts an ordered `List<Widget>` of actions, empty by
-  default.
-- Actions are hidden until the pane header is hovered or focused, and
-  only while the pane is expanded; collapsing the pane hides them
-  entirely.
-- A pane configured always-visible shows its actions regardless of
-  hover or focus, while expanded.
-- When shown, actions render in the header's rightmost zone — after the
-  title and the optional `infoTooltip` icon, in the order supplied —
-  each action's vertical center matching the title's.
-- Activating an action runs the action and does not toggle the pane
+- Actions are hidden until the header is hovered or focused, and only
+  while the pane is expanded; collapsing hides them entirely. An empty
+  `actions` list renders the header exactly as before.
+- An `actionsAlwaysVisible` pane shows its actions without hover or
+  focus, while expanded.
+- Actions render in the rightmost zone, after the title and optional
+  `infoTooltip`, in the order supplied.
+- Activating an action runs it and does not toggle the pane
   (§spec:section-disclosure).
-- The header row's height follows the tallest action; the shell applies
-  no height clamp.
 
 ---
 
@@ -430,8 +416,8 @@ the metadata region toggles the pane. The `actions` zone
 (§spec:section-header-actions) is excluded: activating an action runs the
 action and does not toggle the pane, matching VS Code, whose header
 toolbar stops the toggle from firing. The header builds one gesture
-model — a toggle surface with the actions zone carved out. (Actions are
-not built yet; the carve-out is the contract the actions batch consumes.)
+model — a toggle surface with the actions zone carved out
+(§spec:section-header-actions).
 
 **Canonical rendering**: a twistie chevron leads the collapsible header,
 left of the title — VS Code builds the header as twisty → title →
