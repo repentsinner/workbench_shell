@@ -376,29 +376,22 @@ visibility.
 
 ## View Pane Disclosure §spec:section-disclosure
 
-*Status: not started*
+*Status: complete*
 
 A `WorkbenchViewPane` collapses to its header, hiding its body, and
 expands again — the VS Code pane affordance that lets a user manage a
 stacked container's vertical space (§spec:view-stack). The shell owns
 the twistie chevron, the toggle gesture, and the expanded/collapsed
-state; disclosure is opt-in and off by default.
-
-**Problem**: a view pane renders its body unconditionally — there is no
-collapse. In a stack of panes (§spec:view-stack) the user cannot
-collapse the panes they are not using to give height to the ones they
-are, which is the core reason VS Code sidebars stack collapsible panes.
-A host cannot offer it today, and cannot fake it canonically: a
-host-supplied chevron in the `actions` slot
-(§spec:section-header-actions) would reimplement disclosure per call site
-and drift from the canon — the exact failure §spec:capability-boundary
-exists to prevent.
+state; disclosure is opt-in and off by default, so existing
+title + child call sites are unaffected.
 
 **Disclosure pays off in the stack**: collapsing the sole pane of a
 single-view container merely hides it, but collapsing one of several
 stacked panes redistributes its height to its siblings
 (§spec:view-stack). Disclosure and the stack are one capability split
 across two sections for readability; neither is fully meaningful alone.
+The sibling-height redistribution is owned by §spec:view-stack (not yet
+built); this section delivers pane-level collapse only.
 
 **Why disclosure is shell-owned, not a widget slot**: the chevron glyph,
 its orientation, the pointer/keyboard toggle, and the expanded/collapsed
@@ -408,7 +401,8 @@ typed parameters — it does not expose a `Widget` escape hatch and ask
 hosts not to put a non-canon chevron in it. This is the inverse of
 `actions`: actions are host-owned content the shell only places and
 reveals (§spec:section-header-actions); disclosure is shell-owned chrome
-the shell renders and drives.
+the shell renders and drives. A host-supplied chevron in the `actions`
+slot would reimplement disclosure per call site and drift from the canon.
 
 **Why opt-in params on `WorkbenchViewPane`, not a separate primitive**:
 VS Code's view pane is itself the collapsible unit — there is no
@@ -418,16 +412,17 @@ the default. A second primitive would duplicate the header layout and
 force every host to choose between two pane types.
 
 **Controlled and uncontrolled, mirroring §spec:workbench-layout**: a host
-that does not drive state seeds the initial expansion and the shell holds
-it internally; a host that drives state supplies the current value and is
-notified of toggles. This is the same controlled/uncontrolled split
-§spec:workbench-layout uses for container navigation. The internal
-expanded state is UI state of the same category §spec:capability-boundary
-already permits (the `TabController` precedent) — not a domain type or a
-BLoC. The tradeoff is that `WorkbenchViewPane` is stateful to back the
-uncontrolled mode; this is the `ExpansionTile` pattern and the only way
-to offer uncontrolled convenience without forcing every host to manage a
-bool.
+that does not drive state seeds the initial expansion (`initiallyExpanded`)
+and the shell holds it internally; a host that drives state supplies the
+current value (`expanded`) and is notified of toggles
+(`onExpandedChanged`). The internal expanded state is UI state of the same
+category §spec:capability-boundary already permits (the `TabController`
+precedent) — not a domain type or a BLoC. The tradeoff is that
+`WorkbenchViewPane` is stateful to back the uncontrolled mode; this is the
+`ExpansionTile` pattern and the only way to offer uncontrolled convenience
+without forcing every host to manage a bool. Converting the previously
+stateless pane to stateful while keeping the optional/defaulted params is
+additive and non-breaking.
 
 **Header gesture, and its interaction with actions**: when a pane is
 collapsible the header is the toggle target — activating the title or
@@ -435,18 +430,18 @@ the metadata region toggles the pane. The `actions` zone
 (§spec:section-header-actions) is excluded: activating an action runs the
 action and does not toggle the pane, matching VS Code, whose header
 toolbar stops the toggle from firing. The header builds one gesture
-model — a toggle surface with the actions zone carved out.
+model — a toggle surface with the actions zone carved out. (Actions are
+not built yet; the carve-out is the contract the actions batch consumes.)
 
 **Canonical rendering**: a twistie chevron leads the collapsible header,
 left of the title — VS Code builds the header as twisty → title →
 metadata → actions, the chevron leftmost. The chevron orientation
 reflects state. The shell draws it from `material_symbols_icons`,
 consistent with every other shell glyph. The header carries
-accessibility semantics — the toggle reports an expanded/collapsed state
-and is keyboard-operable (Flutter `Semantics(expanded: …)`) — because a
-mouse-only disclosure control is not canon-complete. Whether the body
-transition animates is left to the implementation; the contract is body
-visibility, not motion.
+accessibility semantics (Flutter `Semantics(expanded: …)`) and is
+keyboard-operable, because a mouse-only disclosure control is not
+canon-complete. Whether the body transition animates is left to the
+implementation; the contract is body visibility, not motion.
 
 **Observable behavior**:
 
