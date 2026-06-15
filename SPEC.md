@@ -41,6 +41,10 @@ typography, spacing, and theming.
 
 - Workbench layout: activity bar, sidebar stack, editor area,
   bottom panel, status bar.
+- Stacked sidebar view containers (§spec:view-stack): the activity bar
+  selects a view container that stacks independently collapsible view
+  panes (`WorkbenchViewPane`) from typed view descriptors, with
+  separators and a shared scroll region.
 - Tabbed bottom panel (`WorkbenchTabbedPanel`,
   `WorkbenchPanelTab`) with host-supplied tab descriptors, stable
   ids, and a View-menu / keyboard-shortcut focus contract.
@@ -52,8 +56,9 @@ typography, spacing, and theming.
   on Windows and Linux.
 - Keyboard bindings (`WorkbenchShortcuts`) aligned with VS Code
   defaults.
-- Structural primitives: `WorkbenchSection`, `WorkbenchSubsection`,
-  `WorkbenchCard`, `WorkbenchToggleCard`, `WorkbenchEmptyState`.
+- Structural primitives: `WorkbenchSection` (renamed `WorkbenchViewPane`
+  per §spec:view-stack), `WorkbenchSubsection`, `WorkbenchCard`,
+  `WorkbenchToggleCard`, `WorkbenchEmptyState`.
 - Theming: `WorkbenchTheme` (chrome tokens),
   `WorkbenchThemeController` (theme switching, VS Code JSON
   loader, `TokenTheme` for syntax highlighting), `TokenTheme`,
@@ -70,6 +75,10 @@ typography, spacing, and theming.
 - Editor widgets (text editing, syntax-highlighted viewers).
   Consumers supply their own editor content inside
   `WorkbenchLayout`'s editor slot.
+- Hierarchical tree rows (`TreeItem` — a folder's disclosure triangle
+  inside a view body). VS Code renders these through a separate tree
+  component; view bodies are host content (§spec:view-stack). The
+  shell's collapsible primitive is the view pane, not a tree row.
 
 ---
 
@@ -124,6 +133,9 @@ titles stay sentence-case — VS Code's sidebar-internal
 sub-grouping (settings categories and similar) is sentence-case,
 and an uppercase claim there would overclaim relative to the
 canon. Every new chrome surface follows the same model.
+§spec:view-stack applies the rule to the sidebar body itself: the host
+supplies typed view descriptors, not a free-form sidebar `Widget`,
+removing the last whole-surface escape hatch in the chrome.
 
 ---
 
@@ -164,171 +176,296 @@ cards and toggle cards at the same border radius and border
 color. Layout tokens come from `WorkbenchLayoutConstants`; colors
 and typography come from `WorkbenchTheme`.
 
+**Planned rename**: §spec:view-stack renames `WorkbenchSection` to
+`WorkbenchViewPane` (the canonical "view pane" noun) and adds the
+stacked view-container model. The other primitives —
+`WorkbenchSubsection`, `WorkbenchCard`, `WorkbenchToggleCard`,
+`WorkbenchEmptyState` — are content stylings inside a view-pane body
+and keep their names. Hierarchical tree rows (a folder's disclosure
+triangle) are a distinct VS Code concept (`TreeItem`) the shell does
+not own; view bodies are host content (§spec:scope).
+
 ---
 
-## Section Header Actions §spec:section-header-actions
+## View Container and View Stack §spec:view-stack
 
 *Status: not started*
 
-`WorkbenchSection` renders host-supplied actions inline on its
-header row, right of the uppercased title and vertically centered
-with it — the VS Code pane-header convention, where refresh, add,
-and collapse sit beside the title.
+The sidebar stacks several collapsible **views** in one **view
+container**, the VS Code model. The activity bar selects a view
+container; the container renders an ordered stack of **view panes**
+(`WorkbenchViewPane`), each with its own header and body, each
+collapsing independently while its header stays visible. The shell owns
+the stack — the host supplies typed view descriptors, not a
+sidebar-body widget. (VS Code reference: a view container is a
+`ViewPaneContainer`, a `PaneView` over a `SplitView` of `ViewPane`s.
+This section documents the shell's deviations, not VS Code's internals.)
 
-**Problem**: the section header carries only the title and an
-optional `infoTooltip` icon. A host's sole content insertion point
-is `child`, which renders beneath the header, so a section action
-lands on its own row instead of inline with the title. Section
-headers across consuming apps then drift from the IDE-canonical
-layout the shell exists to guarantee (§spec:problem-statement).
+**Problem**: the sidebar renders one host-built body at a time. The
+activity bar switches between bodies, and the host composes each body as
+a free-form widget tree (today a `Column` of `WorkbenchSection`s inside
+the host's own scroll view). VS Code instead stacks several views in one
+container — Explorer shows Open Editors, the file tree, Outline, and
+Timeline as four independently collapsible panes sharing the sidebar's
+height. The shell cannot express this: it has no stack, no per-view
+collapse, no inter-view separators, no shared scroll. Every host that
+wants the VS Code sidebar reinvents the stack and drifts from the canon
+(§spec:problem-statement).
+
+**The shell owns the stack; the host supplies typed view descriptors**:
+the sidebar body is no longer a host `Widget`. For each view container
+the host supplies an ordered list of view descriptors — stable id,
+title, optional metadata, optional actions
+(§spec:section-header-actions), a collapsible flag and expansion state
+(§spec:section-disclosure), and a body builder — and the shell renders
+the stack. A free-form sidebar body is exactly the permissive `Widget`
+field §spec:capability-boundary rejects, scaled to the whole sidebar;
+replacing it with typed descriptors is the same move the bottom panel
+already makes with `WorkbenchPanelTab` descriptors (§spec:tabbed-panel).
+The host still owns each view's *body* content (§spec:scope) — the shell
+owns the stacking, the headers, and the chrome between bodies.
+
+**Terminology adopts VS Code's public vocabulary**:
+
+- *View container* — the sidebar host for one activity-bar entry; holds
+  one or more views; selected by the activity bar. (VS Code's
+  `viewsContainers` contribution.)
+- *View* — one collapsible pane in a container, rendered as a
+  `WorkbenchViewPane`. (VS Code's `views` contribution; runtime
+  `ViewPane`.)
+- The pane primitive previously named `WorkbenchSection` is renamed
+  `WorkbenchViewPane`. "Section" was a shell invention with no VS Code
+  referent and collided with the activity-bar selection the layout API
+  called a "section"; "view pane" is the canonical noun and removes the
+  ambiguity.
+- *Tree item* — a hierarchical row inside a view body (a folder in the
+  file tree) with its own disclosure triangle. A distinct concept the
+  shell does **not** own: VS Code renders it through a separate tree
+  component (`TreeRenderer`, `TreeItemCollapsibleState`), and view
+  bodies are host content. A view pane *hosts* content; a tree item *is*
+  content. The shell's collapsible primitive is the view pane, never a
+  tree row.
+
+**Stack behavior**:
+
+- Every view-pane header in a container stays visible at all times; a
+  collapsed pane shows only its header. Collapsing a pane frees its body
+  height to the remaining expanded panes, which absorb the space; a
+  collapsed pane occupies only its header height
+  (§spec:layout-constants).
+- A divider separates adjacent panes, so the stack reads as distinct
+  panes rather than one continuous column.
+- The container scrolls as one region when expanded bodies exceed the
+  available height; the scroll boundary is the container, not each pane.
+  A view body may host its own internal scroller for its content (a long
+  list) — host responsibility, layered above the container scroll.
+
+**Resize and reorder are in the target, staged**: VS Code lets the user
+drag the divider between two panes to resize them and drag a header to
+reorder panes within a container. Both belong in the aligned model but
+are separable from the core stack — a stack with fixed proportions and
+fixed order is already useful and testable — so they may land as later
+increments. The core capability is the stack with independent collapse,
+separators, and shared scroll.
+
+**Container selection mirrors today's section navigation**: the activity
+bar selects the active view container, controlled or uncontrolled — the
+same split §spec:workbench-layout defines, with the "section" navigation
+renamed to view-container navigation as part of adopting the vocabulary.
+Reselecting the active container toggles sidebar visibility, unchanged.
+
+**Observable behavior**:
+
+- A view container renders an ordered stack of view panes from typed
+  view descriptors; the host supplies no sidebar-body widget.
+- Every view-pane header is visible regardless of the pane's
+  expanded/collapsed state; a collapsed pane occupies only its header
+  height and its freed space flows to the expanded panes.
+- A divider separates adjacent view panes.
+- The container provides one scroll region for the stack and scrolls
+  when expanded bodies overflow the available height.
+- The activity bar selects the active view container (controlled or
+  uncontrolled); reselecting the active container toggles sidebar
+  visibility.
+
+---
+
+## View Pane Header Actions §spec:section-header-actions
+
+*Status: not started*
+
+A `WorkbenchViewPane` renders host-supplied actions in its header,
+right-aligned — hidden until the header is hovered or focused, shown
+only while the pane is expanded. This is the VS Code pane-header
+convention: refresh, add, and collapse sit beside the title, appear on
+hover, and vanish when the pane collapses.
+
+**Problem**: the pane header carries only the title and an optional
+`infoTooltip` icon. A host's sole content insertion point is the body,
+which renders beneath the header, so a pane action lands on its own row
+instead of inline with the title — and a host cannot reproduce VS Code's
+hover-revealed, collapse-aware toolbar at all. Pane headers across
+consuming apps then drift from the IDE-canonical layout the shell exists
+to guarantee (§spec:problem-statement).
 
 **Why this is chrome, not a form control**: the slot positions
 host-supplied widgets within a shell-owned header row; it does not
-reimplement a control Flutter ships. The shell owns header layout
-the same way `WorkbenchTabbedPanel` owns its close button
-(§spec:tabbed-panel). The host still supplies the action widgets and
-themes them against `WorkbenchTheme`, so §spec:form-controls-excluded
-is not engaged — no control is duplicated, only placed.
+reimplement a control Flutter ships. The shell owns header layout the
+same way `WorkbenchTabbedPanel` owns its close button (§spec:tabbed-panel).
+The host supplies the action widgets and themes them against
+`WorkbenchTheme`, so §spec:form-controls-excluded is not engaged — no
+control is duplicated, only placed and revealed.
 
-**Why inline placement, not hover-reveal, is the contract**: VS Code
-reveals section actions on header hover. The shell's invariant is
-*placement* — actions share the title row — because that is what the
-`child`-only API cannot express. Hover-reveal is visual polish the
-implementation may add but consumers shall not depend on; binding
-the contract to placement keeps it verifiable without a
-pointer-event harness.
+**Visibility is contractual: hover/focus-reveal, hide-on-collapse**:
+actions are hidden by default; they appear when the pane header is
+hovered or focused **and** the pane is expanded, and they hide entirely
+when the pane is collapsed. VS Code gates both with a single compound
+rule (`.pane-header.expanded:hover .actions`), so hover-reveal and
+hide-on-collapse are one inseparable behavior, not two. This reverses
+the earlier position that hover-reveal was optional polish: with the
+package now committed to VS Code fidelity (§spec:view-stack), visibility
+*is* the contract. Verifying it requires simulating pointer hover and
+focus in a widget test — a cost the fidelity goal now justifies. A
+per-pane *always-visible* mode pins the actions on regardless of hover,
+for actions a host wants permanently shown (VS Code's
+`ViewPaneShowActions.Always`).
 
-**Header layout follows VS Code's pane-header structure**: VS Code
-builds the pane header left-to-right as title, an optional dimmed
-`.description` (section metadata), then a rightmost `.actions`
-toolbar (`viewPane.ts` `renderHeader`). The shell mirrors that
-order. The title group is left (`Expanded`); `infoTooltip` — the
-shell's metadata affordance, the analog of `.description` — sits
-immediately right of the title; the actions occupy the rightmost
-zone. A section using both then reads like a VS Code pane: metadata
-hugs the title, operations hug the right edge. When the section is
-collapsible (§spec:section-disclosure) a leading twistie chevron
-precedes the title, matching the canon order twisty → title →
-metadata → actions.
+**Header layout follows VS Code's pane-header structure**: VS Code builds
+the header left-to-right as twisty → icon → title → dimmed `.description`
+(metadata) → rightmost `.actions` toolbar (`viewPane.ts` `renderHeader`).
+The shell mirrors that order: a leading twistie when the pane is
+collapsible (§spec:section-disclosure), the title, the `infoTooltip` icon
+(the shell's analog of `.description`) immediately right of the title,
+and the actions in the rightmost zone. Metadata hugs the title;
+operations hug the right edge.
 
 **The shell places actions raw, without a size constraint**: action
 widgets render as supplied and the header row grows to the tallest
-action. The shell does not clamp action height to the ~22px
-pane-header canon, because clamping would impose geometry on
-host-owned controls — the shell owns header *placement*, not control
-*sizing* (§spec:form-controls-excluded). A host wanting VS Code
-action density supplies compact widgets (small icon, shrunk tap
-target); a host that drops in a stock `IconButton` accepts the
-taller row. The slot's contract is position, not dimension.
+action. The shell does not clamp action height to the pane-header canon
+(§spec:layout-constants), because clamping would impose geometry on
+host-owned controls — the shell owns header *placement and visibility*,
+not control *sizing* (§spec:form-controls-excluded). A host wanting VS
+Code action density supplies compact widgets; a host that drops in a
+stock `IconButton` accepts the taller row.
 
-**API shape**: `actions` is an ordered `List<Widget>`, empty by
-default — not a typed action descriptor. A typed descriptor would
-require the shell to define an action-button control, which
-§spec:form-controls-excluded keeps in the host. `List<Widget>` lets
-the host pass any themed control while the shell owns only placement.
+**API shape**: `actions` is an ordered `List<Widget>` on the view
+descriptor, empty by default — not a typed action descriptor. A typed
+descriptor would require the shell to define an action-button control,
+which §spec:form-controls-excluded keeps in the host. `List<Widget>` lets
+the host pass any themed control while the shell owns placement and
+visibility.
 
 **Observable behavior**:
 
-- `WorkbenchSection` accepts an ordered `List<Widget>` of actions,
-  empty by default.
-- When actions are present they render in the header's rightmost
-  zone, after the title and the optional `infoTooltip` icon, in the
-  order supplied; each action's vertical center matches the title's.
-- When both `actions` and `infoTooltip` are supplied, the info icon
-  sits between the title and the actions (title → info → actions).
-- When no actions are supplied the header renders unchanged; the
-  `infoTooltip` affordance is unaffected in either case.
-- The header row's height follows the tallest action; the shell
-  applies no height clamp.
+- A view pane accepts an ordered `List<Widget>` of actions, empty by
+  default.
+- Actions are hidden until the pane header is hovered or focused, and
+  only while the pane is expanded; collapsing the pane hides them
+  entirely.
+- A pane configured always-visible shows its actions regardless of
+  hover or focus, while expanded.
+- When shown, actions render in the header's rightmost zone — after the
+  title and the optional `infoTooltip` icon, in the order supplied —
+  each action's vertical center matching the title's.
+- Activating an action runs the action and does not toggle the pane
+  (§spec:section-disclosure).
+- The header row's height follows the tallest action; the shell applies
+  no height clamp.
 
 ---
 
-## Section Disclosure §spec:section-disclosure
+## View Pane Disclosure §spec:section-disclosure
 
 *Status: not started*
 
-A `WorkbenchSection` can collapse to its header, hiding its body, and
-expand to reveal it again — the VS Code sidebar pane affordance. The
-shell owns the twistie chevron, the toggle gesture, and the
-expanded/collapsed state; disclosure is opt-in and off by default.
+A `WorkbenchViewPane` collapses to its header, hiding its body, and
+expands again — the VS Code pane affordance that lets a user manage a
+stacked container's vertical space (§spec:view-stack). The shell owns
+the twistie chevron, the toggle gesture, and the expanded/collapsed
+state; disclosure is opt-in and off by default.
 
-**Problem**: `WorkbenchSection` renders its `child` unconditionally —
-there is no collapse. VS Code stacks several panes in one sidebar and
-lets the user collapse the ones they are not using to reclaim vertical
-space; it is a core sidebar affordance, not a refinement. A host
-cannot offer it today, and cannot fake it canonically: a host-supplied
-chevron in the `actions` slot (§spec:section-header-actions) would
-reimplement disclosure per call site and drift from the canon — the
-exact failure §spec:capability-boundary exists to prevent.
+**Problem**: a view pane renders its body unconditionally — there is no
+collapse. In a stack of panes (§spec:view-stack) the user cannot
+collapse the panes they are not using to give height to the ones they
+are, which is the core reason VS Code sidebars stack collapsible panes.
+A host cannot offer it today, and cannot fake it canonically: a
+host-supplied chevron in the `actions` slot
+(§spec:section-header-actions) would reimplement disclosure per call site
+and drift from the canon — the exact failure §spec:capability-boundary
+exists to prevent.
 
-**Why disclosure is shell-owned, not a widget slot**: the chevron
-glyph, its orientation, the pointer/keyboard toggle, and the
-expanded/collapsed state are canonical chrome. Per
-§spec:capability-boundary's canon-enforcement rule the shell owns the
-renderable and the behavior as typed parameters — it does not expose a
-`Widget` escape hatch and ask hosts not to put a non-canon chevron in
-it. This is the same distinction that makes `actions` legitimately a
-widget slot while disclosure is not: actions are host-owned content the
-shell only places (§spec:section-header-actions); disclosure is
-shell-owned chrome the shell renders and drives.
+**Disclosure pays off in the stack**: collapsing the sole pane of a
+single-view container merely hides it, but collapsing one of several
+stacked panes redistributes its height to its siblings
+(§spec:view-stack). Disclosure and the stack are one capability split
+across two sections for readability; neither is fully meaningful alone.
 
-**Why opt-in params on `WorkbenchSection`, not a separate primitive**:
-VS Code's pane is itself the collapsible unit — there is no distinct
-"collapsible section" type. Folding disclosure into `WorkbenchSection`
-keeps one section concept; a non-collapsible section stays the default
-and renders exactly as before, so existing call sites are unaffected.
-A second primitive would duplicate the header layout and force every
-host to choose between two section types.
+**Why disclosure is shell-owned, not a widget slot**: the chevron glyph,
+its orientation, the pointer/keyboard toggle, and the expanded/collapsed
+state are canonical chrome. Per §spec:capability-boundary's
+canon-enforcement rule the shell owns the renderable and the behavior as
+typed parameters — it does not expose a `Widget` escape hatch and ask
+hosts not to put a non-canon chevron in it. This is the inverse of
+`actions`: actions are host-owned content the shell only places and
+reveals (§spec:section-header-actions); disclosure is shell-owned chrome
+the shell renders and drives.
 
-**Controlled and uncontrolled, mirroring §spec:workbench-layout**: a
-host that does not need to drive state seeds the initial state and the
-shell holds expansion internally; a host that drives state supplies the
-current value and is notified of toggles. This is the same
-controlled/uncontrolled split §spec:workbench-layout uses for section
-navigation. The internal expanded state is UI state of the same
-category §spec:capability-boundary already permits (the `TabController`
-precedent) — not a domain type or a BLoC. The tradeoff is that
-`WorkbenchSection` becomes stateful to back the uncontrolled mode; this
-is the `ExpansionTile` pattern and the only way to offer uncontrolled
-convenience without forcing every host to manage a bool.
+**Why opt-in params on `WorkbenchViewPane`, not a separate primitive**:
+VS Code's view pane is itself the collapsible unit — there is no
+distinct "collapsible pane" type. Folding disclosure into
+`WorkbenchViewPane` keeps one pane concept; a non-collapsible pane stays
+the default. A second primitive would duplicate the header layout and
+force every host to choose between two pane types.
 
-**Header gesture, and its interaction with actions**: when a section is
+**Controlled and uncontrolled, mirroring §spec:workbench-layout**: a host
+that does not drive state seeds the initial expansion and the shell holds
+it internally; a host that drives state supplies the current value and is
+notified of toggles. This is the same controlled/uncontrolled split
+§spec:workbench-layout uses for container navigation. The internal
+expanded state is UI state of the same category §spec:capability-boundary
+already permits (the `TabController` precedent) — not a domain type or a
+BLoC. The tradeoff is that `WorkbenchViewPane` is stateful to back the
+uncontrolled mode; this is the `ExpansionTile` pattern and the only way
+to offer uncontrolled convenience without forcing every host to manage a
+bool.
+
+**Header gesture, and its interaction with actions**: when a pane is
 collapsible the header is the toggle target — activating the title or
-the metadata region toggles the section. The `actions` zone
-(§spec:section-header-actions) is excluded: activating an action runs
-the action and does not toggle the section, matching VS Code, whose
-header toolbar stops the toggle from firing. Specifying the two
-together means the header builds one gesture model — a toggle surface
-with the actions zone carved out — rather than retrofitting gesture
-suppression after the actions slot ships.
+the metadata region toggles the pane. The `actions` zone
+(§spec:section-header-actions) is excluded: activating an action runs the
+action and does not toggle the pane, matching VS Code, whose header
+toolbar stops the toggle from firing. The header builds one gesture
+model — a toggle surface with the actions zone carved out.
 
-**Canonical rendering**: when collapsible, a twistie chevron leads the
-header, left of the title — VS Code builds the header as twisty → title
-→ metadata → actions, the chevron leftmost. The chevron orientation
+**Canonical rendering**: a twistie chevron leads the collapsible header,
+left of the title — VS Code builds the header as twisty → title →
+metadata → actions, the chevron leftmost. The chevron orientation
 reflects state. The shell draws it from `material_symbols_icons`,
 consistent with every other shell glyph. The header carries
-accessibility semantics — the toggle reports an expanded/collapsed
-state and is keyboard-operable (Flutter `Semantics(expanded: …)`) —
-because a mouse-only disclosure control is not canon-complete. Whether
-the body transition animates is left to the implementation; the
-contract is body visibility, not motion.
+accessibility semantics — the toggle reports an expanded/collapsed state
+and is keyboard-operable (Flutter `Semantics(expanded: …)`) — because a
+mouse-only disclosure control is not canon-complete. Whether the body
+transition animates is left to the implementation; the contract is body
+visibility, not motion.
 
 **Observable behavior**:
 
-- A `WorkbenchSection` is non-collapsible by default and renders its
-  body unconditionally, exactly as before this section.
-- When the host opts into collapsing, the header shows a leading
-  twistie chevron whose orientation reflects expanded vs collapsed.
-- Activating the header by pointer or keyboard toggles between
-  expanded and collapsed; collapsed hides the body, expanded shows it.
+- A `WorkbenchViewPane` is non-collapsible by default and renders its
+  body unconditionally.
+- When the pane is collapsible, the header shows a leading twistie
+  chevron whose orientation reflects expanded vs collapsed, and the
+  header stays visible in both states (§spec:view-stack).
+- Activating the header by pointer or keyboard toggles expanded and
+  collapsed; collapsed hides the body and frees its height to sibling
+  panes (§spec:view-stack), expanded shows it.
 - Activating a widget in the `actions` zone runs that action and does
-  not toggle the section.
-- In uncontrolled mode the shell holds the expanded state, seeded by
-  the host's initial value; in controlled mode the rendered state
-  follows the host's supplied value and every toggle is reported back
-  to the host.
-- A collapsible header exposes an expanded/collapsed accessibility
-  state and responds to keyboard activation.
+  not toggle the pane.
+- In uncontrolled mode the shell holds the expanded state, seeded by the
+  host's initial value; in controlled mode the rendered state follows
+  the host's supplied value and every toggle is reported back to the
+  host.
+- A collapsible header exposes an expanded/collapsed accessibility state
+  and responds to keyboard activation.
 
 ---
 
@@ -343,7 +480,10 @@ bottom panel + status bar. It accepts `activeSectionId` and
 `onSectionChanged` from the host, so applications can drive shell
 navigation (for example, a bottom-panel action that switches
 sidebars) while the shell still supports an uncontrolled mode for
-callers that do not need external control.
+callers that do not need external control. §spec:view-stack renders
+each activity-bar selection as a view container that stacks typed view
+descriptors, and renames this section navigation to view-container
+navigation as the vocabulary aligns.
 
 ### WorkbenchTabbedPanel and WorkbenchPanelTab §spec:tabbed-panel
 
