@@ -870,15 +870,47 @@ class _SidebarBodyPlaceholder extends StatelessWidget {
 }
 
 /// Explorer sidebar — demonstrates opt-in view-pane disclosure
-/// (SPEC §spec:section-disclosure). Two collapsible [WorkbenchViewPane]s
+/// (SPEC §spec:section-disclosure) and hover-revealed header actions
+/// (SPEC §spec:section-header-actions). Two collapsible [WorkbenchViewPane]s
 /// (uncontrolled, the `ExpansionTile` pattern) sit above a plain
 /// non-collapsible pane: click a collapsible header — or focus it and press
 /// Enter/Space — to hide and show its body while the leading chevron flips.
-/// The non-collapsible pane renders its body unconditionally, showing the
-/// off-by-default behavior. The stacked-container redistribution of freed
-/// height is §spec:view-stack work, not built yet.
+///
+/// Header actions: hover the "Open Editors" header to reveal its refresh and
+/// new-file buttons; click one and the pane stays expanded (the action does
+/// not toggle the header). Collapse the pane and the actions vanish entirely.
+/// The non-collapsible "Timeline" pane reveals a refresh action on hover too —
+/// reveal still gates on hover, there is just no collapsed state to hide on.
+/// The stacked-container redistribution of freed height is §spec:view-stack
+/// work, not built yet.
 class _ExplorerSidebar extends StatelessWidget {
   const _ExplorerSidebar();
+
+  void _toast(BuildContext context, String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(message), duration: const Duration(seconds: 1)),
+      );
+  }
+
+  /// Compact icon button sized to the pane-header row — the host supplies the
+  /// control (§spec:form-controls-excluded); the shell only places and reveals
+  /// it.
+  Widget _headerAction({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return IconButton(
+      icon: Icon(icon, size: WorkbenchLayoutConstants.iconMd),
+      tooltip: tooltip,
+      onPressed: onPressed,
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -886,16 +918,28 @@ class _ExplorerSidebar extends StatelessWidget {
       padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingLg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: const [
+        children: [
           WorkbenchViewPane(
             title: 'Open Editors',
             collapsible: true,
-            child: _SidebarBodyPlaceholder(
+            actions: [
+              _headerAction(
+                icon: Symbols.refresh_rounded,
+                tooltip: 'Refresh',
+                onPressed: () => _toast(context, 'Refreshed Open Editors'),
+              ),
+              _headerAction(
+                icon: Symbols.add_rounded,
+                tooltip: 'New File',
+                onPressed: () => _toast(context, 'New file'),
+              ),
+            ],
+            child: const _SidebarBodyPlaceholder(
               text: 'main.dart\nworkbench_content.dart',
             ),
           ),
-          SizedBox(height: WorkbenchLayoutConstants.spacingLg),
-          WorkbenchViewPane(
+          const SizedBox(height: WorkbenchLayoutConstants.spacingLg),
+          const WorkbenchViewPane(
             title: 'Outline',
             collapsible: true,
             initiallyExpanded: false,
@@ -903,10 +947,17 @@ class _ExplorerSidebar extends StatelessWidget {
               text: 'WorkbenchViewPane\nWorkbenchSubsection\nWorkbenchCard',
             ),
           ),
-          SizedBox(height: WorkbenchLayoutConstants.spacingLg),
+          const SizedBox(height: WorkbenchLayoutConstants.spacingLg),
           WorkbenchViewPane(
             title: 'Timeline',
-            child: _SidebarBodyPlaceholder(
+            actions: [
+              _headerAction(
+                icon: Symbols.refresh_rounded,
+                tooltip: 'Refresh',
+                onPressed: () => _toast(context, 'Refreshed Timeline'),
+              ),
+            ],
+            child: const _SidebarBodyPlaceholder(
               text: 'Non-collapsible pane — body always shown.',
             ),
           ),

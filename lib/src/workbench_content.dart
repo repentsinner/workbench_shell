@@ -38,10 +38,31 @@ BorderSide _contentBorderSide(WorkbenchTheme theme) => theme.borderColor == null
 ///
 /// A non-collapsible pane renders its body unconditionally, exactly as a
 /// plain title + child — disclosure adds nothing to existing call sites.
+///
+/// Header actions (§spec:section-header-actions): pass [actions] to place
+/// host-supplied widgets in the header's rightmost zone (order twisty →
+/// title → [infoTooltip] → actions). The shell only *places and reveals*
+/// them — they are not a typed action control (§spec:form-controls-excluded
+/// keeps that in the host). Actions are hidden until the header is hovered or
+/// focused and only while the pane is expanded; collapsing the pane hides them
+/// entirely. Set [actionsAlwaysVisible] to pin them on regardless of
+/// hover/focus, still only while expanded (VS Code's
+/// `ViewPaneShowActions.Always`). Activating an action runs the action and
+/// does not toggle the pane (§spec:section-disclosure). The shell places
+/// actions raw and the header row grows to the tallest action — it owns
+/// placement and visibility, not control sizing.
 class WorkbenchViewPane extends StatefulWidget {
   final String title;
   final Widget child;
   final String? infoTooltip;
+
+  /// Host-supplied header widgets, rendered right-aligned and revealed on
+  /// hover/focus while expanded. Empty by default — the header then renders
+  /// exactly as title + optional [infoTooltip].
+  final List<Widget> actions;
+
+  /// Pin [actions] on regardless of hover or focus, while expanded.
+  final bool actionsAlwaysVisible;
 
   /// When true, the header shows a leading twistie and toggles the body.
   /// Off by default: a non-collapsible pane renders its body always.
@@ -64,6 +85,8 @@ class WorkbenchViewPane extends StatefulWidget {
     required this.title,
     required this.child,
     this.infoTooltip,
+    this.actions = const [],
+    this.actionsAlwaysVisible = false,
     this.collapsible = false,
     this.initiallyExpanded = true,
     this.expanded,
@@ -77,9 +100,23 @@ class WorkbenchViewPane extends StatefulWidget {
 class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
   late bool _expanded = widget.initiallyExpanded;
 
+  // Reveal state for header actions (§spec:section-header-actions). Hover and
+  // focus are tracked independently; either reveals the actions while the
+  // pane is expanded.
+  bool _hovered = false;
+  bool _focused = false;
+
   /// The expansion the pane renders: the host's value when controlled,
   /// otherwise the internal state.
   bool get _isExpanded => widget.expanded ?? _expanded;
+
+  /// Actions show only while expanded, and then on hover, on focus, or when
+  /// pinned always-visible. Collapsing hides them entirely — VS Code gates
+  /// reveal and hide-on-collapse with one compound rule.
+  bool get _actionsVisible =>
+      widget.actions.isNotEmpty &&
+      _isExpanded &&
+      (widget.actionsAlwaysVisible || _hovered || _focused);
 
   void _handleToggle() {
     final next = !_isExpanded;
@@ -95,7 +132,8 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
     // Header order follows VS Code's pane header: twisty → title → metadata
-    // (§spec:section-header-actions). Actions are a separate, later concern.
+    // (infoTooltip) → actions (rightmost). Metadata hugs the title;
+    // operations hug the right edge (§spec:section-header-actions).
     final header = Row(
       children: [
         if (widget.collapsible) ...[
@@ -122,17 +160,23 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
             ),
           ),
         ],
+        // Actions render raw in the rightmost zone, only when visible. The
+        // shell applies no height clamp — the header row grows to the tallest
+        // action (§spec:section-header-actions). Action gestures handle their
+        // own taps, so activating one does not bubble to the header toggle
+        // (§spec:section-disclosure).
+        if (_actionsVisible) ...[
+          const SizedBox(width: WorkbenchLayoutConstants.spacingSm),
+          ...widget.actions,
+        ],
       ],
     );
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (widget.collapsible)
-          // Pointer + keyboard toggle with an expanded/collapsed a11y state.
-          // A mouse-only disclosure control is not canon-complete
-          // (§spec:section-disclosure).
-          Semantics(
+    Widget headerSurface = widget.collapsible
+        // Pointer + keyboard toggle with an expanded/collapsed a11y state.
+        // A mouse-only disclosure control is not canon-complete
+        // (§spec:section-disclosure).
+        ? Semantics(
             button: true,
             expanded: _isExpanded,
             child: InkWell(
@@ -140,8 +184,39 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
               child: header,
             ),
           )
-        else
-          header,
+        : header;
+
+    // Track hover and focus to drive action reveal. Only wired when the pane
+    // has actions, so an action-free header keeps its prior structure and
+    // semantics. The Focus node reports descendant focus too (the disclosure
+    // InkWell or a focused action), so traversing into the header reveals the
+    // actions without hover.
+    if (widget.actions.isNotEmpty) {
+      headerSurface = MouseRegion(
+        onEnter: (_) {
+          if (!_hovered) setState(() => _hovered = true);
+        },
+        onExit: (_) {
+          if (_hovered) setState(() => _hovered = false);
+        },
+        // A non-collapsible header has no other focus stop, so the header
+        // itself is focusable — Tab reveals the actions. A collapsible header
+        // already carries the InkWell focus stop; this node still reports that
+        // descendant focus through onFocusChange.
+        child: Focus(
+          canRequestFocus: !widget.collapsible,
+          onFocusChange: (focused) {
+            if (focused != _focused) setState(() => _focused = focused);
+          },
+          child: headerSurface,
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        headerSurface,
         if (!widget.collapsible || _isExpanded) ...[
           const SizedBox(height: WorkbenchLayoutConstants.spacingMd),
           widget.child,

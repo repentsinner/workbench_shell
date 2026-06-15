@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -249,6 +250,218 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('body'), findsNothing);
       expect(find.byIcon(Symbols.chevron_right_rounded), findsOneWidget);
+    });
+  });
+
+  group('WorkbenchViewPane header actions', () {
+    // §spec:section-header-actions: actions are host-supplied widgets the
+    // shell only places and reveals — hidden until hover/focus, only while
+    // expanded, hidden entirely when collapsed, with an always-visible
+    // opt-in. Activating an action does not toggle the pane.
+    const actionKey = Key('pane-action');
+    final actionWidget = IconButton(
+      key: actionKey,
+      icon: const Icon(Symbols.refresh_rounded),
+      onPressed: () {},
+    );
+
+    // Drive a synthetic mouse hover onto the header center.
+    Future<TestGesture> hoverHeader(WidgetTester tester) async {
+      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await gesture.addPointer(location: Offset.zero);
+      addTearDown(gesture.removePointer);
+      await gesture.moveTo(tester.getCenter(find.text('HELLO')));
+      await tester.pumpAndSettle();
+      return gesture;
+    }
+
+    testWidgets('empty actions renders the header unchanged', (tester) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const WorkbenchViewPane(title: 'Hello', child: Text('body')),
+        ),
+      );
+      // No actions supplied → no IconButton, header is title-only.
+      expect(find.byType(IconButton), findsNothing);
+      expect(find.text('HELLO'), findsOneWidget);
+      expect(find.text('body'), findsOneWidget);
+    });
+
+    testWidgets('actions hidden by default without hover', (tester) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          WorkbenchViewPane(
+            title: 'Hello',
+            actions: [actionWidget],
+            child: const Text('body'),
+          ),
+        ),
+      );
+      expect(find.byKey(actionKey), findsNothing);
+    });
+
+    testWidgets('actions appear on header hover while expanded', (tester) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          WorkbenchViewPane(
+            title: 'Hello',
+            actions: [actionWidget],
+            child: const Text('body'),
+          ),
+        ),
+      );
+      expect(find.byKey(actionKey), findsNothing);
+      await hoverHeader(tester);
+      expect(find.byKey(actionKey), findsOneWidget);
+    });
+
+    testWidgets('actions appear on header focus via traversal', (tester) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          WorkbenchViewPane(
+            title: 'Hello',
+            actions: [actionWidget],
+            child: const Text('body'),
+          ),
+        ),
+      );
+      expect(find.byKey(actionKey), findsNothing);
+      // Tab moves primary focus onto the header's focus scope, revealing the
+      // actions (no hover involved).
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      expect(primaryFocus, isNotNull);
+      expect(find.byKey(actionKey), findsOneWidget);
+    });
+
+    testWidgets('actions hidden entirely when collapsed even while hovered', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          WorkbenchViewPane(
+            title: 'Hello',
+            collapsible: true,
+            initiallyExpanded: false,
+            actions: [actionWidget],
+            child: const Text('body'),
+          ),
+        ),
+      );
+      // Collapsed: hovering the header must not reveal the actions.
+      await hoverHeader(tester);
+      expect(find.byKey(actionKey), findsNothing);
+    });
+
+    testWidgets('always-visible mode shows actions without hover', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          WorkbenchViewPane(
+            title: 'Hello',
+            actionsAlwaysVisible: true,
+            actions: [actionWidget],
+            child: const Text('body'),
+          ),
+        ),
+      );
+      expect(find.byKey(actionKey), findsOneWidget);
+    });
+
+    testWidgets('always-visible actions still hide when collapsed', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          WorkbenchViewPane(
+            title: 'Hello',
+            collapsible: true,
+            initiallyExpanded: false,
+            actionsAlwaysVisible: true,
+            actions: [actionWidget],
+            child: const Text('body'),
+          ),
+        ),
+      );
+      // Always-visible is gated on expansion: a collapsed pane hides actions.
+      expect(find.byKey(actionKey), findsNothing);
+    });
+
+    testWidgets('tapping an action runs its callback and does not toggle', (
+      tester,
+    ) async {
+      var tapped = 0;
+      await tester.pumpWidget(
+        wrapWithTheme(
+          WorkbenchViewPane(
+            title: 'Hello',
+            collapsible: true,
+            actionsAlwaysVisible: true,
+            actions: [
+              IconButton(
+                key: actionKey,
+                icon: const Icon(Symbols.refresh_rounded),
+                onPressed: () => tapped++,
+              ),
+            ],
+            child: const Text('body'),
+          ),
+        ),
+      );
+      // Expanded with the action shown.
+      expect(find.text('body'), findsOneWidget);
+      expect(find.byKey(actionKey), findsOneWidget);
+
+      await tester.tap(find.byKey(actionKey));
+      await tester.pumpAndSettle();
+
+      // The action ran; the pane stayed expanded (tap did not bubble to the
+      // header toggle).
+      expect(tapped, 1);
+      expect(find.text('body'), findsOneWidget);
+      expect(find.byIcon(Symbols.expand_more_rounded), findsOneWidget);
+    });
+
+    testWidgets('header layout order: twisty -> title -> infoTooltip -> '
+        'actions', (tester) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          WorkbenchViewPane(
+            title: 'Hello',
+            collapsible: true,
+            infoTooltip: 'meta',
+            actionsAlwaysVisible: true,
+            actions: [actionWidget],
+            child: const Text('body'),
+          ),
+        ),
+      );
+      final twistyX = tester.getCenter(
+        find.byIcon(Symbols.expand_more_rounded),
+      ).dx;
+      final titleX = tester.getCenter(find.text('HELLO')).dx;
+      final infoX = tester.getCenter(find.byIcon(Symbols.info_rounded)).dx;
+      final actionX = tester.getCenter(find.byKey(actionKey)).dx;
+      expect(twistyX, lessThan(titleX));
+      expect(titleX, lessThan(infoX));
+      expect(infoX, lessThan(actionX));
+    });
+
+    testWidgets("action vertical center matches the title's", (tester) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          WorkbenchViewPane(
+            title: 'Hello',
+            actionsAlwaysVisible: true,
+            actions: [actionWidget],
+            child: const Text('body'),
+          ),
+        ),
+      );
+      final titleY = tester.getCenter(find.text('HELLO')).dy;
+      final actionY = tester.getCenter(find.byKey(actionKey)).dy;
+      expect((titleY - actionY).abs(), lessThan(1.0));
     });
   });
 
