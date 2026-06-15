@@ -3,7 +3,7 @@ description: >-
   VS Code-style workbench layout shell for Flutter with activity bar,
   sidebar, editor area, tabbed bottom panel, status bar, menu bar, and
   structural primitives. Depends only on Flutter.
-version: 0.5.0
+version: 0.6.0
 
 homepage: https://github.com/repentsinner/workbench_shell
 repository: https://github.com/repentsinner/workbench_shell

@@ -1,3 +1,10 @@
+# [0.6.0](https://github.com/repentsinner/workbench_shell/compare/v0.5.0...v0.6.0) (2026-06-15)
+
+
+### Features
+
+* add hover-revealed header actions to WorkbenchViewPane ([117e15d](https://github.com/repentsinner/workbench_shell/commit/117e15d98d7d5c5b481c98522483d1bbc6eb0fc7))
+
 # [0.5.0](https://github.com/repentsinner/workbench_shell/compare/v0.4.0...v0.5.0) (2026-06-15)
 
 
