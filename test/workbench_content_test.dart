@@ -6,16 +6,16 @@ import 'package:workbench_shell/workbench_shell.dart';
 import 'test_theme.dart';
 
 void main() {
-  group('WorkbenchSection', () {
+  group('WorkbenchViewPane', () {
     testWidgets('renders title uppercased with sectionTitle style', (
       tester,
     ) async {
       await tester.pumpWidget(
         wrapWithTheme(
-          const WorkbenchSection(title: 'Hello', child: Text('body')),
+          const WorkbenchViewPane(title: 'Hello', child: Text('body')),
         ),
       );
-      // §spec:chrome-typography-canon: WorkbenchSection adopts the pane-header canon —
+      // §spec:chrome-typography-canon: WorkbenchViewPane adopts the pane-header canon —
       // titles render uppercase regardless of input casing, parallel
       // to the §spec:tabbed-panel tab-label canon.
       final titleFinder = find.text('HELLO');
@@ -34,9 +34,9 @@ void main() {
         wrapWithTheme(
           const Column(
             children: [
-              WorkbenchSection(title: 'mixed Case', child: SizedBox.shrink()),
-              WorkbenchSection(title: 'all lower', child: SizedBox.shrink()),
-              WorkbenchSection(title: 'ALREADY UP', child: SizedBox.shrink()),
+              WorkbenchViewPane(title: 'mixed Case', child: SizedBox.shrink()),
+              WorkbenchViewPane(title: 'all lower', child: SizedBox.shrink()),
+              WorkbenchViewPane(title: 'ALREADY UP', child: SizedBox.shrink()),
             ],
           ),
         ),
@@ -49,7 +49,7 @@ void main() {
     testWidgets('renders info tooltip when provided', (tester) async {
       await tester.pumpWidget(
         wrapWithTheme(
-          const WorkbenchSection(
+          const WorkbenchViewPane(
             title: 'Hello',
             infoTooltip: 'helpful',
             child: SizedBox.shrink(),
@@ -62,7 +62,7 @@ void main() {
     testWidgets('omits tooltip icon when null', (tester) async {
       await tester.pumpWidget(
         wrapWithTheme(
-          const WorkbenchSection(title: 'Hello', child: SizedBox.shrink()),
+          const WorkbenchViewPane(title: 'Hello', child: SizedBox.shrink()),
         ),
       );
       expect(find.byIcon(Symbols.info_rounded), findsNothing);

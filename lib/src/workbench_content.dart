@@ -25,12 +25,12 @@ BorderSide _contentBorderSide(WorkbenchTheme theme) => theme.borderColor == null
 /// uppercased — the shell owns the transform so consumers cannot
 /// diverge (§spec:capability-boundary canon enforcement, §spec:chrome-typography-canon pane-header semantics) — in
 /// [WorkbenchTheme.sectionTitle] with an optional info tooltip icon.
-class WorkbenchSection extends StatelessWidget {
+class WorkbenchViewPane extends StatelessWidget {
   final String title;
   final Widget child;
   final String? infoTooltip;
 
-  const WorkbenchSection({
+  const WorkbenchViewPane({
     super.key,
     required this.title,
     required this.child,
@@ -69,7 +69,7 @@ class WorkbenchSection extends StatelessWidget {
 }
 
 /// Second-level grouping inside a section. Visually subordinate to
-/// [WorkbenchSection] but still acts as a header.
+/// [WorkbenchViewPane] but still acts as a header.
 class WorkbenchSubsection extends StatelessWidget {
   final String title;
   final Widget child;

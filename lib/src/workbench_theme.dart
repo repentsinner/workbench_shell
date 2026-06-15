@@ -11,7 +11,7 @@ import 'theming/vscode_color_map.dart';
 ///
 /// Carries the tokens needed by the shell widgets (activity bar,
 /// sidebar container, resizers, status bar container) plus the
-/// content primitives ([WorkbenchSection], [WorkbenchCard], form
+/// content primitives ([WorkbenchViewPane], [WorkbenchCard], form
 /// controls, etc.) that sidebars and panels compose.
 ///
 /// Install as a [ThemeExtension] on the app's [ThemeData]. Shell
@@ -758,9 +758,9 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // sidebar / panel part title ("EXPLORER", "SETTINGS") —
       // part.css `.title-label h2`.
       sidebarOrPanelHeading: t(11, FontWeight.w400),
-      // pane header / WorkbenchSection title — paneview.css
+      // pane header / WorkbenchViewPane title — paneview.css
       // `.pane-header` (11 / bold / uppercase). The uppercase
-      // transform lives in WorkbenchSection's rendering, not the
+      // transform lives in WorkbenchViewPane's rendering, not the
       // token literal.
       sectionTitle: t(11, FontWeight.w700),
       // workbench body content — part.css `.part > .content`.
