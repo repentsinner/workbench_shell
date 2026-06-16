@@ -562,8 +562,13 @@ position from where it began (overshooting a clamp parks the sash at the
 limit and it re-tracks without offset); the cursor is bidirectional while
 the sash can move both ways and a single-direction arrow at each limit
 (matching VS Code's `ew-resize`/`ns-resize` and `minimum`/`maximum`
-cursors); and the sash paints a two-level highlight — a subtler tint on
-hover, the full `sash.hoverBackground` color while dragging.
+cursors); and the sash paints a two-level highlight — a centered band of
+the canonical hover size in `WorkbenchTheme.sashHoverBorder` (VS Code's
+`sash.hoverBorder`), a subtler tint on hover and the full color while
+dragging. The sash owns its hit-target thickness and band size
+(§spec:layout-constants — VS Code's `--vscode-sash-size` /
+`--vscode-sash-hover-size`), so no call site picks an arbitrary width and
+all three seams render identically.
 
 ### WorkbenchTabbedPanel and WorkbenchPanelTab §spec:tabbed-panel
 

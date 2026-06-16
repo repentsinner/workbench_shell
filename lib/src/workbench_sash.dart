@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'layout_constants.dart';
 import 'workbench_theme.dart';
 
 /// Canonical resize sash for the workbench's resizable seams — the sidebar
@@ -19,7 +20,7 @@ import 'workbench_theme.dart';
 ///   the cursor so it stays correct when the pointer overshoots off the thin
 ///   sash strip. The gesture is already captured, so the overlay only paints
 ///   the cursor.
-/// - **Two-level highlight**: the sash paints `WorkbenchTheme.sashHoverBackground`
+/// - **Two-level highlight**: the sash paints `WorkbenchTheme.sashHoverBorder`
 ///   over its strip — a subtler tint on hover, the full color while dragging.
 ///   VS Code uses one `sash.hoverBorder` color for both states (hover after a
 ///   delay, active immediately); the hover/drag opacity split gives that
@@ -180,23 +181,33 @@ class _WorkbenchSashState extends State<WorkbenchSash> {
     super.dispose();
   }
 
-  /// The hover/drag highlight that paints over the strip: full color while
-  /// dragging, half-alpha on hover. Null when the seam is idle or the theme
-  /// suppresses the color.
+  /// The hover/drag highlight: a centered band of
+  /// [WorkbenchLayoutConstants.sashHoverSize] along the boundary, full color
+  /// while dragging and half-alpha on hover (VS Code's `sash.hoverBorder`).
+  /// Null when the seam is idle or the theme suppresses the color.
   Widget? _highlight(BuildContext context) {
     if (!_hovering && !_dragging) return null;
-    final base = Theme.of(context).extension<WorkbenchTheme>()?.sashHoverBackground;
+    final base = Theme.of(context).extension<WorkbenchTheme>()?.sashHoverBorder;
     if (base == null) return null;
     final color = _dragging ? base : base.withValues(alpha: base.a * 0.5);
+    const band = WorkbenchLayoutConstants.sashHoverSize;
     return Positioned.fill(
-      child: IgnorePointer(child: ColoredBox(color: color)),
+      child: IgnorePointer(
+        child: Align(
+          child: SizedBox(
+            width: widget.axis == Axis.horizontal ? band : double.infinity,
+            height: widget.axis == Axis.horizontal ? double.infinity : band,
+            child: ColoredBox(color: color),
+          ),
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final highlight = _highlight(context);
-    return MouseRegion(
+    final strip = MouseRegion(
       cursor:
           widget.hoverCursor ??
           _cursorFor(widget.value, widget.min, widget.max),
@@ -212,6 +223,15 @@ class _WorkbenchSashState extends State<WorkbenchSash> {
             ? widget.child
             : Stack(children: [widget.child, highlight]),
       ),
+    );
+    // The sash owns its cross-axis thickness so call sites can't pick an
+    // arbitrary width — every seam is the canonical sash size
+    // (§spec:workbench-layout). The main axis fills the boundary it sits on.
+    const size = WorkbenchLayoutConstants.sashSize;
+    return SizedBox(
+      width: widget.axis == Axis.horizontal ? size : null,
+      height: widget.axis == Axis.horizontal ? null : size,
+      child: strip,
     );
   }
 }

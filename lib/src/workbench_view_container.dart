@@ -175,10 +175,6 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
     view.onExpandedChanged?.call(next);
   }
 
-  /// Vertical grab band on a pane boundary — wide enough to catch the pointer
-  /// without overlapping the header's controls.
-  static const double _sashHitHeight = 6.0;
-
   /// Pair total captured when the active sash drag begins, so [_sashedPane]'s
   /// `onChanged` sets the lower body to `pair - newUpper` and leaves the other
   /// panes untouched.
@@ -216,10 +212,11 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
       children: [
         pane,
         Positioned(
+          // Height owned by WorkbenchSash (sashSize); a thin grab strip on the
+          // pane's top boundary.
           top: 0,
           left: 0,
           right: 0,
-          height: _sashHitHeight,
           child: WorkbenchSash(
             key: ValueKey('workbench-view-sash-$lowerId'),
             axis: Axis.vertical,

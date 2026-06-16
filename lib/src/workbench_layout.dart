@@ -229,8 +229,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
                                   top: -WorkbenchLayoutConstants.splitterWidth,
                                   left: 0,
                                   right: 0,
-                                  height: WorkbenchLayoutConstants
-                                      .resizerHitTargetSize,
+                                  // Height owned by WorkbenchSash (sashSize).
                                   child: _buildHorizontalResizer(theme),
                                 ),
                               ],
@@ -269,8 +268,9 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       max: WorkbenchLayoutConstants.sidebarMaxWidth,
       growSign: 1,
       onChanged: (next) => setState(() => _sidebarWidth = next),
+      // WorkbenchSash owns the strip width; the child is the seam background
+      // plus the idle hairline.
       child: Container(
-        width: WorkbenchLayoutConstants.resizerHitTargetSize,
         color: theme.sideBarBackground,
         child: _buildSidebarResizerOverlay(theme),
       ),

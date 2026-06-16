@@ -86,7 +86,7 @@ void main() {
       MaterialApp(
         theme: ThemeData.dark().copyWith(
           extensions: [
-            testWorkbenchTheme.copyWith(sashHoverBackground: sashColor),
+            testWorkbenchTheme.copyWith(sashHoverBorder: sashColor),
           ],
         ),
         home: Scaffold(
