@@ -898,8 +898,17 @@ class _SidebarBodyPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
+    // Canon body density: VS Code tree rows sit near-flush under the header
+    // with a modest left indent — not a generous all-around inset. The shell
+    // makes the body flush (§spec:view-stack); the host content owns this
+    // padding, so the example keeps it tight.
     return Padding(
-      padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingLg),
+      padding: const EdgeInsets.fromLTRB(
+        WorkbenchLayoutConstants.spacingLg,
+        WorkbenchLayoutConstants.spacingXs,
+        WorkbenchLayoutConstants.spacingLg,
+        WorkbenchLayoutConstants.spacingMd,
+      ),
       child: Text(text, style: theme.bodyStyle),
     );
   }
