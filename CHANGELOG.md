@@ -1,3 +1,10 @@
+## [0.8.1](https://github.com/repentsinner/workbench_shell/compare/v0.8.0...v0.8.1) (2026-06-16)
+
+
+### Bug Fixes
+
+* **view-stack:** reserve twisty space so non-collapsible titles align ([919094f](https://github.com/repentsinner/workbench_shell/commit/919094fc2ad3dc4991d8732584497531d58fcb04))
+
 # [0.8.0](https://github.com/repentsinner/workbench_shell/compare/v0.7.0...v0.8.0) (2026-06-16)
 
 
