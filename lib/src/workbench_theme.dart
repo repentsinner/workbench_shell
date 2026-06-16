@@ -143,7 +143,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   final Color focusBorder;
 
   // ---- Sash (resizer drag handle) ----
-  final Color sashHoverBackground;
+  final Color sashHoverBorder;
 
   // ---- Menu bar (Windows/Linux in-window fallback strip) ----
   //
@@ -362,7 +362,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.listHoverBackground,
     required this.listActiveSelectionBackground,
     required this.focusBorder,
-    required this.sashHoverBackground,
+    required this.sashHoverBorder,
     required this.menuBarBackground,
     required this.menuBarForeground,
     required this.menuBarHoverBackground,
@@ -683,7 +683,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       ),
       // Focus / sash
       focusBorder: accentFg,
-      sashHoverBackground: map.resolve('sash.hoverBackground', accentFg),
+      sashHoverBorder: map.resolve('sash.hoverBorder', accentFg),
       // Menu bar (Windows/Linux in-window strip).
       // VS Code stops at `titleBar.activeBackground` for the strip
       // itself; individual menu items read `menubar.*` and `menu.*`.
@@ -904,7 +904,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? listHoverBackground,
     Color? listActiveSelectionBackground,
     Color? focusBorder,
-    Color? sashHoverBackground,
+    Color? sashHoverBorder,
     Color? menuBarBackground,
     Color? menuBarForeground,
     Color? menuBarHoverBackground,
@@ -1028,7 +1028,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       listActiveSelectionBackground:
           listActiveSelectionBackground ?? this.listActiveSelectionBackground,
       focusBorder: focusBorder ?? this.focusBorder,
-      sashHoverBackground: sashHoverBackground ?? this.sashHoverBackground,
+      sashHoverBorder: sashHoverBorder ?? this.sashHoverBorder,
       menuBarBackground: menuBarBackground ?? this.menuBarBackground,
       menuBarForeground: menuBarForeground ?? this.menuBarForeground,
       menuBarHoverBackground:
@@ -1220,7 +1220,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         other.listActiveSelectionBackground,
       ),
       focusBorder: c(focusBorder, other.focusBorder),
-      sashHoverBackground: c(sashHoverBackground, other.sashHoverBackground),
+      sashHoverBorder: c(sashHoverBorder, other.sashHoverBorder),
       menuBarBackground: c(menuBarBackground, other.menuBarBackground),
       menuBarForeground: c(menuBarForeground, other.menuBarForeground),
       menuBarHoverBackground: c(
@@ -1393,7 +1393,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           listActiveSelectionBackground ==
               other.listActiveSelectionBackground &&
           focusBorder == other.focusBorder &&
-          sashHoverBackground == other.sashHoverBackground &&
+          sashHoverBorder == other.sashHoverBorder &&
           menuBarBackground == other.menuBarBackground &&
           menuBarForeground == other.menuBarForeground &&
           menuBarHoverBackground == other.menuBarHoverBackground &&
@@ -1503,7 +1503,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     listHoverBackground,
     listActiveSelectionBackground,
     focusBorder,
-    sashHoverBackground,
+    sashHoverBorder,
     menuBarBackground,
     menuBarForeground,
     menuBarHoverBackground,

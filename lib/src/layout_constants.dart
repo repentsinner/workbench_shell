@@ -34,9 +34,6 @@ class WorkbenchLayoutConstants {
   /// Status bar height. VS Code `statusbarpart.css` `height: 22px`.
   static const double statusBarHeight = 22.0;
 
-  /// Splitter width (drag handle for sidebar/panel resizers).
-  static const double splitterWidth = 2.0;
-
   // ==================== SPACING SCALE ====================
 
   /// 2px — hairline gaps (e.g. between axis label and value).
@@ -111,8 +108,13 @@ class WorkbenchLayoutConstants {
   /// same way, with no separate vertical padding constants.
   static const double panelTabStripHeight = 35.0;
 
-  /// Width/height of the resizer drag-target zone.
-  static const double resizerHitTargetSize = 4.0;
+  /// Cross-axis thickness of a resize sash's hit target — VS Code's
+  /// `--vscode-sash-size`. Owned by `WorkbenchSash` so every seam is identical.
+  static const double sashSize = 4.0;
+
+  /// Cross-axis thickness of a sash's hover/drag highlight band, centered in
+  /// the hit target — VS Code's `--vscode-sash-hover-size`.
+  static const double sashHoverSize = 4.0;
 
   /// Active-indicator border width on activity bar icons.
   static const double activityBarIndicatorWidth = 2.0;
