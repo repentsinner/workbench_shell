@@ -1,3 +1,17 @@
+# [0.10.0](https://github.com/repentsinner/workbench_shell/compare/v0.9.0...v0.10.0) (2026-06-16)
+
+
+### Bug Fixes
+
+* **sash:** panel sash renders full width, not half ([9c56462](https://github.com/repentsinner/workbench_shell/commit/9c564622ab904b6fb480e51b263b79d92c68ce69))
+* **sash:** sidebar sash is transparent at rest, matching canon ([f51ec1a](https://github.com/repentsinner/workbench_shell/commit/f51ec1a995e6e7f24975747997eb2d9b6ecbf91d))
+
+
+### Features
+
+* **sash:** canonical sash.hoverBorder token, centered band, owned size ([2e9f4e6](https://github.com/repentsinner/workbench_shell/commit/2e9f4e6c998527247a153d0a7a7943aff3c586a3))
+* **sash:** migrate view-pane sash to WorkbenchSash; add hover/drag highlight ([701b8cd](https://github.com/repentsinner/workbench_shell/commit/701b8cdd841b8dc1d2a913486e5524d1967a39ec))
+
 # [0.9.0](https://github.com/repentsinner/workbench_shell/compare/v0.8.2...v0.9.0) (2026-06-16)
 
 
