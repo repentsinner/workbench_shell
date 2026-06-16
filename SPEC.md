@@ -309,8 +309,7 @@ and scrolling internally. It also cannot express sash-resize, which *is*
 re-apportionment of a fixed height: a sash drag trades height between two
 adjacent panes through the same mechanism that distributes it. The
 splitview is the only model that yields both the per-pane scroll
-behavior and a sash-ready sizing layer, so the container is a splitview
-from the start even before sashes ship (staged below).
+behavior and the sash sizing layer.
 
 **Collapsibility is derived from view count, not a host flag**: the
 container decides whether each pane can collapse, matching VS Code
@@ -330,15 +329,24 @@ non-collapsible and produce an incoherent stack
 §spec:section-disclosure; only the *collapsible* decision moves to the
 container.
 
-**Resize and reorder are in the target, staged**: VS Code lets the user
-drag the divider between two panes to resize them and drag a header to
-reorder panes within a container. Both belong in the aligned model but
-are separable from the core stack — a splitview with default proportional
-sizing and fixed order is already useful and testable — so they may land
-as later increments. The core capability is the splitview stack —
-independent collapse, separators, proportional apportionment, and
-per-pane internal scroll — on which sash-resize (re-apportionment between
-adjacent panes) and drag-reorder then build.
+**Sash resize re-apportions between two neighbors**: a draggable sash sits
+on the boundary an expanded pane shares with its nearest expanded neighbor
+above, marked by a resize-row cursor. Dragging it transfers body height
+from one pane to the other, clamped so neither body falls below the
+minimum body height. The result persists: the container records the two
+panes' user-set body heights and holds them across rebuilds, so the manual
+proportions override the even default until the expanded set changes. A
+collapse or expand changes the body pool and its membership, so the stored
+heights no longer divide it — the container drops them and the new set
+re-apportions evenly, the same redistribution collapse already performs. A
+collapsed pane has no body boundary, so it carries no sash and is never a
+sash neighbor.
+
+**Reorder is in the target, staged**: VS Code also lets the user drag a
+header to reorder panes within a container. It belongs in the aligned
+model but is separable from the core stack — fixed order is already useful
+and testable — so it may land as a later increment, building on the
+splitview stack.
 
 **Container selection mirrors today's section navigation**: the activity
 bar selects the active view container, controlled or uncontrolled — the
@@ -368,6 +376,10 @@ Reselecting the active container toggles sidebar visibility, unchanged.
   allotment. The whole stack scrolls together only as an overflow
   fallback — when the expanded panes cannot fit at their minimum body
   heights.
+- Dragging the sash on the boundary between two adjacent expanded panes
+  transfers body height between them, clamped at each pane's minimum body
+  height; the new proportions hold across rebuilds and reset to even when
+  a pane collapses or expands. A collapsed pane carries no sash.
 - The activity bar selects the active view container (controlled or
   uncontrolled); reselecting the active container toggles sidebar
   visibility.

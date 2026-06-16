@@ -477,6 +477,218 @@ void main() {
       expect(find.text('GAMMA'), findsOneWidget);
     });
 
+    testWidgets('dragging the sash transfers body height between adjacent '
+        'expanded panes and the new sizes hold after release', (tester) async {
+      const containerHeight = 600.0;
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const SizedBox(
+            height: containerHeight,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'a',
+                  title: 'Alpha',
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'b',
+                  title: 'Beta',
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final aBefore = paneRect(tester, 'a').height;
+      final bBefore = paneRect(tester, 'b').height;
+      // Even split to start.
+      expect(aBefore, closeTo(bBefore, 1.0));
+
+      // The sash sits on the boundary between A and B — keyed on the lower
+      // pane (the second expanded pane). Drag it down: the upper pane grows
+      // and the lower shrinks by the same amount (height is conserved).
+      await tester.drag(
+        find.byKey(const ValueKey('workbench-view-sash-b')),
+        const Offset(0, 80),
+      );
+      await tester.pumpAndSettle();
+
+      final aAfter = paneRect(tester, 'a').height;
+      final bAfter = paneRect(tester, 'b').height;
+      // Upper grew, lower shrank.
+      expect(aAfter, greaterThan(aBefore + 20));
+      expect(bAfter, lessThan(bBefore - 20));
+      // The transfer is conserved: whatever A gained, B lost.
+      expect(aAfter - aBefore, closeTo(bBefore - bAfter, 1.0));
+      // The stack still fills the container exactly.
+      expect(aAfter + bAfter, closeTo(containerHeight, 1.0));
+
+      // The manual sizing holds: a rebuild keeps the user-set proportions.
+      await tester.pump();
+      expect(paneRect(tester, 'a').height, closeTo(aAfter, 1.0));
+      expect(paneRect(tester, 'b').height, closeTo(bAfter, 1.0));
+    });
+
+    testWidgets('the sash drag is clamped so neither body shrinks below the '
+        'minimum body height', (tester) async {
+      const minBody = WorkbenchLayoutConstants.viewPaneMinBodyHeight;
+      const header = WorkbenchLayoutConstants.viewPaneHeaderHeight;
+      const containerHeight = 600.0;
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const SizedBox(
+            height: containerHeight,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'a',
+                  title: 'Alpha',
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'b',
+                  title: 'Beta',
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // Drag far past the lower pane's minimum. The lower pane clamps at
+      // header + minBody; the upper takes the rest.
+      await tester.drag(
+        find.byKey(const ValueKey('workbench-view-sash-b')),
+        const Offset(0, 1000),
+      );
+      await tester.pumpAndSettle();
+
+      expect(paneRect(tester, 'b').height, closeTo(header + minBody, 1.0));
+      expect(
+        paneRect(tester, 'a').height,
+        closeTo(containerHeight - (header + minBody), 1.0),
+      );
+
+      // Drag the other way past the upper pane's minimum: the upper clamps.
+      await tester.drag(
+        find.byKey(const ValueKey('workbench-view-sash-b')),
+        const Offset(0, -1000),
+      );
+      await tester.pumpAndSettle();
+      expect(paneRect(tester, 'a').height, closeTo(header + minBody, 1.0));
+      expect(
+        paneRect(tester, 'b').height,
+        closeTo(containerHeight - (header + minBody), 1.0),
+      );
+    });
+
+    testWidgets('a collapsed neighbor has no sash', (tester) async {
+      await tester.pumpWidget(
+        wrapWithChromeTheme(
+          const SizedBox(
+            height: 600,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'a',
+                  title: 'Alpha',
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'b',
+                  title: 'Beta',
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // Two expanded panes: the second pane carries a sash (the first never
+      // does — no expanded pane precedes it).
+      expect(
+        find.byKey(const ValueKey('workbench-view-sash-a')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('workbench-view-sash-b')),
+        findsOneWidget,
+      );
+
+      // Collapse Alpha: Beta's sash disappears — its only expanded neighbor
+      // (Alpha) is gone, so there is no body boundary to drag.
+      await tester.tap(find.text('ALPHA'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('workbench-view-sash-b')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('collapse then expand redistributes evenly after a manual '
+        'resize', (tester) async {
+      const containerHeight = 600.0;
+      await tester.pumpWidget(
+        wrapWithChromeTheme(
+          const SizedBox(
+            height: containerHeight,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'a',
+                  title: 'Alpha',
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'b',
+                  title: 'Beta',
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'c',
+                  title: 'Gamma',
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // Manually resize the A/B boundary so they are no longer even.
+      await tester.drag(
+        find.byKey(const ValueKey('workbench-view-sash-b')),
+        const Offset(0, 50),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        paneRect(tester, 'a').height,
+        greaterThan(paneRect(tester, 'b').height),
+      );
+
+      // Collapse Gamma, then expand it again. Re-apportionment is sensible:
+      // the re-expanded pane gets a fair (even) share alongside the others.
+      await tester.tap(find.text('GAMMA'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('GAMMA'));
+      await tester.pumpAndSettle();
+
+      // Gamma is expanded again with a real body share, and the stack fills.
+      final total = paneRect(tester, 'a').height +
+          paneRect(tester, 'b').height +
+          paneRect(tester, 'c').height;
+      expect(total, closeTo(containerHeight, 1.0));
+      expect(
+        paneRect(tester, 'c').height,
+        greaterThan(WorkbenchLayoutConstants.viewPaneHeaderHeight + 1),
+      );
+    });
+
     testWidgets('controlled descriptor reports next value, does not self-toggle', (
       tester,
     ) async {

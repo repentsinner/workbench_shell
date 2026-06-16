@@ -5,22 +5,6 @@ documented gap between the current implementation and SPEC.md.
 Workstreams are sized to fit one agent session; rationale and
 design decisions live in the cited spec sections, not here.
 
-## View Pane Sash Resize §road:view-stack-sash
-
-Let the user drag the divider between two adjacent panes to re-apportion
-height between them — the same splitview resize mechanism (§spec:view-stack).
-
-### Resize adjacent panes by dragging the divider §road:sash-resize
-
-Add a draggable sash on the boundary between adjacent expanded panes in
-`lib/src/workbench_view_container.dart` that trades apportioned height
-between the two within their minimum/maximum body bands. §spec:view-stack.
-
-**Verify:** Run the example; drag the divider between two Explorer panes —
-the upper pane grows and the lower shrinks (or vice versa), clamped at
-their minimum body heights, and the new proportions hold after release.
-`flutter analyze` and `flutter test` pass.
-
 ## View Pane Drag Reorder §road:view-stack-reorder
 
 Let the user drag a pane header to reorder panes within a container
