@@ -25,4 +25,5 @@ export 'src/workbench_status_bar.dart';
 export 'src/workbench_tabbed_panel.dart';
 export 'src/workbench_theme.dart';
 export 'src/workbench_theme_controller.dart';
+export 'src/workbench_view_container.dart';
 export 'src/workbench_view_menu.dart';
