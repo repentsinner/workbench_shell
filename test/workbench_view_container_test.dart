@@ -457,31 +457,22 @@ void main() {
         ),
       );
 
-      // The whole stack scrolls as one region: the outer scroll view (the
-      // outermost Scrollable, owning the whole stack) can scroll.
-      final outer = tester.state<ScrollableState>(
-        find
-            .descendant(
-              of: find.byKey(const ValueKey('workbench-view-stack-scroll')),
-              matching: find.byType(Scrollable),
-            )
-            .first,
-      );
+      // The whole stack scrolls as one region: the outer scroll view owns the
+      // stack. Its Scrollable is the outermost match under the stack-scroll key.
+      final outerScrollable = find
+          .descendant(
+            of: find.byKey(const ValueKey('workbench-view-stack-scroll')),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      final outer = tester.state<ScrollableState>(outerScrollable);
       expect(outer.position.maxScrollExtent, greaterThan(0.0));
 
       // Each expanded pane sits at its minimum body height (header + minBody).
       expect(paneRect(tester, 'a').height, closeTo(header + minBody, 1.0));
 
       // Scrolling the outer region keeps the third pane's header reachable.
-      await tester.drag(
-        find
-            .descendant(
-              of: find.byKey(const ValueKey('workbench-view-stack-scroll')),
-              matching: find.byType(Scrollable),
-            )
-            .first,
-        const Offset(0, -300),
-      );
+      await tester.drag(outerScrollable, const Offset(0, -300));
       await tester.pumpAndSettle();
       expect(find.text('GAMMA'), findsOneWidget);
     });
