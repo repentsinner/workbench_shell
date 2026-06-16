@@ -61,6 +61,9 @@ void main() {
     await tester.tap(find.byIcon(Symbols.search_rounded));
     await tester.pumpAndSettle();
 
+    // Search content lives in a named "Results" view pane (header
+    // uppercased per canon), not a raw merged body.
+    expect(find.text('RESULTS'), findsOneWidget);
     expect(
       find.text('Search sidebar — host-supplied content lands here.'),
       findsOneWidget,
@@ -125,6 +128,10 @@ void main() {
     await tester.tap(find.byIcon(Symbols.settings_rounded));
     await tester.pumpAndSettle();
 
+    // Settings content is organized into two named view panes (headers
+    // uppercased per canon): "Appearance" and "Color Theme".
+    expect(find.text('APPEARANCE'), findsOneWidget);
+    expect(find.text('COLOR THEME'), findsOneWidget);
     // Auto-detect checkbox row and the three labelled dropdown slots
     // render, mirroring VS Code's settings layout.
     expect(find.text('Auto detect color scheme'), findsOneWidget);
@@ -145,7 +152,11 @@ void main() {
     await tester.tap(find.byIcon(Symbols.notifications_rounded));
     await tester.pumpAndSettle();
 
-    // Sidebar exposes the trigger buttons.
+    // Content is split across two named view panes (headers uppercased
+    // per canon): "Severities" and "Progress".
+    expect(find.text('SEVERITIES'), findsOneWidget);
+    expect(find.text('PROGRESS'), findsOneWidget);
+    // The Severities pane exposes the trigger buttons.
     expect(find.text('Info'), findsOneWidget);
     expect(find.text('Success'), findsOneWidget);
     expect(find.text('Warning'), findsOneWidget);
@@ -166,6 +177,10 @@ void main() {
 
       await tester.tap(find.byIcon(Symbols.smart_button_rounded));
       await tester.pumpAndSettle();
+
+      // Content lives in a named "Button Tiers" view pane (header
+      // uppercased per canon), not a raw merged body.
+      expect(find.text('BUTTON TIERS'), findsOneWidget);
 
       // Primary (FilledButton), secondary (FilledButton.tonal), and
       // text/link (TextButton) tiers each render once in the review.

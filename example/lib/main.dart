@@ -206,8 +206,14 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   void Function(Object id)? _focusPanelById;
   final NotificationService _notificationService = NotificationService();
 
+  /// Notifications demo state, shared by the "Severities" and "Progress"
+  /// view panes (§spec:view-stack) so both drive the same service.
+  late final _NotificationsDemoController _notificationsDemo =
+      _NotificationsDemoController(_notificationService);
+
   @override
   void dispose() {
+    _notificationsDemo.dispose();
     _notificationService.dispose();
     super.dispose();
   }
@@ -374,9 +380,11 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   }
 
   /// Map an activity-bar container id to its typed view-descriptor spec
-  /// (§spec:view-stack). Explorer is a real three-view stack; the
-  /// single-purpose containers each return one merged view so the body fills
-  /// the sidebar (no lone non-collapsible header).
+  /// (§spec:view-stack). Every container organizes its content into named
+  /// view panes — Explorer, Notifications, and Settings are real multi-pane
+  /// stacks; Search and Buttons are single named panes. None dumps raw
+  /// content into a merged body: the example dogfoods the view-stack the
+  /// shell provides.
   WorkbenchViewContainerSpec _buildContainerSpec(String containerId) {
     switch (containerId) {
       case 'explorer':
@@ -384,81 +392,105 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
           views: _explorerViews(_notificationService),
         );
       case 'search':
-        return _mergedView(
-          id: 'search',
-          title: 'Search',
-          body: (_) => const _SidebarBodyPlaceholder(
-            text: 'Search sidebar — host-supplied content lands here.',
-          ),
+        return const WorkbenchViewContainerSpec(
+          views: [
+            WorkbenchViewDescriptor(
+              id: 'search-results',
+              title: 'Results',
+              bodyBuilder: _searchResultsBody,
+            ),
+          ],
         );
       case 'buttons':
-        return _mergedView(
-          id: 'buttons',
-          title: 'Buttons',
-          body: (_) => const _ButtonsReviewSidebar(),
+        return const WorkbenchViewContainerSpec(
+          views: [
+            WorkbenchViewDescriptor(
+              id: 'button-tiers',
+              title: 'Button Tiers',
+              bodyBuilder: _buttonTiersBody,
+            ),
+          ],
         );
       case 'notifications':
-        return _mergedView(
-          id: 'notifications',
-          title: 'Notifications',
-          body: (_) => _NotificationsDemoSidebar(service: _notificationService),
+        return WorkbenchViewContainerSpec(
+          views: [
+            WorkbenchViewDescriptor(
+              id: 'notification-severities',
+              title: 'Severities',
+              bodyBuilder: (_) =>
+                  _NotificationTriggers(controller: _notificationsDemo),
+            ),
+            WorkbenchViewDescriptor(
+              id: 'notification-progress',
+              title: 'Progress',
+              bodyBuilder: (_) =>
+                  _NotificationProgress(controller: _notificationsDemo),
+            ),
+          ],
         );
       case 'settings':
-        return _mergedView(
-          id: 'settings',
-          title: 'Settings',
-          body: (_) => _SettingsSidebar(themeController: widget.themeController),
+        return WorkbenchViewContainerSpec(
+          views: [
+            WorkbenchViewDescriptor(
+              id: 'settings-appearance',
+              title: 'Appearance',
+              bodyBuilder: (_) =>
+                  _AppearanceSettings(themeController: widget.themeController),
+            ),
+            WorkbenchViewDescriptor(
+              id: 'settings-color-theme',
+              title: 'Color Theme',
+              bodyBuilder: (_) =>
+                  _ColorThemeSettings(themeController: widget.themeController),
+            ),
+          ],
         );
     }
     return const WorkbenchViewContainerSpec(views: []);
   }
-
-  /// A single-purpose container: one merged view whose body fills the
-  /// sidebar, preserving the full-body appearance these sidebars had before
-  /// the view-stack inversion.
-  WorkbenchViewContainerSpec _mergedView({
-    required String id,
-    required String title,
-    required WidgetBuilder body,
-  }) {
-    return WorkbenchViewContainerSpec(
-      mergeSingleView: true,
-      views: [WorkbenchViewDescriptor(id: id, title: title, bodyBuilder: body)],
-    );
-  }
 }
 
-/// Notifications demo sidebar — triggers cards through the
-/// [NotificationService] so an operator can exercise every API
-/// surface from the example app (SPEC §spec:notification-center verify criteria).
-class _NotificationsDemoSidebar extends StatefulWidget {
-  const _NotificationsDemoSidebar({required this.service});
+/// Shared inset for example view-pane bodies — tight under the header per
+/// canon (§spec:view-stack makes the body flush; the host owns this padding).
+const _sidebarBodyPadding = EdgeInsets.fromLTRB(
+  WorkbenchLayoutConstants.spacingLg,
+  WorkbenchLayoutConstants.spacingSm,
+  WorkbenchLayoutConstants.spacingLg,
+  WorkbenchLayoutConstants.spacingLg,
+);
+
+/// "Results" pane body for the Search container.
+Widget _searchResultsBody(BuildContext context) =>
+    const _SidebarBodyPlaceholder(
+      text: 'Search sidebar — host-supplied content lands here.',
+    );
+
+/// "Button Tiers" pane body for the Buttons container.
+Widget _buttonTiersBody(BuildContext context) => const _ButtonsReviewSidebar();
+
+/// Notifications demo controller — holds the demo state (counter, progress
+/// jobs) so the "Severities" and "Progress" view panes both drive the shared
+/// [NotificationService] (SPEC §spec:notification-center verify criteria).
+/// Owned by [_WorkbenchHomeState] and disposed with it.
+class _NotificationsDemoController {
+  _NotificationsDemoController(this.service);
 
   final NotificationService service;
-
-  @override
-  State<_NotificationsDemoSidebar> createState() =>
-      _NotificationsDemoSidebarState();
-}
-
-class _NotificationsDemoSidebarState extends State<_NotificationsDemoSidebar> {
   int _counter = 0;
 
   /// Outstanding progress demos so cancel/cleanup can find them. Keyed
   /// by the controller's notification id.
   final Map<Object, _DemoProgressJob> _jobs = {};
 
-  @override
   void dispose() {
     for (final job in _jobs.values) {
       job.dispose();
     }
     _jobs.clear();
-    super.dispose();
   }
 
   void _show(NotificationSeverity severity, String message) {
-    widget.service.show(severity: severity, message: '$message #${++_counter}');
+    service.show(severity: severity, message: '$message #${++_counter}');
   }
 
   void _showBurst(int count, NotificationSeverity severity) {
@@ -468,7 +500,7 @@ class _NotificationsDemoSidebarState extends State<_NotificationsDemoSidebar> {
   }
 
   void _showOverflowMix() {
-    widget.service.show(
+    service.show(
       severity: NotificationSeverity.warning,
       message: 'Persistent warning — stays in the visible stack',
     );
@@ -481,7 +513,7 @@ class _NotificationsDemoSidebarState extends State<_NotificationsDemoSidebar> {
   /// converts the card to a 6 s success toast via
   /// `complete(successMessage:)`.
   void _showDeterminateProgress() {
-    final controller = widget.service.showProgress(
+    final controller = service.showProgress(
       message: 'Saving project file…',
     );
     final job = _DemoProgressJob(controller);
@@ -492,7 +524,7 @@ class _NotificationsDemoSidebarState extends State<_NotificationsDemoSidebar> {
   /// Indeterminate progress — runs until the demo timer elapses or the
   /// host's `dispose` cleans it up. Demonstrates the spinner variant.
   void _showIndeterminateProgress() {
-    final controller = widget.service.showProgress(
+    final controller = service.showProgress(
       message: 'Refreshing index…',
     );
     final job = _DemoProgressJob(controller);
@@ -504,7 +536,7 @@ class _NotificationsDemoSidebarState extends State<_NotificationsDemoSidebar> {
   /// Cancel, the demo observes the cancellation future and converts
   /// the card to a persistent error toast via `fail`.
   void _showCancellableProgress() {
-    final controller = widget.service.showProgress(
+    final controller = service.showProgress(
       message: 'Long-running upload…',
       cancellable: true,
     );
@@ -515,7 +547,7 @@ class _NotificationsDemoSidebarState extends State<_NotificationsDemoSidebar> {
 
   void _showWithAction() {
     var dismissedId = Object();
-    dismissedId = widget.service.show(
+    dismissedId = service.show(
       severity: NotificationSeverity.info,
       message: 'Tap Undo to dismiss in the same frame',
       actions: [
@@ -525,7 +557,7 @@ class _NotificationsDemoSidebarState extends State<_NotificationsDemoSidebar> {
             // Demonstrate a follow-up notification — the action card
             // is dismissed by the host immediately, so a new card
             // here is the canonical pattern for "keep state visible".
-            widget.service.show(
+            service.show(
               severity: NotificationSeverity.success,
               message: 'Undone (action ran on #${dismissedId.hashCode})',
             );
@@ -535,19 +567,23 @@ class _NotificationsDemoSidebarState extends State<_NotificationsDemoSidebar> {
     );
   }
 
+}
+
+/// "Severities" view pane body — triggers a card of each severity, the
+/// burst/overflow mixes, and an inline-action card via the demo controller.
+class _NotificationTriggers extends StatelessWidget {
+  const _NotificationTriggers({required this.controller});
+
+  final _NotificationsDemoController controller;
+
   @override
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingLg),
+    return Padding(
+      padding: _sidebarBodyPadding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'Notifications',
-            style: theme.sectionTitle.copyWith(color: theme.foreground),
-          ),
-          const SizedBox(height: WorkbenchLayoutConstants.spacingSm),
           Text(
             'Cards anchor bottom-right. Info and success self-dismiss '
             'after 6 s; warning and error persist until dismissed. '
@@ -557,47 +593,75 @@ class _NotificationsDemoSidebarState extends State<_NotificationsDemoSidebar> {
           const SizedBox(height: WorkbenchLayoutConstants.spacingLg),
           _DemoButton(
             label: 'Info',
-            onTap: () => _show(NotificationSeverity.info, 'Info notice'),
+            onTap: () =>
+                controller._show(NotificationSeverity.info, 'Info notice'),
           ),
           _DemoButton(
             label: 'Success',
-            onTap: () => _show(NotificationSeverity.success, 'Saved'),
+            onTap: () =>
+                controller._show(NotificationSeverity.success, 'Saved'),
           ),
           _DemoButton(
             label: 'Warning',
-            onTap: () => _show(NotificationSeverity.warning, 'Heads up'),
+            onTap: () =>
+                controller._show(NotificationSeverity.warning, 'Heads up'),
           ),
           _DemoButton(
             label: 'Error',
-            onTap: () => _show(NotificationSeverity.error, 'Failed'),
+            onTap: () => controller._show(NotificationSeverity.error, 'Failed'),
           ),
           const SizedBox(height: WorkbenchLayoutConstants.spacingLg),
           _DemoButton(
             label: 'Burst: 3 info (stack)',
-            onTap: () => _showBurst(3, NotificationSeverity.info),
+            onTap: () => controller._showBurst(3, NotificationSeverity.info),
           ),
           _DemoButton(
             label: 'Burst: 7 info (overflow)',
-            onTap: () => _showBurst(7, NotificationSeverity.info),
+            onTap: () => controller._showBurst(7, NotificationSeverity.info),
           ),
-          _DemoButton(label: 'Mix: warning + 5 info', onTap: _showOverflowMix),
-          const SizedBox(height: WorkbenchLayoutConstants.spacingLg),
-          _DemoButton(label: 'With action button', onTap: _showWithAction),
+          _DemoButton(
+            label: 'Mix: warning + 5 info',
+            onTap: controller._showOverflowMix,
+          ),
           const SizedBox(height: WorkbenchLayoutConstants.spacingLg),
           _DemoButton(
+            label: 'With action button',
+            onTap: controller._showWithAction,
+          ),
+          const SizedBox(height: WorkbenchLayoutConstants.spacingLg),
+          _DemoButton(label: 'Clear all', onTap: controller.service.clear),
+        ],
+      ),
+    );
+  }
+}
+
+/// "Progress" view pane body — long-running progress cards (determinate,
+/// indeterminate, cancellable) via the demo controller.
+class _NotificationProgress extends StatelessWidget {
+  const _NotificationProgress({required this.controller});
+
+  final _NotificationsDemoController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: _sidebarBodyPadding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _DemoButton(
             label: 'Progress: determinate (5 s → success)',
-            onTap: _showDeterminateProgress,
+            onTap: controller._showDeterminateProgress,
           ),
           _DemoButton(
             label: 'Progress: indeterminate (4 s → success)',
-            onTap: _showIndeterminateProgress,
+            onTap: controller._showIndeterminateProgress,
           ),
           _DemoButton(
             label: 'Progress: cancellable (cancel → error)',
-            onTap: _showCancellableProgress,
+            onTap: controller._showCancellableProgress,
           ),
-          const SizedBox(height: WorkbenchLayoutConstants.spacingLg),
-          _DemoButton(label: 'Clear all', onTap: widget.service.clear),
         ],
       ),
     );
@@ -624,16 +688,48 @@ class _DemoButton extends StatelessWidget {
   }
 }
 
-/// Settings sidebar — exposes the brightness-paired theme controls
-/// driven by [WorkbenchThemeController], mirroring VS Code's own
-/// settings layout: an "Auto detect color scheme" checkbox plus three
-/// dropdown fields ("Color theme", "Preferred dark color theme",
-/// "Preferred light color theme"). When auto-detect is on, the
-/// "Color theme" field is disabled and the active theme is paired to
-/// system brightness via the two preferred slots; when off, the
-/// active theme is whatever the "Color theme" dropdown picks.
-class _SettingsSidebar extends StatelessWidget {
-  const _SettingsSidebar({required this.themeController});
+/// "Appearance" view pane body — the "Auto detect color scheme" toggle,
+/// driven by [WorkbenchThemeController] (mirrors VS Code's settings layout).
+class _AppearanceSettings extends StatelessWidget {
+  const _AppearanceSettings({required this.themeController});
+
+  final WorkbenchThemeController themeController;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: themeController,
+      builder: (context, _) {
+        final isSystem = themeController.themeMode == ThemeMode.system;
+        return Padding(
+          padding: _sidebarBodyPadding,
+          child: _AutoDetectToggle(
+            isOn: isSystem,
+            onChanged: (next) {
+              if (next) {
+                themeController.themeMode = ThemeMode.system;
+              } else {
+                // Pin to whichever brightness is currently displayed so
+                // flipping auto-detect off doesn't visibly swap the theme.
+                themeController.themeMode =
+                    themeController.brightness == Brightness.light
+                    ? ThemeMode.light
+                    : ThemeMode.dark;
+              }
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// "Color Theme" view pane body — the active-theme dropdown plus the
+/// preferred dark/light slots, driven by [WorkbenchThemeController]. When
+/// auto-detect is on, the "Color theme" field is disabled and the active
+/// theme is paired to system brightness via the two preferred slots.
+class _ColorThemeSettings extends StatelessWidget {
+  const _ColorThemeSettings({required this.themeController});
 
   final WorkbenchThemeController themeController;
 
@@ -649,28 +745,11 @@ class _SettingsSidebar extends StatelessWidget {
         final darkThemes = themeController.availableThemes
             .where((e) => e.brightness == Brightness.dark)
             .toList();
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingLg),
+        return Padding(
+          padding: _sidebarBodyPadding,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _AutoDetectToggle(
-                isOn: isSystem,
-                onChanged: (next) {
-                  if (next) {
-                    themeController.themeMode = ThemeMode.system;
-                  } else {
-                    // Pin to whichever brightness is currently
-                    // displayed so flipping auto-detect off doesn't
-                    // visibly change the active theme.
-                    themeController.themeMode =
-                        themeController.brightness == Brightness.light
-                        ? ThemeMode.light
-                        : ThemeMode.dark;
-                  }
-                },
-              ),
-              const SizedBox(height: WorkbenchLayoutConstants.spacingXl),
               _ThemeDropdownField(
                 label: 'Color theme',
                 description:
@@ -1007,16 +1086,11 @@ class _ButtonsReviewSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingLg),
+    return Padding(
+      padding: _sidebarBodyPadding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'VS Code buttons',
-            style: theme.sectionTitle.copyWith(color: theme.foreground),
-          ),
-          const SizedBox(height: WorkbenchLayoutConstants.spacingSm),
           Text(
             'The three VS Code button tiers, themed by applyWorkbenchChrome: '
             'a primary (accent fill), a secondary (neutral fill), and a '
