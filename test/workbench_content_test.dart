@@ -551,6 +551,27 @@ void main() {
       expect(topSide.width, 1.0);
     });
 
+    testWidgets('body sits flush under the header (no top inset)', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWith(
+          themeWith(background: band, border: rule),
+          const WorkbenchViewPane(title: 'Hello', child: Text('BODY')),
+        ),
+      );
+      // The only decorated Container in a bare pane is the header band.
+      final header = find.byWidgetPredicate(
+        (w) => w is Container && w.decoration is BoxDecoration,
+      );
+      expect(header, findsOneWidget);
+      // VS Code's `.pane-body` has no top inset: the body's top is flush with
+      // the header's bottom (§spec:view-stack), not a spacing gap below it.
+      final headerBottom = tester.getBottomLeft(header).dy;
+      final bodyTop = tester.getTopLeft(find.text('BODY')).dy;
+      expect(bodyTop - headerBottom, closeTo(0, 0.5));
+    });
+
     testWidgets('header sits at the pane-header height (rule absorbed)', (
       tester,
     ) async {

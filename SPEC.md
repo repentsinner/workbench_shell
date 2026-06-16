@@ -261,10 +261,14 @@ owns the stacking, the headers, and the chrome between bodies.
   header stays visible; a collapsed pane shows only its header.
   Collapsing a pane frees its body height to the remaining expanded
   panes, which absorb the space; a collapsed pane occupies only its
-  header height.
+  header height. A pane's body sits flush under its header — VS Code's
+  `.pane-body` has no top inset; the host body owns any padding.
 - Adjacent panes are separated by chrome on the header, not whitespace:
-  each header paints a section-header background band and a 1px top
-  rule. Both come from `WorkbenchTheme` tokens mapped from VS Code's
+  each header paints a section-header background band, and a 1px top
+  rule separates *adjacent* panes. The **first** pane in a container
+  omits the rule — VS Code draws no divider above the first pane (and
+  none between the container's own header and the first pane). Both
+  come from `WorkbenchTheme` tokens mapped from VS Code's
   `sideBarSectionHeader.background` and `sideBarSectionHeader.border`,
   each nullable so a theme that omits the token suppresses that paint
   (§spec:theming, following the existing nullable-border pattern). These
@@ -315,9 +319,10 @@ Reselecting the active container toggles sidebar visibility, unchanged.
   view descriptors; the host supplies no sidebar-body widget and no
   per-view collapsible flag.
 - Panes stack flush at the view-pane header height with no inter-pane
-  gap; adjacent panes are separated by a header background band and a
-  1px top rule, each nullable per theme and rendered in the bundled
-  default themes.
+  gap, and each body sits flush under its header; adjacent panes are
+  separated by a header background band and a 1px top rule (each
+  nullable per theme, rendered in the bundled default themes). The
+  first pane in a container omits the top rule.
 - Whether a pane is collapsible is derived from the container's view
   count: multiple views → all collapsible; a single view → non-collapsible,
   or merged (header hidden, body fills) by container option.

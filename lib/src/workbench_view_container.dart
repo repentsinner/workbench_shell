@@ -161,7 +161,8 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final children = <Widget>[];
-        for (final view in views) {
+        for (var i = 0; i < views.length; i++) {
+          final view = views[i];
           final expanded = _isExpanded(view);
           children.add(
             _ViewStackChild(
@@ -173,6 +174,9 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
                 actions: view.actions,
                 actionsAlwaysVisible: view.actionsAlwaysVisible,
                 collapsible: collapsible,
+                // The rule separates adjacent panes; the first pane omits it
+                // (no divider above the first pane — §spec:view-stack).
+                showTopRule: i > 0,
                 expanded: expanded,
                 onExpandedChanged: (next) => _handleToggle(view, next),
                 child: Builder(builder: view.bodyBuilder),

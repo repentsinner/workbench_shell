@@ -72,6 +72,13 @@ class WorkbenchViewPane extends StatefulWidget {
   /// constructor fixes it false; [WorkbenchViewPane.inContainer] sets it.
   final bool collapsible;
 
+  /// Whether the header paints its 1px top rule. The rule separates
+  /// *adjacent* panes, so the first pane in a container omits it — VS Code
+  /// draws no divider above the first pane (§spec:view-stack). Container-set:
+  /// [WorkbenchViewContainer] passes false for the first view. The background
+  /// band is unaffected.
+  final bool showTopRule;
+
   /// Initial expansion for uncontrolled (no [expanded]) collapsible panes.
   final bool initiallyExpanded;
 
@@ -97,7 +104,8 @@ class WorkbenchViewPane extends StatefulWidget {
     this.initiallyExpanded = true,
     this.expanded,
     this.onExpandedChanged,
-  }) : collapsible = false;
+  }) : collapsible = false,
+       showTopRule = true;
 
   /// Library-internal seam (§spec:view-stack). [WorkbenchViewContainer] uses
   /// this to pass the collapsibility it derives from view count. `@internal`
@@ -110,6 +118,7 @@ class WorkbenchViewPane extends StatefulWidget {
     required this.title,
     required this.child,
     required this.collapsible,
+    this.showTopRule = true,
     this.infoTooltip,
     this.actions = const [],
     this.actionsAlwaysVisible = false,
@@ -172,7 +181,7 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
       height: WorkbenchLayoutConstants.viewPaneHeaderHeight,
       decoration: BoxDecoration(
         color: band,
-        border: rule == null
+        border: (rule == null || !widget.showTopRule)
             ? null
             : Border(top: BorderSide(color: rule)),
       ),
@@ -272,10 +281,9 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         headerSurface,
-        if (!widget.collapsible || _isExpanded) ...[
-          const SizedBox(height: WorkbenchLayoutConstants.spacingMd),
-          widget.child,
-        ],
+        // Body sits flush under the header — VS Code's `.pane-body` has no top
+        // inset; the host body owns any padding (§spec:view-stack).
+        if (!widget.collapsible || _isExpanded) widget.child,
       ],
     );
   }

@@ -73,6 +73,55 @@ void main() {
       expect(betaTop, greaterThan(alphaTop));
     });
 
+    testWidgets('first pane omits the top rule; later panes draw it', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithChromeTheme(
+          SizedBox(
+            height: 600,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'a',
+                  title: 'Alpha',
+                  bodyBuilder: (_) => const Text('body-a'),
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'b',
+                  title: 'Beta',
+                  bodyBuilder: (_) => const Text('body-b'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      BoxDecoration decoFor(String title) {
+        return tester
+                .widgetList<Container>(
+                  find.ancestor(
+                    of: find.text(title),
+                    matching: find.byType(Container),
+                  ),
+                )
+                .firstWhere((c) => c.decoration is BoxDecoration)
+                .decoration!
+            as BoxDecoration;
+      }
+
+      final first = decoFor('ALPHA');
+      final second = decoFor('BETA');
+      // Both keep the section-header background band.
+      expect(first.color, const Color(0xFF252526));
+      expect(second.color, const Color(0xFF252526));
+      // No divider above the first pane: the first header has no top rule.
+      expect(first.border, isNull);
+      // Adjacent panes are separated: later headers draw the 1px top rule.
+      expect((second.border! as Border).top.color, const Color(0xFF3C3C3C));
+    });
+
     testWidgets('2+ views: every pane collapsible, header shows chevron', (
       tester,
     ) async {
