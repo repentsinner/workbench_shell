@@ -331,9 +331,14 @@ container.
 
 **Sash resize re-apportions between two neighbors**: a draggable sash sits
 on the boundary an expanded pane shares with its nearest expanded neighbor
-above, marked by a resize-row cursor. Dragging it transfers body height
-from one pane to the other, clamped so neither body falls below the
-minimum body height. The result persists: the container records the two
+above. Its cursor mirrors VS Code's horizontal sash — bidirectional while
+the sash can move both ways, and a single-direction arrow once a neighbor
+hits its minimum body height (down at the top limit, up at the bottom).
+Dragging tracks the pointer's *absolute* position from where the drag
+began, not an accumulated delta, so overshooting a clamp parks the sash at
+the limit and it re-tracks the cursor without offset once the pointer
+returns. The drag transfers body height from one pane to the other, clamped
+so neither body falls below the minimum body height. The result persists: the container records the two
 panes' user-set body heights and holds them across rebuilds, so the manual
 proportions override the even default until the expanded set changes. A
 collapse or expand changes the body pool and its membership, so the stored

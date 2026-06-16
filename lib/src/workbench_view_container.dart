@@ -182,6 +182,11 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
   /// instead discards the overshoot and trails the cursor by it.
   _SashDrag? _sashDrag;
 
+  /// Cursor for the drag-time overlay while a sash drag is active. Set from the
+  /// clamp direction so it stays correct when the pointer overshoots off the
+  /// thin sash strip (matching VS Code's drag-time sash cursor).
+  MouseCursor _dragCursor = SystemMouseCursors.resizeUpDown;
+
   /// Begin a sash drag on the boundary above [lowerId], whose nearest expanded
   /// neighbor above is [upperId]. Seeds from the on-screen body heights and the
   /// global pointer Y [pointerY], freezing the basis updates resolve against.
@@ -213,17 +218,50 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
       drag.pair - minBody,
     );
     final newLower = drag.pair - newUpper;
+    // The cursor points the way the sash can still move: at the top limit
+    // (upper body at min) only down remains → down arrow; at the bottom limit
+    // (lower body at min) only up → up arrow; otherwise both. Mirrors VS Code's
+    // horizontal sash (s-resize / n-resize / ns-resize).
+    final cursor = newUpper <= minBody
+        ? SystemMouseCursors.resizeDown
+        : newUpper >= drag.pair - minBody
+        ? SystemMouseCursors.resizeUp
+        : SystemMouseCursors.resizeUpDown;
     if (_manualBody[drag.upperId] == newUpper &&
-        _manualBody[drag.lowerId] == newLower) {
+        _manualBody[drag.lowerId] == newLower &&
+        _dragCursor == cursor) {
       return;
     }
     setState(() {
       _manualBody[drag.upperId] = newUpper;
       _manualBody[drag.lowerId] = newLower;
+      _dragCursor = cursor;
     });
   }
 
-  void _endSash() => _sashDrag = null;
+  void _endSash() {
+    if (_sashDrag == null) return;
+    setState(() {
+      _sashDrag = null;
+      _dragCursor = SystemMouseCursors.resizeUpDown;
+    });
+  }
+
+  /// Hover cursor for a sash, from the persisted neighbor sizes: a pane left at
+  /// its minimum body height (by a prior drag) shows the single-direction arrow
+  /// even before the next drag, matching VS Code's at-limit sash state.
+  MouseCursor _sashCursor(String upperId, String lowerId) {
+    const minBody = WorkbenchLayoutConstants.viewPaneMinBodyHeight;
+    final upper = _manualBody[upperId];
+    final lower = _manualBody[lowerId];
+    if (upper != null && upper <= minBody + 0.5) {
+      return SystemMouseCursors.resizeDown;
+    }
+    if (lower != null && lower <= minBody + 0.5) {
+      return SystemMouseCursors.resizeUp;
+    }
+    return SystemMouseCursors.resizeUpDown;
+  }
 
   /// Drop manual sash sizing when the expanded set differs from the one in
   /// effect when it was last written ([_manualBasis]). The stored heights divide
@@ -295,6 +333,9 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
                     : (pointerY) => _beginSash(upperId, view.id, pointerY),
                 onSashDragUpdate: upperId == null ? null : _updateSash,
                 onSashDragEnd: upperId == null ? null : _endSash,
+                sashCursor: upperId == null
+                    ? null
+                    : _sashCursor(upperId, view.id),
                 child: WorkbenchViewPane.inContainer(
                   title: view.title,
                   infoTooltip: view.infoTooltip,
@@ -322,13 +363,24 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
         // scroll view then has nothing to scroll. It overflows (and the scroll
         // view scrolls the whole stack) only as the minimum-body fallback
         // (§spec:view-stack).
-        return SingleChildScrollView(
+        final stack = SingleChildScrollView(
           key: const ValueKey('workbench-view-stack-scroll'),
           child: _ViewStack(
             key: _stackKey,
             availableHeight: constraints.maxHeight,
             children: children,
           ),
+        );
+        if (_sashDrag == null) return stack;
+        // While a sash drag is active the pointer can overshoot off the thin
+        // sash strip; a full-container cursor overlay keeps the directional
+        // resize cursor showing throughout the drag (the gesture is already
+        // captured, so this only paints the cursor).
+        return Stack(
+          children: [
+            stack,
+            Positioned.fill(child: MouseRegion(cursor: _dragCursor)),
+          ],
         );
       },
     );
@@ -351,6 +403,11 @@ class _SashedPane extends StatelessWidget {
   final ValueChanged<double>? onSashDragStart;
   final ValueChanged<double>? onSashDragUpdate;
   final VoidCallback? onSashDragEnd;
+
+  /// Hover cursor for the grab strip: bidirectional normally, or a single
+  /// direction when a neighbor is already pinned at its minimum body height
+  /// (§spec:view-stack). Null when this pane carries no sash.
+  final MouseCursor? sashCursor;
   final Widget child;
 
   const _SashedPane({
@@ -358,6 +415,7 @@ class _SashedPane extends StatelessWidget {
     required this.onSashDragStart,
     required this.onSashDragUpdate,
     required this.onSashDragEnd,
+    required this.sashCursor,
     required this.child,
   });
 
@@ -378,7 +436,7 @@ class _SashedPane extends StatelessWidget {
           right: 0,
           height: _sashHitHeight,
           child: MouseRegion(
-            cursor: SystemMouseCursors.resizeRow,
+            cursor: sashCursor ?? SystemMouseCursors.resizeUpDown,
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
               onVerticalDragStart: (d) =>

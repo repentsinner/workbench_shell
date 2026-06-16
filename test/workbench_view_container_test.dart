@@ -639,6 +639,61 @@ void main() {
       await gesture.up();
     });
 
+    testWidgets('the sash cursor reflects the clamp direction', (tester) async {
+      const containerHeight = 600.0;
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const SizedBox(
+            height: containerHeight,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'a',
+                  title: 'Alpha',
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'b',
+                  title: 'Beta',
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      MouseCursor sashCursor() => tester
+          .widget<MouseRegion>(
+            find.descendant(
+              of: find.byKey(const ValueKey('workbench-view-sash-b')),
+              matching: find.byType(MouseRegion),
+            ),
+          )
+          .cursor;
+
+      // Free: bidirectional up/down (VS Code ns-resize).
+      expect(sashCursor(), SystemMouseCursors.resizeUpDown);
+
+      // Drag down past the lower pane's minimum: only "up" remains → up arrow
+      // (VS Code n-resize / .maximum).
+      await tester.drag(
+        find.byKey(const ValueKey('workbench-view-sash-b')),
+        const Offset(0, 1000),
+      );
+      await tester.pumpAndSettle();
+      expect(sashCursor(), SystemMouseCursors.resizeUp);
+
+      // Drag up past the upper pane's minimum: only "down" remains → down arrow
+      // (VS Code s-resize / .minimum).
+      await tester.drag(
+        find.byKey(const ValueKey('workbench-view-sash-b')),
+        const Offset(0, -1000),
+      );
+      await tester.pumpAndSettle();
+      expect(sashCursor(), SystemMouseCursors.resizeDown);
+    });
+
     testWidgets('a collapsed neighbor has no sash', (tester) async {
       await tester.pumpWidget(
         wrapWithChromeTheme(
