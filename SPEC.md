@@ -354,12 +354,18 @@ pane, a translucent drop overlay covers the target's top or bottom half — the
 slot the dragged pane would occupy — following VS Code's `ViewPaneDropOverlay`
 UP/DOWN split. The overlay color is the theme's `sideBar.dropBackground`
 (VS Code defaults it to `editorGroup.dropBackground`; a translucent fill the
-pane shows through). On drop the shell reports the move as an `(oldIndex,
-newIndex)` pair; the **host** owns the view order and rebuilds the descriptor
-list, so the reorder persists — the same host-owns-content split the typed
-descriptors already follow (§spec:capability-boundary). Reorder needs two
-distinct slots, so it engages only with two or more panes; a host that omits
-the reorder callback leaves the headers non-draggable and the order fixed.
+pane shows through). On drop the **shell owns the order** — it permutes the
+rendered stack directly, consistent with the shell owning the stack while the
+host supplies view *content*, not arrangement (§spec:capability-boundary), and
+with VS Code's `PaneView.movePane`. Order is **uncontrolled by default**,
+seeded from the descriptor-list order — mirroring a pane's uncontrolled
+`expanded` (§spec:section-disclosure). A container may instead supply a
+controlled `order` (descriptor ids in render order) plus an optional
+`onReorder` notification: a drag then fires `onReorder` without self-permuting
+and the host updates `order`, the same controlled/uncontrolled split the
+descriptors' expansion already follows. `onReorder` is a notification (e.g. to
+persist order across restarts), never required for reorder to function. Reorder
+needs two distinct slots, so it engages only with two or more panes.
 
 **Container selection mirrors today's section navigation**: the activity
 bar selects the active view container, controlled or uncontrolled — the
@@ -395,10 +401,11 @@ Reselecting the active container toggles sidebar visibility, unchanged.
   a pane collapses or expands. A collapsed pane carries no sash.
 - Dragging a pane header onto another pane reorders the stack: a translucent
   drop overlay marks the target's upper or lower half during the drag, and on
-  drop the shell reports the `(oldIndex, newIndex)` move to the host, which
-  reorders its descriptors so the new order persists. Reorder engages only
-  with two or more panes; with no reorder callback the headers are not
-  draggable and the order is fixed.
+  drop the shell permutes the stack itself. Order is shell-owned and
+  uncontrolled by default (seeded from the descriptor-list order); a container
+  may instead supply a controlled `order` plus an optional `onReorder`
+  notification. Reorder engages only with two or more panes and needs no
+  callback to function.
 - The activity bar selects the active view container (controlled or
   uncontrolled); reselecting the active container toggles sidebar
   visibility.

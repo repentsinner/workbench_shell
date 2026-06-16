@@ -211,21 +211,6 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   late final _NotificationsDemoController _notificationsDemo =
       _NotificationsDemoController(_notificationService);
 
-  /// Host-owned order of the Explorer container's view panes (§spec:view-stack).
-  /// Dragging a pane header calls [_reorderExplorer], which permutes this list;
-  /// the spec is rebuilt in this order, so the reorder persists. The shell owns
-  /// the drag and the drop indicator; the host owns the order.
-  List<String> _explorerOrder = const ['open-editors', 'outline', 'timeline'];
-
-  void _reorderExplorer(int oldIndex, int newIndex) {
-    setState(() {
-      final order = [..._explorerOrder];
-      final moved = order.removeAt(oldIndex);
-      order.insert(newIndex, moved);
-      _explorerOrder = order;
-    });
-  }
-
   @override
   void dispose() {
     _notificationsDemo.dispose();
@@ -403,13 +388,18 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   WorkbenchViewContainerSpec _buildContainerSpec(String containerId) {
     switch (containerId) {
       case 'explorer':
-        // The Explorer dogfoods header drag-reorder (§spec:view-stack): the
-        // host owns the order ([_explorerOrder]) and the shell drives the drag
-        // and drop indicator. Build the descriptors in the host's order.
+        // The Explorer dogfoods header drag-reorder (§spec:view-stack). The
+        // shell owns the pane order: the host just lists the views and the
+        // shell handles the drag, drop indicator, and reordering — no host
+        // order state. (A host that needs to persist order across restarts can
+        // pass a controlled `order` plus `onReorder`.)
         final byId = _explorerViews(_notificationService);
         return WorkbenchViewContainerSpec(
-          views: [for (final id in _explorerOrder) byId[id]!],
-          onReorder: _reorderExplorer,
+          views: [
+            byId['open-editors']!,
+            byId['outline']!,
+            byId['timeline']!,
+          ],
         );
       case 'search':
         return const WorkbenchViewContainerSpec(

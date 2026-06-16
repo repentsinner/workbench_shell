@@ -77,15 +77,23 @@ class WorkbenchViewContainerSpec {
   /// Single-purpose containers set this to preserve a full-body sidebar.
   final bool mergeSingleView;
 
-  /// Reorders the container's views when the user drags a pane header onto
-  /// another pane (§spec:view-stack). The host owns the view order and rebuilds
-  /// the spec with the moved list, so the reorder persists. Null leaves the
-  /// headers non-draggable and the order fixed.
+  /// Controlled pane order: the descriptor ids in render order
+  /// (§spec:view-stack). When supplied, the shell renders this order and a
+  /// header drag fires [onReorder] without self-mutating — the host updates
+  /// this list. Null (the default) lets the shell own the order, seeded from
+  /// the [views] order. Mirrors a descriptor's controlled `expanded`.
+  final List<String>? order;
+
+  /// Notified when the user drags a pane header to a new slot
+  /// (§spec:view-stack). Optional: the shell owns the order and reorders
+  /// itself, so this is a notification (e.g. to persist the order across
+  /// restarts), not a requirement. Mirrors a descriptor's `onExpandedChanged`.
   final void Function(int oldIndex, int newIndex)? onReorder;
 
   const WorkbenchViewContainerSpec({
     required this.views,
     this.mergeSingleView = false,
+    this.order,
     this.onReorder,
   });
 }
@@ -132,19 +140,28 @@ class WorkbenchViewContainer extends StatefulWidget {
   /// hide the pane header and let the body fill. No effect with 2+ views.
   final bool mergeSingleView;
 
-  /// Reorders the panes when the user drags a pane header onto another pane
-  /// (§spec:view-stack, VS Code `PaneView` header drag-and-drop). Called with
-  /// the dragged view's current index and its target index; the host owns the
-  /// descriptor order and rebuilds with the moved list, so the reorder
-  /// persists. Null disables reorder — the headers are not draggable and order
-  /// is fixed. Reorder needs distinct slots, so it only engages with two or
-  /// more views (the collapsible case).
+  /// Controlled pane order as descriptor ids (§spec:view-stack). When non-null
+  /// the shell renders this order and a header drag fires [onReorder] without
+  /// permuting its own state — the host owns the order and rebuilds with the
+  /// moved list. Null (the default) lets the shell own the order, seeded from
+  /// the [views] order and permuted by drags. Mirrors a descriptor's
+  /// controlled [WorkbenchViewDescriptor.expanded].
+  final List<String>? order;
+
+  /// Notified when the user drags a pane header to a new slot (§spec:view-stack,
+  /// VS Code `PaneView` header drag-and-drop), with the dragged pane's current
+  /// index and its target index. Optional: the shell owns the order and
+  /// reorders itself by default, so this is a notification (e.g. to persist
+  /// order across restarts), not a control input. Mirrors
+  /// [WorkbenchViewDescriptor.onExpandedChanged]. Reorder needs distinct slots,
+  /// so it engages only with two or more views (the collapsible case).
   final void Function(int oldIndex, int newIndex)? onReorder;
 
   const WorkbenchViewContainer({
     super.key,
     required this.views,
     this.mergeSingleView = false,
+    this.order,
     this.onReorder,
   });
 
@@ -173,6 +190,45 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
   /// host control or by header toggle — the stored heights no longer sum to the
   /// new pool, so they are dropped and the new set re-apportions evenly.
   Set<String> _manualBasis = const {};
+
+  /// Uncontrolled pane order, a list of descriptor ids. The shell owns the
+  /// stack order (§spec:view-stack): seeded from the descriptor-list order and
+  /// permuted by header drags. Null until first seeded. Ignored when the host
+  /// supplies a controlled [WorkbenchViewContainer.order]. Mirrors the
+  /// expansion model — [_uncontrolledExpanded] is to `expanded` as this is to
+  /// `order`.
+  List<String>? _order;
+
+  /// The descriptors in their effective render order: the controlled
+  /// [WorkbenchViewContainer.order] when the host supplies one, otherwise the
+  /// shell-owned [_order], reconciled against the current descriptor set —
+  /// dropped ids removed, new ids appended in descriptor-list position. Like
+  /// [_isExpanded], this lazily seeds during build (no setState).
+  List<WorkbenchViewDescriptor> _orderedViews() {
+    final byId = {for (final view in widget.views) view.id: view};
+    final List<String> ids;
+    if (widget.order != null) {
+      ids = widget.order!;
+    } else {
+      _order ??= [for (final view in widget.views) view.id];
+      _order!.removeWhere((id) => !byId.containsKey(id));
+      for (final view in widget.views) {
+        if (!_order!.contains(view.id)) _order!.add(view.id);
+      }
+      ids = _order!;
+    }
+    final ordered = <WorkbenchViewDescriptor>[];
+    final seen = <String>{};
+    for (final id in ids) {
+      final view = byId[id];
+      if (view != null && seen.add(id)) ordered.add(view);
+    }
+    // Descriptors a controlled order omits fall back to the descriptor-list tail.
+    for (final view in widget.views) {
+      if (seen.add(view.id)) ordered.add(view);
+    }
+    return ordered;
+  }
 
   /// Reads the live render geometry so a sash drag seeds from the actual
   /// on-screen body heights rather than recomputing the apportionment.
@@ -219,7 +275,18 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
     final target = _dropTarget;
     if (from != null && target != null) {
       final newIndex = _resolveNewIndex(from, target.index, target.before);
-      if (newIndex != from) widget.onReorder!(from, newIndex);
+      if (newIndex != from) {
+        // The shell owns the order: permute it directly (§spec:view-stack). A
+        // controlled host order defers to the host, which updates `order` from
+        // the notification below. `onReorder` is an optional notification in
+        // either mode, not a requirement.
+        if (widget.order == null) {
+          _order ??= [for (final view in widget.views) view.id];
+          final moved = _order!.removeAt(from);
+          _order!.insert(newIndex, moved);
+        }
+        widget.onReorder?.call(from, newIndex);
+      }
     }
     setState(() {
       _dragIndex = null;
@@ -419,7 +486,7 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
 
   @override
   Widget build(BuildContext context) {
-    final views = widget.views;
+    final views = _orderedViews();
 
     // Merged single view: no pane, body fills the container.
     if (views.length == 1 && widget.mergeSingleView) {
@@ -439,9 +506,10 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
     };
     _reconcileManualBasis(expandedIds);
 
-    // Reorder engages only with two or more panes (the collapsible case): a
-    // lone pane has no slot to move to (§spec:view-stack).
-    final reorderable = widget.onReorder != null && collapsible;
+    // Reorder engages with two or more panes (the collapsible case): a lone
+    // pane has no slot to move to. The shell owns the order, so reorder needs
+    // no host callback — it is on whenever there are slots (§spec:view-stack).
+    final reorderable = collapsible;
 
     return LayoutBuilder(
       builder: (context, constraints) {
