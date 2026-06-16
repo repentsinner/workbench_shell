@@ -465,6 +465,117 @@ void main() {
     });
   });
 
+  group('WorkbenchViewPane header chrome', () {
+    // §spec:view-stack: each pane header paints a section-header
+    // background band and a 1px top rule from the nullable
+    // sideBarSectionHeader.background / sideBarSectionHeader.border
+    // tokens. Null tokens suppress each paint independently.
+    const band = Color(0xFF181818);
+    const rule = Color(0xFF2B2B2B);
+
+    WorkbenchTheme themeWith({Color? background, Color? border}) {
+      final colors = <String, Color>{};
+      if (background != null) {
+        colors['sideBarSectionHeader.background'] = background;
+      }
+      if (border != null) colors['sideBarSectionHeader.border'] = border;
+      return WorkbenchTheme.fromVscodeColorMap(
+        VscodeColorMap(name: 'Header', baseType: 'vs-dark', colors: colors),
+      );
+    }
+
+    Widget wrapWith(WorkbenchTheme theme, Widget child) {
+      return MaterialApp(
+        theme: ThemeData.dark().copyWith(extensions: [theme]),
+        home: Scaffold(body: child),
+      );
+    }
+
+    // The header band Container is the Container ancestor of the title
+    // text that carries a BoxDecoration (the only decorated Container in
+    // a WorkbenchViewPane header).
+    BoxDecoration? headerDecoration(WidgetTester tester) {
+      final containers = tester
+          .widgetList<Container>(
+            find.ancestor(
+              of: find.text('HELLO'),
+              matching: find.byType(Container),
+            ),
+          )
+          .where((c) => c.decoration is BoxDecoration);
+      if (containers.isEmpty) return null;
+      return containers.first.decoration as BoxDecoration;
+    }
+
+    testWidgets('paints the background band and 1px top rule from tokens', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWith(
+          themeWith(background: band, border: rule),
+          const WorkbenchViewPane(title: 'Hello', child: Text('body')),
+        ),
+      );
+      final decoration = headerDecoration(tester);
+      expect(decoration, isNotNull);
+      expect(decoration!.color, band);
+      final topSide = (decoration.border as Border).top;
+      expect(topSide.color, rule);
+      expect(topSide.width, 1.0);
+    });
+
+    testWidgets('header sits at the pane-header height (rule absorbed)', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWith(
+          themeWith(background: band, border: rule),
+          const WorkbenchViewPane(title: 'Hello', child: Text('body')),
+        ),
+      );
+      // Box-sizing border-box: the header occupies exactly the canonical
+      // pane-header height, the 1px rule absorbed within it — not
+      // height + 1.
+      final size = tester.getSize(
+        find.ancestor(
+          of: find.text('HELLO'),
+          matching: find.byType(Container),
+        ).first,
+      );
+      expect(size.height, WorkbenchLayoutConstants.viewPaneHeaderHeight);
+    });
+
+    testWidgets('suppresses the band when background token is null', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWith(
+          themeWith(border: rule),
+          const WorkbenchViewPane(title: 'Hello', child: Text('body')),
+        ),
+      );
+      final decoration = headerDecoration(tester);
+      expect(decoration?.color, isNull);
+      expect((decoration!.border as Border).top.color, rule);
+    });
+
+    testWidgets('suppresses both paints when both tokens are null', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWith(
+          themeWith(),
+          const WorkbenchViewPane(title: 'Hello', child: Text('body')),
+        ),
+      );
+      // Neither paint appears — no decorated header Container.
+      expect(headerDecoration(tester), isNull);
+      // Header still renders its title and body as before.
+      expect(find.text('HELLO'), findsOneWidget);
+      expect(find.text('body'), findsOneWidget);
+    });
+  });
+
   group('WorkbenchSubsection', () {
     testWidgets('renders title with subsectionTitleStyle', (tester) async {
       await tester.pumpWidget(

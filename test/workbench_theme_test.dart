@@ -227,6 +227,40 @@ void main() {
       expect(theme.inputOptionActiveBorder, const Color(0xFF2488DB));
     });
 
+    test('sideBarSectionHeader tokens resolve from the colors map', () {
+      // §spec:view-stack: the stacked-pane separator chrome (band + rule)
+      // is mapped from VS Code's sideBarSectionHeader.background /
+      // sideBarSectionHeader.border, retaining alpha.
+      final map = loader.parse('''
+        {
+          "name": "Header Chrome",
+          "type": "vs-dark",
+          "colors": {
+            "sideBarSectionHeader.background": "#181818",
+            "sideBarSectionHeader.border": "#2B2B2BFF"
+          }
+        }
+        ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.sideBarSectionHeaderBackground, const Color(0xFF181818));
+      expect(theme.sideBarSectionHeaderBorder, const Color(0xFF2B2B2B));
+    });
+
+    test('sideBarSectionHeader tokens are null when omitted', () {
+      // Nullable like activityBar.border / sideBar.border: a theme that
+      // omits the key suppresses the corresponding paint.
+      final map = loader.parse('''
+        {
+          "name": "Minimal Dark",
+          "type": "vs-dark",
+          "colors": {}
+        }
+        ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.sideBarSectionHeaderBackground, isNull);
+      expect(theme.sideBarSectionHeaderBorder, isNull);
+    });
+
     test('inputOption.active* fall back to the focusBorder accent', () {
       // Older themes (Dark+) omit inputOption.*; the selected segment still
       // gets an accent treatment from focusBorder rather than disappearing.
@@ -268,6 +302,15 @@ void main() {
       expect(theme.activityBarBorder, const Color(0xFF2B2B2B));
       expect(theme.sideBarBorder, const Color(0xFF2B2B2B));
       expect(theme.panelBorder, const Color(0xFF2B2B2B));
+    });
+
+    test('Dark Modern sets the section-header band and rule', () async {
+      // The bundled themes carry sideBarSectionHeader.* so the example's
+      // Explorer pane headers render the band + rule with no asset change.
+      final map = await loader.loadAsset('dark_modern.json');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.sideBarSectionHeaderBackground, const Color(0xFF181818));
+      expect(theme.sideBarSectionHeaderBorder, const Color(0xFF2B2B2B));
     });
   });
 

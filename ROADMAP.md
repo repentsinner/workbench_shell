@@ -5,28 +5,6 @@ documented gap between the current implementation and SPEC.md.
 Workstreams are sized to fit one agent session; rationale and
 design decisions live in the cited spec sections, not here.
 
-## Section-header Band and Rule §road:section-header-chrome
-
-Render the VS Code section-header chrome on each view-pane header — a
-filled background band and a 1px top rule — so stacked panes read as
-distinct, canonical bars (§spec:view-stack).
-
-### Render the section-header band and rule §road:render-header-chrome
-
-Add nullable `sideBarSectionHeader.background` / `sideBarSectionHeader.border`
-tokens to `WorkbenchTheme` (parsed from the VS Code theme JSON) and a
-view-pane header height to `WorkbenchLayoutConstants`, and paint a header
-background band plus a 1px top rule on `WorkbenchViewPane`, in
-`lib/src/workbench_theme.dart` and `lib/src/workbench_content.dart`.
-§spec:view-stack, §spec:theming, §spec:layout-constants.
-
-**Verify:** Run the example; each Explorer view-pane header shows a
-filled background band and a 1px top rule, themed (visible in the
-bundled dark and light themes and changing on theme switch). A widget
-test asserts the header paints its background and top border from the
-tokens and that a null token suppresses each paint; `flutter analyze`
-and `flutter test` pass.
-
 ## View Stack Container and Sidebar Inversion §road:view-stack-container
 
 Give the shell the stacked view container: typed view descriptors
@@ -42,7 +20,6 @@ Add a `WorkbenchViewContainer` that renders an ordered list of typed
 view descriptors as a flush stack of `WorkbenchViewPane`s with no
 inter-pane gap, derives each pane's collapsibility from the view count,
 and provides one shared scroll region, in `lib/src/`. §spec:view-stack.
-Depends on §road:render-header-chrome.
 
 ### Invert the WorkbenchLayout sidebar API §road:sidebar-api-inversion
 

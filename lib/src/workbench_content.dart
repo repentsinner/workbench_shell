@@ -128,6 +128,28 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
     widget.onExpandedChanged?.call(next);
   }
 
+  /// Wrap [header] in the section-header band + rule. Returns [header]
+  /// unwrapped when the theme suppresses both tokens, so a header with
+  /// no chrome renders exactly as before. Otherwise a fixed-height
+  /// [Container] paints the band (background token, null → no fill) and
+  /// a 1px top rule (border token, null → no rule), the rule absorbed
+  /// within [WorkbenchLayoutConstants.viewPaneHeaderHeight].
+  Widget _withHeaderChrome(WorkbenchTheme theme, Widget header) {
+    final band = theme.sideBarSectionHeaderBackground;
+    final rule = theme.sideBarSectionHeaderBorder;
+    if (band == null && rule == null) return header;
+    return Container(
+      height: WorkbenchLayoutConstants.viewPaneHeaderHeight,
+      decoration: BoxDecoration(
+        color: band,
+        border: rule == null
+            ? null
+            : Border(top: BorderSide(color: rule)),
+      ),
+      child: header,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
@@ -212,6 +234,9 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
         ),
       );
     }
+
+    // Section-header chrome (§spec:view-stack); see _withHeaderChrome.
+    headerSurface = _withHeaderChrome(theme, headerSurface);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
