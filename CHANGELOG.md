@@ -1,3 +1,10 @@
+## [0.8.2](https://github.com/repentsinner/workbench_shell/compare/v0.8.1...v0.8.2) (2026-06-16)
+
+
+### Bug Fixes
+
+* **view-stack:** lay the view stack out as a fixed-height splitview ([453584a](https://github.com/repentsinner/workbench_shell/commit/453584a4b616212eae4f9e4b8a76ecd50bfdc823))
+
 ## [0.8.1](https://github.com/repentsinner/workbench_shell/compare/v0.8.0...v0.8.1) (2026-06-16)
 
 
