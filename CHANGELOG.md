@@ -1,3 +1,10 @@
+## [0.6.1](https://github.com/repentsinner/workbench_shell/compare/v0.6.0...v0.6.1) (2026-06-16)
+
+
+### Bug Fixes
+
+* **example:** route view-pane header actions through NotificationService ([e5aed8a](https://github.com/repentsinner/workbench_shell/commit/e5aed8a942f1e2ec8c3ad4a6d0be883af2d444bf)), closes [#35](https://github.com/repentsinner/workbench_shell/issues/35)
+
 # [0.6.0](https://github.com/repentsinner/workbench_shell/compare/v0.5.0...v0.6.0) (2026-06-15)
 
 
