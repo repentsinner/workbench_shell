@@ -174,30 +174,56 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
     view.onExpandedChanged?.call(next);
   }
 
-  /// Apply a sash drag on the boundary above [lowerId], whose nearest expanded
-  /// neighbor above is [upperId]. [delta] is the pointer's vertical movement:
-  /// positive grows the upper body and shrinks the lower. The transfer is
-  /// clamped so neither body falls below
-  /// [WorkbenchLayoutConstants.viewPaneMinBodyHeight] (§spec:view-stack).
-  void _dragSash(String upperId, String lowerId, double delta) {
+  /// In-progress sash drag, captured at drag start. Updates resolve the
+  /// pointer's *absolute* offset from this anchor — not an accumulated delta —
+  /// so the sash stays locked to the cursor: when a drag overshoots a clamp the
+  /// sash parks at the limit and resumes only once the cursor returns over it,
+  /// with no offset (§spec:view-stack, sash-resize). A delta-accumulating drag
+  /// instead discards the overshoot and trails the cursor by it.
+  _SashDrag? _sashDrag;
+
+  /// Begin a sash drag on the boundary above [lowerId], whose nearest expanded
+  /// neighbor above is [upperId]. Seeds from the on-screen body heights and the
+  /// global pointer Y [pointerY], freezing the basis updates resolve against.
+  void _beginSash(String upperId, String lowerId, double pointerY) {
     final render = _stackKey.currentContext?.findRenderObject();
     if (render is! _RenderViewStack) return;
     final upperBody = render.bodyHeightOf(upperId);
     final lowerBody = render.bodyHeightOf(lowerId);
     if (upperBody == null || lowerBody == null) return;
+    _sashDrag = _SashDrag(
+      upperId: upperId,
+      lowerId: lowerId,
+      startPointerY: pointerY,
+      startUpper: upperBody,
+      pair: upperBody + lowerBody,
+    );
+  }
 
+  /// Resolve the sash to the pointer's absolute position. The upper body becomes
+  /// its start height plus the offset since the drag began ([pointerY] is the
+  /// global pointer Y), clamped so neither body falls below
+  /// [WorkbenchLayoutConstants.viewPaneMinBodyHeight] (§spec:view-stack).
+  void _updateSash(double pointerY) {
+    final drag = _sashDrag;
+    if (drag == null) return;
     const minBody = WorkbenchLayoutConstants.viewPaneMinBodyHeight;
-    final pair = upperBody + lowerBody;
-    // The upper body absorbs the drag; clamp it within the pair so the lower
-    // body keeps at least minBody on the other side.
-    final newUpper = (upperBody + delta).clamp(minBody, pair - minBody);
-    final newLower = pair - newUpper;
-    if (newUpper == upperBody && newLower == lowerBody) return;
+    final newUpper = (drag.startUpper + (pointerY - drag.startPointerY)).clamp(
+      minBody,
+      drag.pair - minBody,
+    );
+    final newLower = drag.pair - newUpper;
+    if (_manualBody[drag.upperId] == newUpper &&
+        _manualBody[drag.lowerId] == newLower) {
+      return;
+    }
     setState(() {
-      _manualBody[upperId] = newUpper;
-      _manualBody[lowerId] = newLower;
+      _manualBody[drag.upperId] = newUpper;
+      _manualBody[drag.lowerId] = newLower;
     });
   }
+
+  void _endSash() => _sashDrag = null;
 
   /// Drop manual sash sizing when the expanded set differs from the one in
   /// effect when it was last written ([_manualBasis]). The stored heights divide
@@ -264,9 +290,11 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
                 sashKey: upperId == null
                     ? null
                     : ValueKey('workbench-view-sash-${view.id}'),
-                onSashDrag: upperId == null
+                onSashDragStart: upperId == null
                     ? null
-                    : (delta) => _dragSash(upperId, view.id, delta),
+                    : (pointerY) => _beginSash(upperId, view.id, pointerY),
+                onSashDragUpdate: upperId == null ? null : _updateSash,
+                onSashDragEnd: upperId == null ? null : _endSash,
                 child: WorkbenchViewPane.inContainer(
                   title: view.title,
                   infoTooltip: view.infoTooltip,
@@ -315,12 +343,21 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
 /// pane whose neighbor is collapsed) get [sashKey] null and render no sash.
 class _SashedPane extends StatelessWidget {
   final Key? sashKey;
-  final ValueChanged<double>? onSashDrag;
+
+  /// Drag callbacks report the *global* pointer Y so the container resolves the
+  /// sash to the pointer's absolute position, not an accumulated delta (so an
+  /// overshoot does not offset the sash from the cursor). Global rather than
+  /// local because the sash widget itself moves as the panes resize mid-drag.
+  final ValueChanged<double>? onSashDragStart;
+  final ValueChanged<double>? onSashDragUpdate;
+  final VoidCallback? onSashDragEnd;
   final Widget child;
 
   const _SashedPane({
     required this.sashKey,
-    required this.onSashDrag,
+    required this.onSashDragStart,
+    required this.onSashDragUpdate,
+    required this.onSashDragEnd,
     required this.child,
   });
 
@@ -330,7 +367,7 @@ class _SashedPane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (onSashDrag == null) return child;
+    if (onSashDragUpdate == null) return child;
     return Stack(
       children: [
         child,
@@ -344,7 +381,10 @@ class _SashedPane extends StatelessWidget {
             cursor: SystemMouseCursors.resizeRow,
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
-              onVerticalDragUpdate: (d) => onSashDrag!(d.delta.dy),
+              onVerticalDragStart: (d) =>
+                  onSashDragStart?.call(d.globalPosition.dy),
+              onVerticalDragUpdate: (d) => onSashDragUpdate!(d.globalPosition.dy),
+              onVerticalDragEnd: (_) => onSashDragEnd?.call(),
               child: const SizedBox.expand(),
             ),
           ),
@@ -352,6 +392,25 @@ class _SashedPane extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Frozen basis for an in-progress sash drag (§spec:view-stack). Captured at
+/// drag start so each update resolves the pointer's absolute offset from the
+/// anchor rather than accumulating per-event deltas.
+class _SashDrag {
+  const _SashDrag({
+    required this.upperId,
+    required this.lowerId,
+    required this.startPointerY,
+    required this.startUpper,
+    required this.pair,
+  });
+
+  final String upperId;
+  final String lowerId;
+  final double startPointerY;
+  final double startUpper;
+  final double pair;
 }
 
 /// Parent-data carrier for a stacked child: its [collapsed] state, its

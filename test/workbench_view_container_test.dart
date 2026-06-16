@@ -586,6 +586,59 @@ void main() {
       );
     });
 
+    testWidgets('the sash stays locked to the cursor after overshooting a '
+        'clamp — no accumulated offset', (tester) async {
+      const containerHeight = 600.0;
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const SizedBox(
+            height: containerHeight,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'a',
+                  title: 'Alpha',
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'b',
+                  title: 'Beta',
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final sash = tester.getCenter(
+        find.byKey(const ValueKey('workbench-view-sash-b')),
+      );
+      final gesture = await tester.startGesture(sash);
+
+      // Overshoot far past the lower pane's minimum: the upper pane clamps at
+      // its maximum height.
+      await gesture.moveBy(const Offset(0, 1000));
+      await tester.pump();
+      final aClamped = paneRect(tester, 'a').height;
+
+      // Reverse by far less than the overshoot. The cursor is still well past
+      // the clamp boundary, so an absolute drag keeps the sash parked — it must
+      // NOT pick up the reversal yet (the delta-accumulation bug would shrink
+      // the upper pane immediately, offset from the cursor by the overshoot).
+      await gesture.moveBy(const Offset(0, -50));
+      await tester.pump();
+      expect(paneRect(tester, 'a').height, closeTo(aClamped, 0.5));
+
+      // Bring the cursor back near where it started: the sash re-tracks with no
+      // accumulated offset, so the split returns toward even.
+      await gesture.moveBy(const Offset(0, -900));
+      await tester.pump();
+      expect(paneRect(tester, 'a').height, lessThan(aClamped - 40));
+
+      await gesture.up();
+    });
+
     testWidgets('a collapsed neighbor has no sash', (tester) async {
       await tester.pumpWidget(
         wrapWithChromeTheme(
