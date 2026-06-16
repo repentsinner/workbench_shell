@@ -79,6 +79,15 @@ class WorkbenchViewPane extends StatefulWidget {
   /// band is unaffected.
   final bool showTopRule;
 
+  /// Whether the body is bounded to an apportioned height and scrolls
+  /// internally (§spec:view-stack). The splitview container forces each
+  /// expanded pane to a fixed height (header + apportioned body) and sets this
+  /// so the body fills the remaining space and scrolls when its content
+  /// overflows — the per-pane scroll boundary, not the whole stack. The public
+  /// standalone constructor leaves it false: a standalone pane grows to its
+  /// content with no internal scroll.
+  final bool boundedBody;
+
   /// Initial expansion for uncontrolled (no [expanded]) collapsible panes.
   final bool initiallyExpanded;
 
@@ -105,7 +114,8 @@ class WorkbenchViewPane extends StatefulWidget {
     this.expanded,
     this.onExpandedChanged,
   }) : collapsible = false,
-       showTopRule = true;
+       showTopRule = true,
+       boundedBody = false;
 
   /// Library-internal seam (§spec:view-stack). [WorkbenchViewContainer] uses
   /// this to pass the collapsibility it derives from view count. `@internal`
@@ -119,6 +129,7 @@ class WorkbenchViewPane extends StatefulWidget {
     required this.child,
     required this.collapsible,
     this.showTopRule = true,
+    this.boundedBody = false,
     this.infoTooltip,
     this.actions = const [],
     this.actionsAlwaysVisible = false,
@@ -282,13 +293,32 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
     // Section-header chrome (§spec:view-stack); see _withHeaderChrome.
     headerSurface = _withHeaderChrome(theme, headerSurface);
 
+    final showBody = !widget.collapsible || _isExpanded;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      // Bounded panes are forced to a fixed height by the splitview container;
+      // a min-size column would leave the body unconstrained, so it stretches
+      // to fill (the body scroller then bounds itself). A standalone pane keeps
+      // min sizing so it grows to its content.
+      mainAxisSize: (widget.boundedBody && showBody)
+          ? MainAxisSize.max
+          : MainAxisSize.min,
       children: [
         headerSurface,
         // Body sits flush under the header — VS Code's `.pane-body` has no top
         // inset; the host body owns any padding (§spec:view-stack).
-        if (!widget.collapsible || _isExpanded) widget.child,
+        if (showBody)
+          // In the splitview the body is bounded and scrolls internally
+          // (§spec:view-stack): the container apportions a fixed height, the
+          // body fills the leftover and scrolls when its content overflows —
+          // the per-pane scroll boundary. A standalone pane renders the body
+          // raw and grows to its content.
+          if (widget.boundedBody)
+            Expanded(
+              child: SingleChildScrollView(child: widget.child),
+            )
+          else
+            widget.child,
       ],
     );
   }

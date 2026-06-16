@@ -63,11 +63,9 @@ void main() {
       expect(find.text('body-b'), findsOneWidget);
       expect(find.text('body-c'), findsOneWidget);
 
-      // Flush: the container inserts no SizedBox gap between panes. The only
-      // SizedBoxes present are the panes' internal header→body spacers and the
-      // outer constraint box — none are container-inserted inter-pane gaps.
-      // Assert adjacent headers are vertically ordered with no whitespace band:
-      // the second header's top sits immediately after the first pane's column.
+      // Flush: the container inserts no SizedBox gap between panes. Assert
+      // adjacent headers are vertically ordered, the later header below the
+      // earlier one.
       final alphaTop = tester.getTopLeft(find.text('ALPHA')).dy;
       final betaTop = tester.getTopLeft(find.text('BETA')).dy;
       expect(betaTop, greaterThan(alphaTop));
@@ -252,27 +250,31 @@ void main() {
       // No WorkbenchViewPane rendered at all.
       expect(find.byType(WorkbenchViewPane), findsNothing);
     });
+  });
 
-    testWidgets('single shared scroll region on overflow; scroll reveals lower content', (
-      tester,
-    ) async {
+  group('WorkbenchViewContainer splitview apportionment', () {
+    // Helper: read a pane wrapper's rect by descriptor id.
+    Rect paneRect(WidgetTester tester, String id) =>
+        tester.getRect(find.byKey(ValueKey('workbench-view-pane-$id')));
+
+    testWidgets('expanded panes with short content share the height evenly, '
+        'no inner scroll engaged', (tester) async {
+      const containerHeight = 600.0;
       await tester.pumpWidget(
         wrapWithTheme(
-          SizedBox(
-            height: 200,
+          const SizedBox(
+            height: containerHeight,
             child: WorkbenchViewContainer(
               views: [
                 WorkbenchViewDescriptor(
                   id: 'a',
                   title: 'Alpha',
-                  bodyBuilder: (_) =>
-                      const SizedBox(height: 400, child: Text('body-a')),
+                  bodyBuilder: _shortBody,
                 ),
                 WorkbenchViewDescriptor(
                   id: 'b',
                   title: 'Beta',
-                  bodyBuilder: (_) =>
-                      const SizedBox(height: 400, child: Text('bottom-b')),
+                  bodyBuilder: _shortBody,
                 ),
               ],
             ),
@@ -280,15 +282,208 @@ void main() {
         ),
       );
 
-      // Exactly one Scrollable owns the stack.
-      expect(find.byType(Scrollable), findsOneWidget);
+      // The two panes together fill the container height: it is a fixed-height
+      // splitview, not a natural-height column. Each body is taller than its
+      // short content (the pane was given more than it needed).
+      final a = paneRect(tester, 'a');
+      final b = paneRect(tester, 'b');
+      expect(a.height + b.height, closeTo(containerHeight, 1.0));
+      // Even split: equal share among expanded panes.
+      expect(a.height, closeTo(b.height, 1.0));
+      expect(
+        a.height,
+        greaterThan(WorkbenchLayoutConstants.viewPaneHeaderHeight),
+      );
 
-      // Lower content is off-screen initially, present in the tree.
-      final scrollable = find.byType(Scrollable);
-      // Drag up to scroll down and reveal Beta's bottom content.
-      await tester.drag(scrollable, const Offset(0, -500));
+      // No pane's internal body scroller can scroll — content is shorter than
+      // the allotment.
+      final scrollables = tester.widgetList<Scrollable>(
+        find.byType(Scrollable),
+      );
+      for (final scrollable in scrollables) {
+        final state = tester.state<ScrollableState>(find.byWidget(scrollable));
+        expect(state.position.maxScrollExtent, 0.0);
+      }
+    });
+
+    testWidgets('a pane whose content exceeds its share scrolls internally; '
+        'siblings stay fixed and the container does not scroll', (tester) async {
+      const containerHeight = 400.0;
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const SizedBox(
+            height: containerHeight,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'tall',
+                  title: 'Tall',
+                  bodyBuilder: _tallBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'short',
+                  title: 'Short',
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // Both panes fit within the container height (fixed-height splitview).
+      final tall = paneRect(tester, 'tall');
+      final short = paneRect(tester, 'short');
+      expect(tall.height + short.height, closeTo(containerHeight, 1.0));
+
+      // The tall pane's body is bounded and scrolls internally — its own
+      // viewport can scroll.
+      final tallScroller = tester.state<ScrollableState>(
+        find.descendant(
+          of: find.byKey(const ValueKey('workbench-view-pane-tall')),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      expect(tallScroller.position.maxScrollExtent, greaterThan(0.0));
+
+      // The short pane's header stays fixed when the tall body scrolls.
+      final shortHeaderTopBefore = tester.getTopLeft(find.text('SHORT')).dy;
+      await tester.drag(
+        find.descendant(
+          of: find.byKey(const ValueKey('workbench-view-pane-tall')),
+          matching: find.byType(Scrollable),
+        ),
+        const Offset(0, -200),
+      );
       await tester.pumpAndSettle();
-      expect(find.text('bottom-b'), findsOneWidget);
+      final shortHeaderTopAfter = tester.getTopLeft(find.text('SHORT')).dy;
+      expect(shortHeaderTopAfter, closeTo(shortHeaderTopBefore, 0.5));
+
+      // The container itself did not scroll the whole stack: the tall pane is
+      // still anchored at the top and the short pane unchanged.
+      final tallAfter = paneRect(tester, 'tall');
+      final shortAfter = paneRect(tester, 'short');
+      expect(tallAfter.top, closeTo(0.0, 0.5));
+      expect(shortAfter.height, closeTo(short.height, 0.5));
+    });
+
+    testWidgets('collapsing a pane redistributes its freed height to the '
+        'expanded siblings', (tester) async {
+      const containerHeight = 600.0;
+      await tester.pumpWidget(
+        wrapWithChromeTheme(
+          const SizedBox(
+            height: containerHeight,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'a',
+                  title: 'Alpha',
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'b',
+                  title: 'Beta',
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'c',
+                  title: 'Gamma',
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final aBefore = paneRect(tester, 'a').height;
+
+      // Collapse Gamma.
+      await tester.tap(find.text('GAMMA'));
+      await tester.pumpAndSettle();
+
+      // Gamma now occupies only its header height.
+      expect(
+        paneRect(tester, 'c').height,
+        closeTo(WorkbenchLayoutConstants.viewPaneHeaderHeight, 0.5),
+      );
+
+      // The freed body height flowed to the still-expanded siblings: A grew.
+      final aAfter = paneRect(tester, 'a').height;
+      expect(aAfter, greaterThan(aBefore));
+
+      // The stack still fills the container height exactly (no whole-stack
+      // scroll, no gap).
+      final total = paneRect(tester, 'a').height +
+          paneRect(tester, 'b').height +
+          paneRect(tester, 'c').height;
+      expect(total, closeTo(containerHeight, 1.0));
+    });
+
+    testWidgets('overflow fallback: the whole stack scrolls only when the '
+        'expanded panes cannot fit at their minimum body heights', (
+      tester,
+    ) async {
+      // Three expanded panes need 3 * (header + minBody) of height. Make the
+      // container shorter than that so the overflow fallback engages.
+      const minBody = WorkbenchLayoutConstants.viewPaneMinBodyHeight;
+      const header = WorkbenchLayoutConstants.viewPaneHeaderHeight;
+      const containerHeight = 2 * (header + minBody); // room for ~2 of 3.
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const SizedBox(
+            height: containerHeight,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'a',
+                  title: 'Alpha',
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'b',
+                  title: 'Beta',
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'c',
+                  title: 'Gamma',
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // The whole stack scrolls as one region: the outer scroll view (the
+      // outermost Scrollable, owning the whole stack) can scroll.
+      final outer = tester.state<ScrollableState>(
+        find
+            .descendant(
+              of: find.byKey(const ValueKey('workbench-view-stack-scroll')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      expect(outer.position.maxScrollExtent, greaterThan(0.0));
+
+      // Each expanded pane sits at its minimum body height (header + minBody).
+      expect(paneRect(tester, 'a').height, closeTo(header + minBody, 1.0));
+
+      // Scrolling the outer region keeps the third pane's header reachable.
+      await tester.drag(
+        find
+            .descendant(
+              of: find.byKey(const ValueKey('workbench-view-stack-scroll')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+        const Offset(0, -300),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('GAMMA'), findsOneWidget);
     });
 
     testWidgets('controlled descriptor reports next value, does not self-toggle', (
@@ -334,3 +529,12 @@ void main() {
     });
   });
 }
+
+/// Short body: well under any minimum body allotment, so its pane never engages
+/// internal scroll in a tall container.
+Widget _shortBody(BuildContext _) => const Text('short');
+
+/// Tall body: far exceeds any plausible apportioned height, so its pane bounds
+/// the body and scrolls internally.
+Widget _tallBody(BuildContext _) =>
+    const SizedBox(height: 2000, child: Text('tall-top'));

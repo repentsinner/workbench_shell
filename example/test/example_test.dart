@@ -162,6 +162,12 @@ void main() {
     expect(find.text('Warning'), findsOneWidget);
     expect(find.text('Error'), findsOneWidget);
 
+    // The Severities pane body is bounded and scrolls internally
+    // (§spec:view-stack splitview): the trigger may sit below the apportioned
+    // body fold, so bring it into view before tapping.
+    await tester.ensureVisible(find.text('Info'));
+    await tester.pumpAndSettle();
+
     // Triggering an info notification renders a card via the
     // NotificationHost overlay.
     await tester.tap(find.text('Info'));

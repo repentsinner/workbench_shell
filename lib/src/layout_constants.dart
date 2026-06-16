@@ -97,6 +97,13 @@ class WorkbenchLayoutConstants {
   /// this height, not this height + 1.
   static const double viewPaneHeaderHeight = 22.0;
 
+  /// View-pane minimum body height. The floor below which an expanded pane's
+  /// apportioned body never shrinks (§spec:view-stack). VS Code's view pane
+  /// registers `minimumBodySize = 120` (`viewPane.ts`); the splitview keeps an
+  /// expanded body at least this tall and, when the expanded panes cannot all
+  /// fit at this floor, scrolls the whole stack as the overflow fallback.
+  static const double viewPaneMinBodyHeight = 120.0;
+
   /// Tab strip row height inside the bottom panel. Shares VS Code's
   /// `.part > .title { height: 35px }` (`part.css`) with
   /// [sidebarHeadingHeight]. The strip's `Row` flex-centres its children
