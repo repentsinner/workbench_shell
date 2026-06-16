@@ -455,10 +455,14 @@ header toolbar stops the toggle from firing.
 
 **Canonical rendering**: the chevron leads the collapsible header (twisty
 → title → metadata → actions), drawn from `material_symbols_icons` with
-orientation reflecting state. The header exposes Flutter
-`Semantics(expanded: …)` and is keyboard-operable — a mouse-only
-disclosure control is not canon-complete. Body-transition animation is an
-implementation choice; the contract is body visibility, not motion.
+orientation reflecting state. The twisty's space is reserved even when a
+pane is non-collapsible — VS Code always renders the twisty container, so
+a non-collapsible pane shows no chevron but keeps the indent and its title
+aligns with the collapsible panes' titles rather than re-justifying into
+the chevron's place. The header exposes Flutter `Semantics(expanded: …)`
+and is keyboard-operable — a mouse-only disclosure control is not
+canon-complete. Body-transition animation is an implementation choice; the
+contract is body visibility, not motion.
 
 **Observable behavior**:
 

@@ -197,16 +197,21 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
     // operations hug the right edge (§spec:section-header-actions).
     final header = Row(
       children: [
-        if (widget.collapsible) ...[
+        // The twisty space is always reserved so titles align whether or not
+        // the pane is collapsible — VS Code always renders the twisty
+        // container (viewPane.ts renderHeader). A non-collapsible pane shows
+        // no chevron but keeps the indent; the title never re-justifies.
+        if (widget.collapsible)
           Icon(
             _isExpanded
                 ? Symbols.expand_more_rounded
                 : Symbols.chevron_right_rounded,
             size: WorkbenchLayoutConstants.iconMd,
             color: theme.descriptionForeground,
-          ),
-          const SizedBox(width: WorkbenchLayoutConstants.spacingXs),
-        ],
+          )
+        else
+          const SizedBox(width: WorkbenchLayoutConstants.iconMd),
+        const SizedBox(width: WorkbenchLayoutConstants.spacingXs),
         Expanded(
           child: Text(widget.title.toUpperCase(), style: theme.sectionTitle),
         ),
