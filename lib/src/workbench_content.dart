@@ -102,7 +102,8 @@ class WorkbenchViewPane extends StatefulWidget {
   /// Library-internal seam (§spec:view-stack). [WorkbenchViewContainer] uses
   /// this to pass the collapsibility it derives from view count. `@internal`
   /// keeps it off the public API — hosts use the default constructor and let
-  /// the container decide.
+  /// the container decide. Exposes the full expansion contract (controlled and
+  /// uncontrolled) so it faithfully mirrors the pane the container drives.
   @internal
   const WorkbenchViewPane.inContainer({
     super.key,
