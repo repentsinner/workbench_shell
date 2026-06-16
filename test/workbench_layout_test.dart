@@ -175,6 +175,28 @@ void main() {
       expect(sashTop, greaterThanOrEqualTo(panelContentTop - 2));
     });
 
+    testWidgets('sidebar sash is transparent at rest (VS Code canon) — no '
+        'opaque background strip over its hit area', (tester) async {
+      // Canon: `.monaco-sash` is transparent until hover/active; the visible
+      // seam is the region border (sideBar.border), not the sash. The sidebar
+      // sash overlays the sidebar's right edge like the panel/view-pane sashes,
+      // so at rest it paints nothing.
+      await tester.pumpWidget(_buildApp());
+
+      final sidebarSash = find.byWidgetPredicate(
+        (w) => w is WorkbenchSash && w.axis == Axis.horizontal,
+      );
+      expect(sidebarSash, findsOneWidget);
+
+      final opaqueFill = find.descendant(
+        of: sidebarSash,
+        matching: find.byWidgetPredicate(
+          (w) => w is ColoredBox && w.color == _testTheme.sideBarBackground,
+        ),
+      );
+      expect(opaqueFill, findsNothing);
+    });
+
     testWidgets('bottom panel top border is not overdrawn by panel child', (
       tester,
     ) async {

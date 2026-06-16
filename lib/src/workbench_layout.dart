@@ -170,15 +170,32 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
                   ),
 
                   // Sidebar (collapsible)
-                  if (_sidebarVisible) ...[
-                    _Sidebar(
-                      width: _sidebarWidth,
-                      activeLabel: _activeLabelFor(_activeViewContainerId),
-                      spec: widget.containerBuilder(_activeViewContainerId),
-                      theme: theme,
+                  if (_sidebarVisible)
+                    Stack(
+                      children: [
+                        _Sidebar(
+                          width: _sidebarWidth,
+                          activeLabel: _activeLabelFor(
+                            _activeViewContainerId,
+                          ),
+                          spec: widget.containerBuilder(
+                            _activeViewContainerId,
+                          ),
+                          theme: theme,
+                        ),
+                        // The sash overlays the sidebar's right edge rather than
+                        // taking a strip of layout, so at rest it adds nothing
+                        // (canon: the sash is transparent; the seam is the
+                        // sidebar's own right border). Mirrors the panel and
+                        // view-stack pane sashes.
+                        Positioned(
+                          top: 0,
+                          bottom: 0,
+                          right: 0,
+                          child: _buildVerticalResizer(theme),
+                        ),
+                      ],
                     ),
-                    _buildVerticalResizer(theme),
-                  ],
 
                   // Editor + bottom panel. The panel is wrapped in a
                   // Visibility(maintainState: true) so its widget
@@ -265,9 +282,10 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
 
   Widget _buildVerticalResizer(WorkbenchTheme theme) {
     // The sidebar sits on the left, so dragging the seam right grows its width
-    // (growSign +1). WorkbenchSash owns the canonical drag, directional cursor,
-    // and hover/drag highlight (§spec:workbench-layout); the child is just the
-    // idle strip with its hairline.
+    // (growSign +1). The sash is transparent at rest like the panel/view-pane
+    // sashes — the seam is the sidebar's own right border, which this overlays.
+    // WorkbenchSash owns the canonical drag, directional cursor, and hover/drag
+    // highlight (§spec:workbench-layout).
     return WorkbenchSash(
       axis: Axis.horizontal,
       value: _sidebarWidth,
@@ -275,28 +293,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       max: WorkbenchLayoutConstants.sidebarMaxWidth,
       growSign: 1,
       onChanged: (next) => setState(() => _sidebarWidth = next),
-      // WorkbenchSash owns the strip width; the child is the seam background
-      // plus the idle hairline.
-      child: Container(
-        color: theme.sideBarBackground,
-        child: _buildSidebarResizerOverlay(theme),
-      ),
-    );
-  }
-
-  // The sidebar resizer's idle hairline (the seam between sidebar and editor),
-  // or null when the theme suppresses the seam (null sideBarBorder). The
-  // hover/drag highlight is painted over it by WorkbenchSash.
-  Widget? _buildSidebarResizerOverlay(WorkbenchTheme theme) {
-    final sideBarBorder = theme.sideBarBorder;
-    if (sideBarBorder == null) return null;
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Container(
-        width: 1.0,
-        color: sideBarBorder,
-        child: const SizedBox.expand(),
-      ),
+      child: const SizedBox.expand(),
     );
   }
 
@@ -415,7 +412,18 @@ class _Sidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: width,
-      color: theme.sideBarBackground,
+      // The right border is the canonical sideBar.border seam (VS Code), drawn
+      // by the sidebar like the panel draws its top border; the resize sash
+      // overlays it transparently. Container (not bare DecoratedBox) so the
+      // border insets the body, keeping the view container's background from
+      // overdrawing the 1px seam. Null sideBarBorder → theme suppresses the
+      // seam; skip the BorderSide.
+      decoration: BoxDecoration(
+        color: theme.sideBarBackground,
+        border: theme.sideBarBorder == null
+            ? null
+            : Border(right: BorderSide(color: theme.sideBarBorder!)),
+      ),
       child: Column(
         children: [
           Container(

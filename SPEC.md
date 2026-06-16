@@ -568,7 +568,12 @@ the canonical hover size in `WorkbenchTheme.sashHoverBorder` (VS Code's
 dragging. The sash owns its hit-target thickness and band size
 (§spec:layout-constants — VS Code's `--vscode-sash-size` /
 `--vscode-sash-hover-size`), so no call site picks an arbitrary width and
-all three seams render identically.
+all three seams render identically. At rest the sash paints nothing: it
+overlays the boundary (rather than occupying a strip of layout), so each
+seam's visible line is the neighbor's own border (`sideBar.border`,
+`panel.border`), and the highlight band appears only on hover/drag —
+matching VS Code, whose `.monaco-sash` is transparent until
+`:hover`/`.active`.
 
 ### WorkbenchTabbedPanel and WorkbenchPanelTab §spec:tabbed-panel
 
@@ -1667,7 +1672,6 @@ default and records the rationale:
 | `panelDefaultHeight` | 200 | VS Code persists last user height | Tall enough to show a useful number of log lines without dominating the editor area |
 | `panelMaxHeight` | 400 | VS Code allows dynamic max bounded by editor area | Static cap keeps the shell from re-implementing VS Code's layout-service min/max negotiation; consumers that need taller panels override at the layout call site |
 | `sidebarMaxWidth` | 600 | VS Code caps at ~75% of window width dynamically | Same reasoning as `panelMaxHeight` |
-| `splitterWidth` | 2 | VS Code's grid sash uses a separate hit-target / visible-line split; no single CSS literal | Matches the visible-line width VS Code's sash renders by default |
 | Spacing scale (`spacingXxs` … `spacingXl`) | 2 / 4 / 6 / 8 / 12 / 16 / 24 | VS Code uses ad-hoc paddings throughout; no shared scale | Package-internal consistency so primitives (`WorkbenchViewPane`, `WorkbenchCard`) compose without hardcoded paddings at call sites |
 | Icon sizes (`iconXs`, `iconSm`, `iconMd`, `iconLg`, `iconXl`, `iconXxl`, `iconActivityBar`) | 12 / 14 / 16 / 18 / 20 / 32 / 24 | VS Code uses 16 for most codicons (`codiconFontSize` in `baseSizes.ts`), 12 for compact (`codiconFontSize.compact`) | Provides a scale around VS Code's 16 default for surfaces (close affordances, status indicators) where a single fixed icon size doesn't fit |
 | `notificationProgressBarHeight` | 4 | not surfaced within search scope of VS Code source | Matches the visible progress bar height VS Code renders |
