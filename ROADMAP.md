@@ -5,30 +5,6 @@ documented gap between the current implementation and SPEC.md.
 Workstreams are sized to fit one agent session; rationale and
 design decisions live in the cited spec sections, not here.
 
-## View Stack Splitview Layout §road:view-stack-splitview
-
-Replace the scrolling-column layout with the fixed-height splitview
-§spec:view-stack now specifies: panes apportion the sidebar height and
-scroll internally. Fixes the "whole sidebar scrolls" bug and lays the
-sizing foundation sash-resize builds on.
-
-### Lay the view stack out as a fixed-height splitview §road:splitview-layout
-
-Replace `_RenderViewStack`'s natural-height column-scroll logic in
-`lib/src/workbench_view_container.dart` with fixed-height apportionment —
-expanded panes share the sidebar height proportionally (a collapsed pane
-takes only its header height and its freed height redistributes to the
-expanded siblings), each expanded body is bounded and scrolls internally,
-and the container scrolls only as an overflow fallback below the per-pane
-minimum body height added to `WorkbenchLayoutConstants`. §spec:view-stack,
-§spec:layout-constants.
-
-**Verify:** Run the example; open Notifications (or Settings) and make a
-pane's content exceed its share — the pane's body scrolls inside itself
-while the sibling headers stay fixed, and the whole sidebar no longer
-scrolls as one. Collapse a pane and its freed height redistributes to the
-expanded siblings. `flutter analyze` and `flutter test` pass.
-
 ## View Pane Sash Resize §road:view-stack-sash
 
 Let the user drag the divider between two adjacent panes to re-apportion
@@ -39,7 +15,6 @@ height between them — the same splitview resize mechanism (§spec:view-stack).
 Add a draggable sash on the boundary between adjacent expanded panes in
 `lib/src/workbench_view_container.dart` that trades apportioned height
 between the two within their minimum/maximum body bands. §spec:view-stack.
-Depends on §road:splitview-layout.
 
 **Verify:** Run the example; drag the divider between two Explorer panes —
 the upper pane grows and the lower shrinks (or vice versa), clamped at
@@ -56,7 +31,7 @@ Let the user drag a pane header to reorder panes within a container
 Add header drag-and-drop to `WorkbenchViewContainer`
 (`lib/src/workbench_view_container.dart`) that reorders the panes within
 a container, with a drop indicator showing the target position.
-§spec:view-stack. Depends on §road:splitview-layout.
+§spec:view-stack.
 
 **Verify:** Run the example; drag a pane header (e.g. Outline above Open
 Editors) in the Explorer container — the panes reorder, a drop indicator
