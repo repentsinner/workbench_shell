@@ -1,3 +1,17 @@
+# [0.8.0](https://github.com/repentsinner/workbench_shell/compare/v0.7.0...v0.8.0) (2026-06-16)
+
+
+### Bug Fixes
+
+* **example:** tighten Explorer body padding to canon density ([1da67b6](https://github.com/repentsinner/workbench_shell/commit/1da67b6f3febd2f21b4023592974a81aec3b23e9))
+* **view-stack:** omit first-pane top rule, flush body under header ([39a600e](https://github.com/repentsinner/workbench_shell/commit/39a600ea0edb1aa7039da9b991d923ecef647b7c))
+
+
+### Features
+
+* **layout:** invert sidebar to typed view descriptors and retire host collapsible flag ([10f7347](https://github.com/repentsinner/workbench_shell/commit/10f7347e1e1c3b8416761546059ab87fa3b44811))
+* **view-stack:** add WorkbenchViewContainer with container-derived collapsibility ([76a838b](https://github.com/repentsinner/workbench_shell/commit/76a838b2d9e52052c4bd01e2405e5c90c3b25d07))
+
 # [0.7.0](https://github.com/repentsinner/workbench_shell/compare/v0.6.1...v0.7.0) (2026-06-16)
 
 
