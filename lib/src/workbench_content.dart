@@ -88,6 +88,12 @@ class WorkbenchViewPane extends StatefulWidget {
   /// content with no internal scroll.
   final bool boundedBody;
 
+  /// Wraps the header surface, letting the container make the header a drag
+  /// handle for pane reorder (§spec:view-stack). Library-internal: only
+  /// [WorkbenchViewContainer] supplies it, via [WorkbenchViewPane.inContainer].
+  /// The public standalone pane leaves it null and the header renders raw.
+  final Widget Function(Widget header)? headerWrapper;
+
   /// Initial expansion for uncontrolled (no [expanded]) collapsible panes.
   final bool initiallyExpanded;
 
@@ -115,7 +121,8 @@ class WorkbenchViewPane extends StatefulWidget {
     this.onExpandedChanged,
   }) : collapsible = false,
        showTopRule = true,
-       boundedBody = false;
+       boundedBody = false,
+       headerWrapper = null;
 
   /// Library-internal seam (§spec:view-stack). [WorkbenchViewContainer] uses
   /// this to pass the collapsibility it derives from view count. `@internal`
@@ -130,6 +137,7 @@ class WorkbenchViewPane extends StatefulWidget {
     required this.collapsible,
     this.showTopRule = true,
     this.boundedBody = false,
+    this.headerWrapper,
     this.infoTooltip,
     this.actions = const [],
     this.actionsAlwaysVisible = false,
@@ -292,6 +300,13 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
 
     // Section-header chrome (§spec:view-stack); see _withHeaderChrome.
     headerSurface = _withHeaderChrome(theme, headerSurface);
+
+    // The container may make the chromed header a drag handle for pane reorder
+    // (§spec:view-stack). VS Code's `draggable` attribute sits on the whole
+    // `.pane-header`, so wrap after the band/rule chrome.
+    if (widget.headerWrapper != null) {
+      headerSurface = widget.headerWrapper!(headerSurface);
+    }
 
     final showBody = !widget.collapsible || _isExpanded;
     return Column(

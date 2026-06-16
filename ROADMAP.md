@@ -5,23 +5,6 @@ documented gap between the current implementation and SPEC.md.
 Workstreams are sized to fit one agent session; rationale and
 design decisions live in the cited spec sections, not here.
 
-## View Pane Drag Reorder §road:view-stack-reorder
-
-Let the user drag a pane header to reorder panes within a container
-(§spec:view-stack).
-
-### Reorder panes by dragging the header §road:drag-reorder
-
-Add header drag-and-drop to `WorkbenchViewContainer`
-(`lib/src/workbench_view_container.dart`) that reorders the panes within
-a container, with a drop indicator showing the target position.
-§spec:view-stack.
-
-**Verify:** Run the example; drag a pane header (e.g. Outline above Open
-Editors) in the Explorer container — the panes reorder, a drop indicator
-shows the target slot during the drag, and the new order persists.
-`flutter analyze` and `flutter test` pass.
-
 ## View Pane Header Keyboard §road:view-pane-keyboard
 
 Bring the view-pane header to full VS Code keyboard parity: Left collapses

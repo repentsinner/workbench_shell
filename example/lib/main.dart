@@ -211,6 +211,21 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   late final _NotificationsDemoController _notificationsDemo =
       _NotificationsDemoController(_notificationService);
 
+  /// Host-owned order of the Explorer container's view panes (§spec:view-stack).
+  /// Dragging a pane header calls [_reorderExplorer], which permutes this list;
+  /// the spec is rebuilt in this order, so the reorder persists. The shell owns
+  /// the drag and the drop indicator; the host owns the order.
+  List<String> _explorerOrder = const ['open-editors', 'outline', 'timeline'];
+
+  void _reorderExplorer(int oldIndex, int newIndex) {
+    setState(() {
+      final order = [..._explorerOrder];
+      final moved = order.removeAt(oldIndex);
+      order.insert(newIndex, moved);
+      _explorerOrder = order;
+    });
+  }
+
   @override
   void dispose() {
     _notificationsDemo.dispose();
@@ -388,8 +403,13 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   WorkbenchViewContainerSpec _buildContainerSpec(String containerId) {
     switch (containerId) {
       case 'explorer':
+        // The Explorer dogfoods header drag-reorder (§spec:view-stack): the
+        // host owns the order ([_explorerOrder]) and the shell drives the drag
+        // and drop indicator. Build the descriptors in the host's order.
+        final byId = _explorerViews(_notificationService);
         return WorkbenchViewContainerSpec(
-          views: _explorerViews(_notificationService),
+          views: [for (final id in _explorerOrder) byId[id]!],
+          onReorder: _reorderExplorer,
         );
       case 'search':
         return const WorkbenchViewContainerSpec(
@@ -1003,13 +1023,18 @@ class _SidebarBodyPlaceholder extends StatelessWidget {
 /// header to reveal its refresh and new-file buttons; click one and the pane
 /// stays expanded (the action does not toggle the header). Collapse the pane
 /// and the actions vanish entirely.
-List<WorkbenchViewDescriptor> _explorerViews(NotificationService service) {
+/// Explorer view descriptors keyed by id. The host renders them in
+/// [_WorkbenchHomeState._explorerOrder]'s order, which header drag-reorder
+/// permutes (§spec:view-stack).
+Map<String, WorkbenchViewDescriptor> _explorerViews(
+  NotificationService service,
+) {
   void notify(String message) {
     service.show(severity: NotificationSeverity.info, message: message);
   }
 
-  return [
-    WorkbenchViewDescriptor(
+  return {
+    'open-editors': WorkbenchViewDescriptor(
       id: 'open-editors',
       title: 'Open Editors',
       actions: [
@@ -1028,7 +1053,7 @@ List<WorkbenchViewDescriptor> _explorerViews(NotificationService service) {
         text: 'main.dart\nworkbench_content.dart',
       ),
     ),
-    WorkbenchViewDescriptor(
+    'outline': WorkbenchViewDescriptor(
       id: 'outline',
       title: 'Outline',
       initiallyExpanded: false,
@@ -1036,7 +1061,7 @@ List<WorkbenchViewDescriptor> _explorerViews(NotificationService service) {
         text: 'WorkbenchViewPane\nWorkbenchSubsection\nWorkbenchCard',
       ),
     ),
-    WorkbenchViewDescriptor(
+    'timeline': WorkbenchViewDescriptor(
       id: 'timeline',
       title: 'Timeline',
       actions: [
@@ -1050,7 +1075,7 @@ List<WorkbenchViewDescriptor> _explorerViews(NotificationService service) {
         text: 'Timeline — recent edits land here.',
       ),
     ),
-  ];
+  };
 }
 
 /// Compact icon button sized to the pane-header row — the host supplies the

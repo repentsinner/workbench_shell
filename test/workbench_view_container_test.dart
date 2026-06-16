@@ -797,6 +797,179 @@ void main() {
       );
     });
 
+    testWidgets('dragging a pane header reorders panes and reports the move', (
+      tester,
+    ) async {
+      final views = <WorkbenchViewDescriptor>[
+        const WorkbenchViewDescriptor(
+          id: 'a',
+          title: 'Alpha',
+          bodyBuilder: _shortBody,
+        ),
+        const WorkbenchViewDescriptor(
+          id: 'b',
+          title: 'Beta',
+          bodyBuilder: _shortBody,
+        ),
+        const WorkbenchViewDescriptor(
+          id: 'c',
+          title: 'Gamma',
+          bodyBuilder: _shortBody,
+        ),
+      ];
+      (int, int)? reported;
+
+      await tester.pumpWidget(
+        StatefulBuilder(
+          builder: (context, setState) => wrapWithChromeTheme(
+            SizedBox(
+              height: 600,
+              child: WorkbenchViewContainer(
+                views: views,
+                onReorder: (oldIndex, newIndex) => setState(() {
+                  reported = (oldIndex, newIndex);
+                  final moved = views.removeAt(oldIndex);
+                  views.insert(newIndex, moved);
+                }),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Initial order: Alpha, Beta, Gamma.
+      final alphaTop0 = tester.getTopLeft(find.text('ALPHA')).dy;
+      final betaTop0 = tester.getTopLeft(find.text('BETA')).dy;
+      final gammaTop0 = tester.getTopLeft(find.text('GAMMA')).dy;
+      expect(alphaTop0, lessThan(betaTop0));
+      expect(betaTop0, lessThan(gammaTop0));
+
+      // Drag the third pane (Gamma) header up onto the first pane (Alpha):
+      // dropping on Alpha's top half inserts Gamma before Alpha.
+      final gammaHeader = tester.getCenter(find.text('GAMMA'));
+      final alphaCenter = tester.getCenter(
+        find.byKey(const ValueKey('workbench-view-pane-a')),
+      );
+      final gesture = await tester.startGesture(gammaHeader);
+      await tester.pump(const Duration(milliseconds: 200));
+      // Move toward Alpha's top half.
+      await gesture.moveTo(Offset(alphaCenter.dx, alphaCenter.dy - 8));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      // Gamma moved from index 2 to index 0.
+      expect(reported, (2, 0));
+      // Order now: Gamma, Alpha, Beta.
+      final gammaTop1 = tester.getTopLeft(find.text('GAMMA')).dy;
+      final alphaTop1 = tester.getTopLeft(find.text('ALPHA')).dy;
+      final betaTop1 = tester.getTopLeft(find.text('BETA')).dy;
+      expect(gammaTop1, lessThan(alphaTop1));
+      expect(alphaTop1, lessThan(betaTop1));
+    });
+
+    testWidgets('a drop indicator overlay shows the target slot during a drag', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithChromeTheme(
+          const SizedBox(
+            height: 600,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'a',
+                  title: 'Alpha',
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'b',
+                  title: 'Beta',
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+              onReorder: _noopReorder,
+            ),
+          ),
+        ),
+      );
+
+      // No drop indicator before a drag begins.
+      expect(
+        find.byKey(const ValueKey('workbench-view-drop-indicator')),
+        findsNothing,
+      );
+
+      // Start dragging Alpha's header and move over Beta.
+      final alphaHeader = tester.getCenter(find.text('ALPHA'));
+      final betaCenter = tester.getCenter(
+        find.byKey(const ValueKey('workbench-view-pane-b')),
+      );
+      final gesture = await tester.startGesture(alphaHeader);
+      await tester.pump(const Duration(milliseconds: 200));
+      await gesture.moveTo(Offset(betaCenter.dx, betaCenter.dy + 8));
+      await tester.pump();
+
+      // The drop indicator overlay is shown over the hovered target slot.
+      expect(
+        find.byKey(const ValueKey('workbench-view-drop-indicator')),
+        findsOneWidget,
+      );
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      // It vanishes once the drag ends.
+      expect(
+        find.byKey(const ValueKey('workbench-view-drop-indicator')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('without onReorder the header is not draggable (no indicator)', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithChromeTheme(
+          const SizedBox(
+            height: 600,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'a',
+                  title: 'Alpha',
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'b',
+                  title: 'Beta',
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final alphaHeader = tester.getCenter(find.text('ALPHA'));
+      final betaCenter = tester.getCenter(
+        find.byKey(const ValueKey('workbench-view-pane-b')),
+      );
+      final gesture = await tester.startGesture(alphaHeader);
+      await tester.pump(const Duration(milliseconds: 200));
+      await gesture.moveTo(betaCenter);
+      await tester.pump();
+
+      // No reorder machinery without the callback: no drop indicator appears.
+      expect(
+        find.byKey(const ValueKey('workbench-view-drop-indicator')),
+        findsNothing,
+      );
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+    });
+
     testWidgets('controlled descriptor reports next value, does not self-toggle', (
       tester,
     ) async {
@@ -844,6 +1017,9 @@ void main() {
 /// Short body: well under any minimum body allotment, so its pane never engages
 /// internal scroll in a tall container.
 Widget _shortBody(BuildContext _) => const Text('short');
+
+/// No-op reorder callback: enables the drag machinery without mutating order.
+void _noopReorder(int oldIndex, int newIndex) {}
 
 /// Tall body: far exceeds any plausible apportioned height, so its pane bounds
 /// the body and scrolls internally.

@@ -447,6 +447,7 @@ class _Sidebar extends StatelessWidget {
             child: WorkbenchViewContainer(
               views: spec.views,
               mergeSingleView: spec.mergeSingleView,
+              onReorder: spec.onReorder,
             ),
           ),
         ],
