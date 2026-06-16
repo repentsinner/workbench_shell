@@ -376,7 +376,7 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   Widget? _buildSidebar(String sectionId) {
     switch (sectionId) {
       case 'explorer':
-        return const _ExplorerSidebar();
+        return _ExplorerSidebar(service: _notificationService);
       case 'search':
         return const _SidebarBodyPlaceholder(
           text: 'Search sidebar — host-supplied content lands here.',
@@ -884,14 +884,12 @@ class _SidebarBodyPlaceholder extends StatelessWidget {
 /// The stacked-container redistribution of freed height is §spec:view-stack
 /// work, not built yet.
 class _ExplorerSidebar extends StatelessWidget {
-  const _ExplorerSidebar();
+  const _ExplorerSidebar({required this.service});
 
-  void _toast(BuildContext context, String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text(message), duration: const Duration(seconds: 1)),
-      );
+  final NotificationService service;
+
+  void _notify(String message) {
+    service.show(severity: NotificationSeverity.info, message: message);
   }
 
   /// Compact icon button sized to the pane-header row — the host supplies the
@@ -926,12 +924,12 @@ class _ExplorerSidebar extends StatelessWidget {
               _headerAction(
                 icon: Symbols.refresh_rounded,
                 tooltip: 'Refresh',
-                onPressed: () => _toast(context, 'Refreshed Open Editors'),
+                onPressed: () => _notify('Refreshed Open Editors'),
               ),
               _headerAction(
                 icon: Symbols.add_rounded,
                 tooltip: 'New File',
-                onPressed: () => _toast(context, 'New file'),
+                onPressed: () => _notify('New file'),
               ),
             ],
             child: const _SidebarBodyPlaceholder(
@@ -954,7 +952,7 @@ class _ExplorerSidebar extends StatelessWidget {
               _headerAction(
                 icon: Symbols.refresh_rounded,
                 tooltip: 'Refresh',
-                onPressed: () => _toast(context, 'Refreshed Timeline'),
+                onPressed: () => _notify('Refreshed Timeline'),
               ),
             ],
             child: const _SidebarBodyPlaceholder(

@@ -5,6 +5,7 @@
 // switch on tap, and the initial active panel (Problems) renders
 // its content body.
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -88,6 +89,31 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('main.dart\nworkbench_content.dart'), findsOneWidget);
   });
+
+  testWidgets(
+    'Explorer header action posts a themed notification, not a SnackBar',
+    (tester) async {
+      await tester.pumpWidget(const WorkbenchExampleApp());
+      await tester.pumpAndSettle();
+
+      // Header actions are hover-revealed: move a mouse pointer over the
+      // "Open Editors" header to reveal its Refresh action.
+      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await gesture.addPointer(location: Offset.zero);
+      addTearDown(gesture.removePointer);
+      await gesture.moveTo(tester.getCenter(find.text('OPEN EDITORS')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Refresh'));
+      await tester.pumpAndSettle();
+
+      // The action routes through NotificationService, so its message
+      // surfaces as a card in the NotificationHost overlay — never a raw
+      // Material SnackBar.
+      expect(find.textContaining('Refreshed Open Editors'), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+    },
+  );
 
   testWidgets('Settings sidebar renders auto-detect and three theme slots', (
     tester,
