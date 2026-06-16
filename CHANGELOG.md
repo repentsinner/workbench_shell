@@ -1,3 +1,17 @@
+# [0.9.0](https://github.com/repentsinner/workbench_shell/compare/v0.8.2...v0.9.0) (2026-06-16)
+
+
+### Bug Fixes
+
+* **view-stack:** anchor sash drag to absolute pointer position ([6161292](https://github.com/repentsinner/workbench_shell/commit/6161292cec5b3fbad32ddd5455ec05d1a7f45a53))
+
+
+### Features
+
+* **layout:** share a canonical sash for sidebar and panel resize ([d0f7e40](https://github.com/repentsinner/workbench_shell/commit/d0f7e4027a3c25a2f42aaa8ce21ab0f8506c987d))
+* **view-stack:** directional sash cursor at clamp limits ([434cd7b](https://github.com/repentsinner/workbench_shell/commit/434cd7b87dbfd70bdc29ba4ef1b19500b04e4d1e))
+* **view-stack:** drag the sash to resize adjacent panes ([99b518c](https://github.com/repentsinner/workbench_shell/commit/99b518ca3aa4d792d98ac62a13e32ebd1c3b81cc))
+
 ## [0.8.2](https://github.com/repentsinner/workbench_shell/compare/v0.8.1...v0.8.2) (2026-06-16)
 
 
