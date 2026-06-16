@@ -5,42 +5,9 @@ documented gap between the current implementation and SPEC.md.
 Workstreams are sized to fit one agent session; rationale and
 design decisions live in the cited spec sections, not here.
 
-## View Stack Container and Sidebar Inversion §road:view-stack-container
-
-Give the shell the stacked view container: typed view descriptors
-render as a flush stack of view panes with container-derived
-collapsibility and a single shared scroll, and `WorkbenchLayout`'s
-sidebar takes descriptors instead of a host-built widget
-(§spec:view-stack). Sash-resize and drag-reorder are out of scope here
-(staged, below).
-
-### Build the view-stack container §road:view-stack-widget
-
-Add a `WorkbenchViewContainer` that renders an ordered list of typed
-view descriptors as a flush stack of `WorkbenchViewPane`s with no
-inter-pane gap, derives each pane's collapsibility from the view count,
-and provides one shared scroll region, in `lib/src/`. §spec:view-stack.
-
-### Invert the WorkbenchLayout sidebar API §road:sidebar-api-inversion
-
-Replace `WorkbenchLayout`'s `sidebarBuilder` → `Widget` slot with
-per-container typed view descriptors rendered through
-`WorkbenchViewContainer`, rename the section navigation to
-view-container navigation, retire the host-set `collapsible` flag on
-`WorkbenchViewPane` (now container-derived), and migrate the example
-Explorer to view descriptors, in `lib/src/workbench_layout.dart`,
-`lib/src/workbench_content.dart`, and `example/lib/main.dart`.
-§spec:view-stack, §spec:section-disclosure, §spec:workbench-layout.
-Depends on §road:view-stack-widget.
-
-**Verify:** Run the example; the Explorer sidebar is a flush stack of
-view panes built from typed view descriptors (the host supplies no
-sidebar-body widget), separated by the header band and rule; collapsing
-one pane redistributes its height to the sibling panes; one scroll
-region covers overflow; a single-view container renders non-collapsible
-(or merged); no `collapsible` flag is accepted from the host. `flutter
-analyze` and `flutter test` pass and `flutter pub publish --dry-run` is
-clean.
+The queue is empty: every specced-and-queued workstream has shipped.
+New work enters here after a `/roadmap` pass derives it from a SPEC.md
+gap.
 
 ---
 
