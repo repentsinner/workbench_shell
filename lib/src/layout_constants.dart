@@ -90,6 +90,13 @@ class WorkbenchLayoutConstants {
   /// Sidebar heading row height.
   static const double sidebarHeadingHeight = 35.0;
 
+  /// View-pane header row height. VS Code `paneview.css` /
+  /// `splitview` `HEADER_SIZE = 22` — the band each stacked view pane
+  /// header occupies. The 1px top rule (§spec:view-stack) is absorbed
+  /// within this height (box-sizing border-box), so a header sits at
+  /// this height, not this height + 1.
+  static const double viewPaneHeaderHeight = 22.0;
+
   /// Tab strip row height inside the bottom panel. Shares VS Code's
   /// `.part > .title { height: 35px }` (`part.css`) with
   /// [sidebarHeadingHeight]. The strip's `Row` flex-centres its children

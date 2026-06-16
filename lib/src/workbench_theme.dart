@@ -40,6 +40,18 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
 
   final Color sideBarForeground;
 
+  /// Section-header band fill for stacked view-pane headers. VS Code
+  /// `sideBarSectionHeader.background`. Null when the theme omits the
+  /// key — the header then paints no band (mirrors the nullable
+  /// [sideBarBorder] / [activityBarBorder] handling). See SPEC
+  /// §spec:view-stack.
+  final Color? sideBarSectionHeaderBackground;
+
+  /// Section-header top rule for stacked view-pane headers. VS Code
+  /// `sideBarSectionHeader.border`. Null when the theme omits the key —
+  /// the header then paints no rule. See SPEC §spec:view-stack.
+  final Color? sideBarSectionHeaderBorder;
+
   // ---- Editor area ----
   final Color editorBackground;
 
@@ -311,6 +323,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.sideBarBackground,
     required this.sideBarBorder,
     required this.sideBarForeground,
+    required this.sideBarSectionHeaderBackground,
+    required this.sideBarSectionHeaderBorder,
     required this.editorBackground,
     required this.panelBackground,
     required this.panelBorder,
@@ -552,6 +566,11 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // Null by the same registry semantics as activityBar.border.
       sideBarBorder: map['sideBar.border'],
       sideBarForeground: map.resolve('sideBar.foreground', fg),
+      // Section-header band + rule for stacked view panes (§spec:view-stack).
+      // Null by the same registry semantics as sideBar.border — a theme
+      // that omits the key suppresses the corresponding paint.
+      sideBarSectionHeaderBackground: map['sideBarSectionHeader.background'],
+      sideBarSectionHeaderBorder: map['sideBarSectionHeader.border'],
       // Editor
       editorBackground: editorBg,
       // Panel
@@ -846,6 +865,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? sideBarBackground,
     Color? sideBarBorder,
     Color? sideBarForeground,
+    Color? sideBarSectionHeaderBackground,
+    Color? sideBarSectionHeaderBorder,
     Color? editorBackground,
     Color? panelBackground,
     Color? panelBorder,
@@ -954,6 +975,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       sideBarBackground: sideBarBackground ?? this.sideBarBackground,
       sideBarBorder: sideBarBorder ?? this.sideBarBorder,
       sideBarForeground: sideBarForeground ?? this.sideBarForeground,
+      sideBarSectionHeaderBackground:
+          sideBarSectionHeaderBackground ?? this.sideBarSectionHeaderBackground,
+      sideBarSectionHeaderBorder:
+          sideBarSectionHeaderBorder ?? this.sideBarSectionHeaderBorder,
       editorBackground: editorBackground ?? this.editorBackground,
       panelBackground: panelBackground ?? this.panelBackground,
       panelBorder: panelBorder ?? this.panelBorder,
@@ -1114,6 +1139,14 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       sideBarBackground: c(sideBarBackground, other.sideBarBackground),
       sideBarBorder: cn(sideBarBorder, other.sideBarBorder),
       sideBarForeground: c(sideBarForeground, other.sideBarForeground),
+      sideBarSectionHeaderBackground: cn(
+        sideBarSectionHeaderBackground,
+        other.sideBarSectionHeaderBackground,
+      ),
+      sideBarSectionHeaderBorder: cn(
+        sideBarSectionHeaderBorder,
+        other.sideBarSectionHeaderBorder,
+      ),
       editorBackground: c(editorBackground, other.editorBackground),
       panelBackground: c(panelBackground, other.panelBackground),
       panelBorder: cn(panelBorder, other.panelBorder),
@@ -1319,6 +1352,9 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           sideBarBackground == other.sideBarBackground &&
           sideBarBorder == other.sideBarBorder &&
           sideBarForeground == other.sideBarForeground &&
+          sideBarSectionHeaderBackground ==
+              other.sideBarSectionHeaderBackground &&
+          sideBarSectionHeaderBorder == other.sideBarSectionHeaderBorder &&
           editorBackground == other.editorBackground &&
           panelBackground == other.panelBackground &&
           panelBorder == other.panelBorder &&
@@ -1428,6 +1464,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     sideBarBackground,
     sideBarBorder,
     sideBarForeground,
+    sideBarSectionHeaderBackground,
+    sideBarSectionHeaderBorder,
     editorBackground,
     panelBackground,
     panelBorder,
