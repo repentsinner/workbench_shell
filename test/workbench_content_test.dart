@@ -572,6 +572,27 @@ void main() {
       expect(bodyTop - headerBottom, closeTo(0, 0.5));
     });
 
+    testWidgets('non-collapsible header reserves the twisty space (titles '
+        'align)', (tester) async {
+      await tester.pumpWidget(
+        wrapWith(
+          themeWith(background: band, border: rule),
+          Column(
+            children: [
+              _collapsiblePane(title: 'Collapsible', child: const Text('a')),
+              const WorkbenchViewPane(title: 'Static', child: Text('b')),
+            ],
+          ),
+        ),
+      );
+      // VS Code always renders the twisty container, so a non-collapsible
+      // header keeps the indent: its title aligns with a collapsible pane's
+      // rather than sliding into the chevron's place (§spec:section-disclosure).
+      final collapsibleX = tester.getTopLeft(find.text('COLLAPSIBLE')).dx;
+      final staticX = tester.getTopLeft(find.text('STATIC')).dx;
+      expect(staticX, closeTo(collapsibleX, 0.5));
+    });
+
     testWidgets('header sits at the pane-header height (rule absorbed)', (
       tester,
     ) async {
