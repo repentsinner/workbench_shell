@@ -4,6 +4,7 @@ import 'package:flutter/rendering.dart';
 
 import 'layout_constants.dart';
 import 'workbench_content.dart';
+import 'workbench_sash.dart';
 
 /// Typed descriptor for one view in a [WorkbenchViewContainer]
 /// (§spec:view-stack). The host supplies an ordered list of these — never a
@@ -174,82 +175,19 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
     view.onExpandedChanged?.call(next);
   }
 
-  /// In-progress sash drag, captured at drag start. Updates resolve the
-  /// pointer's *absolute* offset from this anchor — not an accumulated delta —
-  /// so the sash stays locked to the cursor: when a drag overshoots a clamp the
-  /// sash parks at the limit and resumes only once the cursor returns over it,
-  /// with no offset (§spec:view-stack, sash-resize). A delta-accumulating drag
-  /// instead discards the overshoot and trails the cursor by it.
-  _SashDrag? _sashDrag;
+  /// Vertical grab band on a pane boundary — wide enough to catch the pointer
+  /// without overlapping the header's controls.
+  static const double _sashHitHeight = 6.0;
 
-  /// Cursor for the drag-time overlay while a sash drag is active. Set from the
-  /// clamp direction so it stays correct when the pointer overshoots off the
-  /// thin sash strip (matching VS Code's drag-time sash cursor).
-  MouseCursor _dragCursor = SystemMouseCursors.resizeUpDown;
+  /// Pair total captured when the active sash drag begins, so [_sashedPane]'s
+  /// `onChanged` sets the lower body to `pair - newUpper` and leaves the other
+  /// panes untouched.
+  double? _activeSashPair;
 
-  /// Begin a sash drag on the boundary above [lowerId], whose nearest expanded
-  /// neighbor above is [upperId]. Seeds from the on-screen body heights and the
-  /// global pointer Y [pointerY], freezing the basis updates resolve against.
-  void _beginSash(String upperId, String lowerId, double pointerY) {
-    final render = _stackKey.currentContext?.findRenderObject();
-    if (render is! _RenderViewStack) return;
-    final upperBody = render.bodyHeightOf(upperId);
-    final lowerBody = render.bodyHeightOf(lowerId);
-    if (upperBody == null || lowerBody == null) return;
-    _sashDrag = _SashDrag(
-      upperId: upperId,
-      lowerId: lowerId,
-      startPointerY: pointerY,
-      startUpper: upperBody,
-      pair: upperBody + lowerBody,
-    );
-  }
-
-  /// Resolve the sash to the pointer's absolute position. The upper body becomes
-  /// its start height plus the offset since the drag began ([pointerY] is the
-  /// global pointer Y), clamped so neither body falls below
-  /// [WorkbenchLayoutConstants.viewPaneMinBodyHeight] (§spec:view-stack).
-  void _updateSash(double pointerY) {
-    final drag = _sashDrag;
-    if (drag == null) return;
-    const minBody = WorkbenchLayoutConstants.viewPaneMinBodyHeight;
-    final newUpper = (drag.startUpper + (pointerY - drag.startPointerY)).clamp(
-      minBody,
-      drag.pair - minBody,
-    );
-    final newLower = drag.pair - newUpper;
-    // The cursor points the way the sash can still move: at the top limit
-    // (upper body at min) only down remains → down arrow; at the bottom limit
-    // (lower body at min) only up → up arrow; otherwise both. Mirrors VS Code's
-    // horizontal sash (s-resize / n-resize / ns-resize).
-    final cursor = newUpper <= minBody
-        ? SystemMouseCursors.resizeDown
-        : newUpper >= drag.pair - minBody
-        ? SystemMouseCursors.resizeUp
-        : SystemMouseCursors.resizeUpDown;
-    if (_manualBody[drag.upperId] == newUpper &&
-        _manualBody[drag.lowerId] == newLower &&
-        _dragCursor == cursor) {
-      return;
-    }
-    setState(() {
-      _manualBody[drag.upperId] = newUpper;
-      _manualBody[drag.lowerId] = newLower;
-      _dragCursor = cursor;
-    });
-  }
-
-  void _endSash() {
-    if (_sashDrag == null) return;
-    setState(() {
-      _sashDrag = null;
-      _dragCursor = SystemMouseCursors.resizeUpDown;
-    });
-  }
-
-  /// Hover cursor for a sash, from the persisted neighbor sizes: a pane left at
-  /// its minimum body height (by a prior drag) shows the single-direction arrow
-  /// even before the next drag, matching VS Code's at-limit sash state.
+  /// Hover cursor for the sash on the boundary above [lowerId]: directional when
+  /// a neighbor is already pinned at its minimum body height, otherwise
+  /// bidirectional (§spec:view-stack). The drag cursor is computed live by the
+  /// sash from its basis.
   MouseCursor _sashCursor(String upperId, String lowerId) {
     const minBody = WorkbenchLayoutConstants.viewPaneMinBodyHeight;
     final upper = _manualBody[upperId];
@@ -261,6 +199,62 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
       return SystemMouseCursors.resizeUp;
     }
     return SystemMouseCursors.resizeUpDown;
+  }
+
+  /// Overlay a resize sash on the top boundary of [pane], an expanded pane whose
+  /// nearest expanded neighbor above is [upperId]. The shared [WorkbenchSash]
+  /// owns the absolute-anchored drag, the directional cursor, and the hover/drag
+  /// highlight (§spec:view-stack). The drag basis is read from live layout at
+  /// drag start — a transfer re-apportions only between this pair, conserving
+  /// their combined height, so the upper body ranges over `[minBody, pair - minBody]`.
+  Widget _sashedPane({
+    required String upperId,
+    required String lowerId,
+    required Widget pane,
+  }) {
+    return Stack(
+      children: [
+        pane,
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: _sashHitHeight,
+          child: WorkbenchSash(
+            key: ValueKey('workbench-view-sash-$lowerId'),
+            axis: Axis.vertical,
+            growSign: 1,
+            hoverCursor: _sashCursor(upperId, lowerId),
+            resolveBasis: () {
+              const minBody = WorkbenchLayoutConstants.viewPaneMinBodyHeight;
+              final render = _stackKey.currentContext?.findRenderObject();
+              final upper = render is _RenderViewStack
+                  ? (render.bodyHeightOf(upperId) ?? minBody)
+                  : minBody;
+              final lower = render is _RenderViewStack
+                  ? (render.bodyHeightOf(lowerId) ?? minBody)
+                  : minBody;
+              final pair = upper + lower;
+              _activeSashPair = pair;
+              final max = pair - minBody;
+              return (
+                value: upper,
+                min: minBody,
+                max: max < minBody ? minBody : max,
+              );
+            },
+            onChanged: (newUpper) {
+              final pair = _activeSashPair ?? newUpper;
+              setState(() {
+                _manualBody[upperId] = newUpper;
+                _manualBody[lowerId] = pair - newUpper;
+              });
+            },
+            child: const SizedBox.expand(),
+          ),
+        ),
+      ],
+    );
   }
 
   /// Drop manual sash sizing when the expanded set differs from the one in
@@ -316,6 +310,22 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
           final isExpandedPane = !collapsible || expanded;
           // A sash sits above this pane only when an expanded pane precedes it.
           final upperId = (isExpandedPane && collapsible) ? prevExpandedId : null;
+          final pane = WorkbenchViewPane.inContainer(
+            title: view.title,
+            infoTooltip: view.infoTooltip,
+            actions: view.actions,
+            actionsAlwaysVisible: view.actionsAlwaysVisible,
+            collapsible: collapsible,
+            // The rule separates adjacent panes; the first pane omits it
+            // (no divider above the first pane — §spec:view-stack).
+            showTopRule: i > 0,
+            // The splitview bounds each expanded body so it scrolls internally
+            // within its apportioned height (§spec:view-stack).
+            boundedBody: true,
+            expanded: expanded,
+            onExpandedChanged: (next) => _handleToggle(view, next),
+            child: Builder(builder: view.bodyBuilder),
+          );
           children.add(
             _ViewStackChild(
               key: ValueKey('workbench-view-pane-${view.id}'),
@@ -324,35 +334,15 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
               // The render object reads this to honor a user-set body height
               // for an expanded pane; null leaves it on the even default.
               manualBody: isExpandedPane ? _manualBody[view.id] : null,
-              child: _SashedPane(
-                sashKey: upperId == null
-                    ? null
-                    : ValueKey('workbench-view-sash-${view.id}'),
-                onSashDragStart: upperId == null
-                    ? null
-                    : (pointerY) => _beginSash(upperId, view.id, pointerY),
-                onSashDragUpdate: upperId == null ? null : _updateSash,
-                onSashDragEnd: upperId == null ? null : _endSash,
-                sashCursor: upperId == null
-                    ? null
-                    : _sashCursor(upperId, view.id),
-                child: WorkbenchViewPane.inContainer(
-                  title: view.title,
-                  infoTooltip: view.infoTooltip,
-                  actions: view.actions,
-                  actionsAlwaysVisible: view.actionsAlwaysVisible,
-                  collapsible: collapsible,
-                  // The rule separates adjacent panes; the first pane omits it
-                  // (no divider above the first pane — §spec:view-stack).
-                  showTopRule: i > 0,
-                  // The splitview bounds each expanded body so it scrolls
-                  // internally within its apportioned height (§spec:view-stack).
-                  boundedBody: true,
-                  expanded: expanded,
-                  onExpandedChanged: (next) => _handleToggle(view, next),
-                  child: Builder(builder: view.bodyBuilder),
-                ),
-              ),
+              // An expanded pane after the first carries a resize sash on the
+              // boundary it shares with its expanded neighbor above.
+              child: upperId == null
+                  ? pane
+                  : _sashedPane(
+                      upperId: upperId,
+                      lowerId: view.id,
+                      pane: pane,
+                    ),
             ),
           );
           if (isExpandedPane) prevExpandedId = view.id;
@@ -363,7 +353,9 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
         // scroll view then has nothing to scroll. It overflows (and the scroll
         // view scrolls the whole stack) only as the minimum-body fallback
         // (§spec:view-stack).
-        final stack = SingleChildScrollView(
+        // Each WorkbenchSash carries its own drag-time cursor overlay, so the
+        // container needs none of its own.
+        return SingleChildScrollView(
           key: const ValueKey('workbench-view-stack-scroll'),
           child: _ViewStack(
             key: _stackKey,
@@ -371,105 +363,11 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
             children: children,
           ),
         );
-        if (_sashDrag == null) return stack;
-        // While a sash drag is active the pointer can overshoot off the thin
-        // sash strip; a full-container cursor overlay keeps the directional
-        // resize cursor showing throughout the drag (the gesture is already
-        // captured, so this only paints the cursor).
-        return Stack(
-          children: [
-            stack,
-            Positioned.fill(child: MouseRegion(cursor: _dragCursor)),
-          ],
-        );
       },
     );
   }
 }
 
-/// Overlays a thin draggable sash on the top edge of an expanded pane
-/// (§spec:view-stack, sash-resize). The sash straddles the boundary the pane
-/// shares with its nearest expanded neighbor above; dragging it transfers
-/// apportioned body height between the two. A resize cursor marks the grab
-/// target. Panes with no expanded neighbor above (the first expanded pane, or a
-/// pane whose neighbor is collapsed) get [sashKey] null and render no sash.
-class _SashedPane extends StatelessWidget {
-  final Key? sashKey;
-
-  /// Drag callbacks report the *global* pointer Y so the container resolves the
-  /// sash to the pointer's absolute position, not an accumulated delta (so an
-  /// overshoot does not offset the sash from the cursor). Global rather than
-  /// local because the sash widget itself moves as the panes resize mid-drag.
-  final ValueChanged<double>? onSashDragStart;
-  final ValueChanged<double>? onSashDragUpdate;
-  final VoidCallback? onSashDragEnd;
-
-  /// Hover cursor for the grab strip: bidirectional normally, or a single
-  /// direction when a neighbor is already pinned at its minimum body height
-  /// (§spec:view-stack). Null when this pane carries no sash.
-  final MouseCursor? sashCursor;
-  final Widget child;
-
-  const _SashedPane({
-    required this.sashKey,
-    required this.onSashDragStart,
-    required this.onSashDragUpdate,
-    required this.onSashDragEnd,
-    required this.sashCursor,
-    required this.child,
-  });
-
-  /// Vertical grab band centered on the pane boundary. Wide enough to catch
-  /// the pointer without overlapping the header's interactive controls.
-  static const double _sashHitHeight = 6.0;
-
-  @override
-  Widget build(BuildContext context) {
-    if (onSashDragUpdate == null) return child;
-    return Stack(
-      children: [
-        child,
-        Positioned(
-          key: sashKey,
-          top: 0,
-          left: 0,
-          right: 0,
-          height: _sashHitHeight,
-          child: MouseRegion(
-            cursor: sashCursor ?? SystemMouseCursors.resizeUpDown,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onVerticalDragStart: (d) =>
-                  onSashDragStart?.call(d.globalPosition.dy),
-              onVerticalDragUpdate: (d) => onSashDragUpdate!(d.globalPosition.dy),
-              onVerticalDragEnd: (_) => onSashDragEnd?.call(),
-              child: const SizedBox.expand(),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Frozen basis for an in-progress sash drag (§spec:view-stack). Captured at
-/// drag start so each update resolves the pointer's absolute offset from the
-/// anchor rather than accumulating per-event deltas.
-class _SashDrag {
-  const _SashDrag({
-    required this.upperId,
-    required this.lowerId,
-    required this.startPointerY,
-    required this.startUpper,
-    required this.pair,
-  });
-
-  final String upperId;
-  final String lowerId;
-  final double startPointerY;
-  final double startUpper;
-  final double pair;
-}
 
 /// Parent-data carrier for a stacked child: its [collapsed] state, its
 /// descriptor [viewId] (so the render object can report a pane's measured body

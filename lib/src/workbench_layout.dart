@@ -83,8 +83,6 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   String _internalActiveViewContainerId = '';
   bool _sidebarVisible = true;
   double _sidebarWidth = WorkbenchLayoutConstants.sidebarDefaultWidth;
-  bool _isDraggingSidebar = false;
-  bool _isDraggingPanel = false;
   double _panelHeight = WorkbenchLayoutConstants.panelDefaultHeight;
 
   // Activity-bar items partitioned by zone and sorted by sortOrder.
@@ -261,8 +259,9 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
 
   Widget _buildVerticalResizer(WorkbenchTheme theme) {
     // The sidebar sits on the left, so dragging the seam right grows its width
-    // (growSign +1). WorkbenchSash gives the canonical absolute-anchored drag
-    // and directional cursor (§spec:workbench-layout).
+    // (growSign +1). WorkbenchSash owns the canonical drag, directional cursor,
+    // and hover/drag highlight (§spec:workbench-layout); the child is just the
+    // idle strip with its hairline.
     return WorkbenchSash(
       axis: Axis.horizontal,
       value: _sidebarWidth,
@@ -270,23 +269,18 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       max: WorkbenchLayoutConstants.sidebarMaxWidth,
       growSign: 1,
       onChanged: (next) => setState(() => _sidebarWidth = next),
-      onDragChanged: (dragging) =>
-          setState(() => _isDraggingSidebar = dragging),
       child: Container(
         width: WorkbenchLayoutConstants.resizerHitTargetSize,
-        color: _isDraggingSidebar
-            ? theme.sashHoverBackground
-            : theme.sideBarBackground,
+        color: theme.sideBarBackground,
         child: _buildSidebarResizerOverlay(theme),
       ),
     );
   }
 
-  // Returns the inner hairline widget for the sidebar resizer's
-  // idle state, or null while dragging or when the theme suppresses
-  // the seam (null sideBarBorder).
+  // The sidebar resizer's idle hairline (the seam between sidebar and editor),
+  // or null when the theme suppresses the seam (null sideBarBorder). The
+  // hover/drag highlight is painted over it by WorkbenchSash.
   Widget? _buildSidebarResizerOverlay(WorkbenchTheme theme) {
-    if (_isDraggingSidebar) return null;
     final sideBarBorder = theme.sideBarBorder;
     if (sideBarBorder == null) return null;
     return Align(
@@ -302,7 +296,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   Widget _buildHorizontalResizer(WorkbenchTheme theme) {
     // The panel sits at the bottom, so dragging the seam up grows its height
     // (growSign -1: moving the pointer down shrinks the panel). Same canonical
-    // sash behavior as the sidebar (§spec:workbench-layout).
+    // sash, highlight included (§spec:workbench-layout).
     return WorkbenchSash(
       axis: Axis.vertical,
       value: _panelHeight,
@@ -310,12 +304,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       max: WorkbenchLayoutConstants.panelMaxHeight,
       growSign: -1,
       onChanged: (next) => setState(() => _panelHeight = next),
-      onDragChanged: (dragging) => setState(() => _isDraggingPanel = dragging),
-      child: Container(
-        color: _isDraggingPanel
-            ? theme.sashHoverBackground
-            : Colors.transparent,
-      ),
+      child: const SizedBox.expand(),
     );
   }
 }

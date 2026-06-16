@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import 'workbench_theme.dart';
+
 /// Canonical resize sash for the workbench's resizable seams — the sidebar
-/// width and the bottom-panel height. Drives a single [value] between [min]
-/// and [max] with VS Code-aligned behavior, so every seam feels the same:
+/// width, the bottom-panel height, and the view-stack pane boundaries
+/// (§spec:workbench-layout, §spec:view-stack). Drives a single [value] between
+/// [min] and [max] with VS Code-aligned behavior, so every seam feels the same:
 ///
 /// - **Absolute-anchored drag**: the value tracks the pointer's offset from
 ///   where the drag began, not an accumulated per-event delta. Overshooting a
@@ -16,18 +19,26 @@ import 'package:flutter/material.dart';
 ///   the cursor so it stays correct when the pointer overshoots off the thin
 ///   sash strip. The gesture is already captured, so the overlay only paints
 ///   the cursor.
+/// - **Two-level highlight**: the sash paints `WorkbenchTheme.sashHoverBackground`
+///   over its strip — a subtler tint on hover, the full color while dragging.
+///   VS Code uses one `sash.hoverBorder` color for both states (hover after a
+///   delay, active immediately); the hover/drag opacity split gives that
+///   two-level feel.
 ///
-/// Internal — not exported. Shared by `WorkbenchLayout`'s resizers.
+/// Internal — not exported. Shared by `WorkbenchLayout`'s resizers and the
+/// view-stack pane sashes.
 class WorkbenchSash extends StatefulWidget {
   const WorkbenchSash({
     super.key,
     required this.axis,
-    required this.value,
-    required this.min,
-    required this.max,
     required this.growSign,
     required this.onChanged,
     required this.child,
+    this.value = 0,
+    this.min = 0,
+    this.max = 1,
+    this.resolveBasis,
+    this.hoverCursor,
     this.onDragChanged,
   });
 
@@ -35,24 +46,38 @@ class WorkbenchSash extends StatefulWidget {
   /// [Axis.vertical] resizes a height (the panel).
   final Axis axis;
 
-  /// Current size the sash drives.
+  /// Current size and bounds for a *prop-driven* sash (the sidebar/panel, whose
+  /// value is stored state). A *derived* sash (the view stack, whose value comes
+  /// from live layout) supplies [resolveBasis] instead and may leave these at
+  /// their defaults.
   final double value;
   final double min;
   final double max;
 
-  /// Sign mapping pointer movement to [value]: `+1` when increasing the pointer
-  /// coordinate (moving right / down) grows the value, `-1` when it shrinks it.
+  /// Resolves the drag basis — the value and its bounds — at drag start, from
+  /// live geometry. When non-null it overrides [value]/[min]/[max] for the
+  /// drag, so the drag seeds from on-screen sizes rather than a build snapshot
+  /// (the view stack reads its pane heights here).
+  final ({double value, double min, double max}) Function()? resolveBasis;
+
+  /// Static hover cursor for the strip. When null it is computed from
+  /// [value]/[min]/[max]; a derived sash supplies it (it knows its at-limit
+  /// state from stored sizes). The drag cursor is always computed from the live
+  /// drag against the basis.
+  final MouseCursor? hoverCursor;
+
+  /// Sign mapping pointer movement to the value: `+1` when increasing the
+  /// pointer coordinate (moving right / down) grows it, `-1` when it shrinks it.
   /// Also orients the directional cursor toward the side with room.
   final double growSign;
 
-  /// Called with the new clamped [value] during a drag.
+  /// Called with the new clamped value during a drag.
   final ValueChanged<double> onChanged;
 
-  /// Notified when a drag begins (`true`) and ends (`false`) — lets the host
-  /// paint a drag/hover background on [child].
+  /// Notified when a drag begins (`true`) and ends (`false`).
   final ValueChanged<bool>? onDragChanged;
 
-  /// The visible sash strip (hairline, hit target, drag background).
+  /// The visible sash strip (hairline, hit target).
   final Widget child;
 
   @override
@@ -62,6 +87,11 @@ class WorkbenchSash extends StatefulWidget {
 class _WorkbenchSashState extends State<WorkbenchSash> {
   double _startValue = 0;
   double _startPointer = 0;
+  double _startMin = 0;
+  double _startMax = 1;
+  double? _lastEmitted;
+  bool _hovering = false;
+  bool _dragging = false;
   OverlayEntry? _overlay;
   final ValueNotifier<MouseCursor> _overlayCursor = ValueNotifier(
     SystemMouseCursors.basic,
@@ -70,13 +100,13 @@ class _WorkbenchSashState extends State<WorkbenchSash> {
   double _axisPos(Offset global) =>
       widget.axis == Axis.horizontal ? global.dx : global.dy;
 
-  /// Cursor for [value] given the clamp state: at [min] the value can only grow
+  /// Cursor for [value] against [min]/[max]: at [min] the value can only grow
   /// and at [max] only shrink, so the arrow points the way with room; otherwise
   /// bidirectional. Mirrors VS Code's sash cursors (ew/ns-resize free;
   /// e/w- or n/s-resize at the limits).
-  MouseCursor _cursorFor(double value) {
-    final atMin = value <= widget.min;
-    final atMax = value >= widget.max;
+  MouseCursor _cursorFor(double value, double min, double max) {
+    final atMin = value <= min;
+    final atMax = value >= max;
     if (widget.axis == Axis.horizontal) {
       final grow = widget.growSign >= 0
           ? SystemMouseCursors.resizeRight
@@ -100,9 +130,13 @@ class _WorkbenchSashState extends State<WorkbenchSash> {
   }
 
   void _onStart(DragStartDetails d) {
-    _startValue = widget.value;
+    final basis = widget.resolveBasis?.call();
+    _startValue = basis?.value ?? widget.value;
+    _startMin = basis?.min ?? widget.min;
+    _startMax = basis?.max ?? widget.max;
+    _lastEmitted = _startValue;
     _startPointer = _axisPos(d.globalPosition);
-    _overlayCursor.value = _cursorFor(widget.value);
+    _overlayCursor.value = _cursorFor(_startValue, _startMin, _startMax);
     final overlay = Overlay.maybeOf(context, rootOverlay: true);
     if (overlay != null) {
       _overlay = OverlayEntry(
@@ -115,22 +149,27 @@ class _WorkbenchSashState extends State<WorkbenchSash> {
       );
       overlay.insert(_overlay!);
     }
+    setState(() => _dragging = true);
     widget.onDragChanged?.call(true);
   }
 
   void _onUpdate(DragUpdateDetails d) {
     final offset = _axisPos(d.globalPosition) - _startPointer;
     final next = (_startValue + widget.growSign * offset).clamp(
-      widget.min,
-      widget.max,
+      _startMin,
+      _startMax,
     );
-    _overlayCursor.value = _cursorFor(next);
-    if (next != widget.value) widget.onChanged(next);
+    _overlayCursor.value = _cursorFor(next, _startMin, _startMax);
+    if (next != _lastEmitted) {
+      _lastEmitted = next;
+      widget.onChanged(next);
+    }
   }
 
   void _onEnd() {
     _overlay?.remove();
     _overlay = null;
+    if (mounted) setState(() => _dragging = false);
     widget.onDragChanged?.call(false);
   }
 
@@ -141,17 +180,37 @@ class _WorkbenchSashState extends State<WorkbenchSash> {
     super.dispose();
   }
 
+  /// The hover/drag highlight that paints over the strip: full color while
+  /// dragging, half-alpha on hover. Null when the seam is idle or the theme
+  /// suppresses the color.
+  Widget? _highlight(BuildContext context) {
+    if (!_hovering && !_dragging) return null;
+    final base = Theme.of(context).extension<WorkbenchTheme>()?.sashHoverBackground;
+    if (base == null) return null;
+    final color = _dragging ? base : base.withValues(alpha: base.a * 0.5);
+    return Positioned.fill(
+      child: IgnorePointer(child: ColoredBox(color: color)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final highlight = _highlight(context);
     return MouseRegion(
-      cursor: _cursorFor(widget.value),
+      cursor:
+          widget.hoverCursor ??
+          _cursorFor(widget.value, widget.min, widget.max),
+      onEnter: (_) => setState(() => _hovering = true),
+      onExit: (_) => setState(() => _hovering = false),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onPanStart: _onStart,
         onPanUpdate: _onUpdate,
         onPanEnd: (_) => _onEnd(),
         onPanCancel: _onEnd,
-        child: widget.child,
+        child: highlight == null
+            ? widget.child
+            : Stack(children: [widget.child, highlight]),
       ),
     );
   }
