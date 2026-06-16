@@ -43,8 +43,9 @@ typography, spacing, and theming.
   bottom panel, status bar.
 - Stacked sidebar view containers (§spec:view-stack): the activity bar
   selects a view container that stacks independently collapsible view
-  panes (`WorkbenchViewPane`) from typed view descriptors, with
-  separators and a shared scroll region.
+  panes (`WorkbenchViewPane`) from typed view descriptors as a
+  fixed-height splitview — panes apportion the height and scroll
+  internally — with separators.
 - Tabbed bottom panel (`WorkbenchTabbedPanel`,
   `WorkbenchPanelTab`) with host-supplied tab descriptors, stable
   ids, and a View-menu / keyboard-shortcut focus contract.
@@ -211,10 +212,11 @@ activity bar switches between bodies, and the host composes each body as
 a free-form widget tree (today a `Column` of `WorkbenchViewPane`s inside
 the host's own scroll view). VS Code instead stacks several views in one
 container — Explorer shows Open Editors, the file tree, Outline, and
-Timeline as four independently collapsible panes sharing the sidebar's
-height. The shell cannot express this: it has no stack, no per-view
-collapse, no inter-view separators, no shared scroll. Every host that
-wants the VS Code sidebar reinvents the stack and drifts from the canon
+Timeline as four independently collapsible panes that apportion the
+sidebar's height and scroll internally. The shell cannot express this:
+it has no stack, no per-view collapse, no inter-view separators, no
+height apportionment or per-pane scroll. Every host that wants the VS
+Code sidebar reinvents the stack and drifts from the canon
 (§spec:problem-statement).
 
 **The shell owns the stack; the host supplies typed view descriptors**:
@@ -276,10 +278,39 @@ owns the stacking, the headers, and the chrome between bodies.
   opaque or near-opaque values, so the band and the rule render in
   normal light and dark themes — they are the visible separation between
   VS Code's stacked panes, not whitespace.
-- The container scrolls as one region when expanded bodies exceed the
-  available height; the scroll boundary is the container, not each pane.
-  A view body may host its own internal scroller for its content (a long
-  list) — host responsibility, layered above the container scroll.
+- The container is a **fixed-height splitview**, not a scrolling column:
+  it apportions the sidebar's height among the expanded panes (below),
+  and each expanded pane's body is given a bounded height and **scrolls
+  internally** when its content overflows that allotment. The stack
+  scrolls as one region only as an *overflow fallback* — when the panes
+  cannot all fit even at their minimum body heights
+  (§spec:layout-constants). Normally the scroll boundary is each pane,
+  not the container.
+
+**Layout is a fixed-height splitview** (VS Code's sidebar is a vertical
+`SplitView` of panes): the container divides its available height among
+the **expanded** panes rather than letting each pane grow to its
+content. Each pane has a minimum body height (§spec:layout-constants);
+the remaining height is distributed **proportionally** across the
+expanded panes (a freshly opened container divides it evenly). A
+collapsed pane occupies only its header height and contributes nothing
+to the body apportionment, so collapsing a pane hands its freed height
+to the expanded siblings in proportion, and expanding one takes height
+back from them. A pane whose content exceeds its allotment scrolls
+inside its own body; the whole stack scrolls together only when the
+expanded panes cannot fit at their minimum body heights — the overflow
+fallback.
+
+**Why a splitview, not a scrolling column**: a scrolling column (each
+pane sized to its content, the whole stack scrolling) is simpler but
+diverges visibly — a tall pane pushes its siblings off screen and the
+entire sidebar scrolls as one, instead of each pane holding its place
+and scrolling internally. It also cannot express sash-resize, which *is*
+re-apportionment of a fixed height: a sash drag trades height between two
+adjacent panes through the same mechanism that distributes it. The
+splitview is the only model that yields both the per-pane scroll
+behavior and a sash-ready sizing layer, so the container is a splitview
+from the start even before sashes ship (staged below).
 
 **Collapsibility is derived from view count, not a host flag**: the
 container decides whether each pane can collapse, matching VS Code
@@ -302,10 +333,12 @@ container.
 **Resize and reorder are in the target, staged**: VS Code lets the user
 drag the divider between two panes to resize them and drag a header to
 reorder panes within a container. Both belong in the aligned model but
-are separable from the core stack — a stack with fixed proportions and
-fixed order is already useful and testable — so they may land as later
-increments. The core capability is the stack with independent collapse,
-separators, and shared scroll.
+are separable from the core stack — a splitview with default proportional
+sizing and fixed order is already useful and testable — so they may land
+as later increments. The core capability is the splitview stack —
+independent collapse, separators, proportional apportionment, and
+per-pane internal scroll — on which sash-resize (re-apportionment between
+adjacent panes) and drag-reorder then build.
 
 **Container selection mirrors today's section navigation**: the activity
 bar selects the active view container, controlled or uncontrolled — the
@@ -329,8 +362,12 @@ Reselecting the active container toggles sidebar visibility, unchanged.
 - Every view-pane header is visible (except the merged single-view
   case); a collapsed pane occupies only its header height and its freed
   space flows to the expanded panes.
-- The container provides one scroll region for the stack and scrolls
-  when expanded bodies overflow the available height.
+- The container apportions its height among the expanded panes
+  (proportionally; a collapsed pane takes only its header height); an
+  expanded pane scrolls inside its own body when its content exceeds its
+  allotment. The whole stack scrolls together only as an overflow
+  fallback — when the expanded panes cannot fit at their minimum body
+  heights.
 - The activity bar selects the active view container (controlled or
   uncontrolled); reselecting the active container toggles sidebar
   visibility.
@@ -1525,8 +1562,10 @@ with a `toolbar.hoverBackground` background, not a foreground shift.
 
 `WorkbenchLayoutConstants` is the single authority for
 workbench geometry: structural dimensions (activity bar width,
-sidebar min/max width, status bar height, view-pane header height),
-spacing scale, icon sizes, and container radius.
+sidebar min/max width, status bar height, view-pane header height,
+view-pane minimum body height — the floor below which the view-stack
+splitview engages its overflow scroll, §spec:view-stack), spacing
+scale, icon sizes, and container radius.
 
 **Why not theme-driven**: icon sizes and spacing are fixed
 geometry, not appearance. VS Code treats them identically to
