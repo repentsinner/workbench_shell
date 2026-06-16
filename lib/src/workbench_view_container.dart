@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
@@ -195,27 +196,25 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
     setState(() {
       _manualBody[upperId] = newUpper;
       _manualBody[lowerId] = newLower;
-      _manualBasis = render.expandedIds();
     });
   }
 
   /// Drop manual sash sizing when the expanded set differs from the one in
-  /// effect when it was written ([_manualBasis]). The stored heights divide that
-  /// set's body pool; once a pane collapses or expands the pool and membership
-  /// change, so even apportionment is the sensible reset (§spec:view-stack).
+  /// effect when it was last written ([_manualBasis]). The stored heights divide
+  /// that set's body pool; once a pane collapses or expands the pool and
+  /// membership change, so even apportionment is the sensible reset
+  /// (§spec:view-stack). While no manual sizing is held the basis tracks the
+  /// current set, so the first drag records the set it sizes.
   void _reconcileManualBasis(Set<String> expandedIds) {
     if (_manualBody.isEmpty) {
       _manualBasis = expandedIds;
       return;
     }
-    if (!_setEquals(_manualBasis, expandedIds)) {
+    if (!setEquals(_manualBasis, expandedIds)) {
       _manualBody.clear();
       _manualBasis = expandedIds;
     }
   }
-
-  static bool _setEquals(Set<String> a, Set<String> b) =>
-      a.length == b.length && a.containsAll(b);
 
   @override
   Widget build(BuildContext context) {
@@ -478,21 +477,6 @@ class _RenderViewStack extends RenderBox
       child = parentData.nextSibling;
     }
     return null;
-  }
-
-  /// The descriptor ids of the currently expanded panes — the basis a sash drag
-  /// records so a later collapse/expand can detect a stale manual sizing set.
-  Set<String> expandedIds() {
-    final ids = <String>{};
-    RenderBox? child = firstChild;
-    while (child != null) {
-      final parentData = child.parentData! as _ViewStackParentData;
-      if (!parentData.collapsed && parentData.viewId != null) {
-        ids.add(parentData.viewId!);
-      }
-      child = parentData.nextSibling;
-    }
-    return ids;
   }
 
   @override
