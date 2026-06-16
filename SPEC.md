@@ -554,6 +554,16 @@ switches sidebars), or omit both and let the shell track the active
 container internally, seeded by `initialViewContainerId`. Reselecting the
 active container toggles sidebar visibility.
 
+**Resize seams share one canonical sash.** The sidebar-width and
+bottom-panel-height seams resize through the same sash behavior as the
+view-stack sashes (§spec:view-stack): the drag tracks the pointer's
+*absolute* position from where it began (overshooting a clamp parks the
+sash at the limit and it re-tracks without offset), and the cursor is
+bidirectional while the sash can move both ways and a single-direction
+arrow at each limit (matching VS Code's `ew-resize`/`ns-resize` and
+`minimum`/`maximum` cursors). One internal sash primitive backs every
+resizable seam so they behave identically.
+
 ### WorkbenchTabbedPanel and WorkbenchPanelTab §spec:tabbed-panel
 
 `WorkbenchTabbedPanel` and `WorkbenchPanelTab` own the bottom
