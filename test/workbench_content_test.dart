@@ -7,6 +7,36 @@ import 'package:workbench_shell/workbench_shell.dart';
 
 import 'test_theme.dart';
 
+/// Build a collapsible pane through the library-internal seam the container
+/// uses (§spec:view-stack). The public constructor renders a non-collapsible
+/// standalone pane; collapsibility is container-derived, so collapse behavior
+/// is exercised via [WorkbenchViewPane.inContainer], the same seam
+/// [WorkbenchViewContainer] drives.
+WorkbenchViewPane _collapsiblePane({
+  required String title,
+  required Widget child,
+  bool initiallyExpanded = true,
+  bool? expanded,
+  ValueChanged<bool>? onExpandedChanged,
+  String? infoTooltip,
+  List<Widget> actions = const [],
+  bool actionsAlwaysVisible = false,
+  Key? key,
+}) {
+  return WorkbenchViewPane.inContainer(
+    key: key,
+    title: title,
+    collapsible: true,
+    initiallyExpanded: initiallyExpanded,
+    expanded: expanded,
+    onExpandedChanged: onExpandedChanged,
+    infoTooltip: infoTooltip,
+    actions: actions,
+    actionsAlwaysVisible: actionsAlwaysVisible,
+    child: child,
+  );
+}
+
 void main() {
   group('WorkbenchViewPane', () {
     testWidgets('renders title uppercased with sectionTitle style', (
@@ -87,14 +117,29 @@ void main() {
       },
     );
 
+    testWidgets(
+      'public constructor takes no host collapsible flag — pane is '
+      'non-collapsible (§spec:section-disclosure)',
+      (tester) async {
+        // The default public constructor renders the standalone primitive:
+        // body always shown, no chevron. Collapsibility is container-derived
+        // (§spec:view-stack), never a host param. A `collapsible:` argument to
+        // this constructor would not compile — analyze guards the absence.
+        await tester.pumpWidget(
+          wrapWithTheme(
+            const WorkbenchViewPane(title: 'Hello', child: Text('body')),
+          ),
+        );
+        expect(find.text('body'), findsOneWidget);
+        expect(find.byIcon(Symbols.expand_more_rounded), findsNothing);
+        expect(find.byIcon(Symbols.chevron_right_rounded), findsNothing);
+      },
+    );
+
     testWidgets('collapsible pane shows a leading chevron', (tester) async {
       await tester.pumpWidget(
         wrapWithTheme(
-          const WorkbenchViewPane(
-            title: 'Hello',
-            collapsible: true,
-            child: Text('body'),
-          ),
+          _collapsiblePane(title: 'Hello', child: const Text('body')),
         ),
       );
       // Expanded by default → downward chevron, body visible.
@@ -107,11 +152,7 @@ void main() {
     ) async {
       await tester.pumpWidget(
         wrapWithTheme(
-          const WorkbenchViewPane(
-            title: 'Hello',
-            collapsible: true,
-            child: Text('body'),
-          ),
+          _collapsiblePane(title: 'Hello', child: const Text('body')),
         ),
       );
       expect(find.text('body'), findsOneWidget);
@@ -136,11 +177,10 @@ void main() {
     ) async {
       await tester.pumpWidget(
         wrapWithTheme(
-          const WorkbenchViewPane(
+          _collapsiblePane(
             title: 'Hello',
-            collapsible: true,
             initiallyExpanded: false,
-            child: Text('body'),
+            child: const Text('body'),
           ),
         ),
       );
@@ -151,11 +191,7 @@ void main() {
     testWidgets('keyboard Enter and Space toggle the pane', (tester) async {
       await tester.pumpWidget(
         wrapWithTheme(
-          const WorkbenchViewPane(
-            title: 'Hello',
-            collapsible: true,
-            child: Text('body'),
-          ),
+          _collapsiblePane(title: 'Hello', child: const Text('body')),
         ),
       );
       expect(find.text('body'), findsOneWidget);
@@ -182,11 +218,7 @@ void main() {
       final handle = tester.ensureSemantics();
       await tester.pumpWidget(
         wrapWithTheme(
-          const WorkbenchViewPane(
-            title: 'Hello',
-            collapsible: true,
-            child: Text('body'),
-          ),
+          _collapsiblePane(title: 'Hello', child: const Text('body')),
         ),
       );
       // Expanded by default.
@@ -225,9 +257,8 @@ void main() {
     ) async {
       bool? reported;
       Widget build(bool expanded) => wrapWithTheme(
-        WorkbenchViewPane(
+        _collapsiblePane(
           title: 'Hello',
-          collapsible: true,
           expanded: expanded,
           onExpandedChanged: (value) => reported = value,
           child: const Text('body'),
@@ -339,9 +370,8 @@ void main() {
     ) async {
       await tester.pumpWidget(
         wrapWithTheme(
-          WorkbenchViewPane(
+          _collapsiblePane(
             title: 'Hello',
-            collapsible: true,
             initiallyExpanded: false,
             actions: [actionWidget],
             child: const Text('body'),
@@ -374,9 +404,8 @@ void main() {
     ) async {
       await tester.pumpWidget(
         wrapWithTheme(
-          WorkbenchViewPane(
+          _collapsiblePane(
             title: 'Hello',
-            collapsible: true,
             initiallyExpanded: false,
             actionsAlwaysVisible: true,
             actions: [actionWidget],
@@ -394,9 +423,8 @@ void main() {
       var tapped = 0;
       await tester.pumpWidget(
         wrapWithTheme(
-          WorkbenchViewPane(
+          _collapsiblePane(
             title: 'Hello',
-            collapsible: true,
             actionsAlwaysVisible: true,
             actions: [
               IconButton(
@@ -427,9 +455,8 @@ void main() {
         'actions', (tester) async {
       await tester.pumpWidget(
         wrapWithTheme(
-          WorkbenchViewPane(
+          _collapsiblePane(
             title: 'Hello',
-            collapsible: true,
             infoTooltip: 'meta',
             actionsAlwaysVisible: true,
             actions: [actionWidget],

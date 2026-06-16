@@ -59,6 +59,27 @@ class WorkbenchViewDescriptor {
   });
 }
 
+/// Typed spec for one activity-bar view container (§spec:view-stack). The
+/// host returns one per container id from `WorkbenchLayout.containerBuilder`,
+/// replacing the retired free-form `sidebarBuilder` widget slot
+/// (§spec:capability-boundary): the host supplies typed view descriptors, not
+/// a sidebar-body widget.
+class WorkbenchViewContainerSpec {
+  /// Ordered views rendered as the container's pane stack. Empty renders an
+  /// empty container.
+  final List<WorkbenchViewDescriptor> views;
+
+  /// When the container holds exactly one view, merge it with the container:
+  /// hide the pane header and let the body fill. No effect with 2+ views.
+  /// Single-purpose containers set this to preserve a full-body sidebar.
+  final bool mergeSingleView;
+
+  const WorkbenchViewContainerSpec({
+    required this.views,
+    this.mergeSingleView = false,
+  });
+}
+
 /// Renders an ordered list of [WorkbenchViewDescriptor]s as a flush stack of
 /// [WorkbenchViewPane]s (§spec:view-stack), the VS Code view-container model.
 ///
@@ -146,7 +167,7 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
             _ViewStackChild(
               key: ValueKey('workbench-view-pane-${view.id}'),
               collapsed: collapsible && !expanded,
-              child: WorkbenchViewPane(
+              child: WorkbenchViewPane.inContainer(
                 title: view.title,
                 infoTooltip: view.infoTooltip,
                 actions: view.actions,

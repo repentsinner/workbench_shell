@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'activity_bar_item.dart';
 import 'layout_constants.dart';
 import 'workbench_theme.dart';
+import 'workbench_view_container.dart';
 
 /// VS Code-style workbench layout with activity bar, sidebar, editor
 /// area, bottom panel, and status bar.
@@ -17,9 +18,12 @@ class WorkbenchLayout extends StatefulWidget {
   /// Main editor/visualizer content.
   final Widget editor;
 
-  /// Builds sidebar content for the given active section [id].
-  /// Returns null to show nothing.
-  final Widget? Function(String sectionId) sidebarBuilder;
+  /// Maps the active view-container id to its typed
+  /// [WorkbenchViewContainerSpec] (§spec:view-stack). The shell renders the
+  /// spec's view descriptors through a [WorkbenchViewContainer]; the host
+  /// supplies descriptors, not a sidebar-body widget
+  /// (§spec:capability-boundary). An empty spec renders an empty sidebar body.
+  final WorkbenchViewContainerSpec Function(String containerId) containerBuilder;
 
   /// Bottom panel content. Pass [SizedBox.shrink] to hide.
   final Widget bottomPanel;
@@ -35,38 +39,39 @@ class WorkbenchLayout extends StatefulWidget {
   /// Whether the bottom panel is visible.
   final bool showBottomPanel;
 
-  /// Initial active section ID. Defaults to the first item's ID.
-  /// Ignored when [activeSectionId] is non-null (controlled mode).
-  final String? initialSectionId;
+  /// Initial active view-container ID. Defaults to the first item's ID.
+  /// Ignored when [activeViewContainerId] is non-null (controlled mode).
+  final String? initialViewContainerId;
 
-  /// Externally controlled active section ID. When non-null, the
-  /// shell renders this section and delegates section changes to
-  /// [onSectionChanged]. The host owns the state.
+  /// Externally controlled active view-container ID. When non-null, the
+  /// shell renders this container and delegates container changes to
+  /// [onViewContainerChanged]. The host owns the state.
   ///
-  /// When null, the shell tracks active section internally
-  /// (uncontrolled mode) seeded from [initialSectionId].
-  final String? activeSectionId;
+  /// When null, the shell tracks the active container internally
+  /// (uncontrolled mode) seeded from [initialViewContainerId].
+  final String? activeViewContainerId;
 
-  /// Called when the user requests a section change via the activity
-  /// bar. The host shall update its [activeSectionId] in response.
-  /// Required when [activeSectionId] is non-null.
-  final ValueChanged<String>? onSectionChanged;
+  /// Called when the user requests a view-container change via the activity
+  /// bar. The host shall update its [activeViewContainerId] in response.
+  /// Required when [activeViewContainerId] is non-null.
+  final ValueChanged<String>? onViewContainerChanged;
 
   const WorkbenchLayout({
     super.key,
     required this.activityBarItems,
     required this.editor,
-    required this.sidebarBuilder,
+    required this.containerBuilder,
     required this.bottomPanel,
     required this.statusBar,
     this.onTogglePanel,
     this.showBottomPanel = true,
-    this.initialSectionId,
-    this.activeSectionId,
-    this.onSectionChanged,
+    this.initialViewContainerId,
+    this.activeViewContainerId,
+    this.onViewContainerChanged,
   }) : assert(
-         activeSectionId == null || onSectionChanged != null,
-         'onSectionChanged is required when activeSectionId is provided',
+         activeViewContainerId == null || onViewContainerChanged != null,
+         'onViewContainerChanged is required when activeViewContainerId is '
+         'provided',
        );
 
   @override
@@ -74,7 +79,7 @@ class WorkbenchLayout extends StatefulWidget {
 }
 
 class _WorkbenchLayoutState extends State<WorkbenchLayout> {
-  String _internalActiveSectionId = '';
+  String _internalActiveViewContainerId = '';
   bool _sidebarVisible = true;
   double _sidebarWidth = WorkbenchLayoutConstants.sidebarDefaultWidth;
   bool _isDraggingSidebar = false;
@@ -88,14 +93,14 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   List<ActivityBarItem> _mainActivityItems = const [];
   List<ActivityBarItem> _bottomActivityItems = const [];
 
-  String get _activeSectionId =>
-      widget.activeSectionId ?? _internalActiveSectionId;
+  String get _activeViewContainerId =>
+      widget.activeViewContainerId ?? _internalActiveViewContainerId;
 
   @override
   void initState() {
     super.initState();
-    _internalActiveSectionId =
-        widget.initialSectionId ??
+    _internalActiveViewContainerId =
+        widget.initialViewContainerId ??
         (widget.activityBarItems.isNotEmpty
             ? widget.activityBarItems.first.id
             : '');
@@ -125,9 +130,9 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
           ..sort(byOrder);
   }
 
-  void _setActiveSection(String sectionId) {
-    final current = _activeSectionId;
-    if (current == sectionId) {
+  void _setActiveViewContainer(String containerId) {
+    final current = _activeViewContainerId;
+    if (current == containerId) {
       setState(() {
         _sidebarVisible = !_sidebarVisible;
       });
@@ -135,11 +140,11 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     }
     setState(() {
       _sidebarVisible = true;
-      if (widget.activeSectionId == null) {
-        _internalActiveSectionId = sectionId;
+      if (widget.activeViewContainerId == null) {
+        _internalActiveViewContainerId = containerId;
       }
     });
-    widget.onSectionChanged?.call(sectionId);
+    widget.onViewContainerChanged?.call(containerId);
   }
 
   void _onSidebarResize(double delta) {
@@ -176,9 +181,9 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
                   _ActivityBar(
                     mainItems: _mainActivityItems,
                     bottomItems: _bottomActivityItems,
-                    activeSectionId: _activeSectionId,
+                    activeViewContainerId: _activeViewContainerId,
                     sidebarVisible: _sidebarVisible,
-                    onSectionSelected: _setActiveSection,
+                    onViewContainerSelected: _setActiveViewContainer,
                     theme: theme,
                   ),
 
@@ -186,9 +191,8 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
                   if (_sidebarVisible) ...[
                     _Sidebar(
                       width: _sidebarWidth,
-                      activeSectionId: _activeSectionId,
-                      activeLabel: _activeLabelFor(_activeSectionId),
-                      contentBuilder: widget.sidebarBuilder,
+                      activeLabel: _activeLabelFor(_activeViewContainerId),
+                      spec: widget.containerBuilder(_activeViewContainerId),
                       theme: theme,
                     ),
                     _buildVerticalResizer(theme),
@@ -264,9 +268,9 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     );
   }
 
-  String _activeLabelFor(String sectionId) {
+  String _activeLabelFor(String containerId) {
     for (final item in widget.activityBarItems) {
-      if (item.id == sectionId) return item.label;
+      if (item.id == containerId) return item.label;
     }
     return '';
   }
@@ -332,17 +336,17 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
 class _ActivityBar extends StatelessWidget {
   final List<ActivityBarItem> mainItems;
   final List<ActivityBarItem> bottomItems;
-  final String activeSectionId;
+  final String activeViewContainerId;
   final bool sidebarVisible;
-  final ValueChanged<String> onSectionSelected;
+  final ValueChanged<String> onViewContainerSelected;
   final WorkbenchTheme theme;
 
   const _ActivityBar({
     required this.mainItems,
     required this.bottomItems,
-    required this.activeSectionId,
+    required this.activeViewContainerId,
     required this.sidebarVisible,
-    required this.onSectionSelected,
+    required this.onViewContainerSelected,
     required this.theme,
   });
 
@@ -372,12 +376,12 @@ class _ActivityBar extends StatelessWidget {
   }
 
   Widget _buildIcon(ActivityBarItem item) {
-    final active = sidebarVisible && activeSectionId == item.id;
+    final active = sidebarVisible && activeViewContainerId == item.id;
     return Tooltip(
       message: item.label,
       preferBelow: false,
       child: GestureDetector(
-        onTap: () => onSectionSelected(item.id),
+        onTap: () => onViewContainerSelected(item.id),
         child: Container(
           width: WorkbenchLayoutConstants.activityBarWidth,
           height: WorkbenchLayoutConstants.activityBarWidth,
@@ -404,19 +408,19 @@ class _ActivityBar extends StatelessWidget {
   }
 }
 
-/// Sidebar — collapsible content area next to the activity bar.
+/// Sidebar — collapsible content area next to the activity bar. Its body is
+/// the active view container's stack (§spec:view-stack), built from the host's
+/// typed [WorkbenchViewContainerSpec].
 class _Sidebar extends StatelessWidget {
   final double width;
-  final String activeSectionId;
   final String activeLabel;
-  final Widget? Function(String sectionId) contentBuilder;
+  final WorkbenchViewContainerSpec spec;
   final WorkbenchTheme theme;
 
   const _Sidebar({
     required this.width,
-    required this.activeSectionId,
     required this.activeLabel,
-    required this.contentBuilder,
+    required this.spec,
     required this.theme,
   });
 
@@ -445,7 +449,10 @@ class _Sidebar extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: contentBuilder(activeSectionId) ?? const SizedBox.shrink(),
+            child: WorkbenchViewContainer(
+              views: spec.views,
+              mergeSingleView: spec.mergeSingleView,
+            ),
           ),
         ],
       ),

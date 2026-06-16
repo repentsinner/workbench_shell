@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:meta/meta.dart';
 
 import 'layout_constants.dart';
 import 'workbench_theme.dart';
@@ -26,18 +27,20 @@ BorderSide _contentBorderSide(WorkbenchTheme theme) => theme.borderColor == null
 /// diverge (§spec:capability-boundary canon enforcement, §spec:chrome-typography-canon pane-header semantics) — in
 /// [WorkbenchTheme.sectionTitle] with an optional info tooltip icon.
 ///
-/// Opt-in disclosure (§spec:section-disclosure): set [collapsible] to add a
-/// leading twistie chevron and let the header toggle body visibility. The
-/// shell owns the chevron, the gesture, and the state — disclosure is not a
-/// host widget slot. Two control modes mirror §spec:workbench-layout:
+/// Disclosure (§spec:section-disclosure) is container-derived, not a host
+/// choice: the default public constructor renders a non-collapsible pane whose
+/// body is always shown. Whether a pane can collapse is decided by its
+/// [WorkbenchViewContainer] from view count (§spec:view-stack) and set through
+/// the library-internal [WorkbenchViewPane.inContainer] seam — a host cannot
+/// mark an individual pane collapsible (§spec:capability-boundary). When
+/// collapsible, the shell owns the chevron, the gesture, and the state.
+///
+/// Expansion state has two control modes mirroring §spec:workbench-layout:
 ///
 /// - *Uncontrolled*: omit [expanded]; the pane holds its own state, seeded
 ///   by [initiallyExpanded] (the `ExpansionTile` pattern).
 /// - *Controlled*: pass [expanded] and [onExpandedChanged]; the host drives
 ///   the value and the pane reflects it, reporting each requested toggle.
-///
-/// A non-collapsible pane renders its body unconditionally, exactly as a
-/// plain title + child — disclosure adds nothing to existing call sites.
 ///
 /// Header actions (§spec:section-header-actions): pass [actions] to place
 /// host-supplied widgets in the header's rightmost zone (order twisty →
@@ -64,8 +67,9 @@ class WorkbenchViewPane extends StatefulWidget {
   /// Pin [actions] on regardless of hover or focus, while expanded.
   final bool actionsAlwaysVisible;
 
-  /// When true, the header shows a leading twistie and toggles the body.
-  /// Off by default: a non-collapsible pane renders its body always.
+  /// Whether the header shows a leading twistie and toggles the body.
+  /// Container-derived (§spec:view-stack), not a host param: the public
+  /// constructor fixes it false; [WorkbenchViewPane.inContainer] sets it.
   final bool collapsible;
 
   /// Initial expansion for uncontrolled (no [expanded]) collapsible panes.
@@ -80,6 +84,9 @@ class WorkbenchViewPane extends StatefulWidget {
   /// controlled mode the host must push the new [expanded] value to apply it.
   final ValueChanged<bool>? onExpandedChanged;
 
+  /// Standalone primitive: renders a non-collapsible pane (body always
+  /// shown). Collapsibility is container-derived (§spec:view-stack), so the
+  /// public API exposes no `collapsible` flag.
   const WorkbenchViewPane({
     super.key,
     required this.title,
@@ -87,7 +94,24 @@ class WorkbenchViewPane extends StatefulWidget {
     this.infoTooltip,
     this.actions = const [],
     this.actionsAlwaysVisible = false,
-    this.collapsible = false,
+    this.initiallyExpanded = true,
+    this.expanded,
+    this.onExpandedChanged,
+  }) : collapsible = false;
+
+  /// Library-internal seam (§spec:view-stack). [WorkbenchViewContainer] uses
+  /// this to pass the collapsibility it derives from view count. `@internal`
+  /// keeps it off the public API — hosts use the default constructor and let
+  /// the container decide.
+  @internal
+  const WorkbenchViewPane.inContainer({
+    super.key,
+    required this.title,
+    required this.child,
+    required this.collapsible,
+    this.infoTooltip,
+    this.actions = const [],
+    this.actionsAlwaysVisible = false,
     this.initiallyExpanded = true,
     this.expanded,
     this.onExpandedChanged,
@@ -128,16 +152,21 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
     widget.onExpandedChanged?.call(next);
   }
 
-  /// Wrap [header] in the section-header band + rule. Returns [header]
-  /// unwrapped when the theme suppresses both tokens, so a header with
-  /// no chrome renders exactly as before. Otherwise a fixed-height
-  /// [Container] paints the band (background token, null → no fill) and
-  /// a 1px top rule (border token, null → no rule), the rule absorbed
-  /// within [WorkbenchLayoutConstants.viewPaneHeaderHeight].
+  /// Wrap [header] in the section-header band + rule.
+  ///
+  /// A collapsible pane stacks in a [WorkbenchViewContainer], where its header
+  /// is the canonical [WorkbenchLayoutConstants.viewPaneHeaderHeight] band
+  /// (§spec:view-stack) — fixed even when the theme suppresses both tokens, so
+  /// a collapsed pane's height is deterministic and matches the stack's
+  /// measured natural height. A non-collapsible standalone pane keeps the
+  /// prior behavior: with both tokens null the header renders unwrapped at its
+  /// intrinsic row height; otherwise the fixed-height [Container] paints the
+  /// band (background token, null → no fill) and a 1px top rule (border token,
+  /// null → no rule), the rule absorbed within the canonical height.
   Widget _withHeaderChrome(WorkbenchTheme theme, Widget header) {
     final band = theme.sideBarSectionHeaderBackground;
     final rule = theme.sideBarSectionHeaderBorder;
-    if (band == null && rule == null) return header;
+    if (band == null && rule == null && !widget.collapsible) return header;
     return Container(
       height: WorkbenchLayoutConstants.viewPaneHeaderHeight,
       decoration: BoxDecoration(
