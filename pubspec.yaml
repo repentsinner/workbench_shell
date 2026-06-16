@@ -28,6 +28,10 @@ dependencies:
   # so this adds no real footprint. See SPEC §spec:hct-tonal-resolution.
   material_color_utilities: ^0.13.0
   material_symbols_icons: ^4.2928.1
+  # `@internal` marks the WorkbenchViewPane.inContainer collapsibility seam
+  # off the public API (§spec:view-stack). meta is already a Flutter
+  # transitive dep, so this adds no real footprint.
+  meta: ^1.15.0
 
 dev_dependencies:
   flutter_test:

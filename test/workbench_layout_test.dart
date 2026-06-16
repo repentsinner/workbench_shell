@@ -29,6 +29,23 @@ final _testItems = [
   ),
 ];
 
+/// Single-view container spec whose merged body renders an id-identifiable
+/// text. Replaces the retired `sidebarBuilder: (id) => Text('Sidebar: $id')`
+/// — the host now supplies typed view descriptors, not a sidebar-body widget
+/// (§spec:capability-boundary).
+WorkbenchViewContainerSpec _sidebarSpec(String id) {
+  return WorkbenchViewContainerSpec(
+    mergeSingleView: true,
+    views: [
+      WorkbenchViewDescriptor(
+        id: id,
+        title: id,
+        bodyBuilder: (_) => Center(child: Text('Sidebar: $id')),
+      ),
+    ],
+  );
+}
+
 Widget _buildApp({
   List<ActivityBarItem>? items,
   bool showBottomPanel = true,
@@ -39,7 +56,7 @@ Widget _buildApp({
     home: WorkbenchLayout(
       activityBarItems: items ?? _testItems,
       editor: const Center(child: Text('Editor')),
-      sidebarBuilder: (id) => Center(child: Text('Sidebar: $id')),
+      containerBuilder: _sidebarSpec,
       bottomPanel: const Center(child: Text('Panel')),
       statusBar: statusBar ?? const SizedBox(height: 22, child: Text('Status')),
       showBottomPanel: showBottomPanel,
@@ -135,7 +152,7 @@ void main() {
           home: WorkbenchLayout(
             activityBarItems: _testItems,
             editor: const Center(child: Text('Editor')),
-            sidebarBuilder: (id) => Center(child: Text('Sidebar: $id')),
+            containerBuilder: _sidebarSpec,
             bottomPanel: Container(
               key: panelBgKey,
               color: const Color(0xFFDEADBE),
@@ -182,8 +199,8 @@ void main() {
     });
   });
 
-  group('controlled section', () {
-    testWidgets('host drives active section via activeSectionId', (
+  group('controlled view-container nav', () {
+    testWidgets('host drives active container via activeViewContainerId', (
       tester,
     ) async {
       String active = 'explorer';
@@ -198,11 +215,11 @@ void main() {
               return WorkbenchLayout(
                 activityBarItems: _testItems,
                 editor: const Center(child: Text('Editor')),
-                sidebarBuilder: (id) => Center(child: Text('Sidebar: $id')),
+                containerBuilder: _sidebarSpec,
                 bottomPanel: const Center(child: Text('Panel')),
                 statusBar: const SizedBox(height: 22, child: Text('Status')),
-                activeSectionId: active,
-                onSectionChanged: (id) => setState(() => active = id),
+                activeViewContainerId: active,
+                onViewContainerChanged: (id) => setState(() => active = id),
               );
             },
           ),
@@ -220,6 +237,72 @@ void main() {
       setOuter(() => active = 'settings');
       await tester.pumpAndSettle();
       expect(find.text('Sidebar: settings'), findsOneWidget);
+    });
+  });
+
+  group('view-container inversion', () {
+    // §spec:view-stack: the sidebar body is a typed view container built from
+    // descriptors, not a host widget. The activity bar selects a container;
+    // the shell renders its descriptor stack.
+    testWidgets('renders a multi-view container as a stacked WorkbenchViewContainer', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: WorkbenchLayout(
+            activityBarItems: _testItems,
+            editor: const Center(child: Text('Editor')),
+            containerBuilder: (id) => id == 'explorer'
+                ? WorkbenchViewContainerSpec(
+                    views: [
+                      WorkbenchViewDescriptor(
+                        id: 'open-editors',
+                        title: 'Open Editors',
+                        bodyBuilder: (_) => const Text('editors-body'),
+                      ),
+                      WorkbenchViewDescriptor(
+                        id: 'outline',
+                        title: 'Outline',
+                        bodyBuilder: (_) => const Text('outline-body'),
+                      ),
+                    ],
+                  )
+                : _sidebarSpec(id),
+            bottomPanel: const Center(child: Text('Panel')),
+            statusBar: const SizedBox(height: 22, child: Text('Status')),
+          ),
+        ),
+      );
+
+      // The container renders one WorkbenchViewContainer from the descriptors.
+      expect(find.byType(WorkbenchViewContainer), findsOneWidget);
+      // Two views → two collapsible panes, each header uppercased.
+      expect(find.text('OPEN EDITORS'), findsOneWidget);
+      expect(find.text('OUTLINE'), findsOneWidget);
+      expect(find.byIcon(Symbols.expand_more_rounded), findsNWidgets(2));
+      expect(find.text('editors-body'), findsOneWidget);
+    });
+
+    testWidgets('empty views list renders an empty container gracefully', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: WorkbenchLayout(
+            activityBarItems: _testItems,
+            editor: const Center(child: Text('Editor')),
+            containerBuilder: (_) =>
+                const WorkbenchViewContainerSpec(views: []),
+            bottomPanel: const Center(child: Text('Panel')),
+            statusBar: const SizedBox(height: 22, child: Text('Status')),
+          ),
+        ),
+      );
+      // No panes, no crash; the heading still shows.
+      expect(find.text('EXPLORER'), findsOneWidget);
+      expect(find.byType(WorkbenchViewPane), findsNothing);
     });
   });
 

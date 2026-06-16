@@ -351,7 +351,7 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                   bottomInset: WorkbenchLayoutConstants.statusBarHeight,
                   child: WorkbenchLayout(
                     activityBarItems: _activityBarItems,
-                    sidebarBuilder: _buildSidebar,
+                    containerBuilder: _buildContainerSpec,
                     editor: const _EditorPlaceholder(),
                     bottomPanel: scope.tabbedPanel,
                     showBottomPanel: _panelVisible,
@@ -373,22 +373,58 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
     );
   }
 
-  Widget? _buildSidebar(String sectionId) {
-    switch (sectionId) {
+  /// Map an activity-bar container id to its typed view-descriptor spec
+  /// (§spec:view-stack). Explorer is a real three-view stack; the
+  /// single-purpose containers each return one merged view so the body fills
+  /// the sidebar (no lone non-collapsible header).
+  WorkbenchViewContainerSpec _buildContainerSpec(String containerId) {
+    switch (containerId) {
       case 'explorer':
-        return _ExplorerSidebar(service: _notificationService);
+        return WorkbenchViewContainerSpec(
+          views: _explorerViews(_notificationService),
+        );
       case 'search':
-        return const _SidebarBodyPlaceholder(
-          text: 'Search sidebar — host-supplied content lands here.',
+        return _mergedView(
+          id: 'search',
+          title: 'Search',
+          body: (_) => const _SidebarBodyPlaceholder(
+            text: 'Search sidebar — host-supplied content lands here.',
+          ),
         );
       case 'buttons':
-        return const _ButtonsReviewSidebar();
+        return _mergedView(
+          id: 'buttons',
+          title: 'Buttons',
+          body: (_) => const _ButtonsReviewSidebar(),
+        );
       case 'notifications':
-        return _NotificationsDemoSidebar(service: _notificationService);
+        return _mergedView(
+          id: 'notifications',
+          title: 'Notifications',
+          body: (_) => _NotificationsDemoSidebar(service: _notificationService),
+        );
       case 'settings':
-        return _SettingsSidebar(themeController: widget.themeController);
+        return _mergedView(
+          id: 'settings',
+          title: 'Settings',
+          body: (_) => _SettingsSidebar(themeController: widget.themeController),
+        );
     }
-    return null;
+    return const WorkbenchViewContainerSpec(views: []);
+  }
+
+  /// A single-purpose container: one merged view whose body fills the
+  /// sidebar, preserving the full-body appearance these sidebars had before
+  /// the view-stack inversion.
+  WorkbenchViewContainerSpec _mergedView({
+    required String id,
+    required String title,
+    required WidgetBuilder body,
+  }) {
+    return WorkbenchViewContainerSpec(
+      mergeSingleView: true,
+      views: [WorkbenchViewDescriptor(id: id, title: title, bodyBuilder: body)],
+    );
   }
 }
 
@@ -862,107 +898,98 @@ class _SidebarBodyPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
+    // Canon body density: VS Code tree rows sit near-flush under the header
+    // with a modest left indent — not a generous all-around inset. The shell
+    // makes the body flush (§spec:view-stack); the host content owns this
+    // padding, so the example keeps it tight.
     return Padding(
-      padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingLg),
+      padding: const EdgeInsets.fromLTRB(
+        WorkbenchLayoutConstants.spacingLg,
+        WorkbenchLayoutConstants.spacingXs,
+        WorkbenchLayoutConstants.spacingLg,
+        WorkbenchLayoutConstants.spacingMd,
+      ),
       child: Text(text, style: theme.bodyStyle),
     );
   }
 }
 
-/// Explorer sidebar — demonstrates opt-in view-pane disclosure
-/// (SPEC §spec:section-disclosure) and hover-revealed header actions
-/// (SPEC §spec:section-header-actions). Two collapsible [WorkbenchViewPane]s
-/// (uncontrolled, the `ExpansionTile` pattern) sit above a plain
-/// non-collapsible pane: click a collapsible header — or focus it and press
-/// Enter/Space — to hide and show its body while the leading chevron flips.
+/// Explorer view container — a real three-view stack (§spec:view-stack):
+/// "Open Editors", "Outline", "Timeline". Three views make every pane
+/// collapsible (container-derived, no host flag): click a header — or focus
+/// it and press Enter/Space — to hide and show its body while the leading
+/// chevron flips, redistributing freed height to siblings.
 ///
-/// Header actions: hover the "Open Editors" header to reveal its refresh and
-/// new-file buttons; click one and the pane stays expanded (the action does
-/// not toggle the header). Collapse the pane and the actions vanish entirely.
-/// The non-collapsible "Timeline" pane reveals a refresh action on hover too —
-/// reveal still gates on hover, there is just no collapsed state to hide on.
-/// The stacked-container redistribution of freed height is §spec:view-stack
-/// work, not built yet.
-class _ExplorerSidebar extends StatelessWidget {
-  const _ExplorerSidebar({required this.service});
-
-  final NotificationService service;
-
-  void _notify(String message) {
+/// Header actions (§spec:section-header-actions): hover the "Open Editors"
+/// header to reveal its refresh and new-file buttons; click one and the pane
+/// stays expanded (the action does not toggle the header). Collapse the pane
+/// and the actions vanish entirely.
+List<WorkbenchViewDescriptor> _explorerViews(NotificationService service) {
+  void notify(String message) {
     service.show(severity: NotificationSeverity.info, message: message);
   }
 
-  /// Compact icon button sized to the pane-header row — the host supplies the
-  /// control (§spec:form-controls-excluded); the shell only places and reveals
-  /// it.
-  Widget _headerAction({
-    required IconData icon,
-    required String tooltip,
-    required VoidCallback onPressed,
-  }) {
-    return IconButton(
-      icon: Icon(icon, size: WorkbenchLayoutConstants.iconMd),
-      tooltip: tooltip,
-      onPressed: onPressed,
-      visualDensity: VisualDensity.compact,
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingLg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          WorkbenchViewPane(
-            title: 'Open Editors',
-            collapsible: true,
-            actions: [
-              _headerAction(
-                icon: Symbols.refresh_rounded,
-                tooltip: 'Refresh',
-                onPressed: () => _notify('Refreshed Open Editors'),
-              ),
-              _headerAction(
-                icon: Symbols.add_rounded,
-                tooltip: 'New File',
-                onPressed: () => _notify('New file'),
-              ),
-            ],
-            child: const _SidebarBodyPlaceholder(
-              text: 'main.dart\nworkbench_content.dart',
-            ),
-          ),
-          const SizedBox(height: WorkbenchLayoutConstants.spacingLg),
-          const WorkbenchViewPane(
-            title: 'Outline',
-            collapsible: true,
-            initiallyExpanded: false,
-            child: _SidebarBodyPlaceholder(
-              text: 'WorkbenchViewPane\nWorkbenchSubsection\nWorkbenchCard',
-            ),
-          ),
-          const SizedBox(height: WorkbenchLayoutConstants.spacingLg),
-          WorkbenchViewPane(
-            title: 'Timeline',
-            actions: [
-              _headerAction(
-                icon: Symbols.refresh_rounded,
-                tooltip: 'Refresh',
-                onPressed: () => _notify('Refreshed Timeline'),
-              ),
-            ],
-            child: const _SidebarBodyPlaceholder(
-              text: 'Non-collapsible pane — body always shown.',
-            ),
-          ),
-        ],
+  return [
+    WorkbenchViewDescriptor(
+      id: 'open-editors',
+      title: 'Open Editors',
+      actions: [
+        _explorerHeaderAction(
+          icon: Symbols.refresh_rounded,
+          tooltip: 'Refresh',
+          onPressed: () => notify('Refreshed Open Editors'),
+        ),
+        _explorerHeaderAction(
+          icon: Symbols.add_rounded,
+          tooltip: 'New File',
+          onPressed: () => notify('New file'),
+        ),
+      ],
+      bodyBuilder: (_) => const _SidebarBodyPlaceholder(
+        text: 'main.dart\nworkbench_content.dart',
       ),
-    );
-  }
+    ),
+    WorkbenchViewDescriptor(
+      id: 'outline',
+      title: 'Outline',
+      initiallyExpanded: false,
+      bodyBuilder: (_) => const _SidebarBodyPlaceholder(
+        text: 'WorkbenchViewPane\nWorkbenchSubsection\nWorkbenchCard',
+      ),
+    ),
+    WorkbenchViewDescriptor(
+      id: 'timeline',
+      title: 'Timeline',
+      actions: [
+        _explorerHeaderAction(
+          icon: Symbols.refresh_rounded,
+          tooltip: 'Refresh',
+          onPressed: () => notify('Refreshed Timeline'),
+        ),
+      ],
+      bodyBuilder: (_) => const _SidebarBodyPlaceholder(
+        text: 'Timeline — recent edits land here.',
+      ),
+    ),
+  ];
+}
+
+/// Compact icon button sized to the pane-header row — the host supplies the
+/// control (§spec:form-controls-excluded); the shell only places and reveals
+/// it.
+Widget _explorerHeaderAction({
+  required IconData icon,
+  required String tooltip,
+  required VoidCallback onPressed,
+}) {
+  return IconButton(
+    icon: Icon(icon, size: WorkbenchLayoutConstants.iconMd),
+    tooltip: tooltip,
+    onPressed: onPressed,
+    visualDensity: VisualDensity.compact,
+    padding: EdgeInsets.zero,
+    constraints: const BoxConstraints(),
+  );
 }
 
 /// VS Code's three button tiers rendered through the chrome helper —
