@@ -134,7 +134,10 @@ and an uppercase claim there would overclaim relative to the
 canon. Every new chrome surface follows the same model.
 §spec:view-stack applies the rule to the sidebar body itself: the host
 supplies typed view descriptors, not a free-form sidebar `Widget`,
-removing the last whole-surface escape hatch in the chrome.
+removing the last whole-surface escape hatch in the chrome. It also
+moves view collapsibility from a host flag to a container-derived
+decision, so the shell — not the host — enforces which panes can
+collapse.
 
 ---
 
@@ -216,9 +219,12 @@ wants the VS Code sidebar reinvents the stack and drifts from the canon
 the sidebar body is no longer a host `Widget`. For each view container
 the host supplies an ordered list of view descriptors — stable id,
 title, optional metadata, optional actions
-(§spec:section-header-actions), a collapsible flag and expansion state
-(§spec:section-disclosure), and a body builder — and the shell renders
-the stack. A free-form sidebar body is exactly the permissive `Widget`
+(§spec:section-header-actions), optional initial/controlled expansion
+state (§spec:section-disclosure), and a body builder — and the shell
+renders the stack. The descriptor carries no `collapsible` flag:
+whether a view can collapse is derived by the container from the number
+of views (below), not chosen per view. A free-form sidebar body is
+exactly the permissive `Widget`
 field §spec:capability-boundary rejects, scaled to the whole sidebar;
 replacing it with typed descriptors is the same move the bottom panel
 already makes with `WorkbenchPanelTab` descriptors (§spec:tabbed-panel).
@@ -248,17 +254,44 @@ owns the stacking, the headers, and the chrome between bodies.
 
 **Stack behavior**:
 
-- Every view-pane header in a container stays visible at all times; a
-  collapsed pane shows only its header. Collapsing a pane frees its body
-  height to the remaining expanded panes, which absorb the space; a
-  collapsed pane occupies only its header height
-  (§spec:layout-constants).
-- A divider separates adjacent panes, so the stack reads as distinct
-  panes rather than one continuous column.
+- Panes stack flush at the canonical view-pane header height
+  (§spec:layout-constants) with no vertical gap between them. Every
+  header stays visible; a collapsed pane shows only its header.
+  Collapsing a pane frees its body height to the remaining expanded
+  panes, which absorb the space; a collapsed pane occupies only its
+  header height.
+- Adjacent panes are separated by chrome on the header, not whitespace:
+  each header paints a section-header background band and a 1px top
+  rule. Both come from `WorkbenchTheme` tokens mapped from VS Code's
+  `sideBarSectionHeader.background` and `sideBarSectionHeader.border`,
+  each nullable so a theme that omits the token suppresses that paint
+  (§spec:theming, following the existing nullable-border pattern). These
+  are **not** high-contrast-only: the bundled default themes set both to
+  opaque or near-opaque values, so the band and the rule render in
+  normal light and dark themes — they are the visible separation between
+  VS Code's stacked panes, not whitespace.
 - The container scrolls as one region when expanded bodies exceed the
   available height; the scroll boundary is the container, not each pane.
   A view body may host its own internal scroller for its content (a long
   list) — host responsibility, layered above the container scroll.
+
+**Collapsibility is derived from view count, not a host flag**: the
+container decides whether each pane can collapse, matching VS Code
+(`ViewPaneContainer.updateViewHeaders`):
+
+- *Multiple views* — every pane is collapsible and shows its header.
+- *Single view* — the lone pane is non-collapsible. By default its
+  header stays visible but cannot collapse; a container option can
+  instead merge it with the container (header hidden, body fills the
+  sidebar).
+
+The host passes no per-view `collapsible` flag. Collapsibility is canon
+the container enforces — a host cannot mark one pane of a stack
+non-collapsible and produce an incoherent stack
+(§spec:capability-boundary). The pane's *expansion state*
+(expanded/collapsed, controlled or uncontrolled) remains the pane's per
+§spec:section-disclosure; only the *collapsible* decision moves to the
+container.
 
 **Resize and reorder are in the target, staged**: VS Code lets the user
 drag the divider between two panes to resize them and drag a header to
@@ -277,11 +310,18 @@ Reselecting the active container toggles sidebar visibility, unchanged.
 **Observable behavior**:
 
 - A view container renders an ordered stack of view panes from typed
-  view descriptors; the host supplies no sidebar-body widget.
-- Every view-pane header is visible regardless of the pane's
-  expanded/collapsed state; a collapsed pane occupies only its header
-  height and its freed space flows to the expanded panes.
-- A divider separates adjacent view panes.
+  view descriptors; the host supplies no sidebar-body widget and no
+  per-view collapsible flag.
+- Panes stack flush at the view-pane header height with no inter-pane
+  gap; adjacent panes are separated by a header background band and a
+  1px top rule, each nullable per theme and rendered in the bundled
+  default themes.
+- Whether a pane is collapsible is derived from the container's view
+  count: multiple views → all collapsible; a single view → non-collapsible,
+  or merged (header hidden, body fills) by container option.
+- Every view-pane header is visible (except the merged single-view
+  case); a collapsed pane occupies only its header height and its freed
+  space flows to the expanded panes.
 - The container provides one scroll region for the stack and scrolls
   when expanded bodies overflow the available height.
 - The activity bar selects the active view container (controlled or
@@ -362,14 +402,15 @@ visibility.
 
 ## View Pane Disclosure §spec:section-disclosure
 
-*Status: complete*
+*Status: in progress*
 
 A `WorkbenchViewPane` collapses to its header, hiding its body, and
 expands again — the VS Code pane affordance that lets a user manage a
 stacked container's vertical space (§spec:view-stack). The shell owns
 the twistie chevron, the toggle gesture, and the expanded/collapsed
-state; disclosure is opt-in and off by default, so existing
-title + child call sites are unaffected.
+state. Whether a given pane *can* collapse is decided by its container
+from view count (§spec:view-stack), not by a host flag; this section
+owns the collapse *mechanism* and the expansion *state*.
 
 **Disclosure pays off in the stack**: collapsing the sole pane of a
 single-view container merely hides it, but collapsing one of several
@@ -390,12 +431,21 @@ reveals (§spec:section-header-actions); disclosure is shell-owned chrome
 the shell renders and drives. A host-supplied chevron in the `actions`
 slot would reimplement disclosure per call site and drift from the canon.
 
-**Why opt-in params on `WorkbenchViewPane`, not a separate primitive**:
-VS Code's view pane is itself the collapsible unit — there is no
-distinct "collapsible pane" type. Folding disclosure into
-`WorkbenchViewPane` keeps one pane concept; a non-collapsible pane stays
-the default. A second primitive would duplicate the header layout and
-force every host to choose between two pane types.
+**Why one pane type, not a separate collapsible primitive**: VS Code's
+view pane is itself the collapsible unit — there is no distinct
+"collapsible pane" type. A `WorkbenchViewPane` is collapsible or not
+depending on the container's decision (§spec:view-stack), never a second
+primitive; a separate type would duplicate the header layout and force a
+choice between two pane types.
+
+**Collapsibility source**: the pane takes no host `collapsible` flag.
+Its container derives collapsibility from view count (§spec:view-stack)
+— multiple views collapsible, a single view non-collapsible or merged —
+so which panes can collapse is canon the shell enforces, not a host
+choice (§spec:capability-boundary). The pane exposes only its expansion
+state and the collapse mechanism; retiring the earlier host-set
+`collapsible` param is a breaking pre-1.0 change shipped as a `feat:`
+minor.
 
 **Controlled and uncontrolled, mirroring §spec:workbench-layout**: a host
 that does not drive state seeds the initial expansion (`initiallyExpanded`)
@@ -431,7 +481,8 @@ implementation; the contract is body visibility, not motion.
 
 **Observable behavior**:
 
-- A `WorkbenchViewPane` is non-collapsible by default and renders its
+- Whether a `WorkbenchViewPane` is collapsible is set by its container
+  (§spec:view-stack), not a host flag; a non-collapsible pane renders its
   body unconditionally.
 - When the pane is collapsible, the header shows a leading twistie
   chevron whose orientation reflects expanded vs collapsed, and the
@@ -1495,8 +1546,8 @@ with a `toolbar.hoverBackground` background, not a foreground shift.
 
 `WorkbenchLayoutConstants` is the single authority for
 workbench geometry: structural dimensions (activity bar width,
-sidebar min/max width, status bar height), spacing scale,
-icon sizes, and container radius.
+sidebar min/max width, status bar height, view-pane header height),
+spacing scale, icon sizes, and container radius.
 
 **Why not theme-driven**: icon sizes and spacing are fixed
 geometry, not appearance. VS Code treats them identically to
