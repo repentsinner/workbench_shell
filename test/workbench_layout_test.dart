@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:workbench_shell/src/workbench_sash.dart';
 import 'package:workbench_shell/workbench_shell.dart';
 
 import 'test_theme.dart';
@@ -133,6 +134,45 @@ void main() {
       await tester.pumpWidget(_buildApp());
 
       expect(find.text('Status'), findsOneWidget);
+    });
+
+    testWidgets('panel sash sits fully inside the panel — no overhang clipped '
+        'to a half-width highlight band', (tester) async {
+      // The editor↔panel sash must render its full canonical width like the
+      // sidebar and view-pane sashes. Placing it as an overhang above the
+      // panel's top edge lets the panel Stack's hardEdge clip eat the
+      // overhanging half of the highlight band, so it paints at half width.
+      // The sash sits fully inside the panel (top: 0), matching the view-pane
+      // sash placement.
+      const panelKey = ValueKey('panel-fill');
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: WorkbenchLayout(
+            activityBarItems: _testItems,
+            editor: const Center(child: Text('Editor')),
+            containerBuilder: _sidebarSpec,
+            bottomPanel: const ColoredBox(
+              key: panelKey,
+              color: Color(0xFF202020),
+              child: SizedBox.expand(),
+            ),
+            statusBar: const SizedBox(height: 22),
+          ),
+        ),
+      );
+
+      final sash = find.byWidgetPredicate(
+        (w) => w is WorkbenchSash && w.axis == Axis.vertical,
+      );
+      expect(sash, findsOneWidget);
+
+      // The panel content is inset ~1px below the panel's top edge by the
+      // border; the sash must not start above that edge (which would overhang
+      // into the clipped region above the panel).
+      final panelContentTop = tester.getRect(find.byKey(panelKey)).top;
+      final sashTop = tester.getRect(sash).top;
+      expect(sashTop, greaterThanOrEqualTo(panelContentTop - 2));
     });
 
     testWidgets('bottom panel top border is not overdrawn by panel child', (

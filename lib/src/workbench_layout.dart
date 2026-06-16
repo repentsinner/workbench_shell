@@ -226,10 +226,17 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
                                   ),
                                 ),
                                 Positioned(
-                                  top: -WorkbenchLayoutConstants.splitterWidth,
+                                  // Sit the sash fully inside the panel
+                                  // (top: 0), like the view-stack pane sashes.
+                                  // An overhang above the panel's top edge is
+                                  // clipped by this Stack's hardEdge bound,
+                                  // halving the painted highlight band; sitting
+                                  // inside keeps every seam's sash the same
+                                  // canonical width. Height owned by
+                                  // WorkbenchSash (sashSize).
+                                  top: 0,
                                   left: 0,
                                   right: 0,
-                                  // Height owned by WorkbenchSash (sashSize).
                                   child: _buildHorizontalResizer(theme),
                                 ),
                               ],

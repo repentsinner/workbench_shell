@@ -34,9 +34,6 @@ class WorkbenchLayoutConstants {
   /// Status bar height. VS Code `statusbarpart.css` `height: 22px`.
   static const double statusBarHeight = 22.0;
 
-  /// Splitter width (drag handle for sidebar/panel resizers).
-  static const double splitterWidth = 2.0;
-
   // ==================== SPACING SCALE ====================
 
   /// 2px — hairline gaps (e.g. between axis label and value).
