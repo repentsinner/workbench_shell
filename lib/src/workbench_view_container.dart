@@ -90,14 +90,22 @@ class WorkbenchViewContainerSpec {
 /// header hidden, body fills. The host passes no per-view collapsible flag;
 /// the container sets each pane's collapsibility.
 ///
-/// **Flush stack, single scroll**: panes stack at
+/// **Fixed-height splitview** (§spec:view-stack): panes stack at
 /// [WorkbenchLayoutConstants.viewPaneHeaderHeight] with no inter-pane gap —
 /// the header band and 1px top rule already on each pane provide the
-/// separation. Expanded panes share the available height; collapsing a pane
-/// frees its body height to the remaining expanded siblings, which absorb it,
-/// while the collapsed pane occupies only its header height. When expanded
-/// bodies overflow the available height the whole stack scrolls as one region;
-/// the scroll boundary is the container, not each pane.
+/// separation. The container apportions its available height among the
+/// **expanded** panes rather than letting each grow to its content: each
+/// expanded pane is header + an apportioned body, distributed evenly (the
+/// sash-resize foundation will weight it), never below
+/// [WorkbenchLayoutConstants.viewPaneMinBodyHeight]. A collapsed pane occupies
+/// only its header height and contributes nothing to the apportionment, so
+/// collapsing one hands its freed body height to the expanded siblings.
+///
+/// Each expanded pane's body is bounded and **scrolls internally** when its
+/// content exceeds its allotment — the per-pane scroll boundary. The whole
+/// stack scrolls as one region only as an *overflow fallback*: when the
+/// expanded panes cannot fit even at their minimum body heights, each sits at
+/// its minimum and the enclosing scroll view scrolls the stack.
 ///
 /// **Why the container tracks expansion**: to derive collapsibility *and* to
 /// redistribute freed height to siblings, the container must know each view's
@@ -177,6 +185,9 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
                 // The rule separates adjacent panes; the first pane omits it
                 // (no divider above the first pane — §spec:view-stack).
                 showTopRule: i > 0,
+                // The splitview bounds each expanded body so it scrolls
+                // internally within its apportioned height (§spec:view-stack).
+                boundedBody: true,
                 expanded: expanded,
                 onExpandedChanged: (next) => _handleToggle(view, next),
                 child: Builder(builder: view.bodyBuilder),
@@ -185,7 +196,13 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
           );
         }
 
+        // The stack lays out at exactly the available height when the expanded
+        // panes fit at or above their minimum body heights; the enclosing
+        // scroll view then has nothing to scroll. It overflows (and the scroll
+        // view scrolls the whole stack) only as the minimum-body fallback
+        // (§spec:view-stack).
         return SingleChildScrollView(
+          key: const ValueKey('workbench-view-stack-scroll'),
           child: _ViewStack(
             availableHeight: constraints.maxHeight,
             children: children,
@@ -197,8 +214,8 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
 }
 
 /// Parent-data carrier marking whether a stacked child is collapsed (header
-/// height only). Expanded children share leftover height; collapsed children
-/// take their intrinsic header height.
+/// height only). Expanded children share the apportioned body height; collapsed
+/// children take only their header height.
 class _ViewStackParentData extends ContainerBoxParentData<RenderBox> {
   bool collapsed = false;
 }
@@ -227,10 +244,17 @@ class _ViewStackChild extends ParentDataWidget<_ViewStackParentData> {
   Type get debugTypicalAncestorWidgetClass => _ViewStack;
 }
 
-/// Lays a flush stack of view panes: collapsed panes take their natural
-/// (header) height; expanded panes share leftover space when the stack fits,
-/// and take their natural body height when it overflows (the enclosing
-/// [SingleChildScrollView] then scrolls the whole stack as one region).
+/// Lays a flush stack of view panes as a fixed-height splitview
+/// (§spec:view-stack): each header is the canonical
+/// [WorkbenchLayoutConstants.viewPaneHeaderHeight]; a collapsed pane takes only
+/// that height; the remaining body height is apportioned evenly across the
+/// expanded panes, never below
+/// [WorkbenchLayoutConstants.viewPaneMinBodyHeight]. Each expanded pane is
+/// forced to header + its apportioned body so its body scroller bounds itself.
+/// The stack lays out at exactly [availableHeight] when the panes fit at or
+/// above the minimum body height; it overflows that height (so the enclosing
+/// [SingleChildScrollView] scrolls the whole stack) only as the minimum-body
+/// fallback.
 class _ViewStack extends MultiChildRenderObjectWidget {
   final double availableHeight;
 
@@ -274,40 +298,40 @@ class _RenderViewStack extends RenderBox
   @override
   void performLayout() {
     final width = constraints.maxWidth;
-    // First pass: lay each child out loosely at the available width to read its
-    // natural height. Real layout (not dry) so host bodies need not implement
-    // dry-layout support; expanded panes are re-laid out below with the shared
-    // height.
-    final probe = BoxConstraints(
-      minWidth: width,
-      maxWidth: width,
-    );
-    final natural = <RenderBox, double>{};
-    var naturalTotal = 0.0;
+    const header = WorkbenchLayoutConstants.viewPaneHeaderHeight;
+    const minBody = WorkbenchLayoutConstants.viewPaneMinBodyHeight;
+
+    // Count panes and the expanded subset. Collapsed panes take only their
+    // header height; expanded panes take header + an apportioned body.
+    var childCount = 0;
     var expandedCount = 0;
     RenderBox? child = firstChild;
     while (child != null) {
       final parentData = child.parentData! as _ViewStackParentData;
-      child.layout(probe, parentUsesSize: true);
-      natural[child] = child.size.height;
-      naturalTotal += child.size.height;
+      childCount++;
       if (!parentData.collapsed) expandedCount++;
       child = parentData.nextSibling;
     }
 
-    // Distribute leftover space to expanded panes only when the stack fits.
-    // On overflow each pane keeps its natural height and the parent scroll
-    // view scrolls the whole stack.
-    final leftover = _availableHeight - naturalTotal;
-    final share = (leftover > 0 && expandedCount > 0)
-        ? leftover / expandedCount
-        : 0.0;
+    // Body height to apportion across the expanded panes, after every pane's
+    // fixed header. Even split — the sash-resize workstream weights this per
+    // pane; today a freshly built container divides it evenly (§spec:view-stack).
+    final headersTotal = childCount * header;
+    final bodyPool = _availableHeight - headersTotal;
+    final evenBody = expandedCount > 0 ? bodyPool / expandedCount : 0.0;
+
+    // Below the minimum body floor the panes cannot all fit: each expanded body
+    // sits at the minimum and the stack overflows [_availableHeight], so the
+    // enclosing scroll view scrolls the whole stack (the overflow fallback).
+    // Otherwise each expanded body takes its even share and the stack lays out
+    // at exactly [_availableHeight].
+    final bodyShare = evenBody < minBody ? minBody : evenBody;
 
     var y = 0.0;
     child = firstChild;
     while (child != null) {
       final parentData = child.parentData! as _ViewStackParentData;
-      final height = natural[child]! + (parentData.collapsed ? 0.0 : share);
+      final height = parentData.collapsed ? header : header + bodyShare;
       child.layout(
         BoxConstraints.tightFor(width: width, height: height),
         parentUsesSize: true,
