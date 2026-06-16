@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'activity_bar_item.dart';
 import 'layout_constants.dart';
+import 'workbench_sash.dart';
 import 'workbench_theme.dart';
 import 'workbench_view_container.dart';
 
@@ -147,23 +148,6 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     widget.onViewContainerChanged?.call(containerId);
   }
 
-  void _onSidebarResize(double delta) {
-    setState(() {
-      _sidebarWidth = (_sidebarWidth + delta).clamp(
-        WorkbenchLayoutConstants.sidebarMinWidth,
-        WorkbenchLayoutConstants.sidebarMaxWidth,
-      );
-    });
-  }
-
-  void _onPanelResize(double delta) {
-    setState(() {
-      _panelHeight = (_panelHeight - delta).clamp(
-        WorkbenchLayoutConstants.panelMinHeight,
-        WorkbenchLayoutConstants.panelMaxHeight,
-      );
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -276,20 +260,24 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   }
 
   Widget _buildVerticalResizer(WorkbenchTheme theme) {
-    return GestureDetector(
-      onPanStart: (_) => setState(() => _isDraggingSidebar = true),
-      onPanUpdate: (details) => _onSidebarResize(details.delta.dx),
-      onPanEnd: (_) => setState(() => _isDraggingSidebar = false),
-      onPanCancel: () => setState(() => _isDraggingSidebar = false),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.resizeColumn,
-        child: Container(
-          width: WorkbenchLayoutConstants.resizerHitTargetSize,
-          color: _isDraggingSidebar
-              ? theme.sashHoverBackground
-              : theme.sideBarBackground,
-          child: _buildSidebarResizerOverlay(theme),
-        ),
+    // The sidebar sits on the left, so dragging the seam right grows its width
+    // (growSign +1). WorkbenchSash gives the canonical absolute-anchored drag
+    // and directional cursor (§spec:workbench-layout).
+    return WorkbenchSash(
+      axis: Axis.horizontal,
+      value: _sidebarWidth,
+      min: WorkbenchLayoutConstants.sidebarMinWidth,
+      max: WorkbenchLayoutConstants.sidebarMaxWidth,
+      growSign: 1,
+      onChanged: (next) => setState(() => _sidebarWidth = next),
+      onDragChanged: (dragging) =>
+          setState(() => _isDraggingSidebar = dragging),
+      child: Container(
+        width: WorkbenchLayoutConstants.resizerHitTargetSize,
+        color: _isDraggingSidebar
+            ? theme.sashHoverBackground
+            : theme.sideBarBackground,
+        child: _buildSidebarResizerOverlay(theme),
       ),
     );
   }
@@ -312,18 +300,21 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   }
 
   Widget _buildHorizontalResizer(WorkbenchTheme theme) {
-    return GestureDetector(
-      onPanStart: (_) => setState(() => _isDraggingPanel = true),
-      onPanUpdate: (details) => _onPanelResize(details.delta.dy),
-      onPanEnd: (_) => setState(() => _isDraggingPanel = false),
-      onPanCancel: () => setState(() => _isDraggingPanel = false),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.resizeRow,
-        child: Container(
-          color: _isDraggingPanel
-              ? theme.sashHoverBackground
-              : Colors.transparent,
-        ),
+    // The panel sits at the bottom, so dragging the seam up grows its height
+    // (growSign -1: moving the pointer down shrinks the panel). Same canonical
+    // sash behavior as the sidebar (§spec:workbench-layout).
+    return WorkbenchSash(
+      axis: Axis.vertical,
+      value: _panelHeight,
+      min: WorkbenchLayoutConstants.panelMinHeight,
+      max: WorkbenchLayoutConstants.panelMaxHeight,
+      growSign: -1,
+      onChanged: (next) => setState(() => _panelHeight = next),
+      onDragChanged: (dragging) => setState(() => _isDraggingPanel = dragging),
+      child: Container(
+        color: _isDraggingPanel
+            ? theme.sashHoverBackground
+            : Colors.transparent,
       ),
     );
   }
