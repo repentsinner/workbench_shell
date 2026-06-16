@@ -20,7 +20,6 @@ Add a `WorkbenchViewContainer` that renders an ordered list of typed
 view descriptors as a flush stack of `WorkbenchViewPane`s with no
 inter-pane gap, derives each pane's collapsibility from the view count,
 and provides one shared scroll region, in `lib/src/`. §spec:view-stack.
-Depends on §road:render-header-chrome.
 
 ### Invert the WorkbenchLayout sidebar API §road:sidebar-api-inversion
 
