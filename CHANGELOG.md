@@ -1,3 +1,10 @@
+# [0.7.0](https://github.com/repentsinner/workbench_shell/compare/v0.6.1...v0.7.0) (2026-06-16)
+
+
+### Features
+
+* render section-header band and rule on view-pane headers ([e705bfa](https://github.com/repentsinner/workbench_shell/commit/e705bfadb3f0a58ec93b2994afc6d0a35a452b04))
+
 ## [0.6.1](https://github.com/repentsinner/workbench_shell/compare/v0.6.0...v0.6.1) (2026-06-16)
 
 
