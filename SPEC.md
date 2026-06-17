@@ -347,6 +347,17 @@ re-apportions evenly, the same redistribution collapse already performs. A
 collapsed pane has no body boundary, so it carries no sash and is never a
 sash neighbor.
 
+**Sash sizing is host-persistable**: the manual body heights are shell-owned
+and uncontrolled by default (above), but a container may instead supply a
+controlled `sizes` map (per-view body sizing) with an `onSizesChanged`
+notification — the same controlled/uncontrolled split as `order`/`onReorder`
+and a descriptor's `expanded`/`onExpandedChanged`. A sash drag fires
+`onSizesChanged` with the updated sizing; a host that supplies `sizes` drives
+the apportionment and persists it across restarts. Restored sizing re-clamps to
+the current available height and each pane's minimum body height — it expresses
+proportional intent, not an absolute-pixel contract, since the body pool
+differs between sessions and window sizes.
+
 **Header drag reorders panes**: the user drags a pane header onto another
 pane to reorder the stack, mirroring VS Code's `PaneView` header
 drag-and-drop. The header is the drag handle; while a drag is over a target
@@ -398,7 +409,9 @@ Reselecting the active container toggles sidebar visibility, unchanged.
 - Dragging the sash on the boundary between two adjacent expanded panes
   transfers body height between them, clamped at each pane's minimum body
   height; the new proportions hold across rebuilds and reset to even when
-  a pane collapses or expands. A collapsed pane carries no sash.
+  a pane collapses or expands. A collapsed pane carries no sash. Sizing is
+  shell-owned and uncontrolled by default; a container may supply a controlled
+  `sizes` map with `onSizesChanged` to drive and persist the apportionment.
 - Dragging a pane header onto another pane reorders the stack: a translucent
   drop overlay marks the target's upper or lower half during the drag, and on
   drop the shell permutes the stack itself. Order is shell-owned and
@@ -409,6 +422,68 @@ Reselecting the active container toggles sidebar visibility, unchanged.
 - The activity bar selects the active view container (controlled or
   uncontrolled); reselecting the active container toggles sidebar
   visibility.
+
+---
+
+## View Container State Retention §spec:view-container-state
+
+*Status: not started*
+
+**Problem**: switching the active view container from the activity bar and
+returning resets the previous container's pane state — pane order, which panes
+are collapsed, and sash-adjusted body sizes all revert to defaults. The
+sidebar mounts only the active container (§spec:workbench-layout), so a single
+container instance is reconciled to whichever container is active; the prior
+container's shell-owned state (§spec:view-stack) is discarded on switch and
+rebuilt at defaults on return. Surfaced by shell-owned reorder.
+
+**The shell retains each opened view container across activity-bar switches.**
+Once a container has been shown, the shell keeps it alive while another
+container is active and restores it intact on return — its pane order
+(§spec:view-stack), per-pane expansion (§spec:section-disclosure), and
+sash-adjusted body sizes all survive the switch. This mirrors VS Code, whose
+composite part shows a viewlet then *hides and retains* it on switch rather
+than rebuilding it (the instance is cached, the DOM merely detached), while
+the per-container view model holds order/collapsed/size for the session. The
+retained state is the shell's own (the host supplies view *content*, not
+arrangement — §spec:capability-boundary), so retaining it is the shell's
+responsibility, not the host's.
+
+**Retention is lazy: a container is built only once first opened.** A view
+container whose activity-bar entry the user never selects is never
+constructed, and its host body builders never run. This matches VS Code's lazy
+composite creation and avoids paying construction cost — including host body
+work such as data fetches — for containers that are never viewed. The
+alternative, eagerly mounting every container up front, is rejected: it would
+run every container's body work on first layout regardless of use. Retention
+therefore covers opened containers only.
+
+**Cross-restart persistence remains the host's responsibility.** The shell
+retains state only for the life of the layout; it does not persist pane layout
+across application restarts. VS Code persists order/collapsed/size to its
+storage service; the equivalent here is the host, consistent with the shell
+owning no storage (§spec:capability-boundary). The shell exposes a controlled
+hook for each persistable concern, so a host can persist and rehydrate all
+three to VS Code parity: a container's `order` with `onReorder`
+(§spec:view-stack), a descriptor's `expanded` with `onExpandedChanged`
+(§spec:section-disclosure), and a container's `sizes` with `onSizesChanged`
+(§spec:view-stack). Each is shell-owned and uncontrolled by default; supplying
+the controlled value hands that concern to the host.
+
+**Retention also scopes pane state to its container by construction**,
+removing a latent defect of the single shared instance: two containers that
+declare the same view id would otherwise collide on expansion and size state.
+
+**Observable behavior**:
+
+- Reordering a pane, collapsing or expanding a pane, or sash-resizing a pane,
+  then switching to another container and back, leaves that change intact.
+- A view container whose activity-bar entry has never been selected is not
+  built, and its view body builders do not run, until the first selection.
+- Returning to a previously-opened container restores its panes in the order,
+  expansion, and sizes they held when it was last active, for the life of the
+  layout.
+- Two containers that reuse the same view id keep independent pane state.
 
 ---
 
