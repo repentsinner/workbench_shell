@@ -113,7 +113,6 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
         (widget.activityBarItems.isNotEmpty
             ? widget.activityBarItems.first.id
             : '');
-    _markOpened(_activeViewContainerId);
     _partitionActivityItems();
   }
 
@@ -162,7 +161,6 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       if (widget.activeViewContainerId == null) {
         _internalActiveViewContainerId = containerId;
       }
-      _markOpened(containerId);
     });
     widget.onViewContainerChanged?.call(containerId);
   }
@@ -172,9 +170,10 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
 
-    // Mark the active container opened on every build so a host-driven
-    // (controlled) container change also enters the retained set, not only the
-    // shell-driven taps routed through _setActiveViewContainer.
+    // Mark the active container opened on every build — the single point that
+    // records retention. Idempotent and build-time, so it covers the initial
+    // active container, shell-driven activity-bar taps, and host-driven
+    // (controlled) container changes alike without a separate call at each.
     _markOpened(_activeViewContainerId);
 
     return Scaffold(
