@@ -1,3 +1,11 @@
+# [0.12.0](https://github.com/repentsinner/workbench_shell/compare/v0.11.0...v0.12.0) (2026-06-17)
+
+
+### Features
+
+* **view-container:** host-persistable sash sizing via sizes/onSizesChanged ([28c669d](https://github.com/repentsinner/workbench_shell/commit/28c669d9bd76b6c9f19a20846d2a7e0c321c8e00))
+* **view-container:** retain opened containers across activity-bar switches ([1a4050f](https://github.com/repentsinner/workbench_shell/commit/1a4050f20fe822a898026beab67cb1bc7fa33077))
+
 # [0.11.0](https://github.com/repentsinner/workbench_shell/compare/v0.10.0...v0.11.0) (2026-06-17)
 
 
