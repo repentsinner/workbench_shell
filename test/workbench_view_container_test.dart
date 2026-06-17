@@ -738,8 +738,11 @@ void main() {
       );
     });
 
-    testWidgets('collapse then expand redistributes evenly after a manual '
-        'resize', (tester) async {
+    testWidgets('collapsing a pane after an uneven resize fills the height '
+        'with no dead space and preserves the survivors\' ratio', (
+      tester,
+    ) async {
+      const header = WorkbenchLayoutConstants.viewPaneHeaderHeight;
       const containerHeight = 600.0;
       await tester.pumpWidget(
         wrapWithChromeTheme(
@@ -768,33 +771,102 @@ void main() {
         ),
       );
 
-      // Manually resize the A/B boundary so they are no longer even.
+      // Size A's body clearly taller than B's by dragging the A/B sash down.
       await tester.drag(
         find.byKey(const ValueKey('workbench-view-sash-b')),
-        const Offset(0, 50),
+        const Offset(0, 90),
       );
       await tester.pumpAndSettle();
+      final aBody = paneRect(tester, 'a').height - header;
+      final bBody = paneRect(tester, 'b').height - header;
+      expect(aBody, greaterThan(bBody));
+      final ratioBefore = aBody / bBody;
+
+      // Collapse Gamma. Its freed body must be absorbed by the two survivors
+      // in proportion to their weights — no dead space at the bottom, and the
+      // A:B ratio holds.
+      await tester.tap(find.text('GAMMA'));
+      await tester.pumpAndSettle();
+
+      // Gamma now occupies only its header height.
       expect(
-        paneRect(tester, 'a').height,
-        greaterThan(paneRect(tester, 'b').height),
+        paneRect(tester, 'c').height,
+        closeTo(header, 0.5),
       );
 
-      // Collapse Gamma, then expand it again. Re-apportionment is sensible:
-      // the re-expanded pane gets a fair (even) share alongside the others.
-      await tester.tap(find.text('GAMMA'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('GAMMA'));
-      await tester.pumpAndSettle();
-
-      // Gamma is expanded again with a real body share, and the stack fills.
+      // No dead space: the laid-out stack exactly fills the container height.
       final total = paneRect(tester, 'a').height +
           paneRect(tester, 'b').height +
           paneRect(tester, 'c').height;
       expect(total, closeTo(containerHeight, 1.0));
-      expect(
-        paneRect(tester, 'c').height,
-        greaterThan(WorkbenchLayoutConstants.viewPaneHeaderHeight + 1),
+
+      // The survivors absorbed the freed body in proportion: their ratio holds.
+      final aBodyAfter = paneRect(tester, 'a').height - header;
+      final bBodyAfter = paneRect(tester, 'b').height - header;
+      expect(aBodyAfter, greaterThan(aBody));
+      expect(bBodyAfter, greaterThan(bBody));
+      expect(aBodyAfter / bBodyAfter, closeTo(ratioBefore, 0.05));
+    });
+
+    testWidgets('re-expanding a collapsed pane restores its prior body height '
+        'and shrinks the others proportionally', (tester) async {
+      const header = WorkbenchLayoutConstants.viewPaneHeaderHeight;
+      const containerHeight = 600.0;
+      await tester.pumpWidget(
+        wrapWithChromeTheme(
+          const SizedBox(
+            height: containerHeight,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'a',
+                  title: 'Alpha',
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'b',
+                  title: 'Beta',
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'c',
+                  title: 'Gamma',
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
       );
+
+      // Size A taller than B so the layout is non-trivial.
+      await tester.drag(
+        find.byKey(const ValueKey('workbench-view-sash-b')),
+        const Offset(0, 90),
+      );
+      await tester.pumpAndSettle();
+      final cBodyBefore = paneRect(tester, 'c').height - header;
+      final aBodyBefore = paneRect(tester, 'a').height - header;
+      final bBodyBefore = paneRect(tester, 'b').height - header;
+
+      // Collapse Gamma, then expand it again. VS Code SplitView canon: the
+      // re-expanded pane returns to its prior size and the others shrink back.
+      await tester.tap(find.text('GAMMA'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('GAMMA'));
+      await tester.pumpAndSettle();
+
+      // Gamma is restored to its prior body height (not reset to even).
+      expect(paneRect(tester, 'c').height - header, closeTo(cBodyBefore, 1.5));
+      // A and B shrink back to their pre-collapse heights.
+      expect(paneRect(tester, 'a').height - header, closeTo(aBodyBefore, 1.5));
+      expect(paneRect(tester, 'b').height - header, closeTo(bBodyBefore, 1.5));
+
+      // The stack still fills the container exactly.
+      final total = paneRect(tester, 'a').height +
+          paneRect(tester, 'b').height +
+          paneRect(tester, 'c').height;
+      expect(total, closeTo(containerHeight, 1.0));
     });
 
     testWidgets('controlled sizes: a sash drag notifies without self-mutating, '

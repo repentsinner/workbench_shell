@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
@@ -214,14 +213,15 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
   /// instead and never write here.
   final Map<String, bool> _uncontrolledExpanded = {};
 
-  /// User-set body heights from sash drags, keyed by descriptor id
-  /// (§spec:view-stack, sash-resize). An entry overrides the even default for
-  /// that expanded pane; panes without an entry split the remaining body pool
-  /// evenly. A sash drag writes both neighbors so their stored heights re-divide
-  /// only the height between them, leaving other panes untouched. Entries persist
-  /// across rebuilds until the layout changes (collapse/expand re-apportions the
-  /// remainder), giving the manual proportions their "holds after release"
-  /// behavior.
+  /// User-set body weights from sash drags, keyed by descriptor id
+  /// (§spec:view-stack, sash-resize). An entry overrides the even-default weight
+  /// for that pane; panes without an entry take the even-default weight. A sash
+  /// drag writes both neighbors so their stored weights re-divide only the height
+  /// between them. Weights are proportional, not absolute, and persist across
+  /// collapse/expand: the render object always rescales them to fill the body
+  /// pool, and a collapsed pane retains its weight so a re-expand restores its
+  /// prior size while the survivors shrink proportionally (VS Code SplitView
+  /// canon).
   final Map<String, double> _manualBody = {};
 
   /// The body sizing in effect for layout: the controlled
@@ -232,12 +232,6 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
   /// the controlled case). Mirrors how [_orderedViews] reads
   /// [WorkbenchViewContainer.order] over [_order].
   Map<String, double> get _effectiveSizes => widget.sizes ?? _manualBody;
-
-  /// The set of expanded descriptor ids in effect when [_manualBody] was last
-  /// written. When the expanded set changes — a pane collapses or expands, by
-  /// host control or by header toggle — the stored heights no longer sum to the
-  /// new pool, so they are dropped and the new set re-apportions evenly.
-  Set<String> _manualBasis = const {};
 
   /// Uncontrolled pane order, a list of descriptor ids. The shell owns the
   /// stack order (§spec:view-stack): seeded from the descriptor-list order and
@@ -526,27 +520,6 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
     );
   }
 
-  /// Drop manual sash sizing when the expanded set differs from the one in
-  /// effect when it was last written ([_manualBasis]). The stored heights divide
-  /// that set's body pool; once a pane collapses or expands the pool and
-  /// membership change, so even apportionment is the sensible reset
-  /// (§spec:view-stack). While no manual sizing is held the basis tracks the
-  /// current set, so the first drag records the set it sizes.
-  void _reconcileManualBasis(Set<String> expandedIds) {
-    // In controlled mode the host owns [WorkbenchViewContainer.sizes] and
-    // decides when to drop stale entries; only the shell-owned [_manualBody] is
-    // clearable here.
-    if (widget.sizes != null) return;
-    if (_manualBody.isEmpty) {
-      _manualBasis = expandedIds;
-      return;
-    }
-    if (!setEquals(_manualBasis, expandedIds)) {
-      _manualBody.clear();
-      _manualBasis = expandedIds;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final views = _orderedViews();
@@ -559,15 +532,6 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
     // Collapsibility is derived from view count: 2+ → all collapsible; a lone
     // pane is non-collapsible (header stays visible).
     final collapsible = views.length > 1;
-
-    // Reconcile manual sash sizing against the current expanded set before
-    // rendering: if a pane collapsed or expanded since the last drag, the stored
-    // heights are stale and get dropped here (§spec:view-stack).
-    final expandedIds = <String>{
-      for (final view in views)
-        if (!collapsible || _isExpanded(view)) view.id,
-    };
-    _reconcileManualBasis(expandedIds);
 
     // Reorder engages with two or more panes (the collapsible case): a lone
     // pane has no slot to move to. The shell owns the order, so reorder needs
@@ -627,9 +591,11 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
               key: ValueKey('workbench-view-pane-${view.id}'),
               viewId: view.id,
               collapsed: collapsible && !expanded,
-              // The render object reads this to honor a user-set body height
-              // for an expanded pane; null leaves it on the even default.
-              manualBody: isExpandedPane ? _effectiveSizes[view.id] : null,
+              // The render object reads this as a proportional weight for an
+              // expanded pane; null leaves it on the even-default weight. A
+              // collapsed pane carries no weight into the distribution but
+              // retains its stored size, so a re-expand restores it.
+              weight: isExpandedPane ? _effectiveSizes[view.id] : null,
               // An expanded pane after the first carries a resize sash on the
               // boundary it shares with its expanded neighbor above.
               child: paneVisual,
@@ -661,14 +627,16 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
 
 /// Parent-data carrier for a stacked child: its [collapsed] state, its
 /// descriptor [viewId] (so the render object can report a pane's measured body
-/// height back to a sash drag), and an optional user-set [manualBody] target
-/// from a sash drag. Expanded children share the apportioned body height — those
-/// with a [manualBody] take that height, the rest split the remainder evenly;
-/// collapsed children take only their header height.
+/// height back to a sash drag), and an optional [weight] (§spec:view-stack). The
+/// weight is a proportional size, not an absolute pixel target: the render
+/// object rescales every expanded pane's weight to fill the available body pool,
+/// re-clamped to the minimum body height. An expanded pane with no weight shares
+/// the pool with the others as if it carried the even-default weight; collapsed
+/// children take only their header height and join no distribution.
 class _ViewStackParentData extends ContainerBoxParentData<RenderBox> {
   bool collapsed = false;
   String? viewId;
-  double? manualBody;
+  double? weight;
 
   /// The measured body height (pane height minus its fixed header) from the last
   /// layout, cached so a sash drag can seed from the on-screen size.
@@ -682,15 +650,17 @@ class _ViewStackChild extends ParentDataWidget<_ViewStackParentData> {
   /// Descriptor id of the pane, used to report its body height to a sash drag.
   final String viewId;
 
-  /// User-set body height for this expanded pane (§spec:view-stack sash-resize);
-  /// null leaves the pane on the even default share.
-  final double? manualBody;
+  /// Proportional body weight for this expanded pane (§spec:view-stack
+  /// sash-resize); null leaves the pane on the even-default weight. The render
+  /// object rescales weights to fill the body pool, so this is never an absolute
+  /// pixel target.
+  final double? weight;
 
   const _ViewStackChild({
     super.key,
     required this.collapsed,
     required this.viewId,
-    required this.manualBody,
+    required this.weight,
     required super.child,
   });
 
@@ -702,8 +672,8 @@ class _ViewStackChild extends ParentDataWidget<_ViewStackParentData> {
       parentData.collapsed = collapsed;
       needsLayout = true;
     }
-    if (parentData.manualBody != manualBody) {
-      parentData.manualBody = manualBody;
+    if (parentData.weight != weight) {
+      parentData.weight = weight;
       needsLayout = true;
     }
     parentData.viewId = viewId;
@@ -720,14 +690,18 @@ class _ViewStackChild extends ParentDataWidget<_ViewStackParentData> {
 /// Lays a flush stack of view panes as a fixed-height splitview
 /// (§spec:view-stack): each header is the canonical
 /// [WorkbenchLayoutConstants.viewPaneHeaderHeight]; a collapsed pane takes only
-/// that height; the remaining body height is apportioned evenly across the
-/// expanded panes, never below
-/// [WorkbenchLayoutConstants.viewPaneMinBodyHeight]. Each expanded pane is
-/// forced to header + its apportioned body so its body scroller bounds itself.
-/// The stack lays out at exactly [availableHeight] when the panes fit at or
-/// above the minimum body height; it overflows that height (so the enclosing
-/// [SingleChildScrollView] scrolls the whole stack) only as the minimum-body
-/// fallback.
+/// that height; the remaining body height is apportioned across the expanded
+/// panes **in proportion to their weights**, never below
+/// [WorkbenchLayoutConstants.viewPaneMinBodyHeight]. Weights are proportional,
+/// not absolute pixels — the body pool is always rescaled to fill, so collapsing
+/// a pane or dragging a sash never leaves dead space (the survivors absorb freed
+/// height in proportion to their weights). An expanded pane with no weight uses
+/// the even-default weight, so a freshly built container divides the pool evenly.
+/// Each expanded pane is forced to header + its apportioned body so its body
+/// scroller bounds itself. The stack lays out at exactly [availableHeight] when
+/// the panes fit at or above the minimum body height; it overflows that height
+/// (so the enclosing [SingleChildScrollView] scrolls the whole stack) only as
+/// the minimum-body fallback.
 class _ViewStack extends MultiChildRenderObjectWidget {
   final double availableHeight;
 
@@ -790,56 +764,38 @@ class _RenderViewStack extends RenderBox
     const header = WorkbenchLayoutConstants.viewPaneHeaderHeight;
     const minBody = WorkbenchLayoutConstants.viewPaneMinBodyHeight;
 
-    // Count panes and the expanded subset; sum any user-set body heights. A
-    // collapsed pane takes only its header; an expanded pane takes header + a
-    // body. Expanded panes split into two groups: those with a sash-set
-    // [manualBody] target, and the rest that share the remaining pool evenly.
+    // Count every pane (collapsed panes still take a header) and the expanded
+    // subset. A collapsed pane takes only its header and joins no body
+    // distribution; an expanded pane takes header + a proportional share of the
+    // body pool (§spec:view-stack).
     var childCount = 0;
-    var expandedCount = 0;
-    var manualCount = 0;
-    var manualTotal = 0.0;
+    final expanded = <_ViewStackParentData>[];
     RenderBox? child = firstChild;
     while (child != null) {
       final parentData = child.parentData! as _ViewStackParentData;
       childCount++;
-      if (!parentData.collapsed) {
-        expandedCount++;
-        if (parentData.manualBody != null) {
-          manualCount++;
-          manualTotal += parentData.manualBody!;
-        }
-      }
+      if (!parentData.collapsed) expanded.add(parentData);
       child = parentData.nextSibling;
     }
 
-    // Body height to apportion after every pane's fixed header. Sash-set panes
-    // hold their target (clamped to the floor); the rest divide what remains
-    // evenly — a freshly built container with no manual sizes divides it all
-    // evenly (§spec:view-stack).
-    final headersTotal = childCount * header;
-    final bodyPool = _availableHeight - headersTotal;
-    final autoCount = expandedCount - manualCount;
-    final autoPool = bodyPool - manualTotal;
-    final evenBody = autoCount > 0 ? autoPool / autoCount : 0.0;
+    // Body height to apportion after every pane's fixed header.
+    final bodyPool = _availableHeight - childCount * header;
 
-    // Below the minimum body floor the auto panes cannot fit: each expanded body
-    // sits at the minimum and the stack overflows [_availableHeight], so the
-    // enclosing scroll view scrolls the whole stack (the overflow fallback).
-    final autoShare = evenBody < minBody ? minBody : evenBody;
+    // Resolve each expanded pane's body height from its weight. Weights are
+    // proportional, so an unsized pane uses the even-default weight (the pool
+    // divided evenly) and the pool is always rescaled to fill — freed space is
+    // never orphaned (§spec:view-stack). The min-body floor is enforced by
+    // pinning panes that would fall below it and re-dividing the rest among the
+    // unpinned by weight; if all panes pin at the floor the stack overflows
+    // [_availableHeight] (the minimum-body fallback).
+    final bodies = _resolveBodies(expanded, bodyPool, minBody);
 
     var y = 0.0;
+    var i = 0;
     child = firstChild;
     while (child != null) {
       final parentData = child.parentData! as _ViewStackParentData;
-      final double body;
-      if (parentData.collapsed) {
-        body = 0.0;
-      } else if (parentData.manualBody != null) {
-        // A sash-set body holds its target, never below the floor.
-        body = parentData.manualBody! < minBody ? minBody : parentData.manualBody!;
-      } else {
-        body = autoShare;
-      }
+      final double body = parentData.collapsed ? 0.0 : bodies[i++];
       parentData.bodyHeight = body;
       final height = parentData.collapsed ? header : header + body;
       child.layout(
@@ -852,6 +808,71 @@ class _RenderViewStack extends RenderBox
     }
 
     size = constraints.constrain(Size(width, y));
+  }
+
+  /// Distribute [bodyPool] across the [expanded] panes in proportion to their
+  /// weights, clamped so no body falls below [minBody] (§spec:view-stack). An
+  /// unsized pane (`weight == null`) takes the even-default weight — the pool
+  /// divided by the expanded count — so a fresh container divides evenly and a
+  /// container with some sized panes treats the rest as equal peers. Returns the
+  /// body heights in expanded-pane order.
+  ///
+  /// The floor is enforced by iterative pinning: any pane whose proportional
+  /// share lands below [minBody] is pinned at [minBody], removed from the pool,
+  /// and the remaining pool re-divided among the unpinned by weight. When every
+  /// pane is pinned at the floor the returned heights sum past [bodyPool] and the
+  /// stack overflows (the minimum-body fallback).
+  static List<double> _resolveBodies(
+    List<_ViewStackParentData> expanded,
+    double bodyPool,
+    double minBody,
+  ) {
+    final count = expanded.length;
+    if (count == 0) return const [];
+
+    // Even-default weight for unsized panes, in the same unit as a stored weight
+    // (body-height pixels). A pane's effective weight is its stored value or this
+    // default; weights only ever express ratios — the pool is rescaled to fill.
+    final evenWeight = bodyPool > 0 ? bodyPool / count : minBody;
+    final weights = [
+      for (final pd in expanded) pd.weight ?? evenWeight,
+    ];
+
+    final bodies = List<double>.filled(count, 0.0);
+    final pinned = List<bool>.filled(count, false);
+    var remainingPool = bodyPool;
+
+    // Re-divide the unpinned panes' pool by weight until none falls below the
+    // floor (or all are pinned). Each pass pins the panes that underflow; pinning
+    // shrinks both the pool and the unpinned weight sum, which can push the next
+    // pane under, so iterate to a fixed point.
+    while (true) {
+      var weightSum = 0.0;
+      for (var i = 0; i < count; i++) {
+        if (!pinned[i]) weightSum += weights[i];
+      }
+      if (weightSum <= 0) break;
+
+      var pinnedThisPass = false;
+      for (var i = 0; i < count; i++) {
+        if (pinned[i]) continue;
+        final share = remainingPool * weights[i] / weightSum;
+        if (share < minBody) {
+          bodies[i] = minBody;
+          pinned[i] = true;
+          remainingPool -= minBody;
+          pinnedThisPass = true;
+        }
+      }
+      if (!pinnedThisPass) {
+        // No pane underflows: every unpinned pane takes its proportional share.
+        for (var i = 0; i < count; i++) {
+          if (!pinned[i]) bodies[i] = remainingPool * weights[i] / weightSum;
+        }
+        break;
+      }
+    }
+    return bodies;
   }
 
   @override
