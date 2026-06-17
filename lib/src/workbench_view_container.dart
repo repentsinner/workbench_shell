@@ -292,6 +292,20 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
     () => FocusNode(debugLabel: 'WorkbenchViewPane header $id'),
   );
 
+  /// One stable [GlobalKey] per view, keyed by descriptor id (§spec:view-pane-focus).
+  /// An expanded non-first pane is wrapped in a sash [Stack]; collapsing it
+  /// removes that wrapper, so the pane changes depth in the tree. Without a
+  /// stable key Flutter rebuilds the pane's [State] at the new slot, detaching
+  /// its header [Focus] and dropping the focus a click just placed (the ring
+  /// vanishes and Up/Down restart from the stack edge). The [GlobalKey] makes
+  /// Flutter move the existing element across the reparent, preserving focus.
+  final Map<String, GlobalKey> _paneKeys = {};
+
+  /// Return the stable pane key for view [id], creating it on first use. Pruned
+  /// for dropped ids in [_syncHeaderNodes]; [GlobalKey]s need no disposal.
+  GlobalKey _paneKeyFor(String id) =>
+      _paneKeys.putIfAbsent(id, () => GlobalKey(debugLabel: 'WorkbenchViewPane $id'));
+
   /// Drop header nodes for views no longer present (§spec:view-pane-focus), so a
   /// removed view's node does not leak. Called each build with the live ordered
   /// id set.
@@ -301,6 +315,7 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
     for (final id in stale) {
       _headerNodes.remove(id)!.dispose();
     }
+    _paneKeys.removeWhere((id, _) => !live.contains(id));
   }
 
   @override
@@ -636,6 +651,9 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
           final upperId = (isExpandedPane && collapsible) ? prevExpandedId : null;
           final index = i;
           final pane = WorkbenchViewPane.inContainer(
+            // A stable key so the pane's element (and its header Focus) survives
+            // the sash-wrapper reparent on collapse/expand (§spec:view-pane-focus).
+            key: _paneKeyFor(view.id),
             title: view.title,
             infoTooltip: view.infoTooltip,
             actions: view.actions,

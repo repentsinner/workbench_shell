@@ -1368,6 +1368,31 @@ void main() {
       expect(isFocused(tester, 'a'), isFalse);
     });
 
+    testWidgets('clicking a sash-wrapped header keeps focus on it through the '
+        'collapse reparent', (tester) async {
+      // Regression (§spec:view-pane-focus): an expanded non-first pane is
+      // wrapped in a sash Stack; collapsing it on click removes that wrapper,
+      // reparenting the pane and rebuilding its State — which detaches the
+      // header Focus and drops the focus the click just placed. A stable key on
+      // the pane must move the element instead, so the ring stays and Up/Down
+      // resume from the clicked header. The standalone-pane focus tests miss
+      // this: only the container adds the sash wrapper.
+      await pumpStack(tester, threeViews());
+
+      // Beta has a sash above it (Alpha is expanded). Clicking toggles Beta
+      // collapsed and must leave focus on Beta's header.
+      await tester.tap(find.text('BETA'));
+      await tester.pumpAndSettle();
+      expect(isFocused(tester, 'b'), isTrue);
+      expect(isFocused(tester, 'a'), isFalse);
+
+      // Focus was seeded on Beta, so Down resumes from there → Gamma, not from
+      // the top of the stack.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(isFocused(tester, 'c'), isTrue);
+    });
+
     testWidgets('Up walks back through headers and clamps at the first', (
       tester,
     ) async {
