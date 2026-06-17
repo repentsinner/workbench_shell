@@ -1,3 +1,10 @@
+## [0.12.1](https://github.com/repentsinner/workbench_shell/compare/v0.12.0...v0.12.1) (2026-06-17)
+
+
+### Bug Fixes
+
+* **view-stack:** model sash sizes as proportional weights that always fill ([ecdd4a3](https://github.com/repentsinner/workbench_shell/commit/ecdd4a3a47b98e155d2b79bccced2dd8059f840b))
+
 # [0.12.0](https://github.com/repentsinner/workbench_shell/compare/v0.11.0...v0.12.0) (2026-06-17)
 
 
