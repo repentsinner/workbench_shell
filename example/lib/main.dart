@@ -206,6 +206,16 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   void Function(Object id)? _focusPanelById;
   final NotificationService _notificationService = NotificationService();
 
+  /// Host-owned Explorer pane body sizes, keyed by view id
+  /// (§spec:view-container-state). Dogfoods the controlled `sizes` /
+  /// `onSizesChanged` hook: the shell apportions Explorer's expanded bodies
+  /// from this map and reports a sash drag back here, where the host could
+  /// persist it across restarts. Null until the first sash drag, so the shell
+  /// uses its even default until the user resizes. (The shell still owns pane
+  /// *order* and *expansion* for Explorer — only sizing is host-driven here, to
+  /// demonstrate the hook end to end alongside shell-owned reorder.)
+  Map<String, double>? _explorerSizes;
+
   /// Notifications demo state, shared by the "Severities" and "Progress"
   /// view panes (§spec:view-stack) so both drive the same service.
   late final _NotificationsDemoController _notificationsDemo =
@@ -400,6 +410,14 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
             byId['outline']!,
             byId['timeline']!,
           ],
+          // Controlled body sizing (§spec:view-container-state): the host owns
+          // Explorer's sash sizes so a real consumer could persist them across
+          // restarts. A sash drag fires onSizesChanged with the full next map;
+          // re-supplying sizes restores the apportionment. Combined with the
+          // shell-owned reorder above, Explorer dogfoods all three persistence
+          // hooks (order/expansion shell-owned, sizes host-controlled).
+          sizes: _explorerSizes,
+          onSizesChanged: (next) => setState(() => _explorerSizes = next),
         );
       case 'search':
         return const WorkbenchViewContainerSpec(
@@ -1013,9 +1031,9 @@ class _SidebarBodyPlaceholder extends StatelessWidget {
 /// header to reveal its refresh and new-file buttons; click one and the pane
 /// stays expanded (the action does not toggle the header). Collapse the pane
 /// and the actions vanish entirely.
-/// Explorer view descriptors keyed by id. The host renders them in
-/// [_WorkbenchHomeState._explorerOrder]'s order, which header drag-reorder
-/// permutes (§spec:view-stack).
+/// Explorer view descriptors keyed by id. The host lists them in
+/// [_WorkbenchHomeState._buildContainerSpec]; the shell owns their render order
+/// and permutes it on header drag-reorder (§spec:view-stack).
 Map<String, WorkbenchViewDescriptor> _explorerViews(
   NotificationService service,
 ) {

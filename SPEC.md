@@ -427,7 +427,7 @@ Reselecting the active container toggles sidebar visibility, unchanged.
 
 ## View Container State Retention §spec:view-container-state
 
-*Status: not started*
+*Status: complete*
 
 **Problem**: switching the active view container from the activity bar and
 returning resets the previous container's pane state — pane order, which panes

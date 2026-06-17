@@ -368,6 +368,180 @@ void main() {
     });
   });
 
+  group('view-container retention (§spec:view-container-state)', () {
+    // A multi-pane spec helper: two collapsible panes whose bodies carry an
+    // identifiable text and whose bodyBuilder runs a side effect when built.
+    WorkbenchViewContainerSpec twoPaneSpec(
+      String id, {
+      VoidCallback? onBodyBuilt,
+    }) {
+      return WorkbenchViewContainerSpec(
+        views: [
+          WorkbenchViewDescriptor(
+            id: '$id-a',
+            title: '$id Alpha',
+            bodyBuilder: (_) {
+              onBodyBuilt?.call();
+              return Text('$id-body-a');
+            },
+          ),
+          WorkbenchViewDescriptor(
+            id: '$id-b',
+            title: '$id Beta',
+            bodyBuilder: (_) => Text('$id-body-b'),
+          ),
+        ],
+      );
+    }
+
+    testWidgets('LAZY: a never-selected container is not built; selecting it '
+        'first runs its body builder', (tester) async {
+      var searchBuilt = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: WorkbenchLayout(
+            activityBarItems: _testItems,
+            editor: const Center(child: Text('Editor')),
+            // Explorer is active by default; search is never selected until the
+            // test taps it.
+            containerBuilder: (id) => id == 'search'
+                ? twoPaneSpec('search', onBodyBuilt: () => searchBuilt++)
+                : twoPaneSpec(id),
+            bottomPanel: const Center(child: Text('Panel')),
+            statusBar: const SizedBox(height: 22, child: Text('Status')),
+          ),
+        ),
+      );
+
+      // Search's activity-bar entry was never selected: its body builder must
+      // not have run, and its body must be absent from the tree.
+      expect(searchBuilt, 0);
+      expect(find.text('search-body-a'), findsNothing);
+
+      // Select search — now its body builder runs.
+      await tester.tap(find.byIcon(Symbols.search_rounded));
+      await tester.pumpAndSettle();
+      expect(searchBuilt, greaterThan(0));
+      expect(find.text('search-body-a'), findsOneWidget);
+    });
+
+    testWidgets('RETENTION: a collapsed pane stays collapsed after switching '
+        'containers and back', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: WorkbenchLayout(
+            activityBarItems: _testItems,
+            editor: const Center(child: Text('Editor')),
+            containerBuilder: twoPaneSpec,
+            bottomPanel: const Center(child: Text('Panel')),
+            statusBar: const SizedBox(height: 22, child: Text('Status')),
+          ),
+        ),
+      );
+
+      // Explorer active: both pane bodies visible.
+      expect(find.text('explorer-body-a'), findsOneWidget);
+      expect(find.text('explorer-body-b'), findsOneWidget);
+
+      // Collapse the first pane by tapping its header.
+      await tester.tap(find.text('EXPLORER ALPHA'));
+      await tester.pumpAndSettle();
+      expect(find.text('explorer-body-a'), findsNothing);
+      expect(find.text('explorer-body-b'), findsOneWidget);
+
+      // Switch to search, then back to explorer.
+      await tester.tap(find.byIcon(Symbols.search_rounded));
+      await tester.pumpAndSettle();
+      expect(find.text('explorer-body-a'), findsNothing);
+      expect(find.text('search-body-a'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Symbols.folder_rounded));
+      await tester.pumpAndSettle();
+
+      // The collapse survived the round trip: pane A is still collapsed.
+      expect(find.text('explorer-body-a'), findsNothing);
+      expect(find.text('explorer-body-b'), findsOneWidget);
+    });
+
+    testWidgets('RETENTION survives sidebar hide/show: collapse persists '
+        'across toggling the active container icon', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: WorkbenchLayout(
+            activityBarItems: _testItems,
+            editor: const Center(child: Text('Editor')),
+            containerBuilder: twoPaneSpec,
+            bottomPanel: const Center(child: Text('Panel')),
+            statusBar: const SizedBox(height: 22, child: Text('Status')),
+          ),
+        ),
+      );
+
+      // Collapse pane A.
+      await tester.tap(find.text('EXPLORER ALPHA'));
+      await tester.pumpAndSettle();
+      expect(find.text('explorer-body-a'), findsNothing);
+
+      // Hide the sidebar (tap active icon), then show it again.
+      await tester.tap(find.byIcon(Symbols.folder_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Symbols.folder_rounded));
+      await tester.pumpAndSettle();
+
+      // Collapse survived hide/show.
+      expect(find.text('explorer-body-a'), findsNothing);
+      expect(find.text('explorer-body-b'), findsOneWidget);
+    });
+
+    testWidgets('two containers reusing the same view id keep independent '
+        'pane state', (tester) async {
+      // Both explorer and search declare a view id "shared". Collapsing it in
+      // explorer must not collapse it in search.
+      WorkbenchViewContainerSpec sharedIdSpec(String id) {
+        return WorkbenchViewContainerSpec(
+          views: [
+            WorkbenchViewDescriptor(
+              id: 'shared',
+              title: '$id Shared',
+              bodyBuilder: (_) => Text('$id-shared-body'),
+            ),
+            WorkbenchViewDescriptor(
+              id: '$id-other',
+              title: '$id Other',
+              bodyBuilder: (_) => Text('$id-other-body'),
+            ),
+          ],
+        );
+      }
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: WorkbenchLayout(
+            activityBarItems: _testItems,
+            editor: const Center(child: Text('Editor')),
+            containerBuilder: sharedIdSpec,
+            bottomPanel: const Center(child: Text('Panel')),
+            statusBar: const SizedBox(height: 22, child: Text('Status')),
+          ),
+        ),
+      );
+
+      // Collapse the shared pane in explorer.
+      await tester.tap(find.text('EXPLORER SHARED'));
+      await tester.pumpAndSettle();
+      expect(find.text('explorer-shared-body'), findsNothing);
+
+      // Switch to search: its shared pane is independent, still expanded.
+      await tester.tap(find.byIcon(Symbols.search_rounded));
+      await tester.pumpAndSettle();
+      expect(find.text('search-shared-body'), findsOneWidget);
+    });
+  });
+
   group('ActivityBarItem', () {
     test('equality based on id', () {
       const a = ActivityBarItem(

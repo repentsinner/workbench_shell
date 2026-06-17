@@ -797,6 +797,122 @@ void main() {
       );
     });
 
+    testWidgets('controlled sizes: a sash drag notifies without self-mutating, '
+        'and the host-supplied map drives apportionment', (tester) async {
+      const header = WorkbenchLayoutConstants.viewPaneHeaderHeight;
+      const containerHeight = 600.0;
+      Map<String, double>? reported;
+      // Controlled from the start: an even split of the body pool drives the
+      // initial apportionment so the container is in controlled mode for the
+      // first drag (a null map would fall back to the shell-owned default).
+      final evenBody = (containerHeight - 2 * header) / 2;
+      Map<String, double>? hostSizes = {'a': evenBody, 'b': evenBody};
+      Widget build() => wrapWithTheme(
+        SizedBox(
+          height: containerHeight,
+          child: WorkbenchViewContainer(
+            sizes: hostSizes,
+            onSizesChanged: (next) => reported = next,
+            views: const [
+              WorkbenchViewDescriptor(
+                id: 'a',
+                title: 'Alpha',
+                bodyBuilder: _shortBody,
+              ),
+              WorkbenchViewDescriptor(
+                id: 'b',
+                title: 'Beta',
+                bodyBuilder: _shortBody,
+              ),
+            ],
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(build());
+
+      final aBefore = paneRect(tester, 'a').height;
+      final bBefore = paneRect(tester, 'b').height;
+      expect(aBefore, closeTo(bBefore, 1.0));
+
+      // Drag the sash. In controlled mode the shell does NOT self-mutate; the
+      // on-screen apportionment is unchanged until the host pushes a new map.
+      await tester.drag(
+        find.byKey(const ValueKey('workbench-view-sash-b')),
+        const Offset(0, 80),
+      );
+      await tester.pumpAndSettle();
+
+      expect(reported, isNotNull);
+      // The notification carries the full next sizes map with both neighbors.
+      expect(reported!.containsKey('a'), isTrue);
+      expect(reported!.containsKey('b'), isTrue);
+      expect(reported!['a']!, greaterThan(reported!['b']!));
+      // No self-mutation: the render is unchanged from before the drag.
+      expect(paneRect(tester, 'a').height, closeTo(aBefore, 1.0));
+      expect(paneRect(tester, 'b').height, closeTo(bBefore, 1.0));
+
+      // The host applies the reported map → the render follows it.
+      hostSizes = reported;
+      await tester.pumpWidget(build());
+      await tester.pumpAndSettle();
+      // Body heights match the supplied apportionment (pane = header + body).
+      expect(
+        paneRect(tester, 'a').height,
+        closeTo(header + hostSizes!['a']!, 1.0),
+      );
+      expect(
+        paneRect(tester, 'b').height,
+        closeTo(header + hostSizes['b']!, 1.0),
+      );
+    });
+
+    testWidgets('uncontrolled sizes still drag the shell-owned apportionment '
+        'and fire onSizesChanged', (tester) async {
+      const containerHeight = 600.0;
+      Map<String, double>? reported;
+      await tester.pumpWidget(
+        wrapWithTheme(
+          SizedBox(
+            height: containerHeight,
+            child: WorkbenchViewContainer(
+              onSizesChanged: (next) => reported = next,
+              views: const [
+                WorkbenchViewDescriptor(
+                  id: 'a',
+                  title: 'Alpha',
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'b',
+                  title: 'Beta',
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final aBefore = paneRect(tester, 'a').height;
+      final bBefore = paneRect(tester, 'b').height;
+
+      await tester.drag(
+        find.byKey(const ValueKey('workbench-view-sash-b')),
+        const Offset(0, 80),
+      );
+      await tester.pumpAndSettle();
+
+      // Shell-owned apportionment updated on screen (existing behavior).
+      final aAfter = paneRect(tester, 'a').height;
+      final bAfter = paneRect(tester, 'b').height;
+      expect(aAfter, greaterThan(aBefore + 20));
+      expect(bAfter, lessThan(bBefore - 20));
+      // And the optional notification fired with the new map.
+      expect(reported, isNotNull);
+      expect(reported!['a']!, greaterThan(reported!['b']!));
+    });
+
     testWidgets('dragging a pane header reorders the shell-owned stack and '
         'reports the move', (tester) async {
       const views = <WorkbenchViewDescriptor>[
