@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:meta/meta.dart';
 
@@ -150,14 +151,32 @@ class WorkbenchViewPane extends StatefulWidget {
   State<WorkbenchViewPane> createState() => _WorkbenchViewPaneState();
 }
 
+/// Keys the focus-ring [DecoratedBox] that wraps every view-pane header
+/// (§spec:view-pane-focus). The ring reserves a constant 1px border — painted
+/// [WorkbenchTheme.focusBorder] while focused, transparent at rest — so
+/// gaining or losing focus never reflows the header.
+@visibleForTesting
+const Key viewPaneHeaderFocusRingKey = ValueKey('view-pane-header-focus-ring');
+
 class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
   late bool _expanded = widget.initiallyExpanded;
+
+  // The single focus stop for the header (§spec:view-pane-focus). Every header
+  // — collapsible or not — is focusable by pointer click and keyboard
+  // traversal; this node drives the focus ring and the per-pane key bindings.
+  final FocusNode _headerFocusNode = FocusNode(debugLabel: 'WorkbenchViewPane header');
 
   // Reveal state for header actions (§spec:section-header-actions). Hover and
   // focus are tracked independently; either reveals the actions while the
   // pane is expanded.
   bool _hovered = false;
   bool _focused = false;
+
+  @override
+  void dispose() {
+    _headerFocusNode.dispose();
+    super.dispose();
+  }
 
   /// The expansion the pane renders: the host's value when controlled,
   /// otherwise the internal state.
@@ -179,6 +198,53 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
       setState(() => _expanded = next);
     }
     widget.onExpandedChanged?.call(next);
+  }
+
+  /// Drive the pane to an explicit expanded state (§spec:view-pane-focus). Like
+  /// [_handleToggle] it applies in uncontrolled mode and always fires
+  /// [WorkbenchViewPane.onExpandedChanged] — but only when the value actually
+  /// changes, so Left on an already-collapsed pane (or Right on an
+  /// already-expanded one) is a no-op rather than a redundant callback.
+  void _setExpanded(bool next) {
+    if (next == _isExpanded) return;
+    if (widget.expanded == null) {
+      setState(() => _expanded = next);
+    }
+    widget.onExpandedChanged?.call(next);
+  }
+
+  /// A pointer click focuses the header; on a collapsible header it also
+  /// toggles the pane (§spec:view-pane-focus). The InkWell paints its splash;
+  /// this wires the focus + toggle behind it.
+  void _handleHeaderTap() {
+    _headerFocusNode.requestFocus();
+    if (widget.collapsible) _handleToggle();
+  }
+
+  /// Per-pane key bindings on a focused header (§spec:view-pane-focus): on a
+  /// collapsible header Enter/Space toggle, Left collapses, Right expands. The
+  /// same keys are no-ops on a non-collapsible header (no disclosure state).
+  /// Up/Down are left unhandled so they bubble to the container's header
+  /// traversal (§spec:view-stack).
+  KeyEventResult _handleHeaderKey(FocusNode node, KeyEvent event) {
+    if (!widget.collapsible) return KeyEventResult.ignored;
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.space) {
+      _handleToggle();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.arrowLeft) {
+      _setExpanded(false);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.arrowRight) {
+      _setExpanded(true);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   /// Wrap [header] in the section-header band + rule.
@@ -257,46 +323,64 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
       ],
     );
 
-    Widget headerSurface = widget.collapsible
-        // Pointer + keyboard toggle with an expanded/collapsed a11y state.
-        // A mouse-only disclosure control is not canon-complete
-        // (§spec:section-disclosure).
-        ? Semantics(
-            button: true,
-            expanded: _isExpanded,
-            child: InkWell(
-              onTap: _handleToggle,
-              child: header,
-            ),
-          )
-        : header;
+    // Click-to-focus surface (§spec:view-pane-focus). The InkWell paints the
+    // pointer splash and routes the tap to [_handleHeaderTap], which focuses
+    // the header and — on a collapsible pane — toggles it. The InkWell does not
+    // own focus (canRequestFocus: false); the outer [Focus] node is the single
+    // focus stop, so the header is one tab stop, not two. Action taps inside
+    // the header handle their own gestures and do not bubble here.
+    Widget headerSurface = InkWell(
+      onTap: _handleHeaderTap,
+      canRequestFocus: false,
+      child: header,
+    );
 
-    // Track hover and focus to drive action reveal. Only wired when the pane
-    // has actions, so an action-free header keeps its prior structure and
-    // semantics. The Focus node reports descendant focus too (the disclosure
-    // InkWell or a focused action), so traversing into the header reveals the
-    // actions without hover.
-    if (widget.actions.isNotEmpty) {
-      headerSurface = MouseRegion(
-        onEnter: (_) {
-          if (!_hovered) setState(() => _hovered = true);
-        },
-        onExit: (_) {
-          if (_hovered) setState(() => _hovered = false);
-        },
-        // A non-collapsible header has no other focus stop, so the header
-        // itself is focusable — Tab reveals the actions. A collapsible header
-        // already carries the InkWell focus stop; this node still reports that
-        // descendant focus through onFocusChange.
-        child: Focus(
-          canRequestFocus: !widget.collapsible,
-          onFocusChange: (focused) {
-            if (focused != _focused) setState(() => _focused = focused);
-          },
-          child: headerSurface,
-        ),
+    // A collapsible header carries the expanded/collapsed a11y state — a
+    // mouse-only disclosure control is not canon-complete
+    // (§spec:section-disclosure). A non-collapsible header is still focusable
+    // and operable by keyboard (the Focus node below) but has no such state.
+    if (widget.collapsible) {
+      headerSurface = Semantics(
+        button: true,
+        expanded: _isExpanded,
+        child: headerSurface,
       );
     }
+
+    // The focus ring (§spec:view-pane-focus): a constant 1px border that paints
+    // [WorkbenchTheme.focusBorder] while focused and is transparent at rest.
+    // Reserving the border either way keeps the header from reflowing as focus
+    // moves — VS Code paints a 1px focus outline on `.pane-header`.
+    headerSurface = DecoratedBox(
+      key: viewPaneHeaderFocusRingKey,
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: _focused ? theme.focusBorder : Colors.transparent,
+        ),
+      ),
+      child: headerSurface,
+    );
+
+    // Every header is a single focus stop (§spec:view-pane-focus): focusable by
+    // click and traversal, painting the ring and driving the per-pane keys. The
+    // node also reports descendant focus (a focused action), so focusing the
+    // header — by click or Tab — reveals its actions (§spec:section-header-actions).
+    headerSurface = MouseRegion(
+      onEnter: (_) {
+        if (!_hovered) setState(() => _hovered = true);
+      },
+      onExit: (_) {
+        if (_hovered) setState(() => _hovered = false);
+      },
+      child: Focus(
+        focusNode: _headerFocusNode,
+        onFocusChange: (focused) {
+          if (focused != _focused) setState(() => _focused = focused);
+        },
+        onKeyEvent: _handleHeaderKey,
+        child: headerSurface,
+      ),
+    );
 
     // Section-header chrome (§spec:view-stack); see _withHeaderChrome.
     headerSurface = _withHeaderChrome(theme, headerSurface);
