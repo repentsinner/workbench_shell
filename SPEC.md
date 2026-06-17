@@ -665,7 +665,7 @@ visibility, not motion.
 
 ## View Pane Header Focus and Keyboard Navigation §spec:view-pane-focus
 
-*Status: not started*
+*Status: complete*
 
 A view-pane header is focusable, paints a focus ring while focused, and
 drives the pane's disclosure (§spec:section-disclosure) and the stack's

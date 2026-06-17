@@ -95,6 +95,14 @@ class WorkbenchViewPane extends StatefulWidget {
   /// The public standalone pane leaves it null and the header renders raw.
   final Widget Function(Widget header)? headerWrapper;
 
+  /// The header's single focus stop (§spec:view-pane-focus). Library-internal:
+  /// [WorkbenchViewContainer] owns one node per pane and injects it here so the
+  /// container can move focus between header stops for Up/Down traversal
+  /// (§spec:view-stack) — header focus stays off the pane bodies. Null (the
+  /// standalone case) leaves the pane to own and dispose its own node, so the
+  /// public pane is unchanged.
+  final FocusNode? headerFocusNode;
+
   /// Initial expansion for uncontrolled (no [expanded]) collapsible panes.
   final bool initiallyExpanded;
 
@@ -123,7 +131,8 @@ class WorkbenchViewPane extends StatefulWidget {
   }) : collapsible = false,
        showTopRule = true,
        boundedBody = false,
-       headerWrapper = null;
+       headerWrapper = null,
+       headerFocusNode = null;
 
   /// Library-internal seam (§spec:view-stack). [WorkbenchViewContainer] uses
   /// this to pass the collapsibility it derives from view count. `@internal`
@@ -139,6 +148,7 @@ class WorkbenchViewPane extends StatefulWidget {
     this.showTopRule = true,
     this.boundedBody = false,
     this.headerWrapper,
+    this.headerFocusNode,
     this.infoTooltip,
     this.actions = const [],
     this.actionsAlwaysVisible = false,
@@ -164,7 +174,14 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
   // The single focus stop for the header (§spec:view-pane-focus). Every header
   // — collapsible or not — is focusable by pointer click and keyboard
   // traversal; this node drives the focus ring and the per-pane key bindings.
-  final FocusNode _headerFocusNode = FocusNode(debugLabel: 'WorkbenchViewPane header');
+  // The container injects a node it owns ([WorkbenchViewPane.headerFocusNode]) so
+  // it can move focus between header stops for Up/Down traversal (§spec:view-stack);
+  // the standalone pane owns its own. [_ownsFocusNode] guards disposal so the
+  // pane disposes only the node it created.
+  late final bool _ownsFocusNode = widget.headerFocusNode == null;
+  late final FocusNode _headerFocusNode =
+      widget.headerFocusNode ??
+      FocusNode(debugLabel: 'WorkbenchViewPane header');
 
   // Reveal state for header actions (§spec:section-header-actions). Hover and
   // focus are tracked independently; either reveals the actions while the
@@ -174,7 +191,9 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
 
   @override
   void dispose() {
-    _headerFocusNode.dispose();
+    // Dispose only the node this pane created; an injected node is owned and
+    // disposed by the container (§spec:view-pane-focus).
+    if (_ownsFocusNode) _headerFocusNode.dispose();
     super.dispose();
   }
 

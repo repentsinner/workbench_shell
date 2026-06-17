@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 
 import 'layout_constants.dart';
 import 'workbench_content.dart';
@@ -276,6 +277,83 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
   /// on-screen body heights rather than recomputing the apportionment.
   final GlobalKey _stackKey = GlobalKey();
 
+  /// One header focus node per view, keyed by descriptor id (§spec:view-pane-focus).
+  /// The container owns these — it injects each into its pane's header so it can
+  /// move focus between header stops for Up/Down traversal (§spec:view-stack)
+  /// without reaching into private pane state. Keyed by id so a node survives a
+  /// reorder; a node for a dropped view is disposed in [_syncHeaderNodes].
+  final Map<String, FocusNode> _headerNodes = {};
+
+  /// Return the owned header focus node for view [id], creating it on first use.
+  /// The container disposes these in [dispose] and prunes dropped ids in
+  /// [_syncHeaderNodes].
+  FocusNode _headerNodeFor(String id) => _headerNodes.putIfAbsent(
+    id,
+    () => FocusNode(debugLabel: 'WorkbenchViewPane header $id'),
+  );
+
+  /// Drop header nodes for views no longer present (§spec:view-pane-focus), so a
+  /// removed view's node does not leak. Called each build with the live ordered
+  /// id set.
+  void _syncHeaderNodes(Iterable<String> liveIds) {
+    final live = liveIds.toSet();
+    final stale = _headerNodes.keys.where((id) => !live.contains(id)).toList();
+    for (final id in stale) {
+      _headerNodes.remove(id)!.dispose();
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final node in _headerNodes.values) {
+      node.dispose();
+    }
+    super.dispose();
+  }
+
+  /// Move header focus to the [delta]-adjacent pane header, clamped to the stack
+  /// (§spec:view-pane-focus). Down is `+1`, Up is `-1`. Traversal is over the
+  /// owned header nodes in render order only — it never descends into pane
+  /// bodies. Focus clamps at the ends (no wrap): when a header holds focus the
+  /// key is consumed (handled) even at an edge, so Flutter's default directional
+  /// traversal can neither wrap nor escape the stack. Returns ignored only when
+  /// no header holds focus, so the container does not swallow Up/Down elsewhere.
+  KeyEventResult _moveHeaderFocus(List<String> orderedIds, int delta) {
+    final nodes = [for (final id in orderedIds) _headerNodes[id]];
+    final current = nodes.indexWhere((n) => n != null && n.hasFocus);
+    if (current < 0) return KeyEventResult.ignored;
+    final next = current + delta;
+    // Clamp at the ends: a header holds focus, so consume the key (no wrap, no
+    // escape) even when there is no neighbor to move to.
+    if (next < 0 || next >= nodes.length) return KeyEventResult.handled;
+    final target = nodes[next];
+    if (target == null) return KeyEventResult.handled;
+    target.requestFocus();
+    return KeyEventResult.handled;
+  }
+
+  /// Intercept Down/Up at the container to walk header focus (§spec:view-pane-focus).
+  /// The per-pane header handler leaves these keys unhandled so they bubble here;
+  /// other keys pass through. Engaged only with [collapsible] (two or more panes).
+  KeyEventResult _handleContainerKey(
+    List<String> orderedIds,
+    bool collapsible,
+    KeyEvent event,
+  ) {
+    if (!collapsible) return KeyEventResult.ignored;
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.arrowDown) {
+      return _moveHeaderFocus(orderedIds, 1);
+    }
+    if (key == LogicalKeyboardKey.arrowUp) {
+      return _moveHeaderFocus(orderedIds, -1);
+    }
+    return KeyEventResult.ignored;
+  }
+
   bool _isExpanded(WorkbenchViewDescriptor view) {
     if (view.expanded != null) return view.expanded!;
     return _uncontrolledExpanded.putIfAbsent(
@@ -524,6 +602,10 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
   Widget build(BuildContext context) {
     final views = _orderedViews();
 
+    // Prune header focus nodes for views no longer present, so a removed view's
+    // node does not leak (§spec:view-pane-focus).
+    _syncHeaderNodes([for (final view in views) view.id]);
+
     // Merged single view: no pane, body fills the container.
     if (views.length == 1 && widget.mergeSingleView) {
       return Builder(builder: views.single.bodyBuilder);
@@ -569,6 +651,9 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
             // this pane's index (§spec:view-stack).
             headerWrapper:
                 reorderable ? (header) => _draggableHeader(index, header) : null,
+            // The container owns the header focus stop so it can move focus
+            // between headers for Up/Down traversal (§spec:view-pane-focus).
+            headerFocusNode: _headerNodeFor(view.id),
             expanded: expanded,
             onExpandedChanged: (next) => _handleToggle(view, next),
             child: Builder(builder: view.bodyBuilder),
@@ -611,12 +696,28 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
         // (§spec:view-stack).
         // Each WorkbenchSash carries its own drag-time cursor overlay, so the
         // container needs none of its own.
-        return SingleChildScrollView(
+        final Widget stack = SingleChildScrollView(
           key: const ValueKey('workbench-view-stack-scroll'),
           child: _ViewStack(
             key: _stackKey,
             availableHeight: constraints.maxHeight,
             children: children,
+          ),
+        );
+
+        // Header focus traversal (§spec:view-pane-focus): a [FocusTraversalGroup]
+        // scopes the stack, and a non-focusable [Focus] catches Down/Up bubbling
+        // up from the per-pane header handlers — which deliberately leave those
+        // keys unhandled — to walk focus between header stops, clamped to the
+        // ends. It engages only with two or more panes (the collapsible case); a
+        // lone pane has no sibling header to move to.
+        final orderedIds = [for (final view in views) view.id];
+        return FocusTraversalGroup(
+          child: Focus(
+            canRequestFocus: false,
+            onKeyEvent: (_, event) =>
+                _handleContainerKey(orderedIds, collapsible, event),
+            child: stack,
           ),
         );
       },

@@ -7,6 +7,7 @@
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:workbench_shell/workbench_shell.dart';
@@ -255,6 +256,66 @@ void main() {
           .first
           .color!;
       expect(fillOf(primary), isNot(fillOf(secondary)));
+    },
+  );
+
+  testWidgets(
+    'Up/Down traverse the Explorer headers and clamp at the ends (§spec:view-pane-focus)',
+    (tester) async {
+      await tester.pumpWidget(const WorkbenchExampleApp());
+      await tester.pumpAndSettle();
+
+      // Each Explorer pane carries one focus-ring DecoratedBox; the ring
+      // inside pane [id]'s keyed subtree paints the focusBorder accent (a
+      // non-transparent color) while that header holds focus.
+      Color ringColorOf(String id) {
+        final box = tester.widget<DecoratedBox>(
+          find.descendant(
+            of: find.byKey(ValueKey('workbench-view-pane-$id')),
+            matching: find.byKey(
+              const ValueKey('view-pane-header-focus-ring'),
+            ),
+          ),
+        );
+        return ((box.decoration as BoxDecoration).border! as Border).top.color;
+      }
+
+      bool isFocused(String id) => ringColorOf(id) != Colors.transparent;
+
+      // Focus the first Explorer header. Clicking a collapsible header also
+      // toggles it, so re-click to leave the stack fully expanded.
+      await tester.tap(find.text('OPEN EDITORS'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('OPEN EDITORS'));
+      await tester.pumpAndSettle();
+      expect(isFocused('open-editors'), isTrue);
+
+      // Down walks forward through the three headers.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(isFocused('outline'), isTrue);
+      expect(isFocused('open-editors'), isFalse);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(isFocused('timeline'), isTrue);
+
+      // Down on the last header clamps — no wrap.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(isFocused('timeline'), isTrue);
+      expect(isFocused('open-editors'), isFalse);
+
+      // Up walks back and clamps at the first.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+      expect(isFocused('open-editors'), isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+      expect(isFocused('open-editors'), isTrue);
+      expect(isFocused('outline'), isFalse);
     },
   );
 }

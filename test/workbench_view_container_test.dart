@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:workbench_shell/workbench_shell.dart';
@@ -1285,6 +1286,281 @@ void main() {
       await tester.pumpWidget(build(false));
       await tester.pumpAndSettle();
       expect(find.text('body-a'), findsNothing);
+    });
+  });
+
+  group('WorkbenchViewContainer header focus traversal (§spec:view-pane-focus)', () {
+    // The container moves focus between header focus stops on Down/Up. Each
+    // pane carries one focus-ring DecoratedBox, painted focusBorder while
+    // focused; the ring inside pane [id]'s keyed subtree reports which header
+    // owns focus.
+    const paneRingKey = ValueKey('view-pane-header-focus-ring');
+
+    Color ringColorOf(WidgetTester tester, String id) {
+      final box = tester.widget<DecoratedBox>(
+        find.descendant(
+          of: find.byKey(ValueKey('workbench-view-pane-$id')),
+          matching: find.byKey(paneRingKey),
+        ),
+      );
+      return ((box.decoration as BoxDecoration).border! as Border).top.color;
+    }
+
+    bool isFocused(WidgetTester tester, String id) =>
+        ringColorOf(tester, id) == testWorkbenchTheme.focusBorder;
+
+    Future<void> pumpStack(
+      WidgetTester tester,
+      List<WorkbenchViewDescriptor> views,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          SizedBox(height: 600, child: WorkbenchViewContainer(views: views)),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    List<WorkbenchViewDescriptor> threeViews() => [
+      WorkbenchViewDescriptor(
+        id: 'a',
+        title: 'Alpha',
+        bodyBuilder: (_) => const Text('body-a'),
+      ),
+      WorkbenchViewDescriptor(
+        id: 'b',
+        title: 'Beta',
+        bodyBuilder: (_) => const Text('body-b'),
+      ),
+      WorkbenchViewDescriptor(
+        id: 'c',
+        title: 'Gamma',
+        bodyBuilder: (_) => const Text('body-c'),
+      ),
+    ];
+
+    testWidgets('Down walks forward through headers and clamps at the last', (
+      tester,
+    ) async {
+      await pumpStack(tester, threeViews());
+
+      // Focus the first header by clicking it. Clicking a collapsible header
+      // toggles it, so re-expand to keep the stack expanded for the test.
+      await tester.tap(find.text('ALPHA'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ALPHA'));
+      await tester.pumpAndSettle();
+      expect(isFocused(tester, 'a'), isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(isFocused(tester, 'b'), isTrue);
+      expect(isFocused(tester, 'a'), isFalse);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(isFocused(tester, 'c'), isTrue);
+
+      // Down on the last header is a no-op: focus stays on the last (no wrap).
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(isFocused(tester, 'c'), isTrue);
+      expect(isFocused(tester, 'a'), isFalse);
+    });
+
+    testWidgets('Up walks back through headers and clamps at the first', (
+      tester,
+    ) async {
+      await pumpStack(tester, threeViews());
+
+      // Drive focus to the last header via Down, then walk back with Up.
+      await tester.tap(find.text('ALPHA'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ALPHA'));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(isFocused(tester, 'c'), isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+      expect(isFocused(tester, 'b'), isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+      expect(isFocused(tester, 'a'), isTrue);
+
+      // Up on the first header is a no-op: focus stays on the first.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+      expect(isFocused(tester, 'a'), isTrue);
+      expect(isFocused(tester, 'b'), isFalse);
+    });
+
+    testWidgets('traversal does not engage with a single view', (tester) async {
+      await pumpStack(tester, [
+        WorkbenchViewDescriptor(
+          id: 'solo',
+          title: 'Solo',
+          bodyBuilder: (_) => const Text('body-solo'),
+        ),
+      ]);
+
+      // A lone non-collapsible header is focusable; click focuses it.
+      await tester.tap(find.text('SOLO'));
+      await tester.pumpAndSettle();
+      expect(isFocused(tester, 'solo'), isTrue);
+
+      // No second header exists, so Down/Up are no-ops: focus stays put.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(isFocused(tester, 'solo'), isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+      expect(isFocused(tester, 'solo'), isTrue);
+    });
+
+    testWidgets('Down/Up move focus only, never toggling expansion', (
+      tester,
+    ) async {
+      await pumpStack(tester, threeViews());
+
+      await tester.tap(find.text('ALPHA'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ALPHA'));
+      await tester.pumpAndSettle();
+      // All bodies visible (every pane expanded).
+      expect(find.text('body-a'), findsOneWidget);
+      expect(find.text('body-b'), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+
+      // Traversal moved the ring but left every pane expanded.
+      expect(isFocused(tester, 'b'), isTrue);
+      expect(find.text('body-a'), findsOneWidget);
+      expect(find.text('body-b'), findsOneWidget);
+      expect(find.text('body-c'), findsOneWidget);
+    });
+
+    testWidgets('clamping does not escape to focusables outside the stack', (
+      tester,
+    ) async {
+      // Outer focus stops bracket the container. Strict clamp (§spec:view-pane-focus)
+      // means Down on the last header and Up on the first stay on the header —
+      // focus never escapes to the surrounding controls.
+      final outerAbove = FocusNode(debugLabel: 'outer-above');
+      final outerBelow = FocusNode(debugLabel: 'outer-below');
+      addTearDown(outerAbove.dispose);
+      addTearDown(outerBelow.dispose);
+      await tester.pumpWidget(
+        wrapWithTheme(
+          Column(
+            children: [
+              Focus(focusNode: outerAbove, child: const SizedBox(height: 20)),
+              SizedBox(
+                height: 500,
+                child: WorkbenchViewContainer(views: threeViews()),
+              ),
+              Focus(focusNode: outerBelow, child: const SizedBox(height: 20)),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('ALPHA'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ALPHA'));
+      await tester.pumpAndSettle();
+
+      // Up on the first header clamps — does not escape to outerAbove.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+      expect(isFocused(tester, 'a'), isTrue);
+      expect(outerAbove.hasFocus, isFalse);
+
+      // Down to the last, then Down again clamps — does not escape to outerBelow.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(isFocused(tester, 'c'), isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(isFocused(tester, 'c'), isTrue);
+      expect(outerBelow.hasFocus, isFalse);
+    });
+
+    testWidgets('Down skips focusable pane bodies, landing only on headers', (
+      tester,
+    ) async {
+      // Bodies host their own focusable controls. Traversal is over the
+      // headers only (§spec:view-pane-focus) — Down must skip the body's
+      // focus stop and land on the next header, never descend into the body.
+      await pumpStack(tester, [
+        WorkbenchViewDescriptor(
+          id: 'a',
+          title: 'Alpha',
+          bodyBuilder: (_) => const TextField(key: ValueKey('field-a')),
+        ),
+        WorkbenchViewDescriptor(
+          id: 'b',
+          title: 'Beta',
+          bodyBuilder: (_) => const TextField(key: ValueKey('field-b')),
+        ),
+      ]);
+
+      await tester.tap(find.text('ALPHA'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ALPHA'));
+      await tester.pumpAndSettle();
+      expect(isFocused(tester, 'a'), isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      // Landed on the second header, not Alpha's body field.
+      expect(isFocused(tester, 'b'), isTrue);
+      expect(
+        tester.widget<EditableText>(
+          find.descendant(
+            of: find.byKey(const ValueKey('field-a')),
+            matching: find.byType(EditableText),
+          ),
+        ).focusNode.hasFocus,
+        isFalse,
+      );
+    });
+
+    testWidgets('a collapsed pane keeps its header as a traversal target', (
+      tester,
+    ) async {
+      await pumpStack(tester, threeViews());
+
+      // Collapse the middle pane (click toggles it).
+      await tester.tap(find.text('BETA'));
+      await tester.pumpAndSettle();
+      expect(find.text('body-b'), findsNothing);
+
+      // Focus the first header (re-expand after the toggling click), then
+      // traverse: Down still lands on the collapsed pane's header.
+      await tester.tap(find.text('ALPHA'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ALPHA'));
+      await tester.pumpAndSettle();
+      expect(isFocused(tester, 'a'), isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(isFocused(tester, 'b'), isTrue);
+      // Still collapsed — traversal did not expand it.
+      expect(find.text('body-b'), findsNothing);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(isFocused(tester, 'c'), isTrue);
     });
   });
 }
