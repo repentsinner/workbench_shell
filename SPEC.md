@@ -640,10 +640,10 @@ orientation reflecting state. The twisty's space is reserved even when a
 pane is non-collapsible — VS Code always renders the twisty container, so
 a non-collapsible pane shows no chevron but keeps the indent and its title
 aligns with the collapsible panes' titles rather than re-justifying into
-the chevron's place. The header exposes Flutter `Semantics(expanded: …)`
-and is keyboard-operable — a mouse-only disclosure control is not
-canon-complete. Body-transition animation is an implementation choice; the
-contract is body visibility, not motion.
+the chevron's place. The header exposes Flutter `Semantics(expanded: …)`;
+its focus ring and keyboard operation are §spec:view-pane-focus.
+Body-transition animation is an implementation choice; the contract is body
+visibility, not motion.
 
 **Observable behavior**:
 
@@ -651,17 +651,96 @@ contract is body visibility, not motion.
   non-collapsible pane renders its body unconditionally with no chevron.
 - A collapsible header shows a leading twistie whose orientation reflects
   expanded vs collapsed and stays visible in both states.
-- Pointer or keyboard activation of the header toggles the pane; collapse
-  hides the body and frees its height to expanded siblings
-  (§spec:view-stack).
+- Pointer activation of the header toggles the pane; collapse hides the
+  body and frees its height to expanded siblings (§spec:view-stack).
+  Keyboard operation and the focus affordance are §spec:view-pane-focus.
 - Activating a widget in the `actions` zone runs it without toggling.
 - Uncontrolled panes hold their own expansion seeded by the host's
   initial value; controlled panes follow the host value and report every
   toggle.
-- A collapsible header exposes an expanded/collapsed accessibility state
-  and responds to keyboard activation.
+- A collapsible header exposes an expanded/collapsed accessibility state;
+  §spec:view-pane-focus makes it focusable and keyboard-operable.
 
 ---
+
+## View Pane Header Focus and Keyboard Navigation §spec:view-pane-focus
+
+*Status: not started*
+
+A view-pane header is focusable, paints a focus ring while focused, and
+drives the pane's disclosure (§spec:section-disclosure) and the stack's
+header focus traversal from the keyboard — VS Code's `PaneView`/`Pane`
+keyboard model. The shell owns the focus affordance and the key bindings.
+
+**Problem**: the header renders a disclosure twistie and toggles on a
+pointer tap, but the keyboard path is hollow. The collapsible header is a
+bare focus stop reachable only by Tab, paints no focus ring, and a click
+leaves no visible focus; a non-collapsible header is not focusable at all
+unless it carries actions. Nothing collapses or expands a focused pane from
+the arrow keys, and nothing moves focus between the stacked headers. A
+keyboard or screen-reader user cannot operate the sidebar the way VS Code's
+is operated — §spec:section-disclosure asserts the header is
+"keyboard-operable," but no focus affordance makes that reachable.
+
+**The header is a focusable control with a visible focus ring**: every
+view-pane header — collapsible or not — is a single focus stop that takes
+focus from a pointer click as well as from keyboard traversal, and paints a
+focus ring while focused. Clicking a collapsible header both focuses it and
+toggles the pane; clicking a non-collapsible header focuses it. The ring is
+the `WorkbenchTheme.focusBorder` accent (VS Code's `focusBorder`), reusing
+the token the rest of the chrome already uses rather than minting a new one.
+A non-collapsible header is still focusable — so traversal can land on it
+and its actions reveal on focus (§spec:section-header-actions) — even though
+it has no disclosure state to toggle.
+
+**Why click focuses, matching VS Code**: VS Code's pane header is
+`tabindex="0"`, `role="button"`, and a focus tracker paints the focused
+outline; a click focuses it. Without click-to-focus the keyboard model is
+undiscoverable for pointer users — they would have to Tab in from elsewhere
+to find it. Focusing on click makes the arrow-key vocabulary reachable:
+click a header, then drive the stack from the keyboard.
+
+**Per-pane keys act on the focused pane** — §spec:section-disclosure owns
+the expand/collapse meaning; this section owns the bindings: on a focused
+collapsible header, **Enter** and **Space** toggle the pane, **Left**
+collapses it, and **Right** expands it. The same keys are no-ops on a
+focused non-collapsible header, which has no disclosure state. These mirror
+VS Code's `Pane` keydown handler (Enter/Space toggle, Left collapse, Right
+expand).
+
+**Up/Down move focus between headers** — a container concern over the stack
+(§spec:view-stack): **Down** moves focus to the next pane header in the
+container, **Up** to the previous, matching VS Code's
+`PaneView.focusNext`/`focusPrevious`. Traversal is over the headers only and
+does not descend into pane bodies, which are host content with their own
+focus order (§spec:scope). Focus clamps at the ends — moving past the last
+or before the first header is a no-op, not a wrap — and the bindings engage
+only with two or more panes.
+
+**Why a dedicated section, not folded into disclosure**: disclosure
+(§spec:section-disclosure) owns one pane's expand/collapse meaning and
+state; this capability is the focus model and keyboard vocabulary that spans
+the whole stack — click-to-focus, a focus ring, per-pane keys, and
+inter-header navigation that is a container concern, not a pane one. Keeping
+it as one section makes "operate the view stack by keyboard" a single
+coherent slice with its own rationale, rather than scattering the focus ring
+and per-pane keys into disclosure while Up/Down lands in the view-stack
+section.
+
+**Observable behavior**:
+
+- Every view-pane header is a single focus stop that paints a focus ring
+  (the `focusBorder` accent) while focused; a pointer click focuses the
+  header, and on a collapsible header also toggles the pane.
+- On a focused collapsible header: Enter/Space toggle, Left collapses, and
+  Right expands the pane; the same keys are no-ops on a focused
+  non-collapsible header.
+- Down moves focus to the next pane header in the container and Up to the
+  previous; header traversal clamps at the ends, engages only with two or
+  more panes, and does not descend into pane bodies.
+- The header is reachable and fully operable by keyboard alone, carrying the
+  expanded/collapsed accessibility state from §spec:section-disclosure — a
+  mouse-only disclosure control is not canon-complete.
 
 ## Chrome Widgets §spec:chrome-widgets
 
