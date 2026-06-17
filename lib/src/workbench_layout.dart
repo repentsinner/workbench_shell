@@ -85,6 +85,16 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   double _sidebarWidth = WorkbenchLayoutConstants.sidebarDefaultWidth;
   double _panelHeight = WorkbenchLayoutConstants.panelDefaultHeight;
 
+  /// Container ids opened at least once, in first-open order
+  /// (§spec:view-container-state). The shell builds a [WorkbenchViewContainer]
+  /// per id here and keeps each alive while another is active, so pane order,
+  /// expansion, and sash sizes survive switches and return. Retention is lazy:
+  /// an id never selected never enters this set, so its body builders never run
+  /// (the alternative — eagerly mounting every container — is rejected). The set
+  /// scopes each container's State to its id by construction, so two containers
+  /// reusing a view id keep independent state.
+  final List<String> _openedContainerIds = [];
+
   // Activity-bar items partitioned by zone and sorted by sortOrder.
   // Derived once from widget.activityBarItems (which is immutable for a
   // given widget) rather than on every rebuild — the layout rebuilds on
@@ -103,7 +113,17 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
         (widget.activityBarItems.isNotEmpty
             ? widget.activityBarItems.first.id
             : '');
+    _markOpened(_activeViewContainerId);
     _partitionActivityItems();
+  }
+
+  /// Record [containerId] as opened so the shell builds and retains it. Empty
+  /// ids (no activity-bar items) contribute nothing.
+  void _markOpened(String containerId) {
+    if (containerId.isEmpty) return;
+    if (!_openedContainerIds.contains(containerId)) {
+      _openedContainerIds.add(containerId);
+    }
   }
 
   @override
@@ -142,6 +162,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       if (widget.activeViewContainerId == null) {
         _internalActiveViewContainerId = containerId;
       }
+      _markOpened(containerId);
     });
     widget.onViewContainerChanged?.call(containerId);
   }
@@ -150,6 +171,11 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   @override
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
+
+    // Mark the active container opened on every build so a host-driven
+    // (controlled) container change also enters the retained set, not only the
+    // shell-driven taps routed through _setActiveViewContainer.
+    _markOpened(_activeViewContainerId);
 
     return Scaffold(
       backgroundColor: theme.editorBackground,
@@ -169,33 +195,45 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
                     theme: theme,
                   ),
 
-                  // Sidebar (collapsible)
-                  if (_sidebarVisible)
-                    Stack(
-                      children: [
-                        _Sidebar(
-                          width: _sidebarWidth,
-                          activeLabel: _activeLabelFor(
-                            _activeViewContainerId,
+                  // Sidebar (collapsible). Always kept in the tree — Offstage
+                  // when hidden rather than removed — so the retained container
+                  // subtrees (and their shell-owned pane State) survive a
+                  // hide/show cycle, not only a container switch
+                  // (§spec:view-container-state: retained "for the life of the
+                  // layout"). Offstage takes no layout space when hidden, so the
+                  // editor still fills the row exactly as before; the visible
+                  // hide/show behavior is unchanged.
+                  Offstage(
+                    offstage: !_sidebarVisible,
+                    child: TickerMode(
+                      enabled: _sidebarVisible,
+                      child: Stack(
+                        children: [
+                          _Sidebar(
+                            width: _sidebarWidth,
+                            activeLabel: _activeLabelFor(
+                              _activeViewContainerId,
+                            ),
+                            activeContainerId: _activeViewContainerId,
+                            openedContainerIds: _openedContainerIds,
+                            containerBuilder: widget.containerBuilder,
+                            theme: theme,
                           ),
-                          spec: widget.containerBuilder(
-                            _activeViewContainerId,
+                          // The sash overlays the sidebar's right edge rather
+                          // than taking a strip of layout, so at rest it adds
+                          // nothing (canon: the sash is transparent; the seam is
+                          // the sidebar's own right border). Mirrors the panel
+                          // and view-stack pane sashes.
+                          Positioned(
+                            top: 0,
+                            bottom: 0,
+                            right: 0,
+                            child: _buildVerticalResizer(theme),
                           ),
-                          theme: theme,
-                        ),
-                        // The sash overlays the sidebar's right edge rather than
-                        // taking a strip of layout, so at rest it adds nothing
-                        // (canon: the sash is transparent; the seam is the
-                        // sidebar's own right border). Mirrors the panel and
-                        // view-stack pane sashes.
-                        Positioned(
-                          top: 0,
-                          bottom: 0,
-                          right: 0,
-                          child: _buildVerticalResizer(theme),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
+                  ),
 
                   // Editor + bottom panel. The panel is wrapped in a
                   // Visibility(maintainState: true) so its widget
@@ -392,19 +430,25 @@ class _ActivityBar extends StatelessWidget {
   }
 }
 
-/// Sidebar — collapsible content area next to the activity bar. Its body is
-/// the active view container's stack (§spec:view-stack), built from the host's
-/// typed [WorkbenchViewContainerSpec].
+/// Sidebar — collapsible content area next to the activity bar. The heading
+/// tracks the active view container; the body is a retained stack of every
+/// opened container's view stack (§spec:view-container-state), only the active
+/// one visible, the rest kept alive offstage so their pane order, expansion,
+/// and sash sizes survive switches.
 class _Sidebar extends StatelessWidget {
   final double width;
   final String activeLabel;
-  final WorkbenchViewContainerSpec spec;
+  final String activeContainerId;
+  final List<String> openedContainerIds;
+  final WorkbenchViewContainerSpec Function(String containerId) containerBuilder;
   final WorkbenchTheme theme;
 
   const _Sidebar({
     required this.width,
     required this.activeLabel,
-    required this.spec,
+    required this.activeContainerId,
+    required this.openedContainerIds,
+    required this.containerBuilder,
     required this.theme,
   });
 
@@ -444,16 +488,60 @@ class _Sidebar extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: WorkbenchViewContainer(
-              views: spec.views,
-              mergeSingleView: spec.mergeSingleView,
-              order: spec.order,
-              onReorder: spec.onReorder,
-              sizes: spec.sizes,
-              onSizesChanged: spec.onSizesChanged,
+            // One WorkbenchViewContainer per opened id, each in a stable Stack
+            // slot keyed by container id so its element/State identity is per
+            // container. Only the active id is onstage and ticking; the rest are
+            // kept in the tree (so their pane State persists) but offstage and
+            // with tickers disabled, mirroring VS Code detaching a hidden
+            // viewlet's DOM. Un-opened ids contribute no child, so their body
+            // builders never run — retention is lazy (§spec:view-container-state).
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                for (final id in openedContainerIds)
+                  _RetainedContainer(
+                    key: ValueKey(id),
+                    active: id == activeContainerId,
+                    spec: containerBuilder(id),
+                  ),
+              ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// One retained view container in the sidebar's body stack
+/// (§spec:view-container-state). Hidden containers stay in the tree — so the
+/// [WorkbenchViewContainer]'s shell-owned State (pane order, expansion, sash
+/// sizes) survives — but render offstage with tickers disabled so their bodies'
+/// timers and animations pause while another container is active.
+class _RetainedContainer extends StatelessWidget {
+  final bool active;
+  final WorkbenchViewContainerSpec spec;
+
+  const _RetainedContainer({
+    super.key,
+    required this.active,
+    required this.spec,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Offstage(
+      offstage: !active,
+      child: TickerMode(
+        enabled: active,
+        child: WorkbenchViewContainer(
+          views: spec.views,
+          mergeSingleView: spec.mergeSingleView,
+          order: spec.order,
+          onReorder: spec.onReorder,
+          sizes: spec.sizes,
+          onSizesChanged: spec.onSizesChanged,
+        ),
       ),
     );
   }
