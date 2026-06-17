@@ -209,21 +209,16 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
       _isExpanded &&
       (widget.actionsAlwaysVisible || _hovered || _focused);
 
-  void _handleToggle() {
-    final next = !_isExpanded;
-    // Uncontrolled panes apply the change themselves; controlled panes wait
-    // for the host to push the new value.
-    if (widget.expanded == null) {
-      setState(() => _expanded = next);
-    }
-    widget.onExpandedChanged?.call(next);
-  }
+  /// Toggle the pane. A toggle always flips the value, so it routes through
+  /// [_setExpanded] (whose no-op-on-equal guard never trips for a flip).
+  void _handleToggle() => _setExpanded(!_isExpanded);
 
-  /// Drive the pane to an explicit expanded state (§spec:view-pane-focus). Like
-  /// [_handleToggle] it applies in uncontrolled mode and always fires
-  /// [WorkbenchViewPane.onExpandedChanged] — but only when the value actually
-  /// changes, so Left on an already-collapsed pane (or Right on an
-  /// already-expanded one) is a no-op rather than a redundant callback.
+  /// Drive the pane to an explicit expanded state (§spec:view-pane-focus). It
+  /// applies in uncontrolled mode and fires [WorkbenchViewPane.onExpandedChanged]
+  /// — but only when the value actually changes, so Left on an already-collapsed
+  /// pane (or Right on an already-expanded one) is a no-op rather than a
+  /// redundant callback. Uncontrolled panes apply the change themselves;
+  /// controlled panes wait for the host to push the new value.
   void _setExpanded(bool next) {
     if (next == _isExpanded) return;
     if (widget.expanded == null) {
