@@ -247,6 +247,9 @@ void main() {
           hasTapAction: true,
           hasFocusAction: true,
           isFocusable: true,
+          // The click focused the header (§spec:view-pane-focus): a pointer
+          // tap takes focus as well as toggling.
+          isFocused: true,
         ),
       );
       handle.dispose();
@@ -281,6 +284,192 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('body'), findsNothing);
       expect(find.byIcon(Symbols.chevron_right_rounded), findsOneWidget);
+    });
+  });
+
+  group('WorkbenchViewPane header focus (§spec:view-pane-focus)', () {
+    // The focus ring is a keyed DecoratedBox wrapping the header content.
+    // Its border is theme.focusBorder while focused and transparent at rest,
+    // a constant 1px width either way so focus never reflows the header.
+    const ringKey = ValueKey('view-pane-header-focus-ring');
+
+    Border ringBorder(WidgetTester tester) {
+      final box = tester.widget<DecoratedBox>(find.byKey(ringKey));
+      return (box.decoration as BoxDecoration).border! as Border;
+    }
+
+    Color ringColor(WidgetTester tester) => ringBorder(tester).top.color;
+
+    testWidgets('a click focuses a collapsible header and paints the ring', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          _collapsiblePane(title: 'Hello', child: const Text('body')),
+        ),
+      );
+      // At rest the ring is transparent (reserved, no layout shift).
+      expect(ringColor(tester), Colors.transparent);
+      expect(ringBorder(tester).top.width, 1.0);
+
+      await tester.tap(find.text('HELLO'));
+      await tester.pumpAndSettle();
+
+      // Click focused the header → ring paints the focusBorder accent.
+      expect(ringColor(tester), testWorkbenchTheme.focusBorder);
+      expect(ringBorder(tester).top.width, 1.0);
+    });
+
+    testWidgets('a click focuses a non-collapsible header and paints the ring', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const WorkbenchViewPane(title: 'Hello', child: Text('body')),
+        ),
+      );
+      expect(ringColor(tester), Colors.transparent);
+
+      await tester.tap(find.text('HELLO'));
+      await tester.pumpAndSettle();
+
+      expect(ringColor(tester), testWorkbenchTheme.focusBorder);
+    });
+
+    testWidgets('clicking a collapsible header focuses and toggles', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          _collapsiblePane(title: 'Hello', child: const Text('body')),
+        ),
+      );
+      expect(find.text('body'), findsOneWidget);
+
+      await tester.tap(find.text('HELLO'));
+      await tester.pumpAndSettle();
+
+      // Focused (ring) and toggled (body hidden).
+      expect(ringColor(tester), testWorkbenchTheme.focusBorder);
+      expect(find.text('body'), findsNothing);
+    });
+
+    testWidgets('clicking a non-collapsible header focuses without toggling', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const WorkbenchViewPane(title: 'Hello', child: Text('body')),
+        ),
+      );
+      expect(find.text('body'), findsOneWidget);
+
+      await tester.tap(find.text('HELLO'));
+      await tester.pumpAndSettle();
+
+      // Focused but body unaffected (a non-collapsible pane has no disclosure).
+      expect(ringColor(tester), testWorkbenchTheme.focusBorder);
+      expect(find.text('body'), findsOneWidget);
+    });
+
+    testWidgets('ArrowLeft collapses and ArrowRight expands a focused '
+        'collapsible header', (tester) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          _collapsiblePane(title: 'Hello', child: const Text('body')),
+        ),
+      );
+      // Focus via click (expanded panes toggle on click → re-expand for a
+      // clean starting state).
+      await tester.tap(find.text('HELLO'));
+      await tester.pumpAndSettle();
+      expect(find.text('body'), findsNothing);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(find.text('body'), findsOneWidget);
+
+      // Right on an already-expanded pane is a no-op.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(find.text('body'), findsOneWidget);
+
+      // Left collapses.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pumpAndSettle();
+      expect(find.text('body'), findsNothing);
+
+      // Left on an already-collapsed pane is a no-op.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pumpAndSettle();
+      expect(find.text('body'), findsNothing);
+    });
+
+    testWidgets('Enter and Space toggle a focused collapsible header', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          _collapsiblePane(
+            title: 'Hello',
+            initiallyExpanded: false,
+            child: const Text('body'),
+          ),
+        ),
+      );
+      // Focus a collapsed pane without toggling via keyboard traversal.
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      expect(find.text('body'), findsNothing);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(find.text('body'), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pumpAndSettle();
+      expect(find.text('body'), findsNothing);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(find.text('body'), findsOneWidget);
+    });
+
+    testWidgets('per-pane keys are no-ops on a focused non-collapsible header', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const WorkbenchViewPane(title: 'Hello', child: Text('body')),
+        ),
+      );
+      await tester.tap(find.text('HELLO'));
+      await tester.pumpAndSettle();
+      expect(ringColor(tester), testWorkbenchTheme.focusBorder);
+
+      // None of these touch the always-shown body — and none throw.
+      for (final key in [
+        LogicalKeyboardKey.arrowLeft,
+        LogicalKeyboardKey.arrowRight,
+        LogicalKeyboardKey.enter,
+        LogicalKeyboardKey.space,
+      ]) {
+        await tester.sendKeyEvent(key);
+        await tester.pumpAndSettle();
+        expect(find.text('body'), findsOneWidget);
+      }
+    });
+
+    testWidgets('the ring uses theme.focusBorder specifically', (tester) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const WorkbenchViewPane(title: 'Hello', child: Text('body')),
+        ),
+      );
+      await tester.tap(find.text('HELLO'));
+      await tester.pumpAndSettle();
+      expect(ringColor(tester), equals(testWorkbenchTheme.focusBorder));
+      // Sanity: focusBorder is not transparent, so the assertion is meaningful.
+      expect(testWorkbenchTheme.focusBorder, isNot(Colors.transparent));
     });
   });
 

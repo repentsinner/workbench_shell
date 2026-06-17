@@ -665,7 +665,7 @@ visibility, not motion.
 
 ## View Pane Header Focus and Keyboard Navigation §spec:view-pane-focus
 
-*Status: not started*
+*Status: complete*
 
 A view-pane header is focusable, paints a focus ring while focused, and
 drives the pane's disclosure (§spec:section-disclosure) and the stack's
@@ -700,22 +700,25 @@ undiscoverable for pointer users — they would have to Tab in from elsewhere
 to find it. Focusing on click makes the arrow-key vocabulary reachable:
 click a header, then drive the stack from the keyboard.
 
+**Focus clears on a tap outside the header**: a pointer tap on any surface
+that is not the header — a pane body, another header, the editor, the
+activity bar — removes the header's focus ring, matching how the web blurs
+the active control when a non-focusable surface is clicked. Flutter instead
+retains focus until another control claims it, so the shell drops it
+explicitly; without this the ring lingers on a header the user has visibly
+left.
+
 **Per-pane keys act on the focused pane** — §spec:section-disclosure owns
-the expand/collapse meaning; this section owns the bindings: on a focused
-collapsible header, **Enter** and **Space** toggle the pane, **Left**
-collapses it, and **Right** expands it. The same keys are no-ops on a
-focused non-collapsible header, which has no disclosure state. These mirror
-VS Code's `Pane` keydown handler (Enter/Space toggle, Left collapse, Right
-expand).
+the expand/collapse meaning; this section owns the bindings, which mirror VS
+Code's `Pane` keydown handler (Enter/Space toggle, Left collapse, Right
+expand). They are no-ops on a non-collapsible header, which has no disclosure
+state.
 
 **Up/Down move focus between headers** — a container concern over the stack
-(§spec:view-stack): **Down** moves focus to the next pane header in the
-container, **Up** to the previous, matching VS Code's
-`PaneView.focusNext`/`focusPrevious`. Traversal is over the headers only and
-does not descend into pane bodies, which are host content with their own
-focus order (§spec:scope). Focus clamps at the ends — moving past the last
-or before the first header is a no-op, not a wrap — and the bindings engage
-only with two or more panes.
+(§spec:view-stack), matching VS Code's `PaneView.focusNext`/`focusPrevious`.
+Traversal is over the headers only and does not descend into pane bodies,
+which are host content with their own focus order (§spec:scope). Focus clamps
+at the ends — no wrap — and engages only with two or more panes.
 
 **Why a dedicated section, not folded into disclosure**: disclosure
 (§spec:section-disclosure) owns one pane's expand/collapse meaning and
@@ -732,6 +735,9 @@ section.
 - Every view-pane header is a single focus stop that paints a focus ring
   (the `focusBorder` accent) while focused; a pointer click focuses the
   header, and on a collapsible header also toggles the pane.
+- A pointer tap outside a focused header — a pane body, another header, or
+  any surface beyond the stack — clears its focus ring; focus does not linger
+  where the user is no longer interacting.
 - On a focused collapsible header: Enter/Space toggle, Left collapses, and
   Right expands the pane; the same keys are no-ops on a focused
   non-collapsible header.
