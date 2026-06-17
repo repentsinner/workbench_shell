@@ -388,8 +388,18 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   WorkbenchViewContainerSpec _buildContainerSpec(String containerId) {
     switch (containerId) {
       case 'explorer':
+        // The Explorer dogfoods header drag-reorder (§spec:view-stack). The
+        // shell owns the pane order: the host just lists the views and the
+        // shell handles the drag, drop indicator, and reordering — no host
+        // order state. (A host that needs to persist order across restarts can
+        // pass a controlled `order` plus `onReorder`.)
+        final byId = _explorerViews(_notificationService);
         return WorkbenchViewContainerSpec(
-          views: _explorerViews(_notificationService),
+          views: [
+            byId['open-editors']!,
+            byId['outline']!,
+            byId['timeline']!,
+          ],
         );
       case 'search':
         return const WorkbenchViewContainerSpec(
@@ -1003,13 +1013,18 @@ class _SidebarBodyPlaceholder extends StatelessWidget {
 /// header to reveal its refresh and new-file buttons; click one and the pane
 /// stays expanded (the action does not toggle the header). Collapse the pane
 /// and the actions vanish entirely.
-List<WorkbenchViewDescriptor> _explorerViews(NotificationService service) {
+/// Explorer view descriptors keyed by id. The host renders them in
+/// [_WorkbenchHomeState._explorerOrder]'s order, which header drag-reorder
+/// permutes (§spec:view-stack).
+Map<String, WorkbenchViewDescriptor> _explorerViews(
+  NotificationService service,
+) {
   void notify(String message) {
     service.show(severity: NotificationSeverity.info, message: message);
   }
 
-  return [
-    WorkbenchViewDescriptor(
+  return {
+    'open-editors': WorkbenchViewDescriptor(
       id: 'open-editors',
       title: 'Open Editors',
       actions: [
@@ -1028,7 +1043,7 @@ List<WorkbenchViewDescriptor> _explorerViews(NotificationService service) {
         text: 'main.dart\nworkbench_content.dart',
       ),
     ),
-    WorkbenchViewDescriptor(
+    'outline': WorkbenchViewDescriptor(
       id: 'outline',
       title: 'Outline',
       initiallyExpanded: false,
@@ -1036,7 +1051,7 @@ List<WorkbenchViewDescriptor> _explorerViews(NotificationService service) {
         text: 'WorkbenchViewPane\nWorkbenchSubsection\nWorkbenchCard',
       ),
     ),
-    WorkbenchViewDescriptor(
+    'timeline': WorkbenchViewDescriptor(
       id: 'timeline',
       title: 'Timeline',
       actions: [
@@ -1050,7 +1065,7 @@ List<WorkbenchViewDescriptor> _explorerViews(NotificationService service) {
         text: 'Timeline — recent edits land here.',
       ),
     ),
-  ];
+  };
 }
 
 /// Compact icon button sized to the pane-header row — the host supplies the

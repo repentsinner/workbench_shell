@@ -93,6 +93,40 @@ void main() {
     expect(find.text('main.dart\nworkbench_content.dart'), findsOneWidget);
   });
 
+  testWidgets('dragging an Explorer pane header reorders the panes', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const WorkbenchExampleApp());
+    await tester.pumpAndSettle();
+
+    // Initial Explorer order: Open Editors, Outline, Timeline.
+    expect(
+      tester.getTopLeft(find.text('OPEN EDITORS')).dy,
+      lessThan(tester.getTopLeft(find.text('OUTLINE')).dy),
+    );
+
+    // Drag the Outline header up onto the top half of Open Editors: Outline
+    // lands before it. The drop indicator shows the target slot mid-drag.
+    final outlineHeader = tester.getCenter(find.text('OUTLINE'));
+    final openEditors = tester.getCenter(find.text('OPEN EDITORS'));
+    final gesture = await tester.startGesture(outlineHeader);
+    await tester.pump(const Duration(milliseconds: 200));
+    await gesture.moveTo(Offset(openEditors.dx, openEditors.dy - 6));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('workbench-view-drop-indicator')),
+      findsOneWidget,
+    );
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    // Order persists: Outline is now above Open Editors.
+    expect(
+      tester.getTopLeft(find.text('OUTLINE')).dy,
+      lessThan(tester.getTopLeft(find.text('OPEN EDITORS')).dy),
+    );
+  });
+
   testWidgets(
     'Explorer header action posts a themed notification, not a SnackBar',
     (tester) async {

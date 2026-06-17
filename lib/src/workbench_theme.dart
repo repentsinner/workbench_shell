@@ -52,6 +52,14 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   /// the header then paints no rule. See SPEC §spec:view-stack.
   final Color? sideBarSectionHeaderBorder;
 
+  /// Drop-overlay fill painted over the target half of a view pane while a
+  /// pane header is dragged to reorder (§spec:view-stack). VS Code
+  /// `sideBar.dropBackground`, which defaults to `editorGroup.dropBackground`
+  /// — a translucent fill so the pane shows through. Non-null: the overlay
+  /// always renders during a valid drag, so this resolves to the canonical
+  /// translucent default when the theme omits the key.
+  final Color sideBarDropBackground;
+
   // ---- Editor area ----
   final Color editorBackground;
 
@@ -325,6 +333,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.sideBarForeground,
     required this.sideBarSectionHeaderBackground,
     required this.sideBarSectionHeaderBorder,
+    required this.sideBarDropBackground,
     required this.editorBackground,
     required this.panelBackground,
     required this.panelBorder,
@@ -571,6 +580,13 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // that omits the key suppresses the corresponding paint.
       sideBarSectionHeaderBackground: map['sideBarSectionHeader.background'],
       sideBarSectionHeaderBorder: map['sideBarSectionHeader.border'],
+      // Pane-reorder drop overlay (§spec:view-stack). VS Code defaults
+      // sideBar.dropBackground to editorGroup.dropBackground; honor that
+      // chain, falling back to the canonical dark default (#53595D @ 0.5)
+      // so the overlay always renders.
+      sideBarDropBackground: map['sideBar.dropBackground'] ??
+          map['editorGroup.dropBackground'] ??
+          const Color(0x8053595D),
       // Editor
       editorBackground: editorBg,
       // Panel
@@ -867,6 +883,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? sideBarForeground,
     Color? sideBarSectionHeaderBackground,
     Color? sideBarSectionHeaderBorder,
+    Color? sideBarDropBackground,
     Color? editorBackground,
     Color? panelBackground,
     Color? panelBorder,
@@ -977,6 +994,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       sideBarForeground: sideBarForeground ?? this.sideBarForeground,
       sideBarSectionHeaderBackground:
           sideBarSectionHeaderBackground ?? this.sideBarSectionHeaderBackground,
+      sideBarDropBackground:
+          sideBarDropBackground ?? this.sideBarDropBackground,
       sideBarSectionHeaderBorder:
           sideBarSectionHeaderBorder ?? this.sideBarSectionHeaderBorder,
       editorBackground: editorBackground ?? this.editorBackground,
@@ -1146,6 +1165,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       sideBarSectionHeaderBorder: cn(
         sideBarSectionHeaderBorder,
         other.sideBarSectionHeaderBorder,
+      ),
+      sideBarDropBackground: c(
+        sideBarDropBackground,
+        other.sideBarDropBackground,
       ),
       editorBackground: c(editorBackground, other.editorBackground),
       panelBackground: c(panelBackground, other.panelBackground),
@@ -1355,6 +1378,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           sideBarSectionHeaderBackground ==
               other.sideBarSectionHeaderBackground &&
           sideBarSectionHeaderBorder == other.sideBarSectionHeaderBorder &&
+          sideBarDropBackground == other.sideBarDropBackground &&
           editorBackground == other.editorBackground &&
           panelBackground == other.panelBackground &&
           panelBorder == other.panelBorder &&
@@ -1466,6 +1490,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     sideBarForeground,
     sideBarSectionHeaderBackground,
     sideBarSectionHeaderBorder,
+    sideBarDropBackground,
     editorBackground,
     panelBackground,
     panelBorder,

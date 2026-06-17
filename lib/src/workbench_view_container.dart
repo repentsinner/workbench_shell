@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'layout_constants.dart';
 import 'workbench_content.dart';
 import 'workbench_sash.dart';
+import 'workbench_theme.dart';
 
 /// Typed descriptor for one view in a [WorkbenchViewContainer]
 /// (§spec:view-stack). The host supplies an ordered list of these — never a
@@ -76,9 +77,24 @@ class WorkbenchViewContainerSpec {
   /// Single-purpose containers set this to preserve a full-body sidebar.
   final bool mergeSingleView;
 
+  /// Controlled pane order: the descriptor ids in render order
+  /// (§spec:view-stack). When supplied, the shell renders this order and a
+  /// header drag fires [onReorder] without self-mutating — the host updates
+  /// this list. Null (the default) lets the shell own the order, seeded from
+  /// the [views] order. Mirrors a descriptor's controlled `expanded`.
+  final List<String>? order;
+
+  /// Notified when the user drags a pane header to a new slot
+  /// (§spec:view-stack). Optional: the shell owns the order and reorders
+  /// itself, so this is a notification (e.g. to persist the order across
+  /// restarts), not a requirement. Mirrors a descriptor's `onExpandedChanged`.
+  final void Function(int oldIndex, int newIndex)? onReorder;
+
   const WorkbenchViewContainerSpec({
     required this.views,
     this.mergeSingleView = false,
+    this.order,
+    this.onReorder,
   });
 }
 
@@ -124,10 +140,29 @@ class WorkbenchViewContainer extends StatefulWidget {
   /// hide the pane header and let the body fill. No effect with 2+ views.
   final bool mergeSingleView;
 
+  /// Controlled pane order as descriptor ids (§spec:view-stack). When non-null
+  /// the shell renders this order and a header drag fires [onReorder] without
+  /// permuting its own state — the host owns the order and rebuilds with the
+  /// moved list. Null (the default) lets the shell own the order, seeded from
+  /// the [views] order and permuted by drags. Mirrors a descriptor's
+  /// controlled [WorkbenchViewDescriptor.expanded].
+  final List<String>? order;
+
+  /// Notified when the user drags a pane header to a new slot (§spec:view-stack,
+  /// VS Code `PaneView` header drag-and-drop), with the dragged pane's current
+  /// index and its target index. Optional: the shell owns the order and
+  /// reorders itself by default, so this is a notification (e.g. to persist
+  /// order across restarts), not a control input. Mirrors
+  /// [WorkbenchViewDescriptor.onExpandedChanged]. Reorder needs distinct slots,
+  /// so it engages only with two or more views (the collapsible case).
+  final void Function(int oldIndex, int newIndex)? onReorder;
+
   const WorkbenchViewContainer({
     super.key,
     required this.views,
     this.mergeSingleView = false,
+    this.order,
+    this.onReorder,
   });
 
   @override
@@ -156,6 +191,45 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
   /// new pool, so they are dropped and the new set re-apportions evenly.
   Set<String> _manualBasis = const {};
 
+  /// Uncontrolled pane order, a list of descriptor ids. The shell owns the
+  /// stack order (§spec:view-stack): seeded from the descriptor-list order and
+  /// permuted by header drags. Null until first seeded. Ignored when the host
+  /// supplies a controlled [WorkbenchViewContainer.order]. Mirrors the
+  /// expansion model — [_uncontrolledExpanded] is to `expanded` as this is to
+  /// `order`.
+  List<String>? _order;
+
+  /// The descriptors in their effective render order: the controlled
+  /// [WorkbenchViewContainer.order] when the host supplies one, otherwise the
+  /// shell-owned [_order], reconciled against the current descriptor set —
+  /// dropped ids removed, new ids appended in descriptor-list position. Like
+  /// [_isExpanded], this lazily seeds during build (no setState).
+  List<WorkbenchViewDescriptor> _orderedViews() {
+    final byId = {for (final view in widget.views) view.id: view};
+    final List<String> ids;
+    if (widget.order != null) {
+      ids = widget.order!;
+    } else {
+      _order ??= [for (final view in widget.views) view.id];
+      _order!.removeWhere((id) => !byId.containsKey(id));
+      for (final view in widget.views) {
+        if (!_order!.contains(view.id)) _order!.add(view.id);
+      }
+      ids = _order!;
+    }
+    final ordered = <WorkbenchViewDescriptor>[];
+    final seen = <String>{};
+    for (final id in ids) {
+      final view = byId[id];
+      if (view != null && seen.add(id)) ordered.add(view);
+    }
+    // Descriptors a controlled order omits fall back to the descriptor-list tail.
+    for (final view in widget.views) {
+      if (seen.add(view.id)) ordered.add(view);
+    }
+    return ordered;
+  }
+
   /// Reads the live render geometry so a sash drag seeds from the actual
   /// on-screen body heights rather than recomputing the apportionment.
   final GlobalKey _stackKey = GlobalKey();
@@ -174,6 +248,145 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
     }
     view.onExpandedChanged?.call(next);
   }
+
+  /// Index of the pane whose header is being dragged for reorder, or null when
+  /// no reorder drag is active (§spec:view-stack).
+  int? _dragIndex;
+
+  /// The drop target: the pane index the dragged header currently hovers and
+  /// whether it would land before (above) or after (below) it, mirroring VS
+  /// Code's `ViewPaneDropOverlay` UP/DOWN split. Null when the pointer is over
+  /// no valid target.
+  ({int index, bool before})? _dropTarget;
+
+  /// Translate a hover over pane [targetIndex] into the index the dragged pane
+  /// would occupy after the move (VS Code `PaneView.movePane` splice). Dropping
+  /// before the target lands at its index; dropping after lands just past it.
+  /// Removing the dragged pane first shifts later targets down by one, so a
+  /// downward move subtracts one.
+  int _resolveNewIndex(int from, int targetIndex, bool before) {
+    var insertAt = before ? targetIndex : targetIndex + 1;
+    if (insertAt > from) insertAt -= 1;
+    return insertAt.clamp(0, widget.views.length - 1);
+  }
+
+  void _commitReorder() {
+    final from = _dragIndex;
+    final target = _dropTarget;
+    if (from != null && target != null) {
+      final newIndex = _resolveNewIndex(from, target.index, target.before);
+      if (newIndex != from) {
+        // The shell owns the order: permute it directly (§spec:view-stack). A
+        // controlled host order defers to the host, which updates `order` from
+        // the notification below. `onReorder` is an optional notification in
+        // either mode, not a requirement.
+        if (widget.order == null) {
+          _order ??= [for (final view in widget.views) view.id];
+          final moved = _order!.removeAt(from);
+          _order!.insert(newIndex, moved);
+        }
+        widget.onReorder?.call(from, newIndex);
+      }
+    }
+    setState(() {
+      _dragIndex = null;
+      _dropTarget = null;
+    });
+  }
+
+  /// Make [header] a reorder drag handle for the pane at [index]
+  /// (§spec:view-stack). The drag payload is the pane index; the feedback is the
+  /// header itself at reduced opacity, and the source slot dims while dragging —
+  /// VS Code shows a drag image and leaves the origin in place.
+  Widget _draggableHeader(int index, Widget header) {
+    return Draggable<int>(
+      data: index,
+      // The default childDragAnchorStrategy pins the feedback to the pointer,
+      // so [_updateDropTarget] can read the pointer position from the feedback
+      // top-left.
+      onDragStarted: () => setState(() {
+        _dragIndex = index;
+        _dropTarget = null;
+      }),
+      onDraggableCanceled: (_, offset) => _commitReorder(),
+      onDragEnd: (_) => _commitReorder(),
+      feedback: _DragFeedback(width: _paneWidth(index), child: header),
+      childWhenDragging: Opacity(opacity: 0.4, child: header),
+      child: header,
+    );
+  }
+
+  /// The on-screen width of the pane at [index], so the floating drag image is
+  /// laid out at the pane's width (the header `Row` needs a bounded width for
+  /// its `Expanded` title). Falls back to the container width, then a sane
+  /// default, before the box is measured.
+  double _paneWidth(int index) {
+    final box = _dropTargetKeys[index]?.currentContext?.findRenderObject();
+    if (box is RenderBox && box.hasSize) return box.size.width;
+    final self = context.findRenderObject();
+    if (self is RenderBox && self.hasSize) return self.size.width;
+    return 200.0;
+  }
+
+  /// Wrap [pane] (the pane at [index]) as a reorder drop target
+  /// (§spec:view-stack). While a header is dragged over it, the target reads the
+  /// pointer's position within its own box to pick the UP/DOWN half (VS Code's
+  /// `ViewPaneDropOverlay`) and overlays the drop indicator on that half.
+  Widget _reorderTarget(int index, Widget pane) {
+    final key = _dropTargetKeys.putIfAbsent(index, GlobalKey.new);
+    return DragTarget<int>(
+      onWillAcceptWithDetails: (details) {
+        _updateDropTarget(index, details.offset);
+        return true;
+      },
+      onMove: (details) => _updateDropTarget(index, details.offset),
+      onLeave: (_) {
+        if (_dropTarget?.index == index) {
+          setState(() => _dropTarget = null);
+        }
+      },
+      builder: (context, candidate, rejected) {
+        final active = _dropTarget;
+        final showIndicator = active != null && active.index == index;
+        // The key sits on the pane box so [_updateDropTarget] can split it into
+        // UP/DOWN halves from the pointer's local y.
+        final keyed = KeyedSubtree(key: key, child: pane);
+        if (!showIndicator) return keyed;
+        return Stack(
+          children: [
+            keyed,
+            Positioned.fill(
+              child: _DropIndicator(
+                before: active.before,
+                color: context.workbenchTheme.sideBarDropBackground,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Resolve which half of pane [index] the pointer at global [pointer] sits in,
+  /// and record it as the active drop target. The target's render box converts
+  /// the global pointer to a local y; above the vertical midpoint drops before
+  /// (UP), below drops after (DOWN). [pointer] is the drag feedback's top-left,
+  /// which `childDragAnchorStrategy` pins to the pointer.
+  void _updateDropTarget(int index, Offset pointer) {
+    final box = _dropTargetKeys[index]?.currentContext?.findRenderObject();
+    var before = true;
+    if (box is RenderBox && box.hasSize) {
+      final local = box.globalToLocal(pointer);
+      before = local.dy < box.size.height / 2;
+    }
+    if (_dropTarget?.index != index || _dropTarget?.before != before) {
+      setState(() => _dropTarget = (index: index, before: before));
+    }
+  }
+
+  /// Stable keys per drop target, so [_updateDropTarget] can read each target's
+  /// render box to split it into UP/DOWN halves.
+  final Map<int, GlobalKey> _dropTargetKeys = {};
 
   /// Pair total captured when the active sash drag begins, so [_sashedPane]'s
   /// `onChanged` sets the lower body to `pair - newUpper` and leaves the other
@@ -273,7 +486,7 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
 
   @override
   Widget build(BuildContext context) {
-    final views = widget.views;
+    final views = _orderedViews();
 
     // Merged single view: no pane, body fills the container.
     if (views.length == 1 && widget.mergeSingleView) {
@@ -293,6 +506,11 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
     };
     _reconcileManualBasis(expandedIds);
 
+    // Reorder engages with two or more panes (the collapsible case): a lone
+    // pane has no slot to move to. The shell owns the order, so reorder needs
+    // no host callback — it is on whenever there are slots (§spec:view-stack).
+    final reorderable = collapsible;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final children = <Widget>[];
@@ -307,6 +525,7 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
           final isExpandedPane = !collapsible || expanded;
           // A sash sits above this pane only when an expanded pane precedes it.
           final upperId = (isExpandedPane && collapsible) ? prevExpandedId : null;
+          final index = i;
           final pane = WorkbenchViewPane.inContainer(
             title: view.title,
             infoTooltip: view.infoTooltip,
@@ -319,10 +538,27 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
             // The splitview bounds each expanded body so it scrolls internally
             // within its apportioned height (§spec:view-stack).
             boundedBody: true,
+            // When reorder is enabled the header is a drag handle that carries
+            // this pane's index (§spec:view-stack).
+            headerWrapper:
+                reorderable ? (header) => _draggableHeader(index, header) : null,
             expanded: expanded,
             onExpandedChanged: (next) => _handleToggle(view, next),
             child: Builder(builder: view.bodyBuilder),
           );
+          Widget paneVisual = upperId == null
+              ? pane
+              : _sashedPane(
+                  upperId: upperId,
+                  lowerId: view.id,
+                  pane: pane,
+                );
+          // Each pane is a drop target during a reorder drag, painting the
+          // drop-overlay on the half the dragged header would land
+          // (§spec:view-stack).
+          if (reorderable) {
+            paneVisual = _reorderTarget(index, paneVisual);
+          }
           children.add(
             _ViewStackChild(
               key: ValueKey('workbench-view-pane-${view.id}'),
@@ -333,13 +569,7 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
               manualBody: isExpandedPane ? _manualBody[view.id] : null,
               // An expanded pane after the first carries a resize sash on the
               // boundary it shares with its expanded neighbor above.
-              child: upperId == null
-                  ? pane
-                  : _sashedPane(
-                      upperId: upperId,
-                      lowerId: view.id,
-                      pane: pane,
-                    ),
+              child: paneVisual,
             ),
           );
           if (isExpandedPane) prevExpandedId = view.id;
@@ -587,5 +817,54 @@ class _RenderViewStack extends RenderBox
       child = (child.parentData! as _ViewStackParentData).nextSibling;
     }
     return value;
+  }
+}
+
+/// The floating drag image for a reorder drag (§spec:view-stack): the pane
+/// header at reduced opacity, laid out at the source pane's [width] so its
+/// `Expanded` title has a bound. [Material] supplies the text/icon baseline the
+/// header expects once it floats above the tree.
+class _DragFeedback extends StatelessWidget {
+  const _DragFeedback({required this.width, required this.child});
+
+  final double width;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: 0.85,
+      child: Material(
+        type: MaterialType.transparency,
+        child: SizedBox(width: width, child: child),
+      ),
+    );
+  }
+}
+
+/// The reorder drop indicator (§spec:view-stack): a translucent fill over the
+/// target pane's top half ([before]) or bottom half, mirroring VS Code's
+/// `ViewPaneDropOverlay` UP/DOWN split. [color] is the theme's
+/// `sideBar.dropBackground`. It ignores pointer events so the drag continues to
+/// hit-test the target beneath it.
+class _DropIndicator extends StatelessWidget {
+  const _DropIndicator({required this.before, required this.color});
+
+  final bool before;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Align(
+        alignment: before ? Alignment.topCenter : Alignment.bottomCenter,
+        child: FractionallySizedBox(
+          key: const ValueKey('workbench-view-drop-indicator'),
+          heightFactor: 0.5,
+          widthFactor: 1.0,
+          child: ColoredBox(color: color),
+        ),
+      ),
+    );
   }
 }

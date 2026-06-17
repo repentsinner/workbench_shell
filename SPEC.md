@@ -195,7 +195,7 @@ host content (§spec:scope).
 
 ## View Container and View Stack §spec:view-stack
 
-*Status: in progress*
+*Status: complete*
 
 The sidebar stacks several collapsible **views** in one **view
 container**, the VS Code model. The activity bar selects a view
@@ -347,11 +347,25 @@ re-apportions evenly, the same redistribution collapse already performs. A
 collapsed pane has no body boundary, so it carries no sash and is never a
 sash neighbor.
 
-**Reorder is in the target, staged**: VS Code also lets the user drag a
-header to reorder panes within a container. It belongs in the aligned
-model but is separable from the core stack — fixed order is already useful
-and testable — so it may land as a later increment, building on the
-splitview stack.
+**Header drag reorders panes**: the user drags a pane header onto another
+pane to reorder the stack, mirroring VS Code's `PaneView` header
+drag-and-drop. The header is the drag handle; while a drag is over a target
+pane, a translucent drop overlay covers the target's top or bottom half — the
+slot the dragged pane would occupy — following VS Code's `ViewPaneDropOverlay`
+UP/DOWN split. The overlay color is the theme's `sideBar.dropBackground`
+(VS Code defaults it to `editorGroup.dropBackground`; a translucent fill the
+pane shows through). On drop the **shell owns the order** — it permutes the
+rendered stack directly, consistent with the shell owning the stack while the
+host supplies view *content*, not arrangement (§spec:capability-boundary), and
+with VS Code's `PaneView.movePane`. Order is **uncontrolled by default**,
+seeded from the descriptor-list order — mirroring a pane's uncontrolled
+`expanded` (§spec:section-disclosure). A container may instead supply a
+controlled `order` (descriptor ids in render order) plus an optional
+`onReorder` notification: a drag then fires `onReorder` without self-permuting
+and the host updates `order`, the same controlled/uncontrolled split the
+descriptors' expansion already follows. `onReorder` is a notification (e.g. to
+persist order across restarts), never required for reorder to function. Reorder
+needs two distinct slots, so it engages only with two or more panes.
 
 **Container selection mirrors today's section navigation**: the activity
 bar selects the active view container, controlled or uncontrolled — the
@@ -385,6 +399,13 @@ Reselecting the active container toggles sidebar visibility, unchanged.
   transfers body height between them, clamped at each pane's minimum body
   height; the new proportions hold across rebuilds and reset to even when
   a pane collapses or expands. A collapsed pane carries no sash.
+- Dragging a pane header onto another pane reorders the stack: a translucent
+  drop overlay marks the target's upper or lower half during the drag, and on
+  drop the shell permutes the stack itself. Order is shell-owned and
+  uncontrolled by default (seeded from the descriptor-list order); a container
+  may instead supply a controlled `order` plus an optional `onReorder`
+  notification. Reorder engages only with two or more panes and needs no
+  callback to function.
 - The activity bar selects the active view container (controlled or
   uncontrolled); reselecting the active container toggles sidebar
   visibility.
