@@ -1,3 +1,10 @@
+# [0.11.0](https://github.com/repentsinner/workbench_shell/compare/v0.10.0...v0.11.0) (2026-06-17)
+
+
+### Features
+
+* reorder view panes by dragging the header ([5187d55](https://github.com/repentsinner/workbench_shell/commit/5187d55abc8ff249d17c0456a362f69fb3311de9))
+
 # [0.10.0](https://github.com/repentsinner/workbench_shell/compare/v0.9.0...v0.10.0) (2026-06-16)
 
 
