@@ -195,7 +195,7 @@ host content (§spec:scope).
 
 ## View Container and View Stack §spec:view-stack
 
-*Status: in progress*
+*Status: complete*
 
 The sidebar stacks several collapsible **views** in one **view
 container**, the VS Code model. The activity bar selects a view
