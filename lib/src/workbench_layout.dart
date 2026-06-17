@@ -449,6 +449,8 @@ class _Sidebar extends StatelessWidget {
               mergeSingleView: spec.mergeSingleView,
               order: spec.order,
               onReorder: spec.onReorder,
+              sizes: spec.sizes,
+              onSizesChanged: spec.onSizesChanged,
             ),
           ),
         ],
