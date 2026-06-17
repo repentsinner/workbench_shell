@@ -1393,6 +1393,26 @@ void main() {
       expect(isFocused(tester, 'c'), isTrue);
     });
 
+    testWidgets('a tap outside a focused header clears its ring', (
+      tester,
+    ) async {
+      // §spec:view-pane-focus: focus does not linger. Flutter keeps focus until
+      // another control claims it; the header drops it on a tap outside so the
+      // ring does not stay on a header the user has left.
+      await pumpStack(tester, threeViews());
+
+      // Focus Beta by clicking it (also collapses it; focus stays on its header).
+      await tester.tap(find.text('BETA'));
+      await tester.pumpAndSettle();
+      expect(isFocused(tester, 'b'), isTrue);
+
+      // Tap a non-header surface — Alpha's still-visible body — and Beta's ring
+      // clears.
+      await tester.tap(find.text('body-a'));
+      await tester.pumpAndSettle();
+      expect(isFocused(tester, 'b'), isFalse);
+    });
+
     testWidgets('Up walks back through headers and clamps at the first', (
       tester,
     ) async {

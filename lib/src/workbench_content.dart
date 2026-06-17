@@ -386,13 +386,23 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
       onExit: (_) {
         if (_hovered) setState(() => _hovered = false);
       },
-      child: Focus(
-        focusNode: _headerFocusNode,
-        onFocusChange: (focused) {
-          if (focused != _focused) setState(() => _focused = focused);
+      // A tap on any surface that is not this header clears the ring
+      // (§spec:view-pane-focus): Flutter retains focus until another control
+      // claims it, so — matching the web blurring the active control on an
+      // outside click — the header drops focus explicitly rather than lingering
+      // on a header the user has left.
+      child: TapRegion(
+        onTapOutside: (_) {
+          if (_headerFocusNode.hasFocus) _headerFocusNode.unfocus();
         },
-        onKeyEvent: _handleHeaderKey,
-        child: headerSurface,
+        child: Focus(
+          focusNode: _headerFocusNode,
+          onFocusChange: (focused) {
+            if (focused != _focused) setState(() => _focused = focused);
+          },
+          onKeyEvent: _handleHeaderKey,
+          child: headerSurface,
+        ),
       ),
     );
 
