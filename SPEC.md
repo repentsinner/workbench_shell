@@ -338,14 +338,38 @@ Dragging tracks the pointer's *absolute* position from where the drag
 began, not an accumulated delta, so overshooting a clamp parks the sash at
 the limit and it re-tracks the cursor without offset once the pointer
 returns. The drag transfers body height from one pane to the other, clamped
-so neither body falls below the minimum body height. The result persists: the container records the two
-panes' user-set body heights and holds them across rebuilds, so the manual
-proportions override the even default until the expanded set changes. A
-collapse or expand changes the body pool and its membership, so the stored
-heights no longer divide it — the container drops them and the new set
-re-apportions evenly, the same redistribution collapse already performs. A
+so neither body falls below the minimum body height. The result persists: the
+container records the two panes' user-set sizes as **proportional weights**
+and holds them across rebuilds, collapse, and expand, so the manual
+proportions override the even default until the user resizes again. The
+weights are never absolute pixels — the container always rescales the
+expanded panes' weights to fill the available body pool, re-clamped to each
+pane's minimum body height, so the stack fills its height at any window size.
+A collapse removes one pane from the expanded set: its freed body is absorbed
+by the remaining expanded panes **in proportion to their weights** (survivors
+keep their relative sizes), and the collapsed pane retains its weight so an
+expand restores its prior size and shrinks the others proportionally. A
 collapsed pane has no body boundary, so it carries no sash and is never a
 sash neighbor.
+
+**Why proportional weights, not absolute heights**: an earlier model stored
+each resized pane's body as a fixed pixel target and split only the *unsized*
+remainder among the rest. When every remaining expanded pane was sized, a
+collapse freed body that no pane claimed — the stack laid out shorter than the
+sidebar and left dead space at the bottom, contradicting the splitview
+invariant that the expanded panes always fill the height. Modeling sizes as
+weights that always rescale to the available pool removes the two-class (sized
+vs. unsized) split: every expanded pane shares one proportional distribution,
+so freed space is always absorbed and the stack has no internal dead space.
+
+**Why preserve proportions across collapse, not reset to even**: resetting the
+survivors to an even split on every collapse is simpler but discards the
+user's sizing the moment they collapse a neighbor — a resize is forgotten on
+the next collapse/expand cycle. VS Code preserves each pane's size across
+collapse (a `Pane` reports its remembered `expandedSize` on re-expand and the
+`SplitView` keeps sibling proportions), so a user who sizes the stack and
+toggles a pane finds their layout intact. Preserving proportions is the canon
+and the better UX; it costs only remembering the collapsed pane's weight.
 
 **Sash sizing is host-persistable**: the manual body heights are shell-owned
 and uncontrolled by default (above), but a container may instead supply a
@@ -406,12 +430,19 @@ Reselecting the active container toggles sidebar visibility, unchanged.
   allotment. The whole stack scrolls together only as an overflow
   fallback — when the expanded panes cannot fit at their minimum body
   heights.
+- The laid-out stack exactly fills the container's available height
+  regardless of collapse state or prior sizing: collapsing a pane or dragging
+  a sash never leaves dead space at the bottom — the expanded panes absorb the
+  freed height in proportion to their weights. Dead space appears only in the
+  overflow fallback's inverse sense (the panes overflow, never underflow).
 - Dragging the sash on the boundary between two adjacent expanded panes
   transfers body height between them, clamped at each pane's minimum body
-  height; the new proportions hold across rebuilds and reset to even when
-  a pane collapses or expands. A collapsed pane carries no sash. Sizing is
-  shell-owned and uncontrolled by default; a container may supply a controlled
-  `sizes` map with `onSizesChanged` to drive and persist the apportionment.
+  height; the new proportions hold across rebuilds, collapse, and expand —
+  collapsing a pane preserves the survivors' relative sizes and a re-expand
+  restores the collapsed pane's prior size. A collapsed pane carries no sash.
+  Sizing is shell-owned and uncontrolled by default; a container may supply a
+  controlled `sizes` map with `onSizesChanged` to drive and persist the
+  apportionment.
 - Dragging a pane header onto another pane reorders the stack: a translucent
   drop overlay marks the target's upper or lower half during the drag, and on
   drop the shell permutes the stack itself. Order is shell-owned and
