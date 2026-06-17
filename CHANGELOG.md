@@ -1,3 +1,17 @@
+# [0.13.0](https://github.com/repentsinner/workbench_shell/compare/v0.12.1...v0.13.0) (2026-06-17)
+
+
+### Bug Fixes
+
+* **view-pane:** keep header focus across the collapse reparent ([a857648](https://github.com/repentsinner/workbench_shell/commit/a857648fe5fd4a6289e4ed80ed703bfee36cbe8d))
+
+
+### Features
+
+* **view-pane:** clear the header focus ring on a tap outside ([1a43daf](https://github.com/repentsinner/workbench_shell/commit/1a43dafd5d50fa81bde34b93b8d95a6ab6294434))
+* **view-pane:** focusable header with focus ring and per-pane keys ([b1c047c](https://github.com/repentsinner/workbench_shell/commit/b1c047c793525c872b311040670a88e7bded60ad))
+* **view-stack:** up/down focus traversal between pane headers ([c30de5c](https://github.com/repentsinner/workbench_shell/commit/c30de5c162cae51f1fa0cd3b7ad436ec635260e3))
+
 ## [0.12.1](https://github.com/repentsinner/workbench_shell/compare/v0.12.0...v0.12.1) (2026-06-17)
 
 
