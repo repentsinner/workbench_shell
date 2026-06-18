@@ -456,6 +456,68 @@ Reselecting the active container toggles sidebar visibility, unchanged.
 
 ---
 
+## View Pane Maximum Body Size §spec:view-pane-max-body
+
+*Status: complete*
+
+**Problem**: an expanded pane always fills its apportioned share of the body
+pool (§spec:view-stack). When a pane's natural content is shorter than that
+share — a fixed control panel, a few buttons — the pane stretches and the
+content floats above whitespace inside the body. The shell offers no way for a
+host to cap a pane to its content height; every pane is effectively unbounded.
+VS Code solves this with a per-view `maximumBodySize`; the shell has only the
+uniform minimum body height (§spec:layout-constants) and no maximum.
+
+**A view descriptor carries an optional `maximumBodySize` (pixels), default
+unbounded.** It is the per-pane cap mirroring VS Code's `maximumBodySize`
+(`paneview.ts`, default `Number.POSITIVE_INFINITY`). An unset value is
+unbounded, so the existing fill-and-distribute behavior is unchanged for every
+pane that does not opt in. The minimum body height stays a uniform constant
+(§spec:layout-constants), not per-descriptor: the floor is the same for every
+pane, while a meaningful maximum is content-specific (a hug-to-content panel
+versus a tree that should fill), so only the maximum moves to the descriptor.
+
+**The clamp is VS Code canon: maximum wins over minimum when they invert.**
+Each expanded pane's apportioned body is clamped to `[minBody, maxBody]` using
+VS Code's argument order — `min(max(value, minBody), maxBody)` — so when
+`maxBody < minBody` the outer `min(…, maxBody)` dominates and the pane renders
+*below* the minimum body height. No guard coerces the maximum up to the
+minimum. This matches microsoft/vscode's `clamp` utility (`numbers.ts`) and
+every splitview call site, which pass `maximumSize` as the outer bound; a view
+that sets `maximumBodySize = 60` against the 120 floor renders a 60px body, not
+120. Mirroring the argument order exactly is the parity contract — the
+alternative (`max(min(value, maxBody), minBody)`, floor wins) would make a
+sub-floor maximum a no-op and defeat hug-to-content, the whole point of the
+field.
+
+**A finite maximum caps sash growth, not the floor.** A sash drag can grow a
+pane no larger than its `maximumBodySize` (mirroring VS Code's `resizeView`
+clamp to `min(maximumSize, available)`); the sash's lower limit remains the
+minimum body height. A pane with no maximum is unchanged.
+
+**Trailing dead space is the deliberate consequence, matching canon.** When the
+expanded panes' maxima sum to less than the body pool, the slack has no pane to
+flow into and pools as a gap below the last pane. This is the explicit
+exception to §spec:view-stack's invariant that the expanded panes always fill
+the height: that invariant holds while panes are unbounded (the default), and a
+host opts into the gap by capping panes. VS Code behaves identically —
+`distributeEmptySpace` cannot place a delta once every view is at its maximum.
+
+**Observable behavior**:
+
+- A view descriptor may set `maximumBodySize`; unset means unbounded and the
+  pane fills its apportioned share as before.
+- An expanded pane never renders a body taller than its `maximumBodySize`. When
+  the maximum is below the minimum body height, the maximum wins and the pane
+  renders below the floor (VS Code clamp parity).
+- A sash drag cannot grow a pane past its `maximumBodySize`; the lower clamp
+  stays the minimum body height.
+- When the expanded panes' maxima cannot consume the body pool, the unfilled
+  slack appears as a gap below the last pane rather than stretching any capped
+  pane.
+
+---
+
 ## View Container State Retention §spec:view-container-state
 
 *Status: complete*
