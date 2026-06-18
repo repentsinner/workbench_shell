@@ -10,3 +10,109 @@ Needs `/plan` before queuing (audited VS Code gap, not yet specced): the
 show/hide submenu — the bar above the panes carrying container-level
 actions to toggle which views are visible. Run `/plan` to add a spec
 section, then `/roadmap`.
+
+## Editing Modes §road:editing-modes
+
+Closes §spec:editing-modes. Two independent host-driven toggles, each a
+controlled/uncontrolled property on `WorkbenchLayout` mirroring the
+existing active-container pattern. Built first: independent of the other
+sections and the smallest slices.
+
+### Zen Mode §road:zen-mode
+
+Add a `zenMode` toggle (controlled/uncontrolled) to `WorkbenchLayout`
+that hides activity bar, both side bars, panel, and status bar, leaving
+the editor — in `lib/src/workbench_layout.dart`, exported from
+`lib/workbench_shell.dart`, with a View-menu item wired in
+`example/lib/main.dart`. §spec:editing-modes
+
+### Centered Layout §road:centered-layout
+
+Add a `centeredLayout` toggle (controlled/uncontrolled) to
+`WorkbenchLayout` that constrains the editor to a maximum width and
+centers it, leaving chrome in place — in `lib/src/workbench_layout.dart`,
+max-width constant in `lib/src/layout_constants.dart`, exported from
+`lib/workbench_shell.dart`, with a View-menu item in
+`example/lib/main.dart`. §spec:editing-modes
+
+**Verify:** In the example app's View menu, toggle Zen Mode on — confirm
+only the editor remains; toggle off — confirm all chrome returns. Toggle
+Centered Layout on — confirm the editor narrows and centers with side
+margins while activity bar, side bar, and status bar stay; toggle off —
+confirm the editor fills the width again.
+
+## Primary Side Bar Position §road:sidebar-position
+
+Closes §spec:sidebar-position. Names the side bar's edge so the secondary
+bar can derive its opposite. Depends on the §spec:workbench-layout sash
+holding unchanged on either edge.
+
+### Side Bar Left/Right §road:sidebar-position-prop
+
+Add a `WorkbenchSidebarPosition { left, right }` enum and a
+controlled/uncontrolled `sidebarPosition` property to `WorkbenchLayout`,
+moving the primary side bar (with its activity bar), its sash, and its
+border to the selected edge — in `lib/src/workbench_layout.dart`,
+exported from `lib/workbench_shell.dart`, with a View-menu item in
+`example/lib/main.dart`. §spec:sidebar-position
+
+**Verify:** In the example app's View menu, set Side Bar Position to
+Right — confirm the activity bar and side bar move to the editor's right
+edge and the resize sash drags correctly from that edge. Set back to Left
+— confirm they return and the sash still tracks.
+
+## Secondary Side Bar §road:secondary-sidebar
+
+Closes §spec:secondary-sidebar. A second side bar on the editor's
+opposite edge, reusing the container machinery and the canonical sash.
+Depends on §road:sidebar-position-prop for the edge-derivation logic.
+
+### Secondary Side Bar Slot §road:secondary-sidebar-prop
+
+Add an independently visible and resizable secondary side bar on the edge
+opposite the primary, hosting view containers through the same
+`containerBuilder` path with its own controlled/uncontrolled active
+container, visibility, and width — in `lib/src/workbench_layout.dart`,
+exported from `lib/workbench_shell.dart`, with example wiring in
+`example/lib/main.dart`. §spec:secondary-sidebar. Depends on
+§road:sidebar-position-prop.
+
+**Verify:** In the example app, enable the secondary side bar with a
+sample container — confirm it appears on the edge opposite the primary,
+toggles visibility independently, and resizes with its own sash. Swap the
+primary to the other edge — confirm the secondary follows to the now-free
+opposite edge.
+
+## Panel Alignment §road:panel-alignment
+
+Closes §spec:panel-alignment. The bottom panel's horizontal extent via
+re-parenting (per side bar: inside or outside the panel's band), not a
+layout solver. Center/justify first; left/right last as the boundary case
+the §spec:layout-customization "no layout engine" decision is tested
+against.
+
+### Panel Center/Justify §road:panel-align-center-justify
+
+Add a `WorkbenchPanelAlignment` enum and a controlled/uncontrolled
+`panelAlignment` property supporting `center` (editor-width, the current
+default) and `justify` (full-width) by re-parenting the panel between the
+editor column and the outer column — in `lib/src/workbench_layout.dart`,
+exported from `lib/workbench_shell.dart`, with a View-menu item in
+`example/lib/main.dart`. §spec:panel-alignment
+
+### Panel Left/Right §road:panel-align-left-right
+
+Extend `panelAlignment` with `left` and `right`, where the panel abuts
+one edge's side bar while the other side bar runs full height, via the
+per-side-bar nesting choice — in `lib/src/workbench_layout.dart`.
+§spec:panel-alignment. Depends on §road:panel-align-center-justify and
+§road:secondary-sidebar-prop (the nesting must place both bars). Stop and
+defer if the nesting collapses into per-combination special-casing rather
+than two booleans.
+
+**Verify:** In the example app's View menu, set Panel Alignment to
+Justify — confirm the bottom panel spans the full window width past both
+side bars; set Center — confirm it spans only the editor while side bars
+run full height. Set Left — confirm the panel abuts the left side bar
+(which stops at the panel's top) while the right side bar runs full
+height; set Right — confirm the mirror.
