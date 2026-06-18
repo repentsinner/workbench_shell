@@ -1170,6 +1170,113 @@ warrant one.
 
 ---
 
+## Workbench Layout Customization §spec:layout-customization
+
+*Status: not started*
+
+§spec:workbench-layout composes a fixed arrangement: activity bar and
+primary side bar on the left, bottom panel under the editor, status bar
+below. VS Code's "Customize Layout" exposes these as user choices — which
+side the primary side bar takes, a second side bar on the opposite edge,
+how the bottom panel aligns across the width, and distraction-free /
+centered editing. A workbench that hardcodes one arrangement asks every
+host to either accept that arrangement or fork the layout. This section
+makes the arrangement a set of host-driven choices.
+
+**Scope boundary — what the shell owns.** The shell owns chrome that
+lives *below* the OS window frame (§spec:custom-window-chrome). Full
+Screen toggles the OS window and therefore belongs to the host, which
+owns the window; the shell does not expose it. The shell owns side-bar
+position, the secondary side bar, panel alignment, Zen mode, and
+centered layout — all expressible within the region the shell already
+renders. This is why "Full Screen" from VS Code's panel is absent here:
+it is not the shell's to give.
+
+**One mechanism: controlled/uncontrolled, mirroring §spec:workbench-layout.**
+Every choice below is a host-configurable property following the pattern
+the active view container already uses: an `initial…` seed for
+uncontrolled mode, or a controlled value plus an `on…Changed` callback
+through which the host owns and persists the state. The shell holds no
+persistence of its own. A host that wires the callbacks to its settings
+store gets layout that survives restarts; a host that ignores them gets
+session-local defaults. No new persistence subsystem is introduced —
+the gap is closed by extending an established pattern, not inventing one.
+This is the deliberate rejection of a data-driven layout-graph / "Part
+registry" abstraction: with a handful of degrees of freedom, the choices
+are enums consumed by conditional composition, not a layout engine. The
+abstraction is reconsidered only if a later choice cannot be expressed by
+the nesting rule §spec:panel-alignment defines.
+
+### Side Bar Position §spec:sidebar-position
+
+The primary side bar (with its activity bar) sits on the left or the
+right of the editor, host-selectable. The resize sash and the side
+border follow the bar to whichever edge it occupies, so the
+§spec:workbench-layout sash invariants hold unchanged on either side.
+
+**Why an enum, not a boolean.** The position is named (`left` / `right`)
+rather than `isOnRight` because the secondary side bar (§spec:secondary-sidebar)
+derives its own edge from the primary's, and "the side opposite `left`"
+reads where "the side opposite `false`" does not. The two bars never
+share an edge; the secondary is always opposite the primary, matching VS
+Code.
+
+### Secondary Side Bar §spec:secondary-sidebar
+
+A second side bar occupies the editor's opposite edge from the primary
+(§spec:sidebar-position), independently visible and independently
+resizable through the same canonical sash. It hosts view containers
+through the same `containerBuilder`/`WorkbenchViewContainer` path the
+primary uses, with its own controlled/uncontrolled active-container id,
+visibility, and width.
+
+**Why the host assigns containers, not drag-and-drop.** VS Code populates
+its secondary side bar by dragging views between bars. View relocation by
+drag is a separate capability with its own interaction surface; it is
+explicitly out of scope here. In its place, the host decides which
+containers a bar shows. The activity bar drives the primary side bar
+only. This keeps the secondary bar a thin reuse of existing container
+machinery rather than a new view-management system, and leaves
+drag-to-relocate as a future, separable addition.
+
+### Panel Alignment §spec:panel-alignment
+
+When the bottom panel is at the bottom, its horizontal extent is
+host-selectable: `center` (spans the editor only; both side bars run
+full height past it — the §spec:workbench-layout default), `justify`
+(spans the full width; neither side bar runs past it), `left` (abuts the
+left edge's side bar, which runs full height; spans the rest), and
+`right` (mirror of `left`).
+
+**Why re-parenting, not a layout solver.** Each alignment reduces to one
+question per side bar: does this bar run full height (outside the panel's
+horizontal band) or stop at the panel's top (inside it)? Center =
+both outside; justify = both inside; left/right = one of each. The four
+values are therefore two booleans realized by *where the panel sits in
+the widget tree*, not a constraint solver or a multi-child layout
+delegate. This is the most subtle composition in this section — it forces
+the layout to compute its nesting rather than return a fixed tree — and
+it is the boundary case the §spec:layout-customization "no layout engine"
+decision is tested against: if these four alignments express cleanly as
+nesting choices, no graph abstraction is warranted.
+
+### Zen and Centered Layout §spec:editing-modes
+
+Two distraction-reducing modes, each a host-driven toggle. Zen mode
+hides all chrome — activity bar, both side bars, panel, status bar —
+leaving the editor alone. Centered layout constrains the editor to a
+maximum width and centers it, margining the sides on wide displays;
+chrome remains. The modes are independent toggles, not one enum: VS Code
+treats them separately and they compose (centered content within an
+otherwise-normal workbench, or a bare editor in Zen).
+
+**Why these two and not "modes" generally.** Full Screen, the third VS
+Code mode, is the OS window's (scope boundary above). Zen and centered
+are the two that live entirely within the shell's region, so they are
+the two the shell can own without crossing into host/window territory.
+
+---
+
 ## Custom Window Chrome Is Deferred §spec:custom-window-chrome
 
 *Status: complete*
