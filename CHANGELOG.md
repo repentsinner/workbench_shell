@@ -1,3 +1,10 @@
+# [0.14.0](https://github.com/repentsinner/workbench_shell/compare/v0.13.0...v0.14.0) (2026-06-18)
+
+
+### Features
+
+* **view-pane:** add per-pane maximumBodySize with canon clamp ([31e33ed](https://github.com/repentsinner/workbench_shell/commit/31e33ed5776d6f2fcfd8ba7a5ca724d313563f99))
+
 # [0.13.0](https://github.com/repentsinner/workbench_shell/compare/v0.12.1...v0.13.0) (2026-06-17)
 
 
