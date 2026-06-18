@@ -307,6 +307,85 @@ void main() {
       }
     });
 
+    testWidgets('a pane capped below the floor renders at its maximum and the '
+        'sibling absorbs the rest (canon max-wins clamp)', (tester) async {
+      const containerHeight = 600.0;
+      const header = WorkbenchLayoutConstants.viewPaneHeaderHeight;
+      const cap = 60.0; // below viewPaneMinBodyHeight (120)
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const SizedBox(
+            height: containerHeight,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'capped',
+                  title: 'Capped',
+                  maximumBodySize: cap,
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'fill',
+                  title: 'Fill',
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // Max wins over the 120 floor: the capped pane's body is its maximum,
+      // below the minimum body height (§spec:view-pane-max-body).
+      final capped = paneRect(tester, 'capped');
+      final fill = paneRect(tester, 'fill');
+      expect(capped.height, closeTo(header + cap, 1.0));
+      // The unbounded sibling absorbs all remaining height; the stack still
+      // fills the container (only one pane is capped).
+      expect(capped.height + fill.height, closeTo(containerHeight, 1.0));
+      expect(fill.height, closeTo(containerHeight - (header + cap), 1.0));
+    });
+
+    testWidgets('when every expanded pane is capped below the pool the slack '
+        'pools as a trailing gap (canon)', (tester) async {
+      const containerHeight = 600.0;
+      const header = WorkbenchLayoutConstants.viewPaneHeaderHeight;
+      const cap = 60.0;
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const SizedBox(
+            height: containerHeight,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'a',
+                  title: 'Alpha',
+                  maximumBodySize: cap,
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'b',
+                  title: 'Beta',
+                  maximumBodySize: cap,
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final a = paneRect(tester, 'a');
+      final b = paneRect(tester, 'b');
+      // Both panes hug their cap; neither stretches to fill.
+      expect(a.height, closeTo(header + cap, 1.0));
+      expect(b.height, closeTo(header + cap, 1.0));
+      // The laid-out stack is shorter than the container — the unfilled slack
+      // is a trailing gap, not absorbed by any pane.
+      expect(a.height + b.height, closeTo(2 * (header + cap), 1.0));
+      expect(b.bottom, lessThan(containerHeight - 1.0));
+    });
+
     testWidgets('a pane whose content exceeds its share scrolls internally; '
         'siblings stay fixed and the container does not scroll', (tester) async {
       const containerHeight = 400.0;
