@@ -7,6 +7,8 @@ structural primitives (section, subsection, card, toggle card, empty
 state) that keep sidebar and panel content visually consistent by
 construction.
 
+![workbench_shell example app](workbench_shell_example.png)
+
 ## Features
 
 - `WorkbenchLayout` — composes activity bar + sidebar + editor + bottom
