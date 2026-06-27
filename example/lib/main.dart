@@ -30,6 +30,7 @@ import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workbench_shell/workbench_shell.dart';
 
 /// Canonical method channel for forwarding workbench brightness to the
@@ -216,19 +217,40 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   /// demonstrate the hook end to end alongside shell-owned reorder.)
   Map<String, double>? _explorerSizes;
 
-  /// Host-owned sidebar width and panel height (§spec:workbench-layout).
-  /// Dogfoods the controlled `sidebarWidth`/`onSidebarWidthChanged` and
-  /// `panelHeight`/`onPanelHeightChanged` hooks the same way [_explorerSizes]
-  /// dogfoods view sizing: null until the first sash drag, so the shell uses its
-  /// default until the user resizes, after which a real consumer could persist
-  /// these across restarts.
+  /// Host-owned sidebar width and panel height (§spec:workbench-layout),
+  /// dogfooding the controlled `sidebarWidth`/`onSidebarWidthChanged` and
+  /// `panelHeight`/`onPanelHeightChanged` hooks. Null when nothing is stored, so
+  /// the shell falls back to its default until the user resizes; thereafter the
+  /// value is loaded from and written to disk (see [_prefs]) so a resize
+  /// survives an app restart.
   double? _sidebarWidth;
   double? _panelHeight;
+
+  /// Disk-backed persistence for the outer seams (§spec:workbench-layout: the
+  /// host owns storage, not the shell). Loaded once on startup and rewritten on
+  /// each sash drag, so a resize survives quitting and relaunching the app —
+  /// the end-to-end demonstration of the controlled width/height hooks.
+  static const _sidebarWidthKey = 'example.sidebarWidth';
+  static const _panelHeightKey = 'example.panelHeight';
+  SharedPreferences? _prefs;
 
   /// Notifications demo state, shared by the "Severities" and "Progress"
   /// view panes (§spec:view-stack) so both drive the same service.
   late final _NotificationsDemoController _notificationsDemo =
       _NotificationsDemoController(_notificationService);
+
+  @override
+  void initState() {
+    super.initState();
+    SharedPreferences.getInstance().then((prefs) {
+      if (!mounted) return;
+      setState(() {
+        _prefs = prefs;
+        _sidebarWidth = prefs.getDouble(_sidebarWidthKey);
+        _panelHeight = prefs.getDouble(_panelHeightKey);
+      });
+    });
+  }
 
   @override
   void dispose() {
@@ -381,11 +403,15 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                     bottomPanel: scope.tabbedPanel,
                     showBottomPanel: _panelVisible,
                     sidebarWidth: _sidebarWidth,
-                    onSidebarWidthChanged: (w) =>
-                        setState(() => _sidebarWidth = w),
+                    onSidebarWidthChanged: (w) {
+                      setState(() => _sidebarWidth = w);
+                      _prefs?.setDouble(_sidebarWidthKey, w);
+                    },
                     panelHeight: _panelHeight,
-                    onPanelHeightChanged: (h) =>
-                        setState(() => _panelHeight = h),
+                    onPanelHeightChanged: (h) {
+                      setState(() => _panelHeight = h);
+                      _prefs?.setDouble(_panelHeightKey, h);
+                    },
                     statusBar: const WorkbenchStatusBar(
                       leading: [
                         WorkbenchStatusBarItem(
