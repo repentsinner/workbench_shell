@@ -1,3 +1,16 @@
+# [0.15.0](https://github.com/repentsinner/workbench_shell/compare/v0.14.0...v0.15.0) (2026-06-27)
+
+
+### Features
+
+* **example:** persist sidebar width and panel height across restarts ([04440a0](https://github.com/repentsinner/workbench_shell/commit/04440a0410a3b9027411fb9f86ae3b43d90038e6))
+* **layout:** expose sidebar width and panel height as host-persistable hooks ([c3d1665](https://github.com/repentsinner/workbench_shell/commit/c3d16655d0a3127a26bac89c1e5cd4eda2cfd798))
+
+
+### Reverts
+
+* **example:** drop disk persistence; keep layout hooks in-memory ([171cb00](https://github.com/repentsinner/workbench_shell/commit/171cb00540f0a5fd1e3191c01af525091bf3b580))
+
 # [0.14.0](https://github.com/repentsinner/workbench_shell/compare/v0.13.0...v0.14.0) (2026-06-18)
 
 
