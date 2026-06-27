@@ -71,9 +71,19 @@ class ExampleApp extends StatelessWidget {
             ActivityBarItem(id: 'explorer', label: 'Explorer', icon: Icons.folder),
             ActivityBarItem(id: 'search', label: 'Search', icon: Icons.search),
           ],
-          sidebarBuilder: (viewId) => WorkbenchViewPane(
-            title: viewId,
-            child: const SizedBox.shrink(),
+          // Each activity-bar item maps to a typed view container, not a
+          // raw widget. mergeSingleView lets a lone view fill the sidebar
+          // body (header hidden); pass two or more views for a collapsible
+          // pane stack.
+          containerBuilder: (containerId) => WorkbenchViewContainerSpec(
+            mergeSingleView: true,
+            views: [
+              WorkbenchViewDescriptor(
+                id: containerId,
+                title: containerId,
+                bodyBuilder: (context) => const SizedBox.shrink(),
+              ),
+            ],
           ),
           editor: const Center(child: Text('Editor')),
           bottomPanel: const SizedBox.shrink(),
