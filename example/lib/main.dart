@@ -216,6 +216,15 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   /// demonstrate the hook end to end alongside shell-owned reorder.)
   Map<String, double>? _explorerSizes;
 
+  /// Host-owned sidebar width and panel height (§spec:workbench-layout).
+  /// Dogfoods the controlled `sidebarWidth`/`onSidebarWidthChanged` and
+  /// `panelHeight`/`onPanelHeightChanged` hooks the same way [_explorerSizes]
+  /// dogfoods view sizing: null until the first sash drag, so the shell uses its
+  /// default until the user resizes, after which a real consumer could persist
+  /// these across restarts.
+  double? _sidebarWidth;
+  double? _panelHeight;
+
   /// Notifications demo state, shared by the "Severities" and "Progress"
   /// view panes (§spec:view-stack) so both drive the same service.
   late final _NotificationsDemoController _notificationsDemo =
@@ -371,6 +380,12 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                     editor: const _EditorPlaceholder(),
                     bottomPanel: scope.tabbedPanel,
                     showBottomPanel: _panelVisible,
+                    sidebarWidth: _sidebarWidth,
+                    onSidebarWidthChanged: (w) =>
+                        setState(() => _sidebarWidth = w),
+                    panelHeight: _panelHeight,
+                    onPanelHeightChanged: (h) =>
+                        setState(() => _panelHeight = h),
                     statusBar: const WorkbenchStatusBar(
                       leading: [
                         WorkbenchStatusBarItem(

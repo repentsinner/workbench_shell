@@ -116,33 +116,3 @@ side bars; set Center — confirm it spans only the editor while side bars
 run full height. Set Left — confirm the panel abuts the left side bar
 (which stops at the panel's top) while the right side bar runs full
 height; set Right — confirm the mirror.
-
-## Outer Sash Persistence §road:outer-sash-persistence
-
-Closes a §spec:workbench-layout gap: the sidebar-width and bottom-panel-height
-seams share the canonical sash with the view-stack pane boundaries, but unlike
-those boundaries they are shell-owned, session-only state with no host hook.
-The persistence summary (§spec:workbench-layout) lists three persistable
-concerns (`order`/`onReorder`, `expanded`/`onExpandedChanged`,
-`sizes`/`onSizesChanged`) and omits these two, so a host cannot rehydrate
-sidebar width or panel height across restarts — short of VS Code parity.
-
-### Sidebar Width / Panel Height Hooks §road:outer-sash-hooks
-
-Add two controlled/uncontrolled properties on `WorkbenchLayout` mirroring the
-existing pane-persistence pattern: `sidebarWidth` + `onSidebarWidthChanged` and
-`panelHeight` + `onPanelHeightChanged`, each shell-owned and uncontrolled by
-default (seeded by the existing `sidebarDefaultWidth` / `panelDefaultHeight`
-constants), with supplying the controlled value handing that concern to the
-host. The internal `_sidebarWidth` / `_panelHeight` state in
-`_WorkbenchLayoutState` drives the uncontrolled path and the sash `onChanged`
-fires the callback — in `lib/src/workbench_layout.dart`, exported from
-`lib/workbench_shell.dart`, with example persistence wiring in
-`example/lib/main.dart`. Amend §spec:workbench-layout to add the two seams to
-the persistable-concerns list and drop the "shell-owned, session-only" framing
-for them. §spec:workbench-layout
-
-**Verify:** In the example app, drag the sidebar sash and the panel sash, then
-restart the app — confirm both restore to their dragged sizes (host persisting
-via the new callbacks). Remove the host-supplied values — confirm the shell
-falls back to the default width/height and still resizes within the session.
