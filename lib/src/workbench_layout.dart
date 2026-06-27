@@ -57,6 +57,32 @@ class WorkbenchLayout extends StatefulWidget {
   /// Required when [activeViewContainerId] is non-null.
   final ValueChanged<String>? onViewContainerChanged;
 
+  /// Controlled sidebar width in pixels. When non-null the shell renders this
+  /// width and a sash drag fires [onSidebarWidthChanged] without self-mutating —
+  /// the host owns the width and rebuilds with the new value (e.g. to persist it
+  /// across restarts, §spec:workbench-layout). Null (the default) lets the shell
+  /// own the width, seeded from [WorkbenchLayoutConstants.sidebarDefaultWidth]
+  /// and permuted by drags. Mirrors the view-stack `sizes` hook.
+  final double? sidebarWidth;
+
+  /// Notified after a sidebar sash drag with the next clamped width. Optional:
+  /// the shell owns the width and resizes itself by default, so this is a
+  /// notification (e.g. to persist across restarts), not a control input.
+  /// Mirrors the view-stack `onSizesChanged`.
+  final ValueChanged<double>? onSidebarWidthChanged;
+
+  /// Controlled bottom-panel height in pixels. When non-null the shell renders
+  /// this height and a sash drag fires [onPanelHeightChanged] without
+  /// self-mutating — the host owns the height and rebuilds with the new value
+  /// (§spec:workbench-layout). Null (the default) lets the shell own the height,
+  /// seeded from [WorkbenchLayoutConstants.panelDefaultHeight]. Mirrors
+  /// [sidebarWidth].
+  final double? panelHeight;
+
+  /// Notified after a panel sash drag with the next clamped height. Optional,
+  /// like [onSidebarWidthChanged].
+  final ValueChanged<double>? onPanelHeightChanged;
+
   const WorkbenchLayout({
     super.key,
     required this.activityBarItems,
@@ -69,6 +95,10 @@ class WorkbenchLayout extends StatefulWidget {
     this.initialViewContainerId,
     this.activeViewContainerId,
     this.onViewContainerChanged,
+    this.sidebarWidth,
+    this.onSidebarWidthChanged,
+    this.panelHeight,
+    this.onPanelHeightChanged,
   }) : assert(
          activeViewContainerId == null || onViewContainerChanged != null,
          'onViewContainerChanged is required when activeViewContainerId is '
@@ -104,6 +134,13 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
 
   String get _activeViewContainerId =>
       widget.activeViewContainerId ?? _internalActiveViewContainerId;
+
+  /// Effective sidebar width: the controlled value when the host supplies one,
+  /// else the shell-owned [_sidebarWidth]. Mirrors how the view container reads
+  /// `widget.sizes ?? _manualBody`.
+  double get _effectiveSidebarWidth => widget.sidebarWidth ?? _sidebarWidth;
+
+  double get _effectivePanelHeight => widget.panelHeight ?? _panelHeight;
 
   @override
   void initState() {
@@ -209,7 +246,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
                       child: Stack(
                         children: [
                           _Sidebar(
-                            width: _sidebarWidth,
+                            width: _effectiveSidebarWidth,
                             activeLabel: _activeLabelFor(
                               _activeViewContainerId,
                             ),
@@ -250,7 +287,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
                           maintainState: true,
                           maintainAnimation: true,
                           child: SizedBox(
-                            height: _panelHeight,
+                            height: _effectivePanelHeight,
                             child: Stack(
                               children: [
                                 Positioned.fill(
@@ -325,11 +362,19 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     // highlight (§spec:workbench-layout).
     return WorkbenchSash(
       axis: Axis.horizontal,
-      value: _sidebarWidth,
+      value: _effectiveSidebarWidth,
       min: WorkbenchLayoutConstants.sidebarMinWidth,
       max: WorkbenchLayoutConstants.sidebarMaxWidth,
       growSign: 1,
-      onChanged: (next) => setState(() => _sidebarWidth = next),
+      // Controlled: notify without self-mutating (the host owns the width).
+      // Uncontrolled: permute the shell-owned width and still notify so the
+      // host can persist. Mirrors the view container's `sizes` drag handler.
+      onChanged: (next) {
+        if (widget.sidebarWidth == null) {
+          setState(() => _sidebarWidth = next);
+        }
+        widget.onSidebarWidthChanged?.call(next);
+      },
       child: const SizedBox.expand(),
     );
   }
@@ -340,11 +385,17 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     // sash, highlight included (§spec:workbench-layout).
     return WorkbenchSash(
       axis: Axis.vertical,
-      value: _panelHeight,
+      value: _effectivePanelHeight,
       min: WorkbenchLayoutConstants.panelMinHeight,
       max: WorkbenchLayoutConstants.panelMaxHeight,
       growSign: -1,
-      onChanged: (next) => setState(() => _panelHeight = next),
+      // Controlled/uncontrolled, mirroring the sidebar resizer above.
+      onChanged: (next) {
+        if (widget.panelHeight == null) {
+          setState(() => _panelHeight = next);
+        }
+        widget.onPanelHeightChanged?.call(next);
+      },
       child: const SizedBox.expand(),
     );
   }

@@ -556,12 +556,14 @@ retains state only for the life of the layout; it does not persist pane layout
 across application restarts. VS Code persists order/collapsed/size to its
 storage service; the equivalent here is the host, consistent with the shell
 owning no storage (§spec:capability-boundary). The shell exposes a controlled
-hook for each persistable concern, so a host can persist and rehydrate all
-three to VS Code parity: a container's `order` with `onReorder`
-(§spec:view-stack), a descriptor's `expanded` with `onExpandedChanged`
-(§spec:section-disclosure), and a container's `sizes` with `onSizesChanged`
-(§spec:view-stack). Each is shell-owned and uncontrolled by default; supplying
-the controlled value hands that concern to the host.
+hook for each persistable concern, so a host can persist and rehydrate all to
+VS Code parity: a container's `order` with `onReorder` (§spec:view-stack), a
+descriptor's `expanded` with `onExpandedChanged` (§spec:section-disclosure), a
+container's `sizes` with `onSizesChanged` (§spec:view-stack), and the layout's
+`sidebarWidth` / `panelHeight` with `onSidebarWidthChanged` /
+`onPanelHeightChanged` (the outer resize seams, this section). Each is
+shell-owned and uncontrolled by default; supplying the controlled value hands
+that concern to the host.
 
 **Retention also scopes pane state to its container by construction**,
 removing a latent defect of the single shared instance: two containers that
@@ -848,6 +850,16 @@ seam's visible line is the neighbor's own border (`sideBar.border`,
 `panel.border`), and the highlight band appears only on hover/drag —
 matching VS Code, whose `.monaco-sash` is transparent until
 `:hover`/`.active`.
+
+**Sidebar width and panel height are host-persistable**, like the view-stack
+pane sizes (§spec:view-stack). Each is a controlled/uncontrolled property:
+`sidebarWidth` with `onSidebarWidthChanged`, `panelHeight` with
+`onPanelHeightChanged`. Supplying the value hands that seam to the host (the
+shell renders it and notifies on drag without self-mutating); omitting it lets
+the shell own the dimension, seeded from `sidebarDefaultWidth` /
+`panelDefaultHeight` (§spec:layout-constants) and permuted by drags. The
+callback fires on every drag regardless, so a host can persist either dimension
+across restarts to VS Code parity.
 
 ### WorkbenchTabbedPanel and WorkbenchPanelTab §spec:tabbed-panel
 

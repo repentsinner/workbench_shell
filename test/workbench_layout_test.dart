@@ -51,6 +51,8 @@ Widget _buildApp({
   List<ActivityBarItem>? items,
   bool showBottomPanel = true,
   Widget? statusBar,
+  ValueChanged<double>? onSidebarWidthChanged,
+  ValueChanged<double>? onPanelHeightChanged,
 }) {
   return MaterialApp(
     theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
@@ -61,9 +63,18 @@ Widget _buildApp({
       bottomPanel: const Center(child: Text('Panel')),
       statusBar: statusBar ?? const SizedBox(height: 22, child: Text('Status')),
       showBottomPanel: showBottomPanel,
+      onSidebarWidthChanged: onSidebarWidthChanged,
+      onPanelHeightChanged: onPanelHeightChanged,
     ),
   );
 }
+
+/// The horizontal sash resizes the sidebar width; the vertical sash resizes the
+/// panel height. Each seam's effective dimension is the sash's [value]
+/// (§spec:workbench-layout).
+WorkbenchSash _sash(WidgetTester tester, Axis axis) => tester.widget<WorkbenchSash>(
+  find.byWidgetPredicate((w) => w is WorkbenchSash && w.axis == axis),
+);
 
 void main() {
   group('WorkbenchLayout', () {
@@ -539,6 +550,125 @@ void main() {
       await tester.tap(find.byIcon(Symbols.search_rounded));
       await tester.pumpAndSettle();
       expect(find.text('search-shared-body'), findsOneWidget);
+    });
+  });
+
+  group('outer sash persistence (§spec:workbench-layout)', () {
+    // Sidebar width and panel height are host-persistable through the same
+    // controlled/uncontrolled hook as the view-stack `sizes`: supplying the
+    // value hands the concern to the host; the callback always fires so the
+    // host can persist across restarts.
+
+    testWidgets('uncontrolled: sidebar sash drag self-resizes and notifies', (
+      tester,
+    ) async {
+      double? reported;
+      await tester.pumpWidget(
+        _buildApp(onSidebarWidthChanged: (w) => reported = w),
+      );
+
+      final before = _sash(tester, Axis.horizontal).value;
+      _sash(tester, Axis.horizontal).onChanged(before + 50);
+      await tester.pump();
+
+      // Uncontrolled: the shell owns the width, so it self-mutates...
+      expect(_sash(tester, Axis.horizontal).value, before + 50);
+      // ...and still notifies so the host can persist.
+      expect(reported, before + 50);
+    });
+
+    testWidgets('uncontrolled: panel sash drag self-resizes and notifies', (
+      tester,
+    ) async {
+      double? reported;
+      await tester.pumpWidget(
+        _buildApp(onPanelHeightChanged: (h) => reported = h),
+      );
+
+      final before = _sash(tester, Axis.vertical).value;
+      _sash(tester, Axis.vertical).onChanged(before + 40);
+      await tester.pump();
+
+      expect(_sash(tester, Axis.vertical).value, before + 40);
+      expect(reported, before + 40);
+    });
+
+    testWidgets('controlled: host drives sidebarWidth; shell notifies without '
+        'self-mutating', (tester) async {
+      double width = 250;
+      double? reported;
+      late StateSetter setOuter;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              setOuter = setState;
+              return WorkbenchLayout(
+                activityBarItems: _testItems,
+                editor: const Center(child: Text('Editor')),
+                containerBuilder: _sidebarSpec,
+                bottomPanel: const Center(child: Text('Panel')),
+                statusBar: const SizedBox(height: 22, child: Text('Status')),
+                sidebarWidth: width,
+                onSidebarWidthChanged: (w) => reported = w,
+              );
+            },
+          ),
+        ),
+      );
+
+      expect(_sash(tester, Axis.horizontal).value, 250);
+
+      // Drag: the shell notifies but does NOT self-mutate — the host owns it.
+      _sash(tester, Axis.horizontal).onChanged(300);
+      await tester.pump();
+      expect(reported, 300);
+      expect(_sash(tester, Axis.horizontal).value, 250);
+
+      // Host applies the change: the shell renders the new width.
+      setOuter(() => width = 320);
+      await tester.pump();
+      expect(_sash(tester, Axis.horizontal).value, 320);
+    });
+
+    testWidgets('controlled: host drives panelHeight; shell notifies without '
+        'self-mutating', (tester) async {
+      double height = 180;
+      double? reported;
+      late StateSetter setOuter;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              setOuter = setState;
+              return WorkbenchLayout(
+                activityBarItems: _testItems,
+                editor: const Center(child: Text('Editor')),
+                containerBuilder: _sidebarSpec,
+                bottomPanel: const Center(child: Text('Panel')),
+                statusBar: const SizedBox(height: 22, child: Text('Status')),
+                panelHeight: height,
+                onPanelHeightChanged: (h) => reported = h,
+              );
+            },
+          ),
+        ),
+      );
+
+      expect(_sash(tester, Axis.vertical).value, 180);
+
+      _sash(tester, Axis.vertical).onChanged(240);
+      await tester.pump();
+      expect(reported, 240);
+      expect(_sash(tester, Axis.vertical).value, 180);
+
+      setOuter(() => height = 260);
+      await tester.pump();
+      expect(_sash(tester, Axis.vertical).value, 260);
     });
   });
 
