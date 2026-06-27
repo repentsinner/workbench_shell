@@ -16,7 +16,6 @@ dependencies:
   workbench_shell:
     path: ../
   material_symbols_icons: ^4.2928.1
-  shared_preferences: ^2.5.5
 
 dev_dependencies:
   flutter_test:
