@@ -851,6 +851,27 @@ seam's visible line is the neighbor's own border (`sideBar.border`,
 matching VS Code, whose `.monaco-sash` is transparent until
 `:hover`/`.active`.
 
+**Double-click resets a seam to its default.** Double-clicking any sash
+restores the seam it controls — VS Code wires this on the base `Sash`
+(`onDidReset`), so it is universal across the workbench, not a per-seam
+extra. The shell mirrors it via `WorkbenchSash.onReset`. The *gesture* is
+uniform; the *reset action* is a property of the seam, matching VS Code's
+divergent per-consumer semantics:
+
+- **Sidebar width, panel height** reset to their default size
+  (`WorkbenchLayoutConstants.sidebarDefaultWidth` / `panelDefaultHeight`).
+  VS Code resets a part sash to the part's *preferred* size (`Grid.onDidSashReset`
+  → `preferredWidth`/`preferredHeight`); the shell has no content-derived
+  preferred size, so the fixed default is the faithful stand-in.
+- **View-pane sashes** (§spec:view-stack) reset to an *even* distribution of
+  body height between the two adjacent expanded panes, matching VS Code's
+  `ViewPaneContainer` sash-reset (split the combined space equally).
+- **Centered-layout margins** (§spec:editing-modes) reset to the golden-ratio
+  default.
+
+The shell already honors this on the centered-layout margins. Generalizing it
+to the sidebar, panel, and view-pane sashes is queued (ROADMAP).
+
 **Sidebar width and panel height are host-persistable**, like the view-stack
 pane sizes (§spec:view-stack). Each is a controlled/uncontrolled property:
 `sidebarWidth` with `onSidebarWidthChanged`, `panelHeight` with
