@@ -87,45 +87,14 @@ run full height. Set Left — confirm the panel abuts the left side bar
 (which stops at the panel's top) while the right side bar runs full
 height; set Right — confirm the mirror.
 
-## Drag-Resize Geometry §road:resize-geometry
-
-Closes §spec:resize-geometry. Replace the controlled/per-frame resize-geometry
-API with seed-plus-commit across sidebar width, panel height, and view-stack
-sizes, matching VS Code's layout-owns-geometry model. Breaking change to
-0.15.0.
-
-### Seed-plus-commit geometry §road:resize-geometry-prop
-
-Replace `WorkbenchLayout.sidebarWidth`/`onSidebarWidthChanged` and
-`panelHeight`/`onPanelHeightChanged`, and the view container's
-`sizes`/`onSizesChanged`, with `initialSidebarWidth`/`onSidebarWidthChangeEnd`,
-`initialPanelHeight`/`onPanelHeightChangeEnd`, and
-`initialSizes`/`onSizesChangeEnd`. The shell owns each value as internal state
-seeded by `initial…`; each `…ChangeEnd` fires once off the canonical sash's
-drag-end (`WorkbenchSash.onDragChanged(false)`/`_onEnd`,
-§spec:workbench-layout) with the final clamped value. Remove the
-controlled-geometry properties. In `lib/src/workbench_layout.dart`,
-`lib/src/workbench_view_container.dart`, and `lib/src/workbench_sash.dart`
-(surface the final value at drag-end), exported from
-`lib/workbench_shell.dart`. Reconcile the superseded controlled-`sizes`
-language in §spec:view-stack and §spec:view-container-state, and update
-`example/lib/main.dart` to seed from and persist on the new callbacks.
-§spec:resize-geometry. Reported in #68.
-
-**Verify:** In the example app, log the sidebar callbacks during a drag —
-confirm nothing fires per frame and `onSidebarWidthChangeEnd` fires exactly
-once on release with the final width. Restart with a seeded
-`initialSidebarWidth` — confirm the sidebar opens at the seeded width. Repeat
-for panel height and a view-pane sash (`onSizesChangeEnd` + `initialSizes`).
-
 ## Sash Double-Click Reset §road:sash-reset
 
 Closes the double-click-reset gap in §spec:workbench-layout. The gesture is a
 universal VS Code `Sash` behavior; the shell already exposes
 `WorkbenchSash.onReset` and honors it on the centered-layout margins, but the
-sidebar, panel, and view-pane sashes ignore it. Should follow
-§road:resize-geometry, which reworks how those sash values are owned (resetting
-to a default is a single-commit reset in the same seed-plus-commit shape).
+sidebar, panel, and view-pane sashes ignore it. The sidebar/panel/view-pane
+sash values are now shell-owned and seed-plus-committed (§spec:resize-geometry),
+so a reset is a single-commit reset to the default in that same shape.
 
 ### Reset The Outer And Pane Sashes §road:sash-reset-wiring
 
