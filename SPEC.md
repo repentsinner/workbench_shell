@@ -371,16 +371,15 @@ collapse (a `Pane` reports its remembered `expandedSize` on re-expand and the
 toggles a pane finds their layout intact. Preserving proportions is the canon
 and the better UX; it costs only remembering the collapsed pane's weight.
 
-**Sash sizing is host-persistable**: the manual body heights are shell-owned
-and uncontrolled by default (above), but a container may instead supply a
-controlled `sizes` map (per-view body sizing) with an `onSizesChanged`
-notification — the same controlled/uncontrolled split as `order`/`onReorder`
-and a descriptor's `expanded`/`onExpandedChanged`. A sash drag fires
-`onSizesChanged` with the updated sizing; a host that supplies `sizes` drives
-the apportionment and persists it across restarts. Restored sizing re-clamps to
-the current available height and each pane's minimum body height — it expresses
-proportional intent, not an absolute-pixel contract, since the body pool
-differs between sessions and window sizes.
+**Sash sizing is host-persistable via seed-plus-commit** (§spec:resize-geometry):
+the body heights are shell-owned, seeded once from the container's `initialSizes`
+and committed on drag-end through `onSizesChangeEnd` (the full final map). There
+is no controlled `sizes` property and no per-frame callback — unlike `order` and
+a descriptor's `expanded`, drag geometry follows the seed-plus-commit shape, not
+the controlled/uncontrolled pattern. Restored sizing re-clamps to the current
+available height and each pane's minimum body height — it expresses proportional
+intent, not an absolute-pixel contract, since the body pool differs between
+sessions and window sizes.
 
 **Header drag reorders panes**: the user drags a pane header onto another
 pane to reorder the stack, mirroring VS Code's `PaneView` header
@@ -440,9 +439,8 @@ Reselecting the active container toggles sidebar visibility, unchanged.
   height; the new proportions hold across rebuilds, collapse, and expand —
   collapsing a pane preserves the survivors' relative sizes and a re-expand
   restores the collapsed pane's prior size. A collapsed pane carries no sash.
-  Sizing is shell-owned and uncontrolled by default; a container may supply a
-  controlled `sizes` map with `onSizesChanged` to drive and persist the
-  apportionment.
+  Sizing is shell-owned, seeded from `initialSizes` and committed on drag-end
+  via `onSizesChangeEnd` (§spec:resize-geometry).
 - Dragging a pane header onto another pane reorders the stack: a translucent
   drop overlay marks the target's upper or lower half during the drag, and on
   drop the shell permutes the stack itself. Order is shell-owned and
@@ -555,15 +553,16 @@ therefore covers opened containers only.
 retains state only for the life of the layout; it does not persist pane layout
 across application restarts. VS Code persists order/collapsed/size to its
 storage service; the equivalent here is the host, consistent with the shell
-owning no storage (§spec:capability-boundary). The shell exposes a controlled
-hook for each persistable concern, so a host can persist and rehydrate all to
-VS Code parity: a container's `order` with `onReorder` (§spec:view-stack), a
-descriptor's `expanded` with `onExpandedChanged` (§spec:section-disclosure), a
-container's `sizes` with `onSizesChanged` (§spec:view-stack), and the layout's
-`sidebarWidth` / `panelHeight` with `onSidebarWidthChanged` /
-`onPanelHeightChanged` (the outer resize seams, this section). Each is
-shell-owned and uncontrolled by default; supplying the controlled value hands
-that concern to the host.
+owning no storage (§spec:capability-boundary). The shell exposes a hook for each
+persistable concern, so a host can persist and rehydrate all to VS Code parity.
+Order and expansion follow the controlled/uncontrolled pattern: a container's
+`order` with `onReorder` (§spec:view-stack) and a descriptor's `expanded` with
+`onExpandedChanged` (§spec:section-disclosure), each shell-owned and uncontrolled
+by default, with the controlled value handing that concern to the host. Resize
+geometry instead follows seed-plus-commit (§spec:resize-geometry): a container's
+`initialSizes` with `onSizesChangeEnd`, and the layout's `initialSidebarWidth` /
+`initialPanelHeight` with `onSidebarWidthChangeEnd` / `onPanelHeightChangeEnd`
+(the outer resize seams) — shell-owned, seeded once, committed on drag-end.
 
 **Retention also scopes pane state to its container by construction**,
 removing a latent defect of the single shared instance: two containers that
@@ -872,15 +871,14 @@ divergent per-consumer semantics:
 The shell already honors this on the centered-layout margins. Generalizing it
 to the sidebar, panel, and view-pane sashes is queued (ROADMAP).
 
-**Sidebar width and panel height are host-persistable**, like the view-stack
-pane sizes (§spec:view-stack). Each is a controlled/uncontrolled property:
-`sidebarWidth` with `onSidebarWidthChanged`, `panelHeight` with
-`onPanelHeightChanged`. Supplying the value hands that seam to the host (the
-shell renders it and notifies on drag without self-mutating); omitting it lets
-the shell own the dimension, seeded from `sidebarDefaultWidth` /
-`panelDefaultHeight` (§spec:layout-constants) and permuted by drags. The
-callback fires on every drag regardless, so a host can persist either dimension
-across restarts to VS Code parity.
+**Sidebar width and panel height are host-persistable via seed-plus-commit**,
+like the view-stack pane sizes (§spec:resize-geometry). Each is shell-owned:
+`initialSidebarWidth` / `initialPanelHeight` seed it once at startup (falling
+back to `sidebarDefaultWidth` / `panelDefaultHeight`, §spec:layout-constants),
+and `onSidebarWidthChangeEnd` / `onPanelHeightChangeEnd` fire once on drag-end
+with the final clamped value. There is no controlled width or height property
+and no per-frame callback, so a host persists one write per drag with no
+debounce of its own.
 
 ### WorkbenchTabbedPanel and WorkbenchPanelTab §spec:tabbed-panel
 
@@ -1406,74 +1404,55 @@ the two the shell can own without crossing into host/window territory.
 
 ## Drag-Resize Geometry §spec:resize-geometry
 
-*Status: not started*
+*Status: complete*
 
-**Problem**: the sidebar width, bottom-panel height, and view-stack pane
-sizes (§spec:view-stack) shipped (0.15.0) as controlled/uncontrolled
-properties mirroring the rest of the layout (§spec:layout-customization) — a
-controlled value (`sidebarWidth`, `panelHeight`, `sizes`) plus a per-frame
-`on…Changed` callback. Two defects follow. First, the per-frame callback
-fires every drag frame (the canonical sash drives it from pointer-move,
-§spec:workbench-layout), so a host persisting layout writes ~60×/sec for the
-drag's duration and reimplements a debounce to cope — the boilerplate the shell
-exists to remove (§spec:problem-statement). Second, controlled mode models an
-interaction that does not exist: it lets an external authority drive resize
-geometry frame-by-frame, independent of the user's drag. A host with no
-seed-only option is forced into controlled mode merely to restore a saved
-width at startup, inheriting the per-frame churn. Reported in #68.
+**Problem**: the sidebar width, bottom-panel height, and view-stack pane sizes
+(§spec:view-stack) shipped (0.15.0) as controlled/uncontrolled properties — a
+controlled value plus a per-frame `on…Changed` callback. The callback fired
+every drag frame (the canonical sash drives it from pointer-move,
+§spec:workbench-layout), so a host persisting layout wrote ~60×/sec and
+reimplemented a debounce — the boilerplate the shell exists to remove
+(§spec:problem-statement). Controlled mode also modeled an interaction that does
+not exist: driving resize geometry frame-by-frame, independent of the user's
+drag. Reported in #68.
 
 **Resize geometry is shell-owned, seeded at startup and committed on
-drag-end.** Width, height, and pane sizes follow VS Code's model: the layout
-owns the live value, storage seeds it once at startup and records it on
-change, and storage is never a per-frame source. The shell therefore owns
-each value as internal state during the drag (always — there is no controlled
-geometry property), takes an `initial…` seed for startup restore, and fires a
-single drag-end callback for persistence:
+drag-end.** The layout owns the live value; storage seeds it once and records
+it on change, never per frame. Each value is internal state (there is no
+controlled geometry property), takes an `initial…` seed, and fires one drag-end
+callback:
 
 - `WorkbenchLayout.initialSidebarWidth` + `onSidebarWidthChangeEnd`
 - `WorkbenchLayout.initialPanelHeight` + `onPanelHeightChangeEnd`
 - the view container's `initialSizes` + `onSizesChangeEnd`
 
-Each `…ChangeEnd` fires once with the final clamped value (the sizes map, for
-the container) when the drag ends, off the canonical sash's drag-end signal
-(VS Code's `Sash.onDidEnd`; the shell's `WorkbenchSash` already tracks it). A
-host persists on `…ChangeEnd` and seeds from `initial…` — one write per drag,
-no debounce.
+Each `…ChangeEnd` fires once with the final clamped value (the full sizing map,
+for the container) off the canonical sash's drag-end (`WorkbenchSash.onChangeEnd`,
+VS Code's `Sash.onDidEnd`). A host persists on `…ChangeEnd` and seeds from
+`initial…` — one write per drag, no debounce.
 
 **Why no controlled geometry, unlike the rest of the layout.** The
 controlled/uncontrolled pattern (§spec:layout-customization) fits state a host
-genuinely drives programmatically — the active view container (a command
-switches sidebars), pane expansion (reveal a view), pane order. VS Code drives
-each of those from outside user input. It does *not* drive resize geometry
-that way: the Sash's per-frame `onDidChange` feeds VS Code's own `SplitView`
-relayout, never an external store, and width/height/size live in the layout,
-not a controlled source. Importing controlled mode for drag geometry invents a
-non-canonical interaction (UI resizing without user input) and is the source
-of the per-frame trap. Seed-plus-commit is the canonical shape; the controlled
-`sidebarWidth`/`panelHeight`/`sizes` properties are removed.
-
-**This revises the shipped contract.** The controlled-`sizes` /
-`onSizesChanged` language in §spec:view-stack and §spec:view-container-state is
-superseded for sizing by this section: the container takes `initialSizes` and
-fires `onSizesChangeEnd`, not a controlled `sizes` map with per-frame
-`onSizesChanged`. Pane *order* and *expansion* keep their controlled/
-uncontrolled contracts unchanged — only drag geometry moves to seed-plus-commit.
-Removing the controlled properties is breaking; it is taken pre-1.0 to land the
-canonical shape before the API stabilizes.
+drives programmatically — active view container, pane expansion, pane order —
+each of which VS Code drives from outside user input. It does *not* drive resize
+geometry that way: the Sash's per-frame `onDidChange` feeds VS Code's own
+`SplitView` relayout, never an external store. Importing controlled mode for
+drag geometry invents a non-canonical interaction (resizing without user input)
+and is the source of the per-frame trap. Removing the controlled
+`sidebarWidth`/`panelHeight`/`sizes` properties is breaking; taken pre-1.0 to
+land the canonical shape before the API stabilizes. This supersedes the
+controlled-`sizes`/`onSizesChanged` language in §spec:view-stack and
+§spec:view-container-state for sizing; pane *order* and *expansion* keep their
+controlled/uncontrolled contracts.
 
 **Observable behavior**:
 
 - Dragging the sidebar, panel, or a view-pane sash resizes the widget tree per
-  frame with no host callback — the shell owns the live value and Flutter's
-  constraints relayout the chrome and the host's slot content. The host is
-  notified only on release.
-- Each geometry exposes an `initial…` seed and a `…ChangeEnd` callback;
-  `…ChangeEnd` fires once on drag-end with the final clamped value (or sizes
-  map).
-- A host restores layout by seeding `initial…` and persists by recording
-  `…ChangeEnd` — one write per drag, no debounce of its own.
-- No controlled per-frame geometry property exists; resize geometry changes
-  only from a user drag or the startup seed.
+  frame with no host callback; the host is notified only on release.
+- Each geometry exposes an `initial…` seed and a `…ChangeEnd` callback that
+  fires once on drag-end with the final clamped value (or sizing map).
+- No controlled per-frame geometry property exists; resize geometry changes only
+  from a user drag or the startup seed.
 
 ---
 

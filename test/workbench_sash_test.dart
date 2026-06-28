@@ -184,4 +184,48 @@ void main() {
 
     await gesture.up();
   });
+
+  testWidgets('onChangeEnd fires once on release with the final clamped value, '
+      'never per frame (§spec:resize-geometry)', (tester) async {
+    var value = 200.0;
+    final ends = <double>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: StatefulBuilder(
+              builder: (context, setState) => WorkbenchSash(
+                key: const Key('sash'),
+                axis: Axis.horizontal,
+                value: value,
+                min: 100,
+                max: 300,
+                growSign: 1,
+                onChanged: (next) => setState(() => value = next),
+                onChangeEnd: ends.add,
+                child: const SizedBox(width: 24, height: 24),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byKey(const Key('sash'))),
+    );
+
+    // Several frames of movement: onChangeEnd stays silent throughout.
+    await gesture.moveBy(const Offset(20, 0));
+    await tester.pump();
+    await gesture.moveBy(const Offset(20, 0));
+    await tester.pump();
+    expect(ends, isEmpty);
+
+    // Release: exactly one commit, carrying the final clamped value.
+    await gesture.up();
+    await tester.pump();
+    expect(ends, [value]);
+    expect(value, 240);
+  });
 }

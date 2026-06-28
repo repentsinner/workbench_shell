@@ -51,8 +51,10 @@ Widget _buildApp({
   List<ActivityBarItem>? items,
   bool showBottomPanel = true,
   Widget? statusBar,
-  ValueChanged<double>? onSidebarWidthChanged,
-  ValueChanged<double>? onPanelHeightChanged,
+  double? initialSidebarWidth,
+  double? initialPanelHeight,
+  ValueChanged<double>? onSidebarWidthChangeEnd,
+  ValueChanged<double>? onPanelHeightChangeEnd,
 }) {
   return MaterialApp(
     theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
@@ -63,18 +65,23 @@ Widget _buildApp({
       bottomPanel: const Center(child: Text('Panel')),
       statusBar: statusBar ?? const SizedBox(height: 22, child: Text('Status')),
       showBottomPanel: showBottomPanel,
-      onSidebarWidthChanged: onSidebarWidthChanged,
-      onPanelHeightChanged: onPanelHeightChanged,
+      initialSidebarWidth: initialSidebarWidth,
+      initialPanelHeight: initialPanelHeight,
+      onSidebarWidthChangeEnd: onSidebarWidthChangeEnd,
+      onPanelHeightChangeEnd: onPanelHeightChangeEnd,
     ),
   );
 }
 
 /// The horizontal sash resizes the sidebar width; the vertical sash resizes the
-/// panel height. Each seam's effective dimension is the sash's [value]
+/// panel height. Each seam's live dimension is the sash's [value]
 /// (§spec:workbench-layout).
 WorkbenchSash _sash(WidgetTester tester, Axis axis) => tester.widget<WorkbenchSash>(
   find.byWidgetPredicate((w) => w is WorkbenchSash && w.axis == axis),
 );
+
+Finder _sashFinder(Axis axis) =>
+    find.byWidgetPredicate((w) => w is WorkbenchSash && w.axis == axis);
 
 void main() {
   group('WorkbenchLayout', () {
@@ -553,122 +560,81 @@ void main() {
     });
   });
 
-  group('outer sash persistence (§spec:workbench-layout)', () {
-    // Sidebar width and panel height are host-persistable through the same
-    // controlled/uncontrolled hook as the view-stack `sizes`: supplying the
-    // value hands the concern to the host; the callback always fires so the
-    // host can persist across restarts.
+  group('outer sash seed-plus-commit (§spec:resize-geometry)', () {
+    // Sidebar width and panel height are shell-owned: seeded by initial…,
+    // committed once on drag-end via …ChangeEnd. There is no controlled
+    // geometry property and no per-frame host callback.
 
-    testWidgets('uncontrolled: sidebar sash drag self-resizes and notifies', (
+    testWidgets('seeds the sidebar at initialSidebarWidth', (tester) async {
+      await tester.pumpWidget(_buildApp(initialSidebarWidth: 420));
+      expect(_sash(tester, Axis.horizontal).value, 420);
+    });
+
+    testWidgets('seeds the panel at initialPanelHeight', (tester) async {
+      await tester.pumpWidget(_buildApp(initialPanelHeight: 320));
+      expect(_sash(tester, Axis.vertical).value, 320);
+    });
+
+    testWidgets('falls back to the default seed when initial… is null', (
       tester,
     ) async {
-      double? reported;
-      await tester.pumpWidget(
-        _buildApp(onSidebarWidthChanged: (w) => reported = w),
+      await tester.pumpWidget(_buildApp());
+      expect(
+        _sash(tester, Axis.horizontal).value,
+        WorkbenchLayoutConstants.sidebarDefaultWidth,
       );
+      expect(
+        _sash(tester, Axis.vertical).value,
+        WorkbenchLayoutConstants.panelDefaultHeight,
+      );
+    });
+
+    testWidgets('sidebar drag resizes live and commits once on release', (
+      tester,
+    ) async {
+      final ends = <double>[];
+      await tester.pumpWidget(_buildApp(onSidebarWidthChangeEnd: ends.add));
 
       final before = _sash(tester, Axis.horizontal).value;
-      _sash(tester, Axis.horizontal).onChanged(before + 50);
-      await tester.pump();
+      final gesture = await tester.startGesture(
+        tester.getCenter(_sashFinder(Axis.horizontal)),
+      );
 
-      // Uncontrolled: the shell owns the width, so it self-mutates...
-      expect(_sash(tester, Axis.horizontal).value, before + 50);
-      // ...and still notifies so the host can persist.
-      expect(reported, before + 50);
+      // Per-frame: the shell owns the width and relayouts live (growSign +1)...
+      await gesture.moveBy(const Offset(50, 0));
+      await tester.pump();
+      expect(_sash(tester, Axis.horizontal).value, greaterThan(before));
+      // ...but nothing commits mid-drag.
+      expect(ends, isEmpty);
+
+      // Release: exactly one commit carrying the final clamped width.
+      await gesture.up();
+      await tester.pump();
+      expect(ends, hasLength(1));
+      expect(ends.single, _sash(tester, Axis.horizontal).value);
     });
 
-    testWidgets('uncontrolled: panel sash drag self-resizes and notifies', (
+    testWidgets('panel drag resizes live and commits once on release', (
       tester,
     ) async {
-      double? reported;
-      await tester.pumpWidget(
-        _buildApp(onPanelHeightChanged: (h) => reported = h),
-      );
+      final ends = <double>[];
+      await tester.pumpWidget(_buildApp(onPanelHeightChangeEnd: ends.add));
 
       final before = _sash(tester, Axis.vertical).value;
-      _sash(tester, Axis.vertical).onChanged(before + 40);
-      await tester.pump();
-
-      expect(_sash(tester, Axis.vertical).value, before + 40);
-      expect(reported, before + 40);
-    });
-
-    testWidgets('controlled: host drives sidebarWidth; shell notifies without '
-        'self-mutating', (tester) async {
-      double width = 250;
-      double? reported;
-      late StateSetter setOuter;
-
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
-          home: StatefulBuilder(
-            builder: (context, setState) {
-              setOuter = setState;
-              return WorkbenchLayout(
-                activityBarItems: _testItems,
-                editor: const Center(child: Text('Editor')),
-                containerBuilder: _sidebarSpec,
-                bottomPanel: const Center(child: Text('Panel')),
-                statusBar: const SizedBox(height: 22, child: Text('Status')),
-                sidebarWidth: width,
-                onSidebarWidthChanged: (w) => reported = w,
-              );
-            },
-          ),
-        ),
+      final gesture = await tester.startGesture(
+        tester.getCenter(_sashFinder(Axis.vertical)),
       );
 
-      expect(_sash(tester, Axis.horizontal).value, 250);
-
-      // Drag: the shell notifies but does NOT self-mutate — the host owns it.
-      _sash(tester, Axis.horizontal).onChanged(300);
+      // Drag up grows the panel (growSign -1).
+      await gesture.moveBy(const Offset(0, -50));
       await tester.pump();
-      expect(reported, 300);
-      expect(_sash(tester, Axis.horizontal).value, 250);
+      expect(_sash(tester, Axis.vertical).value, greaterThan(before));
+      expect(ends, isEmpty);
 
-      // Host applies the change: the shell renders the new width.
-      setOuter(() => width = 320);
+      await gesture.up();
       await tester.pump();
-      expect(_sash(tester, Axis.horizontal).value, 320);
-    });
-
-    testWidgets('controlled: host drives panelHeight; shell notifies without '
-        'self-mutating', (tester) async {
-      double height = 180;
-      double? reported;
-      late StateSetter setOuter;
-
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
-          home: StatefulBuilder(
-            builder: (context, setState) {
-              setOuter = setState;
-              return WorkbenchLayout(
-                activityBarItems: _testItems,
-                editor: const Center(child: Text('Editor')),
-                containerBuilder: _sidebarSpec,
-                bottomPanel: const Center(child: Text('Panel')),
-                statusBar: const SizedBox(height: 22, child: Text('Status')),
-                panelHeight: height,
-                onPanelHeightChanged: (h) => reported = h,
-              );
-            },
-          ),
-        ),
-      );
-
-      expect(_sash(tester, Axis.vertical).value, 180);
-
-      _sash(tester, Axis.vertical).onChanged(240);
-      await tester.pump();
-      expect(reported, 240);
-      expect(_sash(tester, Axis.vertical).value, 180);
-
-      setOuter(() => height = 260);
-      await tester.pump();
-      expect(_sash(tester, Axis.vertical).value, 260);
+      expect(ends, hasLength(1));
+      expect(ends.single, _sash(tester, Axis.vertical).value);
     });
   });
 
