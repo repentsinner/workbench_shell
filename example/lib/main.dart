@@ -453,8 +453,8 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                     intent: const ToggleSidebarPositionIntent(),
                     label:
                         _sidebarPosition == WorkbenchSidebarPosition.left
-                        ? 'Move Side Bar Right'
-                        : 'Move Side Bar Left',
+                        ? 'Move Primary Side Bar Right'
+                        : 'Move Primary Side Bar Left',
                   ),
                 ],
                 child: NotificationHost(
