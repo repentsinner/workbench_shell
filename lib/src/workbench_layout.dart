@@ -468,6 +468,14 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       // (§spec:resize-geometry). No per-frame host callback.
       onChanged: (next) => setState(() => _sidebarWidth = next),
       onChangeEnd: widget.onSidebarWidthChangeEnd,
+      // Double-click resets the seam to its default and commits it through the
+      // same change-end seam, so the host persists the reset (§spec:workbench-layout,
+      // VS Code's `onDidSashReset` → part preferred size).
+      onReset: () {
+        const reset = WorkbenchLayoutConstants.sidebarDefaultWidth;
+        setState(() => _sidebarWidth = reset);
+        widget.onSidebarWidthChangeEnd?.call(reset);
+      },
       child: const SizedBox.expand(),
     );
   }
@@ -485,6 +493,13 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       // Shell-owned, mirroring the sidebar resizer above (§spec:resize-geometry).
       onChanged: (next) => setState(() => _panelHeight = next),
       onChangeEnd: widget.onPanelHeightChangeEnd,
+      // Reset to the default height on double-click, committed like the sidebar
+      // (§spec:workbench-layout).
+      onReset: () {
+        const reset = WorkbenchLayoutConstants.panelDefaultHeight;
+        setState(() => _panelHeight = reset);
+        widget.onPanelHeightChangeEnd?.call(reset);
+      },
       child: const SizedBox.expand(),
     );
   }

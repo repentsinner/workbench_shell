@@ -228,4 +228,81 @@ void main() {
     expect(ends, [value]);
     expect(value, 240);
   });
+
+  group('double-click reset (§spec:workbench-layout)', () {
+    Widget buildResettable({
+      required VoidCallback onReset,
+      ValueChanged<double>? onChangeEnd,
+      ValueChanged<double>? onChanged,
+    }) {
+      return MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: WorkbenchSash(
+              key: const Key('sash'),
+              axis: Axis.horizontal,
+              value: 200,
+              min: 100,
+              max: 300,
+              growSign: 1,
+              onChanged: onChanged ?? (_) {},
+              onChangeEnd: onChangeEnd,
+              onReset: onReset,
+              child: const SizedBox(width: 24, height: 24),
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('a double-click fires onReset', (tester) async {
+      var resets = 0;
+      await tester.pumpWidget(buildResettable(onReset: () => resets++));
+
+      final center = tester.getCenter(find.byKey(const Key('sash')));
+      await tester.tapAt(center);
+      await tester.pump(kDoubleTapMinTime);
+      await tester.tapAt(center);
+      await tester.pump();
+
+      expect(resets, 1);
+    });
+
+    testWidgets('onReset present does not delay the live drag — the first move '
+        'updates immediately (no double-tap arbiter in the arena)', (
+      tester,
+    ) async {
+      var value = 200.0;
+      await tester.pumpWidget(
+        buildResettable(
+          onReset: () {},
+          onChanged: (n) => value = n,
+        ),
+      );
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byKey(const Key('sash'))),
+      );
+      // A single move must register live — a DoubleTapGestureRecognizer would
+      // hold the arena and swallow this first delta.
+      await gesture.moveBy(const Offset(40, 0));
+      await tester.pump();
+      expect(value, 240);
+      await gesture.up();
+    });
+
+    testWidgets('a stationary click does not commit a no-op onChangeEnd', (
+      tester,
+    ) async {
+      final ends = <double>[];
+      await tester.pumpWidget(
+        buildResettable(onReset: () {}, onChangeEnd: ends.add),
+      );
+
+      await tester.tapAt(tester.getCenter(find.byKey(const Key('sash'))));
+      await tester.pump();
+
+      expect(ends, isEmpty);
+    });
+  });
 }

@@ -868,8 +868,14 @@ divergent per-consumer semantics:
 - **Centered-layout margins** (§spec:editing-modes) reset to the golden-ratio
   default.
 
-The shell already honors this on the centered-layout margins. Generalizing it
-to the sidebar, panel, and view-pane sashes is queued (ROADMAP).
+All four seams honor the gesture: the centered-layout margins, the sidebar
+width, the panel height, and the view-pane sashes. A sidebar/panel reset
+commits the default through the same `…ChangeEnd` seam a drag uses, so the host
+persists it; a view-pane reset commits the evened sizing map through
+`onSizesChangeEnd`. The reset is detected from raw pointer-down timing rather
+than a double-tap recognizer, so it never joins the drag's gesture arena —
+dragging stays live from the first frame, and a stationary click (not a resize)
+commits nothing.
 
 **Sidebar width and panel height are host-persistable via seed-plus-commit**,
 like the view-stack pane sizes (§spec:resize-geometry). Each is shell-owned:

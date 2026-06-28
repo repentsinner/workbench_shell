@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -1038,6 +1039,65 @@ void main() {
       expect(ends.single.containsKey('a'), isTrue);
       expect(ends.single.containsKey('b'), isTrue);
       expect(ends.single['a']!, greaterThan(ends.single['b']!));
+    });
+
+    testWidgets('double-clicking a view-pane sash evens the two adjacent '
+        'expanded panes and commits (§spec:workbench-layout)', (tester) async {
+      const containerHeight = 600.0;
+      final ends = <Map<String, double>>[];
+      await tester.pumpWidget(
+        wrapWithTheme(
+          SizedBox(
+            height: containerHeight,
+            child: WorkbenchViewContainer(
+              onSizesChangeEnd: ends.add,
+              views: const [
+                WorkbenchViewDescriptor(
+                  id: 'a',
+                  title: 'Alpha',
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'b',
+                  title: 'Beta',
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // Drag the A/B boundary down so the two panes become lopsided.
+      await tester.drag(
+        find.byKey(const ValueKey('workbench-view-sash-b')),
+        const Offset(0, 80),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        paneRect(tester, 'a').height,
+        greaterThan(paneRect(tester, 'b').height + 20),
+      );
+      ends.clear();
+
+      // Double-click the sash: the pair evens out to a 50/50 split of their
+      // combined body height, and the reset commits through onSizesChangeEnd.
+      final center = tester.getCenter(
+        find.byKey(const ValueKey('workbench-view-sash-b')),
+      );
+      await tester.tapAt(center);
+      await tester.pump(kDoubleTapMinTime);
+      await tester.tapAt(center);
+      await tester.pumpAndSettle();
+
+      expect(
+        paneRect(tester, 'a').height,
+        closeTo(paneRect(tester, 'b').height, 1.0),
+      );
+      // The reset commits the even split through the same persistence seam as a
+      // drag — exactly one commit (the stationary clicks are not resizes).
+      expect(ends, hasLength(1));
+      expect(ends.single['a']!, closeTo(ends.single['b']!, 1.0));
     });
 
     testWidgets('dragging a pane header reorders the shell-owned stack and '

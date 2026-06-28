@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -635,6 +636,50 @@ void main() {
       await tester.pump();
       expect(ends, hasLength(1));
       expect(ends.single, _sash(tester, Axis.vertical).value);
+    });
+
+    testWidgets('double-click resets the sidebar to the default width and '
+        'commits it (§spec:workbench-layout)', (tester) async {
+      final ends = <double>[];
+      await tester.pumpWidget(
+        _buildApp(initialSidebarWidth: 420, onSidebarWidthChangeEnd: ends.add),
+      );
+      expect(_sash(tester, Axis.horizontal).value, 420);
+
+      final center = tester.getCenter(_sashFinder(Axis.horizontal));
+      await tester.tapAt(center);
+      await tester.pump(kDoubleTapMinTime);
+      await tester.tapAt(center);
+      await tester.pump();
+
+      expect(
+        _sash(tester, Axis.horizontal).value,
+        WorkbenchLayoutConstants.sidebarDefaultWidth,
+      );
+      // The reset commits through the same change-end seam so the host persists
+      // it (§spec:resize-geometry).
+      expect(ends, [WorkbenchLayoutConstants.sidebarDefaultWidth]);
+    });
+
+    testWidgets('double-click resets the panel to the default height and '
+        'commits it (§spec:workbench-layout)', (tester) async {
+      final ends = <double>[];
+      await tester.pumpWidget(
+        _buildApp(initialPanelHeight: 320, onPanelHeightChangeEnd: ends.add),
+      );
+      expect(_sash(tester, Axis.vertical).value, 320);
+
+      final center = tester.getCenter(_sashFinder(Axis.vertical));
+      await tester.tapAt(center);
+      await tester.pump(kDoubleTapMinTime);
+      await tester.tapAt(center);
+      await tester.pump();
+
+      expect(
+        _sash(tester, Axis.vertical).value,
+        WorkbenchLayoutConstants.panelDefaultHeight,
+      );
+      expect(ends, [WorkbenchLayoutConstants.panelDefaultHeight]);
     });
   });
 
