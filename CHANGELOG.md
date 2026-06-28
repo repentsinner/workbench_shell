@@ -1,3 +1,10 @@
+# [0.17.0](https://github.com/repentsinner/workbench_shell/compare/v0.16.0...v0.17.0) (2026-06-28)
+
+
+### Features
+
+* **workbench-layout:** own resize geometry, seed-plus-commit ([45b8b8e](https://github.com/repentsinner/workbench_shell/commit/45b8b8e8f70bfebf482b3829f148ba68cdea4256)), closes [#68](https://github.com/repentsinner/workbench_shell/issues/68)
+
 # [0.16.0](https://github.com/repentsinner/workbench_shell/compare/v0.15.0...v0.16.0) (2026-06-28)
 
 
