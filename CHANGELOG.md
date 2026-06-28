@@ -1,3 +1,10 @@
+# [0.18.0](https://github.com/repentsinner/workbench_shell/compare/v0.17.0...v0.18.0) (2026-06-28)
+
+
+### Features
+
+* **sash:** reset sidebar, panel, and view-pane seams on double-click ([b767863](https://github.com/repentsinner/workbench_shell/commit/b767863b9276d837ce5d715c434e90b0af1fc447))
+
 # [0.17.0](https://github.com/repentsinner/workbench_shell/compare/v0.16.0...v0.17.0) (2026-06-28)
 
 
