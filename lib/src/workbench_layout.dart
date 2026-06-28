@@ -467,7 +467,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       // relayouts, and commit the final value once on release for persistence
       // (§spec:resize-geometry). No per-frame host callback.
       onChanged: (next) => setState(() => _sidebarWidth = next),
-      onChangeEnd: (next) => widget.onSidebarWidthChangeEnd?.call(next),
+      onChangeEnd: widget.onSidebarWidthChangeEnd,
       child: const SizedBox.expand(),
     );
   }
@@ -484,7 +484,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       growSign: -1,
       // Shell-owned, mirroring the sidebar resizer above (§spec:resize-geometry).
       onChanged: (next) => setState(() => _panelHeight = next),
-      onChangeEnd: (next) => widget.onPanelHeightChangeEnd?.call(next),
+      onChangeEnd: widget.onPanelHeightChangeEnd,
       child: const SizedBox.expand(),
     );
   }
