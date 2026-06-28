@@ -72,6 +72,12 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   /// panel border outright.
   final Color? panelBorder;
 
+  /// Hairline separating the centered editor from its margins
+  /// (§spec:editing-modes). VS Code `editorGroup.border` (`#444444` dark /
+  /// `#E7E7E7` light) — the SplitView separator the centered layout paints down
+  /// each inner margin edge. Nullable so a theme can suppress it.
+  final Color? editorGroupBorder;
+
   final Color panelTitleActiveForeground;
   final Color panelTitleInactiveForeground;
 
@@ -337,6 +343,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.editorBackground,
     required this.panelBackground,
     required this.panelBorder,
+    required this.editorGroupBorder,
     required this.panelTitleActiveForeground,
     required this.panelTitleInactiveForeground,
     required this.statusBarBackground,
@@ -493,6 +500,13 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     // VS Code registry: Color.fromHex('#808080').transparent(0.35) →
     // 0x59808080 — same for dark and light.
     final Color panelBorder = map['panel.border'] ?? const Color(0x59808080);
+    // VS Code editorGroup.border: #444444 dark / #E7E7E7 light, falling back to
+    // contrastBorder in high-contrast themes (which this map omits → the
+    // base-type default stands).
+    final Color editorGroupBorder = map.resolve(
+      'editorGroup.border',
+      dl(const Color(0xFF444444), const Color(0xFFE7E7E7)),
+    );
     final sideBarBg = map.resolve(
       'sideBar.background',
       dl(const Color(0xFF252526), const Color(0xFFF3F3F3)),
@@ -592,6 +606,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // Panel
       panelBackground: map.resolve('panel.background', editorBg),
       panelBorder: panelBorder,
+      editorGroupBorder: editorGroupBorder,
       panelTitleActiveForeground: map.resolve(
         'panelTitle.activeForeground',
         fg,
@@ -887,6 +902,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? editorBackground,
     Color? panelBackground,
     Color? panelBorder,
+    Color? editorGroupBorder,
     Color? panelTitleActiveForeground,
     Color? panelTitleInactiveForeground,
     Color? statusBarBackground,
@@ -1001,6 +1017,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       editorBackground: editorBackground ?? this.editorBackground,
       panelBackground: panelBackground ?? this.panelBackground,
       panelBorder: panelBorder ?? this.panelBorder,
+      editorGroupBorder: editorGroupBorder ?? this.editorGroupBorder,
       panelTitleActiveForeground:
           panelTitleActiveForeground ?? this.panelTitleActiveForeground,
       panelTitleInactiveForeground:
@@ -1173,6 +1190,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       editorBackground: c(editorBackground, other.editorBackground),
       panelBackground: c(panelBackground, other.panelBackground),
       panelBorder: cn(panelBorder, other.panelBorder),
+      editorGroupBorder: cn(editorGroupBorder, other.editorGroupBorder),
       panelTitleActiveForeground: c(
         panelTitleActiveForeground,
         other.panelTitleActiveForeground,
@@ -1382,6 +1400,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           editorBackground == other.editorBackground &&
           panelBackground == other.panelBackground &&
           panelBorder == other.panelBorder &&
+          editorGroupBorder == other.editorGroupBorder &&
           panelTitleActiveForeground == other.panelTitleActiveForeground &&
           panelTitleInactiveForeground == other.panelTitleInactiveForeground &&
           statusBarBackground == other.statusBarBackground &&
@@ -1494,6 +1513,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     editorBackground,
     panelBackground,
     panelBorder,
+    editorGroupBorder,
     panelTitleActiveForeground,
     panelTitleInactiveForeground,
     statusBarBackground,

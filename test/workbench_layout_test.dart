@@ -672,6 +672,341 @@ void main() {
     });
   });
 
+  group('Zen mode (§spec:editing-modes)', () {
+    testWidgets('uncontrolled: zen hides all chrome, leaving the editor', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: WorkbenchLayout(
+            activityBarItems: _testItems,
+            editor: const Center(child: Text('Editor')),
+            containerBuilder: _sidebarSpec,
+            bottomPanel: const Center(child: Text('Panel')),
+            statusBar: const SizedBox(height: 22, child: Text('Status')),
+            initialZenMode: true,
+          ),
+        ),
+      );
+
+      // Editor remains; every chrome surface is gone.
+      expect(find.text('Editor'), findsOneWidget);
+      expect(find.byIcon(Symbols.folder_rounded), findsNothing);
+      expect(find.text('EXPLORER'), findsNothing);
+      expect(find.text('Panel'), findsNothing);
+      expect(find.text('Status'), findsNothing);
+    });
+
+    testWidgets('controlled: host drives zenMode and is notified on toggle', (
+      tester,
+    ) async {
+      bool zen = false;
+      late StateSetter setOuter;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              setOuter = setState;
+              return WorkbenchLayout(
+                activityBarItems: _testItems,
+                editor: const Center(child: Text('Editor')),
+                containerBuilder: _sidebarSpec,
+                bottomPanel: const Center(child: Text('Panel')),
+                statusBar: const SizedBox(height: 22, child: Text('Status')),
+                zenMode: zen,
+                onZenModeChanged: (next) => setState(() => zen = next),
+              );
+            },
+          ),
+        ),
+      );
+
+      // Chrome visible while controlled value is false.
+      expect(find.text('Status'), findsOneWidget);
+      expect(find.byIcon(Symbols.folder_rounded), findsOneWidget);
+
+      // Host flips its own state on → chrome disappears.
+      setOuter(() => zen = true);
+      await tester.pumpAndSettle();
+      expect(find.text('Status'), findsNothing);
+      expect(find.byIcon(Symbols.folder_rounded), findsNothing);
+      expect(find.text('Editor'), findsOneWidget);
+
+      // Host flips off → chrome returns.
+      setOuter(() => zen = false);
+      await tester.pumpAndSettle();
+      expect(find.text('Status'), findsOneWidget);
+      expect(find.byIcon(Symbols.folder_rounded), findsOneWidget);
+    });
+
+    testWidgets('asserts onZenModeChanged is required in controlled mode', (
+      tester,
+    ) async {
+      expect(
+        () => WorkbenchLayout(
+          activityBarItems: _testItems,
+          editor: const SizedBox(),
+          containerBuilder: _sidebarSpec,
+          bottomPanel: const SizedBox(),
+          statusBar: const SizedBox(),
+          zenMode: true,
+        ),
+        throwsAssertionError,
+      );
+    });
+  });
+
+  group('Centered layout (§spec:editing-modes)', () {
+    testWidgets('on: editor narrows to the golden-ratio fraction and centers; '
+        'chrome stays', (tester) async {
+      tester.view.physicalSize = const Size(2000, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      bool centered = false;
+      late StateSetter setOuter;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              setOuter = setState;
+              return WorkbenchLayout(
+                activityBarItems: _testItems,
+                editor: const ColoredBox(
+                  key: ValueKey('editor-fill'),
+                  color: Color(0xFF123456),
+                  child: SizedBox.expand(),
+                ),
+                containerBuilder: _sidebarSpec,
+                bottomPanel: const Center(child: Text('Panel')),
+                statusBar: const SizedBox(height: 22, child: Text('Status')),
+                centeredLayout: centered,
+                onCenteredLayoutChanged: (n) => setState(() => centered = n),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final off = tester.getRect(find.byKey(const ValueKey('editor-fill')));
+
+      setOuter(() => centered = true);
+      await tester.pumpAndSettle();
+      final on = tester.getRect(find.byKey(const ValueKey('editor-fill')));
+
+      // Chrome stays put.
+      expect(find.byIcon(Symbols.folder_rounded), findsOneWidget);
+      expect(find.text('Status'), findsOneWidget);
+
+      // Narrowed to the golden-ratio fraction (~0.618 of the column), not a
+      // fixed cap.
+      final ratio =
+          1 - 2 * WorkbenchLayoutConstants.centeredLayoutMarginRatio;
+      expect(on.width / off.width, closeTo(ratio, 0.05));
+
+      // Centered: the freed width splits ~evenly into left and right margins.
+      final leftMargin = on.left - off.left;
+      final rightMargin = off.right - on.right;
+      expect(leftMargin, greaterThan(0));
+      expect((leftMargin - rightMargin).abs(), lessThan(4));
+    });
+
+    testWidgets('on: a hairline (editorGroup.border) runs down each inner edge', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(2000, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: WorkbenchLayout(
+            activityBarItems: _testItems,
+            editor: const ColoredBox(
+              key: ValueKey('editor-fill'),
+              color: Color(0xFF123456),
+              child: SizedBox.expand(),
+            ),
+            containerBuilder: _sidebarSpec,
+            bottomPanel: const Center(child: Text('Panel')),
+            statusBar: const SizedBox(height: 22, child: Text('Status')),
+            initialCenteredLayout: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The centered editor is wrapped in a Container with left+right borders in
+      // editorGroupBorder (the hairlines). Side bar (right-only) and panel
+      // (top-only) borders use different colors, so this match is unique.
+      final hairlined = find.byWidgetPredicate((w) {
+        if (w is! Container) return false;
+        final d = w.decoration;
+        if (d is! BoxDecoration) return false;
+        final b = d.border;
+        return b is Border &&
+            b.left.color == _testTheme.editorGroupBorder &&
+            b.right.color == _testTheme.editorGroupBorder;
+      });
+      expect(hairlined, findsOneWidget);
+    });
+
+    testWidgets('on: dragging a margin sash resizes symmetrically — the editor '
+        'widens but stays centered', (tester) async {
+      tester.view.physicalSize = const Size(2000, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: WorkbenchLayout(
+            activityBarItems: _testItems,
+            editor: const ColoredBox(
+              key: ValueKey('editor-fill'),
+              color: Color(0xFF123456),
+              child: SizedBox.expand(),
+            ),
+            containerBuilder: _sidebarSpec,
+            bottomPanel: const Center(child: Text('Panel')),
+            statusBar: const SizedBox(height: 22, child: Text('Status')),
+            initialCenteredLayout: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final before = tester.getRect(find.byKey(const ValueKey('editor-fill')));
+      // Drag the left margin sash (on the editor's left hairline) outward.
+      await tester.dragFrom(
+        Offset(before.left - 1, before.center.dy),
+        const Offset(-150, 0),
+      );
+      await tester.pumpAndSettle();
+      final after = tester.getRect(find.byKey(const ValueKey('editor-fill')));
+
+      // The editor widened...
+      expect(after.width, greaterThan(before.width + 100));
+      // ...symmetrically: both edges moved, so the editor's center is unchanged.
+      // An asymmetric drag (one edge only) would shift the center by half the
+      // width change.
+      expect(after.center.dx, closeTo(before.center.dx, 1.0));
+    });
+
+    testWidgets('off: editor fills the available width (no cap)', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(2000, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: WorkbenchLayout(
+            activityBarItems: _testItems,
+            editor: const ColoredBox(
+              key: ValueKey('editor-fill'),
+              color: Color(0xFF123456),
+              child: SizedBox.expand(),
+            ),
+            containerBuilder: _sidebarSpec,
+            bottomPanel: const Center(child: Text('Panel')),
+            statusBar: const SizedBox(height: 22, child: Text('Status')),
+            // centered defaults off — editor fills the column.
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final fillWidth = tester
+          .getRect(find.byKey(const ValueKey('editor-fill')))
+          .width;
+      // With centered off, the editor fills the editor column — on a 2000px
+      // window minus chrome, far wider than a centered editor would be.
+      expect(fillWidth, greaterThan(1200));
+    });
+
+    testWidgets('controlled: host drives centeredLayout', (tester) async {
+      tester.view.physicalSize = const Size(2000, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      bool centered = false;
+      late StateSetter setOuter;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              setOuter = setState;
+              return WorkbenchLayout(
+                activityBarItems: _testItems,
+                editor: const ColoredBox(
+                  key: ValueKey('editor-fill'),
+                  color: Color(0xFF123456),
+                  child: SizedBox.expand(),
+                ),
+                containerBuilder: _sidebarSpec,
+                bottomPanel: const Center(child: Text('Panel')),
+                statusBar: const SizedBox(height: 22, child: Text('Status')),
+                centeredLayout: centered,
+                onCenteredLayoutChanged: (next) =>
+                    setState(() => centered = next),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final wideWidth = tester
+          .getRect(find.byKey(const ValueKey('editor-fill')))
+          .width;
+      expect(wideWidth, greaterThan(1200));
+
+      setOuter(() => centered = true);
+      await tester.pumpAndSettle();
+      final centeredWidth = tester
+          .getRect(find.byKey(const ValueKey('editor-fill')))
+          .width;
+      // Centered narrows the editor to the golden-ratio fraction (~62%).
+      expect(centeredWidth, lessThan(wideWidth * 0.72));
+    });
+
+    testWidgets('asserts onCenteredLayoutChanged is required in controlled '
+        'mode', (tester) async {
+      expect(
+        () => WorkbenchLayout(
+          activityBarItems: _testItems,
+          editor: const SizedBox(),
+          containerBuilder: _sidebarSpec,
+          bottomPanel: const SizedBox(),
+          statusBar: const SizedBox(),
+          centeredLayout: true,
+        ),
+        throwsAssertionError,
+      );
+    });
+  });
+
+  group('Editing-mode constants', () {
+    test('centered margin ratio matches VS Code golden-ratio default', () {
+      expect(WorkbenchLayoutConstants.centeredLayoutMarginRatio, 0.1909);
+    });
+  });
+
   group('ActivityBarItem', () {
     test('equality based on id', () {
       const a = ActivityBarItem(

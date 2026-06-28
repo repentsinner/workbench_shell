@@ -83,6 +83,48 @@ class WorkbenchLayout extends StatefulWidget {
   /// like [onSidebarWidthChanged].
   final ValueChanged<double>? onPanelHeightChanged;
 
+  /// Initial Zen-mode state. Used only in uncontrolled mode
+  /// (when [zenMode] is null); ignored otherwise.
+  final bool initialZenMode;
+
+  /// Externally controlled Zen mode (§spec:editing-modes). When non-null, the
+  /// shell renders Zen on/off per this value and delegates toggles to
+  /// [onZenModeChanged]; the host owns the state. When null, the shell tracks
+  /// Zen internally (uncontrolled), seeded from [initialZenMode].
+  ///
+  /// Zen hides all chrome — activity bar, side bar, bottom panel, status bar —
+  /// leaving the editor alone. It composes with [centeredLayout]: a centered
+  /// editor inside an otherwise-bare Zen workbench.
+  final bool? zenMode;
+
+  /// Called when Zen mode is toggled. Required when [zenMode] is non-null.
+  /// The shell itself raises no Zen toggle today (the host drives it from a
+  /// menu item); the callback exists so a future in-shell affordance reports
+  /// through the same controlled/uncontrolled seam as the other properties.
+  final ValueChanged<bool>? onZenModeChanged;
+
+  /// Initial centered-layout state. Used only in uncontrolled mode
+  /// (when [centeredLayout] is null); ignored otherwise.
+  final bool initialCenteredLayout;
+
+  /// Externally controlled centered layout (§spec:editing-modes). When
+  /// non-null, the shell renders centered on/off per this value and delegates
+  /// toggles to [onCenteredLayoutChanged]; the host owns the state. When null,
+  /// the shell tracks it internally (uncontrolled), seeded from
+  /// [initialCenteredLayout].
+  ///
+  /// Centered narrows the editor between two equal margins
+  /// (golden-ratio default per [WorkbenchLayoutConstants.centeredLayoutMarginRatio])
+  /// and centers it, with a hairline down each inner edge; chrome remains.
+  /// Dragging either margin sash resizes the editor symmetrically (both edges
+  /// move, the column stays centered); double-click resets.
+  final bool? centeredLayout;
+
+  /// Called when centered layout is toggled. Required when [centeredLayout]
+  /// is non-null. See [onZenModeChanged] for why the callback exists even
+  /// though the shell raises no toggle of its own today.
+  final ValueChanged<bool>? onCenteredLayoutChanged;
+
   const WorkbenchLayout({
     super.key,
     required this.activityBarItems,
@@ -99,10 +141,24 @@ class WorkbenchLayout extends StatefulWidget {
     this.onSidebarWidthChanged,
     this.panelHeight,
     this.onPanelHeightChanged,
+    this.initialZenMode = false,
+    this.zenMode,
+    this.onZenModeChanged,
+    this.initialCenteredLayout = false,
+    this.centeredLayout,
+    this.onCenteredLayoutChanged,
   }) : assert(
          activeViewContainerId == null || onViewContainerChanged != null,
          'onViewContainerChanged is required when activeViewContainerId is '
          'provided',
+       ),
+       assert(
+         zenMode == null || onZenModeChanged != null,
+         'onZenModeChanged is required when zenMode is provided',
+       ),
+       assert(
+         centeredLayout == null || onCenteredLayoutChanged != null,
+         'onCenteredLayoutChanged is required when centeredLayout is provided',
        );
 
   @override
@@ -142,6 +198,26 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
 
   double get _effectivePanelHeight => widget.panelHeight ?? _panelHeight;
 
+  // Zen and centered layout follow the same controlled/uncontrolled seam as
+  // the active view container: a controlled value wins, else the internal
+  // value seeded from the initial flag. The shell raises no toggle of its own
+  // today, so the internal values are seeded once and only the host mutates
+  // through the controlled value.
+  late bool _internalZenMode;
+  late bool _internalCenteredLayout;
+
+  // Centered-layout margin as a fraction of the editor column, the same on both
+  // sides so the editor stays centered (§spec:editing-modes). VS Code drags this
+  // symmetrically (its centered SplitView sets `inverseAltBehavior`, so a plain
+  // drag moves both edges); a single value captures it. Golden-ratio default,
+  // draggable via either margin sash, double-click resets. Internal shell state
+  // for the life of the layout — not host-persisted.
+  double _centeredMarginFraction =
+      WorkbenchLayoutConstants.centeredLayoutMarginRatio;
+
+  bool get _zenMode => widget.zenMode ?? _internalZenMode;
+  bool get _centeredLayout => widget.centeredLayout ?? _internalCenteredLayout;
+
   @override
   void initState() {
     super.initState();
@@ -150,6 +226,8 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
         (widget.activityBarItems.isNotEmpty
             ? widget.activityBarItems.first.id
             : '');
+    _internalZenMode = widget.initialZenMode;
+    _internalCenteredLayout = widget.initialCenteredLayout;
     _partitionActivityItems();
   }
 
@@ -212,6 +290,25 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     // active container, shell-driven activity-bar taps, and host-driven
     // (controlled) container changes alike without a separate call at each.
     _markOpened(_activeViewContainerId);
+
+    // Centered layout narrows the editor between two proportional margins and
+    // centers it; chrome stays. Applied to the editor alone so the bottom panel
+    // keeps spanning the editor column (§spec:editing-modes /
+    // §spec:panel-alignment default).
+    final editorContent = _centeredLayout
+        ? _buildCenteredEditor(theme)
+        : widget.editor;
+
+    // Zen mode hides all chrome — activity bar, side bar, panel, status bar —
+    // leaving the editor (centered when centered layout also applies). It is a
+    // composition choice, not a separate layout: the same editorContent renders
+    // bare, so the two modes compose without special-casing.
+    if (_zenMode) {
+      return Scaffold(
+        backgroundColor: theme.editorBackground,
+        body: SafeArea(child: editorContent),
+      );
+    }
 
     return Scaffold(
       backgroundColor: theme.editorBackground,
@@ -281,7 +378,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
                   Expanded(
                     child: Column(
                       children: [
-                        Expanded(child: widget.editor),
+                        Expanded(child: editorContent),
                         Visibility(
                           visible: widget.showBottomPanel,
                           maintainState: true,
@@ -396,6 +493,110 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
         }
         widget.onPanelHeightChanged?.call(next);
       },
+      child: const SizedBox.expand(),
+    );
+  }
+
+  /// Centered layout (§spec:editing-modes): the editor narrows between two equal
+  /// margins and centers. A hairline (`editorGroup.border`) runs down each inner
+  /// edge, and a draggable sash overlays each — dragging either resizes the
+  /// editor symmetrically (both edges move, the column stays centered, matching
+  /// VS Code's `inverseAltBehavior` SplitView), and double-click resets to the
+  /// golden-ratio default. The margins are the bare editor background. Below
+  /// [WorkbenchLayoutConstants.centeredLayoutMinEditorWidth] the column is too
+  /// narrow to center, so the editor fills it (VS Code's auto-resize).
+  Widget _buildCenteredEditor(WorkbenchTheme theme) {
+    final border = theme.editorGroupBorder;
+    const minEditor = WorkbenchLayoutConstants.centeredLayoutMinEditorWidth;
+    const sashSize = WorkbenchLayoutConstants.sashSize;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        if (!w.isFinite || w <= minEditor) return widget.editor;
+
+        // One margin width, equal on both sides (the editor stays centered),
+        // clamped so the editor keeps its minimum width.
+        final double maxMargin = (w - minEditor) / 2;
+        final double margin = (_centeredMarginFraction * w)
+            .clamp(0.0, maxMargin)
+            .toDouble();
+        final double editorWidth = w - 2 * margin;
+
+        return Stack(
+          children: [
+            // Editor, narrowed and centered, with a hairline down each inner
+            // edge. Container (not bare DecoratedBox) so its border padding
+            // insets the editor 1px, keeping an opaque host editor from
+            // overdrawing the seam — as the bottom panel does with its border.
+            Positioned(
+              left: margin,
+              width: editorWidth,
+              top: 0,
+              bottom: 0,
+              child: Container(
+                decoration: BoxDecoration(
+                  border: border == null
+                      ? null
+                      : Border.symmetric(vertical: BorderSide(color: border)),
+                ),
+                child: widget.editor,
+              ),
+            ),
+            // Draggable margin sashes overlay the two hairlines (transparent at
+            // rest like every seam), centered on each boundary. Both drive the
+            // single margin, so either one resizes the editor symmetrically.
+            Positioned(
+              top: 0,
+              bottom: 0,
+              left: margin - sashSize / 2,
+              child: _buildCenteredSash(
+                isLeft: true,
+                width: w,
+                margin: margin,
+                maxMargin: maxMargin,
+              ),
+            ),
+            Positioned(
+              top: 0,
+              bottom: 0,
+              left: (w - margin) - sashSize / 2,
+              child: _buildCenteredSash(
+                isLeft: false,
+                width: w,
+                margin: margin,
+                maxMargin: maxMargin,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// One centered-layout margin sash. Both sashes drive the single shared
+  /// margin, so dragging either resizes the editor symmetrically. The left edge
+  /// follows the pointer when it moves right (growSign +1); the right edge
+  /// follows when it moves right too, which shrinks the margin (growSign -1).
+  /// Double-click resets to the golden-ratio default (§spec:editing-modes, VS
+  /// Code `onDidSashReset`).
+  Widget _buildCenteredSash({
+    required bool isLeft,
+    required double width,
+    required double margin,
+    required double maxMargin,
+  }) {
+    return WorkbenchSash(
+      axis: Axis.horizontal,
+      value: margin,
+      max: maxMargin < 0 ? 0 : maxMargin,
+      growSign: isLeft ? 1 : -1,
+      onChanged: (next) => setState(
+        () => _centeredMarginFraction = width == 0 ? 0.0 : next / width,
+      ),
+      onReset: () => setState(
+        () => _centeredMarginFraction =
+            WorkbenchLayoutConstants.centeredLayoutMarginRatio,
+      ),
       child: const SizedBox.expand(),
     );
   }

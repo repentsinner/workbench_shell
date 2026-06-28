@@ -1246,7 +1246,7 @@ warrant one.
 
 ## Workbench Layout Customization §spec:layout-customization
 
-*Status: not started*
+*Status: in progress*
 
 §spec:workbench-layout composes a fixed arrangement: activity bar and
 primary side bar on the left, bottom panel under the editor, status bar
@@ -1336,13 +1336,45 @@ nesting choices, no graph abstraction is warranted.
 
 ### Zen and Centered Layout §spec:editing-modes
 
-Two distraction-reducing modes, each a host-driven toggle. Zen mode
-hides all chrome — activity bar, both side bars, panel, status bar —
-leaving the editor alone. Centered layout constrains the editor to a
-maximum width and centers it, margining the sides on wide displays;
-chrome remains. The modes are independent toggles, not one enum: VS Code
-treats them separately and they compose (centered content within an
-otherwise-normal workbench, or a bare editor in Zen).
+`WorkbenchLayout` exposes two distraction-reducing modes as controlled/
+uncontrolled properties (`zenMode`/`onZenModeChanged`/`initialZenMode`,
+`centeredLayout`/`onCenteredLayoutChanged`/`initialCenteredLayout`),
+following the §spec:layout-customization mechanism. Zen hides all chrome —
+activity bar, both side bars, panel, status bar — leaving the editor.
+Centered narrows the editor between two equal margins and centers it; chrome
+remains. The margins default to the golden-ratio split
+(`WorkbenchLayoutConstants.centeredLayoutMarginRatio` = `0.1909` per side, VS
+Code `centeredViewLayout.ts` `defaultState`, editor ≈61.8%) and scale with the
+window, so the effect is visible at any width rather than only past a fixed cap.
+A hairline in `WorkbenchTheme.editorGroupBorder` (VS Code `editorGroup.border`)
+runs down each inner edge, and the canonical sash overlays each. **Dragging
+either sash resizes the editor symmetrically** — both edges move and the column
+stays centered — and double-click resets to the default (VS Code
+`onDidSashReset`). Below
+`WorkbenchLayoutConstants.centeredLayoutMinEditorWidth` the column is too narrow
+to center, so the editor fills it (VS Code's `centeredLayoutAutoResize`).
+
+**Why symmetric drag, and one width not two margins.** VS Code's centered
+SplitView sets `inverseAltBehavior`, so a plain (no-modifier) margin drag takes
+the split's *symmetric* path: the dragged sash's partner resizes by the opposite
+amount on the same frame, keeping the editor centered. The off-center asymmetric
+drag is the Alt-modified escape hatch, dropped here as a deliberate
+simplification. Because both margins stay equal, the shell models centered width
+as a single margin value, not two. It is shell-owned state — like the active
+container, tracked for the life of the layout; host persistence is deferred.
+
+**Why proportional, not a fixed 900px cap.** VS Code's default centered mode is
+proportional (the golden-ratio split), with the 900px `targetWidth` only the
+seed for the opt-in fixed-width mode (`centeredLayoutFixedWidth`, which governs
+constant width across *window resizes*, not drag symmetry). A fixed cap shows
+nothing until the column exceeds it; the proportional default always margins the
+editor, which is the behavior a host comparing against VS Code expects.
+
+**Why independent toggles, not one enum.** VS Code treats them separately
+and they compose: a centered editor renders inside an otherwise-bare Zen
+workbench. The composition is a single editor subtree the shell renders
+either bare (Zen) or amid chrome, capped or not (centered) — no
+special-cased combination.
 
 **Why these two and not "modes" generally.** Full Screen, the third VS
 Code mode, is the OS window's (scope boundary above). Zen and centered
