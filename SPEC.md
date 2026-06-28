@@ -1351,6 +1351,79 @@ the two the shell can own without crossing into host/window territory.
 
 ---
 
+## Drag-Resize Geometry §spec:resize-geometry
+
+*Status: not started*
+
+**Problem**: the sidebar width, bottom-panel height, and view-stack pane
+sizes (§spec:view-stack) shipped (0.15.0) as controlled/uncontrolled
+properties mirroring the rest of the layout (§spec:layout-customization) — a
+controlled value (`sidebarWidth`, `panelHeight`, `sizes`) plus a per-frame
+`on…Changed` callback. Two defects follow. First, the per-frame callback
+fires every drag frame (the canonical sash drives it from pointer-move,
+§spec:workbench-layout), so a host persisting layout writes ~60×/sec for the
+drag's duration and must add its own debounce — the boilerplate the shell
+exists to remove (§spec:problem-statement). Second, controlled mode models an
+interaction that does not exist: it lets an external authority drive resize
+geometry frame-by-frame, independent of the user's drag. A host with no
+seed-only option is forced into controlled mode merely to restore a saved
+width at startup, inheriting the per-frame churn. Reported in #68.
+
+**Resize geometry is shell-owned, seeded at startup and committed on
+drag-end.** Width, height, and pane sizes follow VS Code's model: the layout
+owns the live value, storage seeds it once at startup and records it on
+change, and storage is never a per-frame source. The shell therefore owns
+each value as internal state during the drag (always — there is no controlled
+geometry property), takes an `initial…` seed for startup restore, and fires a
+single drag-end callback for persistence:
+
+- `WorkbenchLayout.initialSidebarWidth` + `onSidebarWidthChangeEnd`
+- `WorkbenchLayout.initialPanelHeight` + `onPanelHeightChangeEnd`
+- the view container's `initialSizes` + `onSizesChangeEnd`
+
+Each `…ChangeEnd` fires once with the final clamped value (the sizes map, for
+the container) when the drag ends, off the canonical sash's drag-end signal
+(VS Code's `Sash.onDidEnd`; the shell's `WorkbenchSash` already tracks it). A
+host persists on `…ChangeEnd` and seeds from `initial…` — one write per drag,
+no debounce.
+
+**Why no controlled geometry, unlike the rest of the layout.** The
+controlled/uncontrolled pattern (§spec:layout-customization) fits state a host
+genuinely drives programmatically — the active view container (a command
+switches sidebars), pane expansion (reveal a view), pane order. VS Code drives
+each of those from outside user input. It does *not* drive resize geometry
+that way: the Sash's per-frame `onDidChange` feeds VS Code's own `SplitView`
+relayout, never an external store, and width/height/size live in the layout,
+not a controlled source. Importing controlled mode for drag geometry invents a
+non-canonical interaction (UI resizing without user input) and is the source
+of the per-frame trap. Seed-plus-commit is the canonical shape; the controlled
+`sidebarWidth`/`panelHeight`/`sizes` properties are removed.
+
+**This revises the shipped contract.** The controlled-`sizes` /
+`onSizesChanged` language in §spec:view-stack and §spec:view-container-state is
+superseded for sizing by this section: the container takes `initialSizes` and
+fires `onSizesChangeEnd`, not a controlled `sizes` map with per-frame
+`onSizesChanged`. Pane *order* and *expansion* keep their controlled/
+uncontrolled contracts unchanged — only drag geometry moves to seed-plus-commit.
+Removing the controlled properties is breaking; it is taken pre-1.0 to land the
+canonical shape before the API stabilizes.
+
+**Observable behavior**:
+
+- Dragging the sidebar, panel, or a view-pane sash resizes the widget tree per
+  frame with no host callback — the shell owns the live value and Flutter's
+  constraints relayout the chrome and the host's slot content. The host is
+  notified only on release.
+- Each geometry exposes an `initial…` seed and a `…ChangeEnd` callback;
+  `…ChangeEnd` fires once on drag-end with the final clamped value (or sizes
+  map).
+- A host restores layout by seeding `initial…` and persists by recording
+  `…ChangeEnd` — one write per drag, no debounce of its own.
+- No controlled per-frame geometry property exists; resize geometry changes
+  only from a user drag or the startup seed.
+
+---
+
 ## Custom Window Chrome Is Deferred §spec:custom-window-chrome
 
 *Status: complete*
