@@ -192,6 +192,18 @@ class FocusExamplePanelIntent extends Intent {
   final ExamplePanel panel;
 }
 
+/// Host-defined intent to toggle Zen mode. The shell exposes the
+/// `zenMode` property (§spec:editing-modes); the host owns the state and
+/// the menu affordance.
+class ToggleZenModeIntent extends Intent {
+  const ToggleZenModeIntent();
+}
+
+/// Host-defined intent to toggle centered layout (§spec:editing-modes).
+class ToggleCenteredLayoutIntent extends Intent {
+  const ToggleCenteredLayoutIntent();
+}
+
 class WorkbenchHome extends StatefulWidget {
   const WorkbenchHome({super.key, required this.themeController});
 
@@ -203,6 +215,11 @@ class WorkbenchHome extends StatefulWidget {
 
 class _WorkbenchHomeState extends State<WorkbenchHome> {
   bool _panelVisible = true;
+  // Editing modes (§spec:editing-modes): host-owned, driven from the View
+  // menu and fed back into the shell's controlled `zenMode` / `centeredLayout`
+  // properties — the same host-managed pattern as `_panelVisible`.
+  bool _zenMode = false;
+  bool _centeredLayout = false;
   void Function(Object id)? _focusPanelById;
   final NotificationService _notificationService = NotificationService();
 
@@ -268,6 +285,14 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
 
   void _togglePanel() {
     setState(() => _panelVisible = !_panelVisible);
+  }
+
+  void _toggleZenMode() {
+    setState(() => _zenMode = !_zenMode);
+  }
+
+  void _toggleCenteredLayout() {
+    setState(() => _centeredLayout = !_centeredLayout);
   }
 
   /// VS Code's defaults: Shift+Cmd+M Problems, Shift+Cmd+U Output,
@@ -368,9 +393,37 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                         return null;
                       },
                     ),
+                ToggleZenModeIntent: CallbackAction<ToggleZenModeIntent>(
+                  onInvoke: (_) {
+                    _toggleZenMode();
+                    return null;
+                  },
+                ),
+                ToggleCenteredLayoutIntent:
+                    CallbackAction<ToggleCenteredLayoutIntent>(
+                      onInvoke: (_) {
+                        _toggleCenteredLayout();
+                        return null;
+                      },
+                    ),
               },
               child: WorkbenchMenuBar(
-                tabs: scope.viewMenuTabs,
+                // The shell's panel/tab entries plus the host's editing-mode
+                // toggles (§spec:editing-modes). The label reflects the current
+                // state so the menu reads as a checkable toggle.
+                tabs: [
+                  ...scope.viewMenuTabs,
+                  WorkbenchViewMenuTab(
+                    intent: const ToggleZenModeIntent(),
+                    label: _zenMode ? 'Exit Zen Mode' : 'Zen Mode',
+                  ),
+                  WorkbenchViewMenuTab(
+                    intent: const ToggleCenteredLayoutIntent(),
+                    label: _centeredLayout
+                        ? 'Uncenter Layout'
+                        : 'Centered Layout',
+                  ),
+                ],
                 child: NotificationHost(
                   service: _notificationService,
                   bottomInset: WorkbenchLayoutConstants.statusBarHeight,
@@ -386,6 +439,15 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                     panelHeight: _panelHeight,
                     onPanelHeightChanged: (h) =>
                         setState(() => _panelHeight = h),
+                    // Controlled editing modes (§spec:editing-modes): the host
+                    // owns the booleans and the shell renders them, mirroring
+                    // the showBottomPanel pattern above.
+                    zenMode: _zenMode,
+                    onZenModeChanged: (next) =>
+                        setState(() => _zenMode = next),
+                    centeredLayout: _centeredLayout,
+                    onCenteredLayoutChanged: (next) =>
+                        setState(() => _centeredLayout = next),
                     statusBar: const WorkbenchStatusBar(
                       leading: [
                         WorkbenchStatusBarItem(
@@ -1004,14 +1066,46 @@ class _EditorPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
-    return Center(
+    // Left-aligned monospace body that wraps to the editor's width
+    // (theme.editorStyle resolves the per-platform editor monospace). This
+    // makes Centered Layout (§spec:editing-modes) self-evident: with centering
+    // off the lines sprawl across a wide window; with it on the editor narrows
+    // to the golden-ratio column and centers, and the same text reflows to a
+    // comfortable reading width with margins either side — the line-length
+    // comfort the feature exists for. Scrolls vertically so the body fills the
+    // editor height on any window.
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingXl),
       child: Text(
-        'Editor area',
-        style: theme.bodyStyle.copyWith(color: theme.descriptionForeground),
+        _editorLoremText,
+        style: theme.editorStyle.copyWith(height: 1.6),
       ),
     );
   }
 }
+
+/// Filler editor body (§spec:editing-modes demo). Lorem Ipsum, several
+/// paragraphs so the column wraps and scrolls on a typical window.
+const String _editorLoremText =
+    'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod '
+    'tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim '
+    'veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea '
+    'commodo consequat. Duis aute irure dolor in reprehenderit in voluptate '
+    'velit esse cillum dolore eu fugiat nulla pariatur.\n\n'
+    'Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia '
+    'deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste '
+    'natus error sit voluptatem accusantium doloremque laudantium, totam rem '
+    'aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto '
+    'beatae vitae dicta sunt explicabo.\n\n'
+    'Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut '
+    'fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem '
+    'sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor '
+    'sit amet, consectetur, adipisci velit, sed quia non numquam eius modi '
+    'tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem.\n\n'
+    'Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam '
+    'nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo '
+    'voluptas nulla pariatur. At vero eos et accusamus et iusto odio dignissimos '
+    'ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti.';
 
 class _SidebarBodyPlaceholder extends StatelessWidget {
   const _SidebarBodyPlaceholder({required this.text});

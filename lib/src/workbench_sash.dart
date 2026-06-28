@@ -41,6 +41,7 @@ class WorkbenchSash extends StatefulWidget {
     this.resolveBasis,
     this.hoverCursor,
     this.onDragChanged,
+    this.onReset,
   });
 
   /// The drag axis. [Axis.horizontal] resizes a width (the sidebar);
@@ -77,6 +78,11 @@ class WorkbenchSash extends StatefulWidget {
 
   /// Notified when a drag begins (`true`) and ends (`false`).
   final ValueChanged<bool>? onDragChanged;
+
+  /// Called on a double-click of the strip — the canonical "reset this seam to
+  /// its default" gesture (VS Code's `onDidSashReset`, e.g. the centered-layout
+  /// margins snapping back to the golden ratio). Null leaves double-click inert.
+  final VoidCallback? onReset;
 
   /// The visible sash strip (hairline, hit target).
   final Widget child;
@@ -219,6 +225,7 @@ class _WorkbenchSashState extends State<WorkbenchSash> {
         onPanUpdate: _onUpdate,
         onPanEnd: (_) => _onEnd(),
         onPanCancel: _onEnd,
+        onDoubleTap: widget.onReset,
         child: highlight == null
             ? widget.child
             : Stack(children: [widget.child, highlight]),

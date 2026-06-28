@@ -318,4 +318,83 @@ void main() {
       expect(isFocused('outline'), isFalse);
     },
   );
+
+  // Editing modes (§spec:editing-modes). The View menu dispatches
+  // ToggleZenModeIntent / ToggleCenteredLayoutIntent through Actions —
+  // exactly what these tests invoke — and the host feeds the booleans into
+  // the shell's controlled zenMode / centeredLayout properties. Driving the
+  // intents proves the menu→action→host→shell wiring without depending on the
+  // platform menu surface (macOS renders the menu natively, untappable in a
+  // widget test).
+  testWidgets('Zen Mode intent hides all chrome; toggling off restores it', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const WorkbenchExampleApp());
+    await tester.pumpAndSettle();
+
+    // Chrome present before Zen.
+    expect(find.byIcon(Symbols.folder_rounded), findsOneWidget);
+    expect(find.text('workbench_shell example'), findsOneWidget); // status bar
+
+    final context = tester.element(find.byType(WorkbenchLayout));
+    Actions.invoke(context, const ToggleZenModeIntent());
+    await tester.pumpAndSettle();
+
+    // Editor only — activity bar, sidebar, and status bar gone.
+    expect(find.textContaining('Lorem ipsum'), findsOneWidget);
+    expect(find.byIcon(Symbols.folder_rounded), findsNothing);
+    expect(find.text('OPEN EDITORS'), findsNothing);
+    expect(find.text('workbench_shell example'), findsNothing);
+
+    // Toggling off restores all chrome.
+    final zenContext = tester.element(find.byType(WorkbenchLayout));
+    Actions.invoke(zenContext, const ToggleZenModeIntent());
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Symbols.folder_rounded), findsOneWidget);
+    expect(find.text('workbench_shell example'), findsOneWidget);
+  });
+
+  testWidgets('Centered Layout intent narrows the editor while chrome stays', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(2000, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const WorkbenchExampleApp());
+    await tester.pumpAndSettle();
+
+    // The editor placeholder is a scrolling monospace lorem body; its
+    // scroll view spans the editor's available width.
+    Rect editorBox() => tester.getRect(
+      find
+          .ancestor(
+            of: find.textContaining('Lorem ipsum'),
+            matching: find.byType(SingleChildScrollView),
+          )
+          .first,
+    );
+
+    final wideWidth = editorBox().width;
+    expect(wideWidth, greaterThan(1200));
+
+    final context = tester.element(find.byType(WorkbenchLayout));
+    Actions.invoke(context, const ToggleCenteredLayoutIntent());
+    await tester.pumpAndSettle();
+
+    // Chrome stays put.
+    expect(find.byIcon(Symbols.folder_rounded), findsOneWidget);
+    expect(find.text('workbench_shell example'), findsOneWidget);
+
+    // The editor narrowed to the golden-ratio fraction (~62%), centered.
+    final centeredWidth = editorBox().width;
+    expect(centeredWidth, lessThan(wideWidth * 0.72));
+
+    // Toggling off lets the editor fill the width again.
+    final centeredContext = tester.element(find.byType(WorkbenchLayout));
+    Actions.invoke(centeredContext, const ToggleCenteredLayoutIntent());
+    await tester.pumpAndSettle();
+    expect(editorBox().width, wideWidth);
+  });
 }

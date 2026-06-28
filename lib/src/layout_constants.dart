@@ -34,6 +34,18 @@ class WorkbenchLayoutConstants {
   /// Status bar height. VS Code `statusbarpart.css` `height: 22px`.
   static const double statusBarHeight = 22.0;
 
+  /// Centered-layout default margin ratio per side (§spec:editing-modes). VS
+  /// Code's `centeredViewLayout.ts` `defaultState` uses `leftMarginRatio =
+  /// rightMarginRatio = 0.1909` — the golden-ratio split that leaves the editor
+  /// ~61.8% of the width, with proportional margins that scale with the window.
+  /// The margins are draggable; this is the reset value.
+  static const double centeredLayoutMarginRatio = 0.1909;
+
+  /// Smallest centered editor width (§spec:editing-modes). Below this the
+  /// column is too narrow to center usefully, so the editor fills it and the
+  /// margins/hairlines are suppressed (VS Code's `centeredLayoutAutoResize`).
+  static const double centeredLayoutMinEditorWidth = 400.0;
+
   // ==================== SPACING SCALE ====================
 
   /// 2px — hairline gaps (e.g. between axis label and value).

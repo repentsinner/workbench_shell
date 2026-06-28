@@ -11,36 +11,6 @@ show/hide submenu — the bar above the panes carrying container-level
 actions to toggle which views are visible. Run `/plan` to add a spec
 section, then `/roadmap`.
 
-## Editing Modes §road:editing-modes
-
-Closes §spec:editing-modes. Two independent host-driven toggles, each a
-controlled/uncontrolled property on `WorkbenchLayout` mirroring the
-existing active-container pattern. Built first: independent of the other
-sections and the smallest slices.
-
-### Zen Mode §road:zen-mode
-
-Add a `zenMode` toggle (controlled/uncontrolled) to `WorkbenchLayout`
-that hides activity bar, both side bars, panel, and status bar, leaving
-the editor — in `lib/src/workbench_layout.dart`, exported from
-`lib/workbench_shell.dart`, with a View-menu item wired in
-`example/lib/main.dart`. §spec:editing-modes
-
-### Centered Layout §road:centered-layout
-
-Add a `centeredLayout` toggle (controlled/uncontrolled) to
-`WorkbenchLayout` that constrains the editor to a maximum width and
-centers it, leaving chrome in place — in `lib/src/workbench_layout.dart`,
-max-width constant in `lib/src/layout_constants.dart`, exported from
-`lib/workbench_shell.dart`, with a View-menu item in
-`example/lib/main.dart`. §spec:editing-modes
-
-**Verify:** In the example app's View menu, toggle Zen Mode on — confirm
-only the editor remains; toggle off — confirm all chrome returns. Toggle
-Centered Layout on — confirm the editor narrows and centers with side
-margins while activity bar, side bar, and status bar stay; toggle off —
-confirm the editor fills the width again.
-
 ## Primary Side Bar Position §road:sidebar-position
 
 Closes §spec:sidebar-position. Names the side bar's edge so the secondary
