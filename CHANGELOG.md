@@ -1,3 +1,10 @@
+# [0.16.0](https://github.com/repentsinner/workbench_shell/compare/v0.15.0...v0.16.0) (2026-06-28)
+
+
+### Features
+
+* **workbench-layout:** add Zen and Centered editing modes ([a80f83e](https://github.com/repentsinner/workbench_shell/commit/a80f83ee0289eeaaa3f381bc240054287a25e05c))
+
 # [0.15.0](https://github.com/repentsinner/workbench_shell/compare/v0.14.0...v0.15.0) (2026-06-27)
 
 
