@@ -1,3 +1,18 @@
+# [1.0.0](https://github.com/repentsinner/workbench_shell/compare/v0.16.0...v1.0.0) (2026-06-28)
+
+
+* feat(workbench-layout)!: own resize geometry, seed-plus-commit ([4d057eb](https://github.com/repentsinner/workbench_shell/commit/4d057eb8d7e9099ea4335799417c4b03297752c2))
+
+
+### BREAKING CHANGES
+
+* `WorkbenchLayout.sidebarWidth`/`onSidebarWidthChanged`,
+`panelHeight`/`onPanelHeightChanged`, and the view container's
+`sizes`/`onSizesChanged` are removed. Use `initialSidebarWidth`/
+`onSidebarWidthChangeEnd`, `initialPanelHeight`/`onPanelHeightChangeEnd`, and
+`initialSizes`/`onSizesChangeEnd`. The shell owns the live value; the host
+seeds at startup and persists on drag-end (one write per drag, no debounce).
+
 # [0.16.0](https://github.com/repentsinner/workbench_shell/compare/v0.15.0...v0.16.0) (2026-06-28)
 
 
