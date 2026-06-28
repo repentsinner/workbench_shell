@@ -1362,7 +1362,7 @@ controlled value (`sidebarWidth`, `panelHeight`, `sizes`) plus a per-frame
 `on…Changed` callback. Two defects follow. First, the per-frame callback
 fires every drag frame (the canonical sash drives it from pointer-move,
 §spec:workbench-layout), so a host persisting layout writes ~60×/sec for the
-drag's duration and must add its own debounce — the boilerplate the shell
+drag's duration and reimplements a debounce to cope — the boilerplate the shell
 exists to remove (§spec:problem-statement). Second, controlled mode models an
 interaction that does not exist: it lets an external authority drive resize
 geometry frame-by-frame, independent of the user's drag. A host with no
