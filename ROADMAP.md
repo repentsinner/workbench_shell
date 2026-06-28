@@ -123,8 +123,7 @@ for panel height and a view-pane sash (`onSizesChangeEnd` + `initialSizes`).
 Closes the double-click-reset gap in §spec:workbench-layout. The gesture is a
 universal VS Code `Sash` behavior; the shell already exposes
 `WorkbenchSash.onReset` and honors it on the centered-layout margins, but the
-sidebar, panel, and view-pane sashes ignore it. Depends on
-`WorkbenchSash.onReset` landing (§road:editing-modes) and should follow
+sidebar, panel, and view-pane sashes ignore it. Should follow
 §road:resize-geometry, which reworks how those sash values are owned (resetting
 to a default is a single-commit reset in the same seed-plus-commit shape).
 
