@@ -204,6 +204,13 @@ class ToggleCenteredLayoutIntent extends Intent {
   const ToggleCenteredLayoutIntent();
 }
 
+/// Host-defined intent to swap the side bar to the opposite edge
+/// (§spec:sidebar-position). The shell exposes the `sidebarPosition` property;
+/// the host owns the state and the menu affordance.
+class ToggleSidebarPositionIntent extends Intent {
+  const ToggleSidebarPositionIntent();
+}
+
 class WorkbenchHome extends StatefulWidget {
   const WorkbenchHome({super.key, required this.themeController});
 
@@ -220,6 +227,9 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   // properties — the same host-managed pattern as `_panelVisible`.
   bool _zenMode = false;
   bool _centeredLayout = false;
+  // Side-bar position (§spec:sidebar-position): host-owned, driven from the View
+  // menu and fed back into the shell's controlled `sidebarPosition` property.
+  WorkbenchSidebarPosition _sidebarPosition = WorkbenchSidebarPosition.left;
   void Function(Object id)? _focusPanelById;
   final NotificationService _notificationService = NotificationService();
 
@@ -294,6 +304,14 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
 
   void _toggleCenteredLayout() {
     setState(() => _centeredLayout = !_centeredLayout);
+  }
+
+  void _toggleSidebarPosition() {
+    setState(
+      () => _sidebarPosition = _sidebarPosition == WorkbenchSidebarPosition.left
+          ? WorkbenchSidebarPosition.right
+          : WorkbenchSidebarPosition.left,
+    );
   }
 
   /// VS Code's defaults: Shift+Cmd+M Problems, Shift+Cmd+U Output,
@@ -407,6 +425,13 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                         return null;
                       },
                     ),
+                ToggleSidebarPositionIntent:
+                    CallbackAction<ToggleSidebarPositionIntent>(
+                      onInvoke: (_) {
+                        _toggleSidebarPosition();
+                        return null;
+                      },
+                    ),
               },
               child: WorkbenchMenuBar(
                 // The shell's panel/tab entries plus the host's editing-mode
@@ -423,6 +448,13 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                     label: _centeredLayout
                         ? 'Uncenter Layout'
                         : 'Centered Layout',
+                  ),
+                  WorkbenchViewMenuTab(
+                    intent: const ToggleSidebarPositionIntent(),
+                    label:
+                        _sidebarPosition == WorkbenchSidebarPosition.left
+                        ? 'Move Side Bar Right'
+                        : 'Move Side Bar Left',
                   ),
                 ],
                 child: NotificationHost(
@@ -447,6 +479,12 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                     centeredLayout: _centeredLayout,
                     onCenteredLayoutChanged: (next) =>
                         setState(() => _centeredLayout = next),
+                    // Controlled side-bar position (§spec:sidebar-position): the
+                    // host owns the edge and the shell renders it, mirroring the
+                    // editing-mode properties above.
+                    sidebarPosition: _sidebarPosition,
+                    onSidebarPositionChanged: (next) =>
+                        setState(() => _sidebarPosition = next),
                     statusBar: const WorkbenchStatusBar(
                       leading: [
                         WorkbenchStatusBarItem(

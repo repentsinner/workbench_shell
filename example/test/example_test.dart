@@ -397,4 +397,30 @@ void main() {
     await tester.pumpAndSettle();
     expect(editorBox().width, wideWidth);
   });
+
+  // Side-bar position (§spec:sidebar-position). The View menu dispatches
+  // ToggleSidebarPositionIntent; the host swaps its edge and feeds it into the
+  // shell's controlled sidebarPosition property. Driving the intent proves the
+  // menu→action→host→shell wiring.
+  testWidgets('Side Bar Position intent swaps the activity bar to the opposite '
+      'edge and back', (tester) async {
+    await tester.pumpWidget(const WorkbenchExampleApp());
+    await tester.pumpAndSettle();
+
+    final activityIcon = find.byIcon(Symbols.folder_rounded);
+    final leftX = tester.getCenter(activityIcon).dx;
+
+    final context = tester.element(find.byType(WorkbenchLayout));
+    Actions.invoke(context, const ToggleSidebarPositionIntent());
+    await tester.pumpAndSettle();
+
+    // The activity bar moved to the right edge.
+    final rightX = tester.getCenter(activityIcon).dx;
+    expect(rightX, greaterThan(leftX));
+
+    // Toggling back returns it to the left.
+    Actions.invoke(context, const ToggleSidebarPositionIntent());
+    await tester.pumpAndSettle();
+    expect(tester.getCenter(activityIcon).dx, closeTo(leftX, 1));
+  });
 }

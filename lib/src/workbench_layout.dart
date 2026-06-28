@@ -6,6 +6,12 @@ import 'workbench_sash.dart';
 import 'workbench_theme.dart';
 import 'workbench_view_container.dart';
 
+/// Which editor edge the primary side bar (with its activity bar) occupies
+/// (§spec:sidebar-position). Named rather than a boolean because the secondary
+/// side bar (§spec:secondary-sidebar) derives its edge as "opposite the
+/// primary", which reads where "opposite `false`" does not.
+enum WorkbenchSidebarPosition { left, right }
+
 /// VS Code-style workbench layout with activity bar, sidebar, editor
 /// area, bottom panel, and status bar.
 ///
@@ -123,6 +129,23 @@ class WorkbenchLayout extends StatefulWidget {
   /// though the shell raises no toggle of its own today.
   final ValueChanged<bool>? onCenteredLayoutChanged;
 
+  /// Initial side-bar position. Used only in uncontrolled mode
+  /// (when [sidebarPosition] is null); ignored otherwise.
+  final WorkbenchSidebarPosition initialSidebarPosition;
+
+  /// Externally controlled side-bar position (§spec:sidebar-position). When
+  /// non-null, the shell renders the primary side bar (with its activity bar),
+  /// its sash, and its border on this edge and delegates changes to
+  /// [onSidebarPositionChanged]; the host owns the state. When null, the shell
+  /// tracks the position internally (uncontrolled), seeded from
+  /// [initialSidebarPosition].
+  final WorkbenchSidebarPosition? sidebarPosition;
+
+  /// Called when the side-bar position changes. Required when
+  /// [sidebarPosition] is non-null. See [onZenModeChanged] for why the callback
+  /// exists even though the shell raises no change of its own today.
+  final ValueChanged<WorkbenchSidebarPosition>? onSidebarPositionChanged;
+
   const WorkbenchLayout({
     super.key,
     required this.activityBarItems,
@@ -145,6 +168,9 @@ class WorkbenchLayout extends StatefulWidget {
     this.initialCenteredLayout = false,
     this.centeredLayout,
     this.onCenteredLayoutChanged,
+    this.initialSidebarPosition = WorkbenchSidebarPosition.left,
+    this.sidebarPosition,
+    this.onSidebarPositionChanged,
   }) : assert(
          activeViewContainerId == null || onViewContainerChanged != null,
          'onViewContainerChanged is required when activeViewContainerId is '
@@ -157,6 +183,10 @@ class WorkbenchLayout extends StatefulWidget {
        assert(
          centeredLayout == null || onCenteredLayoutChanged != null,
          'onCenteredLayoutChanged is required when centeredLayout is provided',
+       ),
+       assert(
+         sidebarPosition == null || onSidebarPositionChanged != null,
+         'onSidebarPositionChanged is required when sidebarPosition is provided',
        );
 
   @override
@@ -209,9 +239,16 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   bool get _zenMode => widget.zenMode ?? _internalZenMode;
   bool get _centeredLayout => widget.centeredLayout ?? _internalCenteredLayout;
 
+  // Side-bar position follows the same controlled/uncontrolled seam: a
+  // controlled value wins, else the internal value seeded from the initial flag.
+  late WorkbenchSidebarPosition _internalSidebarPosition;
+  WorkbenchSidebarPosition get _sidebarPosition =>
+      widget.sidebarPosition ?? _internalSidebarPosition;
+
   @override
   void initState() {
     super.initState();
+    _internalSidebarPosition = widget.initialSidebarPosition;
     _internalActiveViewContainerId =
         widget.initialViewContainerId ??
         (widget.activityBarItems.isNotEmpty
@@ -310,133 +347,129 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       );
     }
 
+    final onRight = _sidebarPosition == WorkbenchSidebarPosition.right;
+
+    final activityBar = _ActivityBar(
+      mainItems: _mainActivityItems,
+      bottomItems: _bottomActivityItems,
+      activeViewContainerId: _activeViewContainerId,
+      sidebarVisible: _sidebarVisible,
+      onViewContainerSelected: _setActiveViewContainer,
+      position: _sidebarPosition,
+      theme: theme,
+    );
+
+    // Sidebar (collapsible). Always kept in the tree — Offstage when hidden
+    // rather than removed — so the retained container subtrees (and their
+    // shell-owned pane State) survive a hide/show cycle, not only a container
+    // switch (§spec:view-container-state: retained "for the life of the
+    // layout"). Offstage takes no layout space when hidden, so the editor still
+    // fills the row exactly as before; the visible hide/show behavior is
+    // unchanged.
+    final sidebar = Offstage(
+      offstage: !_sidebarVisible,
+      child: TickerMode(
+        enabled: _sidebarVisible,
+        child: Stack(
+          children: [
+            _Sidebar(
+              width: _sidebarWidth,
+              activeLabel: _activeLabelFor(_activeViewContainerId),
+              activeContainerId: _activeViewContainerId,
+              openedContainerIds: _openedContainerIds,
+              containerBuilder: widget.containerBuilder,
+              position: _sidebarPosition,
+              theme: theme,
+            ),
+            // The sash overlays the sidebar's editor-facing edge rather than
+            // taking a strip of layout, so at rest it adds nothing (canon: the
+            // sash is transparent; the seam is the sidebar's own border). That
+            // edge is the right when the bar is on the left and the left when
+            // it is on the right (§spec:sidebar-position). Mirrors the panel and
+            // view-stack pane sashes.
+            Positioned(
+              top: 0,
+              bottom: 0,
+              left: onRight ? 0 : null,
+              right: onRight ? null : 0,
+              child: _buildVerticalResizer(growSign: onRight ? -1 : 1),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    // Editor + bottom panel. The panel is wrapped in a
+    // Visibility(maintainState: true) so its widget subtree (and any State it
+    // owns — timers, scroll positions, fetched data) survives hide/show cycles.
+    // Without this, toggling showBottomPanel disposes the entire panel tree and
+    // discards content state every cycle.
+    final editorAndPanel = Expanded(
+      child: Column(
+        children: [
+          Expanded(child: editorContent),
+          Visibility(
+            visible: widget.showBottomPanel,
+            maintainState: true,
+            maintainAnimation: true,
+            child: SizedBox(
+              height: _panelHeight,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    // Container (not bare DecoratedBox) so the child is inset
+                    // 1px from the top by Container-added padding. Bare
+                    // DecoratedBox paints the border behind the child and the
+                    // panel's own opaque background widget overdraws the 1px
+                    // border strip.
+                    //
+                    // Null panelBorder → theme explicitly suppresses the seam;
+                    // skip the BorderSide entirely rather than falling back to a
+                    // neighboring color.
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: theme.panelBorder == null
+                            ? null
+                            : Border(
+                                top: BorderSide(color: theme.panelBorder!),
+                              ),
+                      ),
+                      child: widget.bottomPanel,
+                    ),
+                  ),
+                  Positioned(
+                    // Sit the sash fully inside the panel (top: 0), like the
+                    // view-stack pane sashes. An overhang above the panel's top
+                    // edge is clipped by this Stack's hardEdge bound, halving the
+                    // painted highlight band; sitting inside keeps every seam's
+                    // sash the same canonical width. Height owned by
+                    // WorkbenchSash (sashSize).
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: _buildHorizontalResizer(theme),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    // The activity bar and side bar travel together to the selected edge; the
+    // editor takes the rest (§spec:sidebar-position). On the right the order
+    // mirrors so the activity bar stays outermost against the window edge.
+    final rowChildren = onRight
+        ? [editorAndPanel, sidebar, activityBar]
+        : [activityBar, sidebar, editorAndPanel];
+
     return Scaffold(
       backgroundColor: theme.editorBackground,
       body: SafeArea(
         child: Column(
           children: [
-            Expanded(
-              child: Row(
-                children: [
-                  // Activity Bar
-                  _ActivityBar(
-                    mainItems: _mainActivityItems,
-                    bottomItems: _bottomActivityItems,
-                    activeViewContainerId: _activeViewContainerId,
-                    sidebarVisible: _sidebarVisible,
-                    onViewContainerSelected: _setActiveViewContainer,
-                    theme: theme,
-                  ),
-
-                  // Sidebar (collapsible). Always kept in the tree — Offstage
-                  // when hidden rather than removed — so the retained container
-                  // subtrees (and their shell-owned pane State) survive a
-                  // hide/show cycle, not only a container switch
-                  // (§spec:view-container-state: retained "for the life of the
-                  // layout"). Offstage takes no layout space when hidden, so the
-                  // editor still fills the row exactly as before; the visible
-                  // hide/show behavior is unchanged.
-                  Offstage(
-                    offstage: !_sidebarVisible,
-                    child: TickerMode(
-                      enabled: _sidebarVisible,
-                      child: Stack(
-                        children: [
-                          _Sidebar(
-                            width: _sidebarWidth,
-                            activeLabel: _activeLabelFor(
-                              _activeViewContainerId,
-                            ),
-                            activeContainerId: _activeViewContainerId,
-                            openedContainerIds: _openedContainerIds,
-                            containerBuilder: widget.containerBuilder,
-                            theme: theme,
-                          ),
-                          // The sash overlays the sidebar's right edge rather
-                          // than taking a strip of layout, so at rest it adds
-                          // nothing (canon: the sash is transparent; the seam is
-                          // the sidebar's own right border). Mirrors the panel
-                          // and view-stack pane sashes.
-                          Positioned(
-                            top: 0,
-                            bottom: 0,
-                            right: 0,
-                            child: _buildVerticalResizer(theme),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // Editor + bottom panel. The panel is wrapped in a
-                  // Visibility(maintainState: true) so its widget
-                  // subtree (and any State it owns — timers, scroll
-                  // positions, fetched data) survives hide/show
-                  // cycles. Without this, toggling showBottomPanel
-                  // disposes the entire panel tree and discards
-                  // content state every cycle.
-                  Expanded(
-                    child: Column(
-                      children: [
-                        Expanded(child: editorContent),
-                        Visibility(
-                          visible: widget.showBottomPanel,
-                          maintainState: true,
-                          maintainAnimation: true,
-                          child: SizedBox(
-                            height: _panelHeight,
-                            child: Stack(
-                              children: [
-                                Positioned.fill(
-                                  // Container (not bare DecoratedBox) so
-                                  // the child is inset 1px from the top
-                                  // by Container-added padding. Bare
-                                  // DecoratedBox paints the border behind
-                                  // the child and the panel's own opaque
-                                  // background widget overdraws the 1px
-                                  // border strip.
-                                  //
-                                  // Null panelBorder → theme explicitly
-                                  // suppresses the seam; skip the
-                                  // BorderSide entirely rather than
-                                  // falling back to a neighboring color.
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      border: theme.panelBorder == null
-                                          ? null
-                                          : Border(
-                                              top: BorderSide(
-                                                color: theme.panelBorder!,
-                                              ),
-                                            ),
-                                    ),
-                                    child: widget.bottomPanel,
-                                  ),
-                                ),
-                                Positioned(
-                                  // Sit the sash fully inside the panel
-                                  // (top: 0), like the view-stack pane sashes.
-                                  // An overhang above the panel's top edge is
-                                  // clipped by this Stack's hardEdge bound,
-                                  // halving the painted highlight band; sitting
-                                  // inside keeps every seam's sash the same
-                                  // canonical width. Height owned by
-                                  // WorkbenchSash (sashSize).
-                                  top: 0,
-                                  left: 0,
-                                  right: 0,
-                                  child: _buildHorizontalResizer(theme),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            Expanded(child: Row(children: rowChildren)),
             widget.statusBar,
           ],
         ),
@@ -451,18 +484,19 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     return '';
   }
 
-  Widget _buildVerticalResizer(WorkbenchTheme theme) {
-    // The sidebar sits on the left, so dragging the seam right grows its width
-    // (growSign +1). The sash is transparent at rest like the panel/view-pane
-    // sashes — the seam is the sidebar's own right border, which this overlays.
-    // WorkbenchSash owns the canonical drag, directional cursor, and hover/drag
-    // highlight (§spec:workbench-layout).
+  Widget _buildVerticalResizer({required double growSign}) {
+    // The seam grows the sidebar toward the editor: dragging right when the bar
+    // is on the left (growSign +1), dragging left when it is on the right
+    // (growSign -1) (§spec:sidebar-position). The sash is transparent at rest
+    // like the panel/view-pane sashes — the seam is the sidebar's own border,
+    // which this overlays. WorkbenchSash owns the canonical drag, directional
+    // cursor, and hover/drag highlight (§spec:workbench-layout).
     return WorkbenchSash(
       axis: Axis.horizontal,
       value: _sidebarWidth,
       min: WorkbenchLayoutConstants.sidebarMinWidth,
       max: WorkbenchLayoutConstants.sidebarMaxWidth,
-      growSign: 1,
+      growSign: growSign,
       // The shell owns the width: permute it live each frame so the tree
       // relayouts, and commit the final value once on release for persistence
       // (§spec:resize-geometry). No per-frame host callback.
@@ -619,6 +653,7 @@ class _ActivityBar extends StatelessWidget {
   final String activeViewContainerId;
   final bool sidebarVisible;
   final ValueChanged<String> onViewContainerSelected;
+  final WorkbenchSidebarPosition position;
   final WorkbenchTheme theme;
 
   const _ActivityBar({
@@ -627,20 +662,31 @@ class _ActivityBar extends StatelessWidget {
     required this.activeViewContainerId,
     required this.sidebarVisible,
     required this.onViewContainerSelected,
+    required this.position,
     required this.theme,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Null activityBarBorder → theme registry default (modern themes).
-    // Skip the BorderSide entirely instead of flat-grey fallback.
+    // The separator border faces the side bar — the activity bar's right edge
+    // when the bar is on the left, its left edge when on the right
+    // (§spec:sidebar-position). Null activityBarBorder → theme registry default
+    // (modern themes); skip the BorderSide entirely instead of a flat-grey
+    // fallback.
+    final onRight = position == WorkbenchSidebarPosition.right;
+    final borderSide = theme.activityBarBorder == null
+        ? null
+        : BorderSide(color: theme.activityBarBorder!);
     return Container(
       width: WorkbenchLayoutConstants.activityBarWidth,
       decoration: BoxDecoration(
         color: theme.activityBarBackground,
-        border: theme.activityBarBorder == null
+        border: borderSide == null
             ? null
-            : Border(right: BorderSide(color: theme.activityBarBorder!)),
+            : Border(
+                left: onRight ? borderSide : BorderSide.none,
+                right: onRight ? BorderSide.none : borderSide,
+              ),
       ),
       child: Column(
         children: [
@@ -657,6 +703,14 @@ class _ActivityBar extends StatelessWidget {
 
   Widget _buildIcon(ActivityBarItem item) {
     final active = sidebarVisible && activeViewContainerId == item.id;
+    // The active indicator sits on the activity bar's outer edge, away from the
+    // side bar — left edge on the left, right edge on the right
+    // (§spec:sidebar-position, VS Code's mirrored `activeBorder`).
+    final indicator = BorderSide(
+      color: active ? theme.activityBarForeground : Colors.transparent,
+      width: WorkbenchLayoutConstants.activityBarIndicatorWidth,
+    );
+    final onRight = position == WorkbenchSidebarPosition.right;
     return Tooltip(
       message: item.label,
       preferBelow: false,
@@ -667,12 +721,8 @@ class _ActivityBar extends StatelessWidget {
           height: WorkbenchLayoutConstants.activityBarWidth,
           decoration: BoxDecoration(
             border: Border(
-              left: BorderSide(
-                color: active
-                    ? theme.activityBarForeground
-                    : Colors.transparent,
-                width: WorkbenchLayoutConstants.activityBarIndicatorWidth,
-              ),
+              left: onRight ? BorderSide.none : indicator,
+              right: onRight ? indicator : BorderSide.none,
             ),
           ),
           child: Icon(
@@ -699,6 +749,7 @@ class _Sidebar extends StatelessWidget {
   final String activeContainerId;
   final List<String> openedContainerIds;
   final WorkbenchViewContainerSpec Function(String containerId) containerBuilder;
+  final WorkbenchSidebarPosition position;
   final WorkbenchTheme theme;
 
   const _Sidebar({
@@ -707,24 +758,33 @@ class _Sidebar extends StatelessWidget {
     required this.activeContainerId,
     required this.openedContainerIds,
     required this.containerBuilder,
+    required this.position,
     required this.theme,
   });
 
   @override
   Widget build(BuildContext context) {
+    // The editor-facing border is the canonical sideBar.border seam (VS Code),
+    // drawn by the sidebar like the panel draws its top border; the resize sash
+    // overlays it transparently. It is the right edge when the bar is on the
+    // left, the left edge when on the right (§spec:sidebar-position). Container
+    // (not bare DecoratedBox) so the border insets the body, keeping the view
+    // container's background from overdrawing the 1px seam. Null sideBarBorder →
+    // theme suppresses the seam; skip the BorderSide.
+    final onRight = position == WorkbenchSidebarPosition.right;
+    final borderSide = theme.sideBarBorder == null
+        ? null
+        : BorderSide(color: theme.sideBarBorder!);
     return Container(
       width: width,
-      // The right border is the canonical sideBar.border seam (VS Code), drawn
-      // by the sidebar like the panel draws its top border; the resize sash
-      // overlays it transparently. Container (not bare DecoratedBox) so the
-      // border insets the body, keeping the view container's background from
-      // overdrawing the 1px seam. Null sideBarBorder → theme suppresses the
-      // seam; skip the BorderSide.
       decoration: BoxDecoration(
         color: theme.sideBarBackground,
-        border: theme.sideBarBorder == null
+        border: borderSide == null
             ? null
-            : Border(right: BorderSide(color: theme.sideBarBorder!)),
+            : Border(
+                left: onRight ? borderSide : BorderSide.none,
+                right: onRight ? BorderSide.none : borderSide,
+              ),
       ),
       child: Column(
         children: [
