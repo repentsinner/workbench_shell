@@ -147,3 +147,27 @@ confirm nothing fires per frame and `onSidebarWidthChangeEnd` fires exactly
 once on release with the final width. Restart with a seeded
 `initialSidebarWidth` — confirm the sidebar opens at the seeded width. Repeat
 for panel height and a view-pane sash (`onSizesChangeEnd` + `initialSizes`).
+
+## Sash Double-Click Reset §road:sash-reset
+
+Closes the double-click-reset gap in §spec:workbench-layout. The gesture is a
+universal VS Code `Sash` behavior; the shell already exposes
+`WorkbenchSash.onReset` and honors it on the centered-layout margins, but the
+sidebar, panel, and view-pane sashes ignore it. Depends on
+`WorkbenchSash.onReset` landing (§road:editing-modes) and should follow
+§road:resize-geometry, which reworks how those sash values are owned (resetting
+to a default is a single-commit reset in the same seed-plus-commit shape).
+
+### Reset The Outer And Pane Sashes §road:sash-reset-wiring
+
+Wire `onReset` on the sidebar, panel, and view-pane sashes per the
+§spec:workbench-layout per-seam semantics: the sidebar and panel sashes reset to
+`WorkbenchLayoutConstants.sidebarDefaultWidth` / `panelDefaultHeight`; a
+view-pane sash resets the two adjacent expanded panes to an even split of their
+combined body height — in `lib/src/workbench_layout.dart` and
+`lib/src/workbench_view_container.dart`. §spec:workbench-layout
+
+**Verify:** In the example app, drag the sidebar wider, then double-click its
+sash — confirm it snaps back to the default width. Repeat for the panel height.
+Drag a view-pane boundary lopsided, double-click it — confirm the two panes
+even out.
