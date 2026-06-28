@@ -99,26 +99,30 @@ class WorkbenchViewContainerSpec {
   /// restarts), not a requirement. Mirrors a descriptor's `onExpandedChanged`.
   final void Function(int oldIndex, int newIndex)? onReorder;
 
-  /// Seed for sash body sizing: descriptor id → body height
-  /// (§spec:resize-geometry). The shell owns the live sizing — there is no
-  /// controlled `sizes` property — and seeds it once when the container is first
-  /// built. A host restores persisted sizing by seeding it here and records
-  /// changes via [onSizesChangeEnd]. Unlike drag geometry, pane *order* and
-  /// *expansion* keep their controlled/uncontrolled contracts.
-  final Map<String, double>? initialSizes;
+  /// Controlled sash body sizing: descriptor id → user-set body height
+  /// (§spec:view-stack, §spec:view-container-state). When supplied, the shell
+  /// apportions expanded bodies from this map and a sash drag fires
+  /// [onSizesChanged] without self-mutating — the host owns the sizing and
+  /// rebuilds with a new map. Null (the default) lets the shell own the sizing,
+  /// permuted by drags. Mirrors [order] and a descriptor's controlled
+  /// `expanded`.
+  final Map<String, double>? sizes;
 
-  /// Notified once when a view-pane sash drag ends, with the full final sizing
-  /// map (§spec:resize-geometry). Fires on release only — never per frame — so a
-  /// host persists one write per drag with no debounce of its own.
-  final void Function(Map<String, double> sizes)? onSizesChangeEnd;
+  /// Notified when a sash drag re-divides two neighbors' body heights
+  /// (§spec:view-stack, §spec:view-container-state), carrying the full next
+  /// sizing map. Optional: the shell owns the sizing and re-divides itself by
+  /// default, so this is a notification (e.g. to persist body sizing across
+  /// restarts), not a control input. Mirrors [onReorder] and a descriptor's
+  /// `onExpandedChanged`.
+  final void Function(Map<String, double> sizes)? onSizesChanged;
 
   const WorkbenchViewContainerSpec({
     required this.views,
     this.mergeSingleView = false,
     this.order,
     this.onReorder,
-    this.initialSizes,
-    this.onSizesChangeEnd,
+    this.sizes,
+    this.onSizesChanged,
   });
 }
 
@@ -181,19 +185,23 @@ class WorkbenchViewContainer extends StatefulWidget {
   /// so it engages only with two or more views (the collapsible case).
   final void Function(int oldIndex, int newIndex)? onReorder;
 
-  /// Seed for sash body sizing as descriptor id → body height
-  /// (§spec:resize-geometry). The shell owns the live sizing — there is no
-  /// controlled `sizes` property — and seeds it once on first build. A host
-  /// restores persisted sizing by seeding it here and records changes via
-  /// [onSizesChangeEnd]. Drag geometry is shell-owned and seed-plus-committed;
-  /// pane *order* and *expansion* keep their controlled/uncontrolled contracts.
-  final Map<String, double>? initialSizes;
+  /// Controlled sash body sizing as descriptor id → user-set body height
+  /// (§spec:view-stack sash-resize, §spec:view-container-state). When non-null
+  /// the shell apportions expanded bodies from this map and a sash drag fires
+  /// [onSizesChanged] with the next full map without mutating its own state —
+  /// the host owns the sizing and rebuilds with the new map. Null (the default)
+  /// lets the shell own the sizing, permuted by drags. Mirrors the controlled
+  /// [order] and a descriptor's controlled
+  /// [WorkbenchViewDescriptor.expanded].
+  final Map<String, double>? sizes;
 
-  /// Notified once when a view-pane sash drag ends, with the full final sizing
-  /// map (§spec:resize-geometry). Fires on release only — never per frame — so a
-  /// host persists one write per drag with no debounce. Mirrors
-  /// [WorkbenchLayout.onSidebarWidthChangeEnd].
-  final void Function(Map<String, double> sizes)? onSizesChangeEnd;
+  /// Notified when a sash drag re-divides two adjacent expanded panes' body
+  /// heights (§spec:view-stack sash-resize, §spec:view-container-state), with
+  /// the full next sizing map. Optional: the shell owns the sizing and
+  /// re-divides itself by default, so this is a notification (e.g. to persist
+  /// body sizing across restarts), not a control input. Mirrors [onReorder] and
+  /// [WorkbenchViewDescriptor.onExpandedChanged].
+  final void Function(Map<String, double> sizes)? onSizesChanged;
 
   const WorkbenchViewContainer({
     super.key,
@@ -201,8 +209,8 @@ class WorkbenchViewContainer extends StatefulWidget {
     this.mergeSingleView = false,
     this.order,
     this.onReorder,
-    this.initialSizes,
-    this.onSizesChangeEnd,
+    this.sizes,
+    this.onSizesChanged,
   });
 
   @override
@@ -226,14 +234,14 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
   /// canon).
   final Map<String, double> _manualBody = {};
 
-  @override
-  void initState() {
-    super.initState();
-    // Seed the shell-owned sizing once from the startup seed
-    // (§spec:resize-geometry); the shell owns the live weights thereafter and
-    // records changes via onSizesChangeEnd.
-    if (widget.initialSizes != null) _manualBody.addAll(widget.initialSizes!);
-  }
+  /// The body sizing in effect for layout: the controlled
+  /// [WorkbenchViewContainer.sizes] when the host supplies one, otherwise the
+  /// shell-owned [_manualBody]. Reads (apportionment, cursor) route through here
+  /// so a host can drive sizing; writes go to [_manualBody] only in the
+  /// uncontrolled case (the host pushes a new [WorkbenchViewContainer.sizes] in
+  /// the controlled case). Mirrors how [_orderedViews] reads
+  /// [WorkbenchViewContainer.order] over [_order].
+  Map<String, double> get _effectiveSizes => widget.sizes ?? _manualBody;
 
   /// Uncontrolled pane order, a list of descriptor ids. The shell owns the
   /// stack order (§spec:view-stack): seeded from the descriptor-list order and
@@ -544,8 +552,8 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
 
   MouseCursor _sashCursor(String upperId, String lowerId) {
     const minBody = WorkbenchLayoutConstants.viewPaneMinBodyHeight;
-    final upper = _manualBody[upperId];
-    final lower = _manualBody[lowerId];
+    final upper = _effectiveSizes[upperId];
+    final lower = _effectiveSizes[lowerId];
     if (upper != null && upper <= minBody + 0.5) {
       return SystemMouseCursors.resizeDown;
     }
@@ -605,19 +613,24 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
               if (max < min) max = min;
               return (value: upper, min: min, max: max);
             },
-            // The shell owns the sizing (§spec:resize-geometry): permute the two
-            // neighbors live each frame so the stack relayouts, and commit the
-            // full final map once on release for persistence. No per-frame host
-            // callback.
             onChanged: (newUpper) {
               final pair = _activeSashPair ?? newUpper;
-              setState(() {
-                _manualBody[upperId] = newUpper;
-                _manualBody[lowerId] = pair - newUpper;
-              });
+              // The next full sizing map: a copy of the effective sizes with
+              // only this neighbor pair re-divided. In controlled mode the host
+              // owns the map, so the shell notifies without self-mutating; in
+              // uncontrolled mode the shell permutes its own [_manualBody] and
+              // fires the same notification optionally.
+              final next = Map<String, double>.from(_effectiveSizes)
+                ..[upperId] = newUpper
+                ..[lowerId] = pair - newUpper;
+              if (widget.sizes == null) {
+                setState(() {
+                  _manualBody[upperId] = newUpper;
+                  _manualBody[lowerId] = pair - newUpper;
+                });
+              }
+              widget.onSizesChanged?.call(next);
             },
-            onChangeEnd: (_) =>
-                widget.onSizesChangeEnd?.call(Map<String, double>.from(_manualBody)),
             child: const SizedBox.expand(),
           ),
         ),
@@ -710,7 +723,7 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
               // expanded pane; null leaves it on the even-default weight. A
               // collapsed pane carries no weight into the distribution but
               // retains its stored size, so a re-expand restores it.
-              weight: isExpandedPane ? _manualBody[view.id] : null,
+              weight: isExpandedPane ? _effectiveSizes[view.id] : null,
               // Per-pane body cap (§spec:view-pane-max-body); null is unbounded.
               maxBody: view.maximumBodySize,
               // An expanded pane after the first carries a resize sash on the

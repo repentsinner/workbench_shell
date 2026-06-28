@@ -949,53 +949,86 @@ void main() {
       expect(total, closeTo(containerHeight, 1.0));
     });
 
-    testWidgets('initialSizes seeds the apportionment (§spec:resize-geometry)', (
-      tester,
-    ) async {
+    testWidgets('controlled sizes: a sash drag notifies without self-mutating, '
+        'and the host-supplied map drives apportionment', (tester) async {
       const header = WorkbenchLayoutConstants.viewPaneHeaderHeight;
       const containerHeight = 600.0;
-      // An uneven seed: A twice B. Weights are proportional, so the bodies
-      // divide the pool 2:1 regardless of the absolute seed values.
-      final seed = {'a': 200.0, 'b': 100.0};
-      await tester.pumpWidget(
-        wrapWithTheme(
-          SizedBox(
-            height: containerHeight,
-            child: WorkbenchViewContainer(
-              initialSizes: seed,
-              views: const [
-                WorkbenchViewDescriptor(
-                  id: 'a',
-                  title: 'Alpha',
-                  bodyBuilder: _shortBody,
-                ),
-                WorkbenchViewDescriptor(
-                  id: 'b',
-                  title: 'Beta',
-                  bodyBuilder: _shortBody,
-                ),
-              ],
-            ),
+      Map<String, double>? reported;
+      // Controlled from the start: an even split of the body pool drives the
+      // initial apportionment so the container is in controlled mode for the
+      // first drag (a null map would fall back to the shell-owned default).
+      final evenBody = (containerHeight - 2 * header) / 2;
+      Map<String, double>? hostSizes = {'a': evenBody, 'b': evenBody};
+      Widget build() => wrapWithTheme(
+        SizedBox(
+          height: containerHeight,
+          child: WorkbenchViewContainer(
+            sizes: hostSizes,
+            onSizesChanged: (next) => reported = next,
+            views: const [
+              WorkbenchViewDescriptor(
+                id: 'a',
+                title: 'Alpha',
+                bodyBuilder: _shortBody,
+              ),
+              WorkbenchViewDescriptor(
+                id: 'b',
+                title: 'Beta',
+                bodyBuilder: _shortBody,
+              ),
+            ],
           ),
         ),
       );
 
-      final aBody = paneRect(tester, 'a').height - header;
-      final bBody = paneRect(tester, 'b').height - header;
-      // The seeded 2:1 weight drives the on-screen apportionment.
-      expect(aBody, closeTo(2 * bBody, 2.0));
+      await tester.pumpWidget(build());
+
+      final aBefore = paneRect(tester, 'a').height;
+      final bBefore = paneRect(tester, 'b').height;
+      expect(aBefore, closeTo(bBefore, 1.0));
+
+      // Drag the sash. In controlled mode the shell does NOT self-mutate; the
+      // on-screen apportionment is unchanged until the host pushes a new map.
+      await tester.drag(
+        find.byKey(const ValueKey('workbench-view-sash-b')),
+        const Offset(0, 80),
+      );
+      await tester.pumpAndSettle();
+
+      expect(reported, isNotNull);
+      // The notification carries the full next sizes map with both neighbors.
+      expect(reported!.containsKey('a'), isTrue);
+      expect(reported!.containsKey('b'), isTrue);
+      expect(reported!['a']!, greaterThan(reported!['b']!));
+      // No self-mutation: the render is unchanged from before the drag.
+      expect(paneRect(tester, 'a').height, closeTo(aBefore, 1.0));
+      expect(paneRect(tester, 'b').height, closeTo(bBefore, 1.0));
+
+      // The host applies the reported map → the render follows it.
+      hostSizes = reported;
+      await tester.pumpWidget(build());
+      await tester.pumpAndSettle();
+      // Body heights match the supplied apportionment (pane = header + body).
+      expect(
+        paneRect(tester, 'a').height,
+        closeTo(header + hostSizes!['a']!, 1.0),
+      );
+      expect(
+        paneRect(tester, 'b').height,
+        closeTo(header + hostSizes['b']!, 1.0),
+      );
     });
 
-    testWidgets('a sash drag resizes live and commits the final map once on '
-        'release (§spec:resize-geometry)', (tester) async {
+    testWidgets('uncontrolled sizes still drag the shell-owned apportionment '
+        'and fire onSizesChanged', (tester) async {
       const containerHeight = 600.0;
-      final ends = <Map<String, double>>[];
+      Map<String, double>? reported;
       await tester.pumpWidget(
         wrapWithTheme(
           SizedBox(
             height: containerHeight,
             child: WorkbenchViewContainer(
-              onSizesChangeEnd: ends.add,
+              onSizesChanged: (next) => reported = next,
               views: const [
                 WorkbenchViewDescriptor(
                   id: 'a',
@@ -1016,28 +1049,20 @@ void main() {
       final aBefore = paneRect(tester, 'a').height;
       final bBefore = paneRect(tester, 'b').height;
 
-      // Drive the drag manually so we can observe that nothing commits per frame.
-      final gesture = await tester.startGesture(
-        tester.getCenter(find.byKey(const ValueKey('workbench-view-sash-b'))),
+      await tester.drag(
+        find.byKey(const ValueKey('workbench-view-sash-b')),
+        const Offset(0, 80),
       );
-      await gesture.moveBy(const Offset(0, 80));
-      await tester.pump();
+      await tester.pumpAndSettle();
 
-      // Shell-owned apportionment updates live on screen...
+      // Shell-owned apportionment updated on screen (existing behavior).
       final aAfter = paneRect(tester, 'a').height;
       final bAfter = paneRect(tester, 'b').height;
       expect(aAfter, greaterThan(aBefore + 20));
       expect(bAfter, lessThan(bBefore - 20));
-      // ...but nothing commits mid-drag.
-      expect(ends, isEmpty);
-
-      // Release: exactly one commit carrying the full final map.
-      await gesture.up();
-      await tester.pumpAndSettle();
-      expect(ends, hasLength(1));
-      expect(ends.single.containsKey('a'), isTrue);
-      expect(ends.single.containsKey('b'), isTrue);
-      expect(ends.single['a']!, greaterThan(ends.single['b']!));
+      // And the optional notification fired with the new map.
+      expect(reported, isNotNull);
+      expect(reported!['a']!, greaterThan(reported!['b']!));
     });
 
     testWidgets('dragging a pane header reorders the shell-owned stack and '

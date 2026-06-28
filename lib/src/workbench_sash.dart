@@ -40,7 +40,7 @@ class WorkbenchSash extends StatefulWidget {
     this.max = 1,
     this.resolveBasis,
     this.hoverCursor,
-    this.onChangeEnd,
+    this.onDragChanged,
     this.onReset,
   });
 
@@ -76,10 +76,8 @@ class WorkbenchSash extends StatefulWidget {
   /// Called with the new clamped value during a drag.
   final ValueChanged<double> onChanged;
 
-  /// Notified once when a drag ends, with the final clamped value
-  /// (§spec:resize-geometry). The seam's owner commits this for persistence;
-  /// per-frame [onChanged] drives the live resize, this fires only on release.
-  final ValueChanged<double>? onChangeEnd;
+  /// Notified when a drag begins (`true`) and ends (`false`).
+  final ValueChanged<bool>? onDragChanged;
 
   /// Called on a double-click of the strip — the canonical "reset this seam to
   /// its default" gesture (VS Code's `onDidSashReset`, e.g. the centered-layout
@@ -159,6 +157,7 @@ class _WorkbenchSashState extends State<WorkbenchSash> {
       overlay.insert(_overlay!);
     }
     setState(() => _dragging = true);
+    widget.onDragChanged?.call(true);
   }
 
   void _onUpdate(DragUpdateDetails d) {
@@ -178,12 +177,7 @@ class _WorkbenchSashState extends State<WorkbenchSash> {
     _overlay?.remove();
     _overlay = null;
     if (mounted) setState(() => _dragging = false);
-    // Surface the final clamped value once on release (§spec:resize-geometry).
-    // The seam's owner commits it for persistence; per-frame onChanged already
-    // drove the live resize. _lastEmitted is seeded at drag start, so it is
-    // non-null here.
-    final last = _lastEmitted;
-    if (last != null) widget.onChangeEnd?.call(last);
+    widget.onDragChanged?.call(false);
   }
 
   @override

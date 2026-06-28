@@ -57,29 +57,31 @@ class WorkbenchLayout extends StatefulWidget {
   /// Required when [activeViewContainerId] is non-null.
   final ValueChanged<String>? onViewContainerChanged;
 
-  /// Seed for the sidebar width in pixels (§spec:resize-geometry). The shell
-  /// owns the live width — there is no controlled width property — and seeds it
-  /// once at startup from this value, falling back to
-  /// [WorkbenchLayoutConstants.sidebarDefaultWidth] when null. A host restores a
-  /// persisted width by seeding it here and records changes via
-  /// [onSidebarWidthChangeEnd].
-  final double? initialSidebarWidth;
+  /// Controlled sidebar width in pixels. When non-null the shell renders this
+  /// width and a sash drag fires [onSidebarWidthChanged] without self-mutating —
+  /// the host owns the width and rebuilds with the new value (e.g. to persist it
+  /// across restarts, §spec:workbench-layout). Null (the default) lets the shell
+  /// own the width, seeded from [WorkbenchLayoutConstants.sidebarDefaultWidth]
+  /// and permuted by drags. Mirrors the view-stack `sizes` hook.
+  final double? sidebarWidth;
 
-  /// Notified once when a sidebar sash drag ends, with the final clamped width
-  /// (§spec:resize-geometry). Fires on release only — never per frame — so a
-  /// host persists one write per drag with no debounce of its own.
-  final ValueChanged<double>? onSidebarWidthChangeEnd;
+  /// Notified after a sidebar sash drag with the next clamped width. Optional:
+  /// the shell owns the width and resizes itself by default, so this is a
+  /// notification (e.g. to persist across restarts), not a control input.
+  /// Mirrors the view-stack `onSizesChanged`.
+  final ValueChanged<double>? onSidebarWidthChanged;
 
-  /// Seed for the bottom-panel height in pixels (§spec:resize-geometry). The
-  /// shell owns the live height and seeds it once at startup from this value,
-  /// falling back to [WorkbenchLayoutConstants.panelDefaultHeight] when null.
-  /// Mirrors [initialSidebarWidth].
-  final double? initialPanelHeight;
+  /// Controlled bottom-panel height in pixels. When non-null the shell renders
+  /// this height and a sash drag fires [onPanelHeightChanged] without
+  /// self-mutating — the host owns the height and rebuilds with the new value
+  /// (§spec:workbench-layout). Null (the default) lets the shell own the height,
+  /// seeded from [WorkbenchLayoutConstants.panelDefaultHeight]. Mirrors
+  /// [sidebarWidth].
+  final double? panelHeight;
 
-  /// Notified once when a panel sash drag ends, with the final clamped height
-  /// (§spec:resize-geometry). Fires on release only, like
-  /// [onSidebarWidthChangeEnd].
-  final ValueChanged<double>? onPanelHeightChangeEnd;
+  /// Notified after a panel sash drag with the next clamped height. Optional,
+  /// like [onSidebarWidthChanged].
+  final ValueChanged<double>? onPanelHeightChanged;
 
   /// Initial Zen-mode state. Used only in uncontrolled mode
   /// (when [zenMode] is null); ignored otherwise.
@@ -135,10 +137,10 @@ class WorkbenchLayout extends StatefulWidget {
     this.initialViewContainerId,
     this.activeViewContainerId,
     this.onViewContainerChanged,
-    this.initialSidebarWidth,
-    this.onSidebarWidthChangeEnd,
-    this.initialPanelHeight,
-    this.onPanelHeightChangeEnd,
+    this.sidebarWidth,
+    this.onSidebarWidthChanged,
+    this.panelHeight,
+    this.onPanelHeightChanged,
     this.initialZenMode = false,
     this.zenMode,
     this.onZenModeChanged,
@@ -189,6 +191,13 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   String get _activeViewContainerId =>
       widget.activeViewContainerId ?? _internalActiveViewContainerId;
 
+  /// Effective sidebar width: the controlled value when the host supplies one,
+  /// else the shell-owned [_sidebarWidth]. Mirrors how the view container reads
+  /// `widget.sizes ?? _manualBody`.
+  double get _effectiveSidebarWidth => widget.sidebarWidth ?? _sidebarWidth;
+
+  double get _effectivePanelHeight => widget.panelHeight ?? _panelHeight;
+
   // Zen and centered layout follow the same controlled/uncontrolled seam as
   // the active view container: a controlled value wins, else the internal
   // value seeded from the initial flag. The shell raises no toggle of its own
@@ -219,15 +228,6 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
             : '');
     _internalZenMode = widget.initialZenMode;
     _internalCenteredLayout = widget.initialCenteredLayout;
-    // Seed the shell-owned resize geometry once at startup (§spec:resize-geometry).
-    // The shell owns the live value thereafter; the host records changes via the
-    // …ChangeEnd callbacks and reseeds from initial… on a fresh layout.
-    _sidebarWidth =
-        widget.initialSidebarWidth ??
-        WorkbenchLayoutConstants.sidebarDefaultWidth;
-    _panelHeight =
-        widget.initialPanelHeight ??
-        WorkbenchLayoutConstants.panelDefaultHeight;
     _partitionActivityItems();
   }
 
@@ -343,7 +343,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
                       child: Stack(
                         children: [
                           _Sidebar(
-                            width: _sidebarWidth,
+                            width: _effectiveSidebarWidth,
                             activeLabel: _activeLabelFor(
                               _activeViewContainerId,
                             ),
@@ -384,7 +384,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
                           maintainState: true,
                           maintainAnimation: true,
                           child: SizedBox(
-                            height: _panelHeight,
+                            height: _effectivePanelHeight,
                             child: Stack(
                               children: [
                                 Positioned.fill(
@@ -459,15 +459,19 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     // highlight (§spec:workbench-layout).
     return WorkbenchSash(
       axis: Axis.horizontal,
-      value: _sidebarWidth,
+      value: _effectiveSidebarWidth,
       min: WorkbenchLayoutConstants.sidebarMinWidth,
       max: WorkbenchLayoutConstants.sidebarMaxWidth,
       growSign: 1,
-      // The shell owns the width: permute it live each frame so the tree
-      // relayouts, and commit the final value once on release for persistence
-      // (§spec:resize-geometry). No per-frame host callback.
-      onChanged: (next) => setState(() => _sidebarWidth = next),
-      onChangeEnd: (next) => widget.onSidebarWidthChangeEnd?.call(next),
+      // Controlled: notify without self-mutating (the host owns the width).
+      // Uncontrolled: permute the shell-owned width and still notify so the
+      // host can persist. Mirrors the view container's `sizes` drag handler.
+      onChanged: (next) {
+        if (widget.sidebarWidth == null) {
+          setState(() => _sidebarWidth = next);
+        }
+        widget.onSidebarWidthChanged?.call(next);
+      },
       child: const SizedBox.expand(),
     );
   }
@@ -478,13 +482,17 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     // sash, highlight included (§spec:workbench-layout).
     return WorkbenchSash(
       axis: Axis.vertical,
-      value: _panelHeight,
+      value: _effectivePanelHeight,
       min: WorkbenchLayoutConstants.panelMinHeight,
       max: WorkbenchLayoutConstants.panelMaxHeight,
       growSign: -1,
-      // Shell-owned, mirroring the sidebar resizer above (§spec:resize-geometry).
-      onChanged: (next) => setState(() => _panelHeight = next),
-      onChangeEnd: (next) => widget.onPanelHeightChangeEnd?.call(next),
+      // Controlled/uncontrolled, mirroring the sidebar resizer above.
+      onChanged: (next) {
+        if (widget.panelHeight == null) {
+          setState(() => _panelHeight = next);
+        }
+        widget.onPanelHeightChanged?.call(next);
+      },
       child: const SizedBox.expand(),
     );
   }
@@ -782,8 +790,8 @@ class _RetainedContainer extends StatelessWidget {
           mergeSingleView: spec.mergeSingleView,
           order: spec.order,
           onReorder: spec.onReorder,
-          initialSizes: spec.initialSizes,
-          onSizesChangeEnd: spec.onSizesChangeEnd,
+          sizes: spec.sizes,
+          onSizesChanged: spec.onSizesChanged,
         ),
       ),
     );

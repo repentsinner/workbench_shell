@@ -223,23 +223,22 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   void Function(Object id)? _focusPanelById;
   final NotificationService _notificationService = NotificationService();
 
-  /// Host-persisted Explorer pane body sizes, keyed by view id
-  /// (§spec:resize-geometry). Dogfoods the seed-plus-commit `initialSizes` /
-  /// `onSizesChangeEnd` hook: the shell seeds Explorer's apportionment from this
-  /// map at first build and reports the final sizing once on drag-end, where a
-  /// real consumer would persist it across restarts. Null until the first sash
-  /// drag, so the shell uses its even default until the user resizes. (The shell
-  /// still owns pane *order* and *expansion* for Explorer — only sizing is
-  /// persisted here, to demonstrate the hook end to end alongside shell-owned
-  /// reorder.)
+  /// Host-owned Explorer pane body sizes, keyed by view id
+  /// (§spec:view-container-state). Dogfoods the controlled `sizes` /
+  /// `onSizesChanged` hook: the shell apportions Explorer's expanded bodies
+  /// from this map and reports a sash drag back here, where the host could
+  /// persist it across restarts. Null until the first sash drag, so the shell
+  /// uses its even default until the user resizes. (The shell still owns pane
+  /// *order* and *expansion* for Explorer — only sizing is host-driven here, to
+  /// demonstrate the hook end to end alongside shell-owned reorder.)
   Map<String, double>? _explorerSizes;
 
-  /// Host-persisted sidebar width and panel height (§spec:resize-geometry).
-  /// Dogfoods the seed-plus-commit `initialSidebarWidth`/`onSidebarWidthChangeEnd`
-  /// and `initialPanelHeight`/`onPanelHeightChangeEnd` hooks the same way
-  /// [_explorerSizes] dogfoods view sizing: null seeds the shell default; the
-  /// shell owns the live value during a drag and reports the final value once on
-  /// release, where a real consumer would persist it across restarts.
+  /// Host-owned sidebar width and panel height (§spec:workbench-layout).
+  /// Dogfoods the controlled `sidebarWidth`/`onSidebarWidthChanged` and
+  /// `panelHeight`/`onPanelHeightChanged` hooks the same way [_explorerSizes]
+  /// dogfoods view sizing: null until the first sash drag, so the shell uses its
+  /// default until the user resizes, after which a real consumer could persist
+  /// these across restarts.
   double? _sidebarWidth;
   double? _panelHeight;
 
@@ -434,10 +433,12 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                     editor: const _EditorPlaceholder(),
                     bottomPanel: scope.tabbedPanel,
                     showBottomPanel: _panelVisible,
-                    initialSidebarWidth: _sidebarWidth,
-                    onSidebarWidthChangeEnd: (w) => _sidebarWidth = w,
-                    initialPanelHeight: _panelHeight,
-                    onPanelHeightChangeEnd: (h) => _panelHeight = h,
+                    sidebarWidth: _sidebarWidth,
+                    onSidebarWidthChanged: (w) =>
+                        setState(() => _sidebarWidth = w),
+                    panelHeight: _panelHeight,
+                    onPanelHeightChanged: (h) =>
+                        setState(() => _panelHeight = h),
                     // Controlled editing modes (§spec:editing-modes): the host
                     // owns the booleans and the shell renders them, mirroring
                     // the showBottomPanel pattern above.
@@ -486,13 +487,14 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
             byId['outline']!,
             byId['timeline']!,
           ],
-          // Seed-plus-commit body sizing (§spec:resize-geometry): the shell owns
-          // Explorer's sash sizes; the host seeds the apportionment from its
-          // persisted map and records the final map once on drag-end. Combined
-          // with the shell-owned reorder above, Explorer dogfoods the persistence
-          // hooks (order/expansion shell-owned, sizing seed-plus-committed).
-          initialSizes: _explorerSizes,
-          onSizesChangeEnd: (next) => _explorerSizes = next,
+          // Controlled body sizing (§spec:view-container-state): the host owns
+          // Explorer's sash sizes so a real consumer could persist them across
+          // restarts. A sash drag fires onSizesChanged with the full next map;
+          // re-supplying sizes restores the apportionment. Combined with the
+          // shell-owned reorder above, Explorer dogfoods all three persistence
+          // hooks (order/expansion shell-owned, sizes host-controlled).
+          sizes: _explorerSizes,
+          onSizesChanged: (next) => setState(() => _explorerSizes = next),
         );
       case 'search':
         return const WorkbenchViewContainerSpec(
