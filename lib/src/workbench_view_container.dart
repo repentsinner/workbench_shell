@@ -555,6 +555,18 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
     return SystemMouseCursors.resizeUpDown;
   }
 
+  /// The on-screen body heights of the adjacent expanded pair [upperId]/[lowerId],
+  /// read from live layout (falling back to the minimum body when a pane is
+  /// unmeasured). Both a sash drag and a double-click reset seed from these
+  /// actual heights rather than recomputing the apportionment.
+  ({double upper, double lower}) _liveBodies(String upperId, String lowerId) {
+    const minBody = WorkbenchLayoutConstants.viewPaneMinBodyHeight;
+    final render = _stackKey.currentContext?.findRenderObject();
+    double bodyOf(String id) =>
+        render is _RenderViewStack ? (render.bodyHeightOf(id) ?? minBody) : minBody;
+    return (upper: bodyOf(upperId), lower: bodyOf(lowerId));
+  }
+
   /// Overlay a resize sash on the top boundary of [pane], an expanded pane whose
   /// nearest expanded neighbor above is [upperId]. The shared [WorkbenchSash]
   /// owns the absolute-anchored drag, the directional cursor, and the hover/drag
@@ -582,13 +594,7 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
             hoverCursor: _sashCursor(upperId, lowerId),
             resolveBasis: () {
               const minBody = WorkbenchLayoutConstants.viewPaneMinBodyHeight;
-              final render = _stackKey.currentContext?.findRenderObject();
-              final upper = render is _RenderViewStack
-                  ? (render.bodyHeightOf(upperId) ?? minBody)
-                  : minBody;
-              final lower = render is _RenderViewStack
-                  ? (render.bodyHeightOf(lowerId) ?? minBody)
-                  : minBody;
+              final (:upper, :lower) = _liveBodies(upperId, lowerId);
               final pair = upper + lower;
               _activeSashPair = pair;
               // A finite cap on either pane bounds the drag: the upper pane
@@ -618,6 +624,20 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
             },
             onChangeEnd: (_) =>
                 widget.onSizesChangeEnd?.call(Map<String, double>.from(_manualBody)),
+            // Double-click resets the two adjacent expanded panes to an even
+            // split of their combined body height (§spec:workbench-layout, VS
+            // Code's `ViewPaneContainer` sash-reset). Equal weights divide the
+            // pair evenly; the render object rescales and re-clamps them. Commit
+            // through onSizesChangeEnd like a drag so the host persists it.
+            onReset: () {
+              final (:upper, :lower) = _liveBodies(upperId, lowerId);
+              final half = (upper + lower) / 2;
+              setState(() {
+                _manualBody[upperId] = half;
+                _manualBody[lowerId] = half;
+              });
+              widget.onSizesChangeEnd?.call(Map<String, double>.from(_manualBody));
+            },
             child: const SizedBox.expand(),
           ),
         ),

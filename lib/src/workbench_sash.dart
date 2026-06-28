@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import 'layout_constants.dart';
@@ -99,8 +100,41 @@ class _WorkbenchSashState extends State<WorkbenchSash> {
   double _startMin = 0;
   double _startMax = 1;
   double? _lastEmitted;
+  // True once a drag emits a value change. A pan recognizer that is the sole
+  // arena member resolves to a "drag" even for a zero-movement click (the arena
+  // sweeps to it on pointer-up), which would otherwise fire a no-op onChangeEnd.
+  // A click is not a resize, so the commit is gated on real movement.
+  bool _moved = false;
   bool _hovering = false;
   bool _dragging = false;
+
+  // Double-click ("reset this seam") is detected from raw pointer-down events on
+  // a passive [Listener] rather than a [GestureDetector.onDoubleTap]. A
+  // DoubleTapGestureRecognizer joins the gesture arena and holds it open waiting
+  // for a second tap, which swallows the first frames of every drag (the pan
+  // recognizer cannot win until the double-tap arbiter resigns). The Listener
+  // never claims the arena, so the drag is unaffected; we time the gap between
+  // consecutive downs ourselves against the same VS Code thresholds.
+  Duration? _lastDownTime;
+  Offset? _lastDownPosition;
+
+  void _handlePointerDown(PointerDownEvent event) {
+    final onReset = widget.onReset;
+    if (onReset == null) return;
+    final last = _lastDownTime;
+    final lastPos = _lastDownPosition;
+    if (last != null &&
+        lastPos != null &&
+        event.timeStamp - last <= kDoubleTapTimeout &&
+        (event.position - lastPos).distance <= kDoubleTapSlop) {
+      _lastDownTime = null;
+      _lastDownPosition = null;
+      onReset();
+      return;
+    }
+    _lastDownTime = event.timeStamp;
+    _lastDownPosition = event.position;
+  }
   OverlayEntry? _overlay;
   final ValueNotifier<MouseCursor> _overlayCursor = ValueNotifier(
     SystemMouseCursors.basic,
@@ -144,6 +178,7 @@ class _WorkbenchSashState extends State<WorkbenchSash> {
     _startMin = basis?.min ?? widget.min;
     _startMax = basis?.max ?? widget.max;
     _lastEmitted = _startValue;
+    _moved = false;
     _startPointer = _axisPos(d.globalPosition);
     _overlayCursor.value = _cursorFor(_startValue, _startMin, _startMax);
     final overlay = Overlay.maybeOf(context, rootOverlay: true);
@@ -170,6 +205,7 @@ class _WorkbenchSashState extends State<WorkbenchSash> {
     _overlayCursor.value = _cursorFor(next, _startMin, _startMax);
     if (next != _lastEmitted) {
       _lastEmitted = next;
+      _moved = true;
       widget.onChanged(next);
     }
   }
@@ -180,10 +216,12 @@ class _WorkbenchSashState extends State<WorkbenchSash> {
     if (mounted) setState(() => _dragging = false);
     // Surface the final clamped value once on release (§spec:resize-geometry).
     // The seam's owner commits it for persistence; per-frame onChanged already
-    // drove the live resize. _lastEmitted is seeded at drag start, so it is
-    // non-null here.
+    // drove the live resize. Gated on _moved so a zero-movement click (a sole
+    // pan recognizer still resolves to a drag on pointer-up) does not commit a
+    // no-op resize. _lastEmitted is seeded at drag start, so it is non-null when
+    // a move occurred.
     final last = _lastEmitted;
-    if (last != null) widget.onChangeEnd?.call(last);
+    if (_moved && last != null) widget.onChangeEnd?.call(last);
   }
 
   @override
@@ -225,16 +263,21 @@ class _WorkbenchSashState extends State<WorkbenchSash> {
           _cursorFor(widget.value, widget.min, widget.max),
       onEnter: (_) => setState(() => _hovering = true),
       onExit: (_) => setState(() => _hovering = false),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onPanStart: _onStart,
-        onPanUpdate: _onUpdate,
-        onPanEnd: (_) => _onEnd(),
-        onPanCancel: _onEnd,
-        onDoubleTap: widget.onReset,
-        child: highlight == null
-            ? widget.child
-            : Stack(children: [widget.child, highlight]),
+      // The Listener detects double-click (reset) without joining the gesture
+      // arena, so the GestureDetector's pan is never delayed by a double-tap
+      // arbiter (see [_handlePointerDown]).
+      child: Listener(
+        onPointerDown: _handlePointerDown,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onPanStart: _onStart,
+          onPanUpdate: _onUpdate,
+          onPanEnd: (_) => _onEnd(),
+          onPanCancel: _onEnd,
+          child: highlight == null
+              ? widget.child
+              : Stack(children: [widget.child, highlight]),
+        ),
       ),
     );
     // The sash owns its cross-axis thickness so call sites can't pick an
