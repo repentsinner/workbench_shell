@@ -505,10 +505,11 @@ void main() {
     expect(statusLabel, findsOneWidget);
   });
 
-  // Panel alignment (§spec:panel-alignment). The View menu dispatches
-  // CyclePanelAlignmentIntent; the host cycles center → justify → left → right
-  // and feeds the shell's controlled panelAlignment property, which re-parents
-  // the panel. Driving the intent proves the menu→action→host→shell wiring.
+  // Panel alignment (§spec:panel-alignment). The View menu's Align Panel radio
+  // submenu dispatches SetPanelAlignmentIntent per choice; the host sets the
+  // value and feeds the shell's controlled panelAlignment property, which
+  // re-parents the panel. Driving the intent proves the menu→action→host→shell
+  // wiring.
   testWidgets('Panel Alignment intent re-parents the bottom panel from the '
       'editor band to the full width', (tester) async {
     await tester.pumpWidget(const WorkbenchExampleApp());
@@ -521,19 +522,24 @@ void main() {
     final centerLeft = panelRect().left;
     expect(centerLeft, greaterThan(100));
 
-    // Cycle once → justify: the panel now spans the full width, so its left edge
+    // Select Justify: the panel now spans the full width, so its left edge
     // moves left, past the activity bar and side bar to the window edge.
     final context = tester.element(find.byType(WorkbenchLayout));
-    Actions.invoke(context, const CyclePanelAlignmentIntent());
+    Actions.invoke(
+      context,
+      const SetPanelAlignmentIntent(WorkbenchPanelAlignment.justify),
+    );
     await tester.pumpAndSettle();
     final justifyLeft = panelRect().left;
     expect(justifyLeft, lessThan(centerLeft - 40));
     expect(justifyLeft, closeTo(0, 2));
 
-    // Cycle back through left → right → center; the panel returns to the band.
-    Actions.invoke(context, const CyclePanelAlignmentIntent()); // left
-    Actions.invoke(context, const CyclePanelAlignmentIntent()); // right
-    Actions.invoke(context, const CyclePanelAlignmentIntent()); // center
+    // Selecting Center again returns the panel to the editor band — the radio
+    // mark moves without any label mutation.
+    Actions.invoke(
+      context,
+      const SetPanelAlignmentIntent(WorkbenchPanelAlignment.center),
+    );
     await tester.pumpAndSettle();
     expect(panelRect().left, closeTo(centerLeft, 2));
   });
