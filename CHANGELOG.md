@@ -1,3 +1,11 @@
+# [0.20.0](https://github.com/repentsinner/workbench_shell/compare/v0.19.0...v0.20.0) (2026-06-29)
+
+
+### Features
+
+* **layout:** add secondary side bar on the editor's opposite edge ([c270e66](https://github.com/repentsinner/workbench_shell/commit/c270e663cc091372888694f93f973be63e9f9906))
+* **layout:** expose primary side bar visibility as a host property ([fb641ca](https://github.com/repentsinner/workbench_shell/commit/fb641ca344e406130ffee3bbe73a30cddbb0aaf7))
+
 # [0.19.0](https://github.com/repentsinner/workbench_shell/compare/v0.18.0...v0.19.0) (2026-06-29)
 
 
