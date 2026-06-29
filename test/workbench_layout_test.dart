@@ -901,6 +901,81 @@ void main() {
     });
   });
 
+  group('Status bar visibility (§spec:layout-customization)', () {
+    testWidgets('uncontrolled: initialStatusBarVisible false hides the status '
+        'bar; other chrome stays', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: WorkbenchLayout(
+            activityBarItems: _testItems,
+            editor: const Center(child: Text('Editor')),
+            containerBuilder: _sidebarSpec,
+            bottomPanel: const Center(child: Text('Panel')),
+            statusBar: const SizedBox(height: 22, child: Text('Status')),
+            initialStatusBarVisible: false,
+          ),
+        ),
+      );
+
+      expect(find.text('Status'), findsNothing);
+      // The rest of the workbench is untouched.
+      expect(find.byIcon(Symbols.folder_rounded), findsOneWidget);
+      expect(find.text('EXPLORER'), findsOneWidget);
+    });
+
+    testWidgets('controlled: host drives statusBarVisible', (tester) async {
+      bool visible = true;
+      late StateSetter setOuter;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              setOuter = setState;
+              return WorkbenchLayout(
+                activityBarItems: _testItems,
+                editor: const Center(child: Text('Editor')),
+                containerBuilder: _sidebarSpec,
+                bottomPanel: const Center(child: Text('Panel')),
+                statusBar: const SizedBox(height: 22, child: Text('Status')),
+                statusBarVisible: visible,
+                onStatusBarVisibilityChanged: (next) =>
+                    setState(() => visible = next),
+              );
+            },
+          ),
+        ),
+      );
+
+      expect(find.text('Status'), findsOneWidget);
+
+      setOuter(() => visible = false);
+      await tester.pumpAndSettle();
+      expect(find.text('Status'), findsNothing);
+
+      setOuter(() => visible = true);
+      await tester.pumpAndSettle();
+      expect(find.text('Status'), findsOneWidget);
+    });
+
+    testWidgets('asserts onStatusBarVisibilityChanged is required in controlled '
+        'mode', (tester) async {
+      expect(
+        () => WorkbenchLayout(
+          activityBarItems: _testItems,
+          editor: const SizedBox(),
+          containerBuilder: _sidebarSpec,
+          bottomPanel: const SizedBox(),
+          statusBar: const SizedBox(),
+          statusBarVisible: true,
+        ),
+        throwsAssertionError,
+      );
+    });
+  });
+
   group('Centered layout (§spec:editing-modes)', () {
     testWidgets('on: editor narrows to the golden-ratio fraction and centers; '
         'chrome stays', (tester) async {

@@ -38,6 +38,22 @@ class WorkbenchLayout extends StatefulWidget {
   /// Status bar content.
   final Widget statusBar;
 
+  /// Initial status-bar visibility. Used only in uncontrolled mode
+  /// (when [statusBarVisible] is null); ignored otherwise. Defaults to shown.
+  final bool initialStatusBarVisible;
+
+  /// Externally controlled status-bar visibility (§spec:layout-customization).
+  /// When non-null, the shell shows or hides the status bar per this value and
+  /// delegates toggles to [onStatusBarVisibilityChanged]; the host owns the
+  /// state (VS Code's "Status Bar" toggle is a host command). When null, the
+  /// shell tracks visibility internally, seeded from [initialStatusBarVisible].
+  final bool? statusBarVisible;
+
+  /// Called when the status bar's visibility is toggled. Required when
+  /// [statusBarVisible] is non-null. See [onZenModeChanged] for why the callback
+  /// exists even though the shell raises no toggle of its own today.
+  final ValueChanged<bool>? onStatusBarVisibilityChanged;
+
   /// Called when the panel toggle is requested (by double-clicking
   /// the panel border, for example). The consumer manages panel
   /// visibility state via [showBottomPanel].
@@ -220,6 +236,9 @@ class WorkbenchLayout extends StatefulWidget {
     required this.containerBuilder,
     required this.bottomPanel,
     required this.statusBar,
+    this.initialStatusBarVisible = true,
+    this.statusBarVisible,
+    this.onStatusBarVisibilityChanged,
     this.onTogglePanel,
     this.showBottomPanel = true,
     this.initialViewContainerId,
@@ -259,6 +278,11 @@ class WorkbenchLayout extends StatefulWidget {
          'onSidebarVisibilityChanged is required when sidebarVisible is provided',
        ),
        assert(
+         statusBarVisible == null || onStatusBarVisibilityChanged != null,
+         'onStatusBarVisibilityChanged is required when statusBarVisible is '
+         'provided',
+       ),
+       assert(
          zenMode == null || onZenModeChanged != null,
          'onZenModeChanged is required when zenMode is provided',
        ),
@@ -290,6 +314,7 @@ class WorkbenchLayout extends StatefulWidget {
 class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   String _internalActiveViewContainerId = '';
   late bool _internalSidebarVisible;
+  late bool _internalStatusBarVisible;
   double _sidebarWidth = WorkbenchLayoutConstants.sidebarDefaultWidth;
   double _panelHeight = WorkbenchLayoutConstants.panelDefaultHeight;
 
@@ -339,6 +364,11 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   // the active activity icon), routed through [_setSidebarVisible].
   bool get _sidebarVisible =>
       widget.sidebarVisible ?? _internalSidebarVisible;
+
+  // Status-bar visibility follows the same controlled/uncontrolled seam; the
+  // shell raises no toggle of its own (the host drives it from a menu item).
+  bool get _statusBarVisible =>
+      widget.statusBarVisible ?? _internalStatusBarVisible;
 
   // Secondary side bar state (§spec:secondary-sidebar), each following the same
   // controlled/uncontrolled seam as the primary: a controlled value wins, else
@@ -396,6 +426,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
             ? widget.activityBarItems.first.id
             : '');
     _internalSidebarVisible = widget.initialSidebarVisible;
+    _internalStatusBarVisible = widget.initialStatusBarVisible;
     _internalZenMode = widget.initialZenMode;
     _internalCenteredLayout = widget.initialCenteredLayout;
     // Seed the shell-owned resize geometry once at startup (§spec:resize-geometry).
@@ -637,7 +668,9 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
         child: Column(
           children: [
             Expanded(child: Row(children: rowChildren)),
-            widget.statusBar,
+            // Hidden status bar yields its strip to the workbench above; Zen
+            // mode (handled earlier) hides it wholesale alongside all chrome.
+            if (_statusBarVisible) widget.statusBar,
           ],
         ),
       ),
