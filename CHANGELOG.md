@@ -1,3 +1,16 @@
+# [0.19.0](https://github.com/repentsinner/workbench_shell/compare/v0.18.0...v0.19.0) (2026-06-29)
+
+
+### Bug Fixes
+
+* **example:** match canon — 'Move Primary Side Bar Right/Left' menu label ([a173f41](https://github.com/repentsinner/workbench_shell/commit/a173f41602a6b486d0a4167231e56590bfe3ce28))
+* **layout:** preserve side bar state when moving it across edges ([70ac087](https://github.com/repentsinner/workbench_shell/commit/70ac087006a7af28e7518d8d20d1ff17a4de1b35))
+
+
+### Features
+
+* **workbench-layout:** primary side bar left/right position ([1f19a44](https://github.com/repentsinner/workbench_shell/commit/1f19a44c3a3ec4a1d264dfaa35e8415699d0ec48))
+
 # [0.18.0](https://github.com/repentsinner/workbench_shell/compare/v0.17.0...v0.18.0) (2026-06-28)
 
 
