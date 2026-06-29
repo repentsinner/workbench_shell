@@ -479,95 +479,38 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       theme: theme,
     );
 
-    // Sidebar (collapsible). Always kept in the tree — Offstage when hidden
-    // rather than removed — so the retained container subtrees (and their
-    // shell-owned pane State) survive a hide/show cycle, not only a container
-    // switch (§spec:view-container-state: retained "for the life of the
-    // layout"). Offstage takes no layout space when hidden, so the editor still
-    // fills the row exactly as before; the visible hide/show behavior is
-    // unchanged.
-    final sidebar = Offstage(
+    // Primary side bar (collapsible), on the activity bar's edge.
+    final sidebar = _buildSideBar(
       key: _sidebarKey,
-      offstage: !_sidebarVisible,
-      child: TickerMode(
-        enabled: _sidebarVisible,
-        child: Stack(
-          children: [
-            _Sidebar(
-              width: _sidebarWidth,
-              activeLabel: _activeLabelFor(_activeViewContainerId),
-              activeContainerId: _activeViewContainerId,
-              openedContainerIds: _openedContainerIds,
-              containerBuilder: widget.containerBuilder,
-              position: _sidebarPosition,
-              theme: theme,
-            ),
-            // The sash overlays the sidebar's editor-facing edge rather than
-            // taking a strip of layout, so at rest it adds nothing (canon: the
-            // sash is transparent; the seam is the sidebar's own border). That
-            // edge is the right when the bar is on the left and the left when
-            // it is on the right (§spec:sidebar-position). Mirrors the panel and
-            // view-stack pane sashes.
-            Positioned(
-              top: 0,
-              bottom: 0,
-              left: onRight ? 0 : null,
-              right: onRight ? null : 0,
-              child: _buildSidebarResizer(
-                growSign: onRight ? -1 : 1,
-                width: _sidebarWidth,
-                onWidth: (next) => setState(() => _sidebarWidth = next),
-                onChangeEnd: widget.onSidebarWidthChangeEnd,
-              ),
-            ),
-          ],
-        ),
-      ),
+      visible: _sidebarVisible,
+      width: _sidebarWidth,
+      activeId: _activeViewContainerId,
+      openedContainerIds: _openedContainerIds,
+      position: _sidebarPosition,
+      onWidth: (next) => setState(() => _sidebarWidth = next),
+      onChangeEnd: widget.onSidebarWidthChangeEnd,
+      theme: theme,
     );
 
     // Secondary side bar (§spec:secondary-sidebar): a second collapsible bar on
     // the editor's opposite edge from the primary, hosting host-assigned
-    // containers through the same containerBuilder path. Its edge is the
+    // containers through the same containerBuilder path. Its position is the
     // opposite of the primary's, so its border and sash face the editor from the
-    // other side; the same Offstage-when-hidden retention as the primary keeps
-    // its pane State alive across a hide/show. It has no activity bar — the host
-    // owns its active container and visibility.
-    final secondaryOnRight = !onRight;
+    // other side. It has no activity bar — the host owns its active container
+    // and visibility.
     final secondaryPosition = onRight
         ? WorkbenchSidebarPosition.left
         : WorkbenchSidebarPosition.right;
-    final secondarySidebar = Offstage(
+    final secondarySidebar = _buildSideBar(
       key: _secondarySidebarKey,
-      offstage: !_secondarySideBarVisible,
-      child: TickerMode(
-        enabled: _secondarySideBarVisible,
-        child: Stack(
-          children: [
-            _Sidebar(
-              width: _secondarySideBarWidth,
-              activeLabel: _activeLabelFor(_secondaryActiveId),
-              activeContainerId: _secondaryActiveId,
-              openedContainerIds: _openedSecondaryContainerIds,
-              containerBuilder: widget.containerBuilder,
-              position: secondaryPosition,
-              theme: theme,
-            ),
-            Positioned(
-              top: 0,
-              bottom: 0,
-              left: secondaryOnRight ? 0 : null,
-              right: secondaryOnRight ? null : 0,
-              child: _buildSidebarResizer(
-                growSign: secondaryOnRight ? -1 : 1,
-                width: _secondarySideBarWidth,
-                onWidth: (next) =>
-                    setState(() => _secondarySideBarWidth = next),
-                onChangeEnd: widget.onSecondarySideBarWidthChangeEnd,
-              ),
-            ),
-          ],
-        ),
-      ),
+      visible: _secondarySideBarVisible,
+      width: _secondarySideBarWidth,
+      activeId: _secondaryActiveId,
+      openedContainerIds: _openedSecondaryContainerIds,
+      position: secondaryPosition,
+      onWidth: (next) => setState(() => _secondarySideBarWidth = next),
+      onChangeEnd: widget.onSecondarySideBarWidthChangeEnd,
+      theme: theme,
     );
 
     // Editor + bottom panel. The panel is wrapped in a
@@ -658,6 +601,61 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       if (item.id == containerId) return item.label;
     }
     return '';
+  }
+
+  /// Build a collapsible side bar shared by the primary and secondary bars
+  /// (§spec:secondary-sidebar). The bar is always kept in the tree — Offstage
+  /// when hidden rather than removed — so its retained container subtrees (and
+  /// their shell-owned pane State) survive a hide/show cycle, not only a
+  /// container switch (§spec:view-container-state). Offstage takes no layout
+  /// space when hidden, so the editor still fills the row. A resize sash overlays
+  /// the bar's editor-facing edge — the right when on the left, the left when on
+  /// the right (§spec:sidebar-position) — transparent at rest, mirroring the
+  /// panel and view-stack pane sashes.
+  Widget _buildSideBar({
+    required GlobalKey key,
+    required bool visible,
+    required double width,
+    required String activeId,
+    required List<String> openedContainerIds,
+    required WorkbenchSidebarPosition position,
+    required ValueChanged<double> onWidth,
+    required ValueChanged<double>? onChangeEnd,
+    required WorkbenchTheme theme,
+  }) {
+    final onRight = position == WorkbenchSidebarPosition.right;
+    return Offstage(
+      key: key,
+      offstage: !visible,
+      child: TickerMode(
+        enabled: visible,
+        child: Stack(
+          children: [
+            _Sidebar(
+              width: width,
+              activeLabel: _activeLabelFor(activeId),
+              activeContainerId: activeId,
+              openedContainerIds: openedContainerIds,
+              containerBuilder: widget.containerBuilder,
+              position: position,
+              theme: theme,
+            ),
+            Positioned(
+              top: 0,
+              bottom: 0,
+              left: onRight ? 0 : null,
+              right: onRight ? null : 0,
+              child: _buildSidebarResizer(
+                growSign: onRight ? -1 : 1,
+                width: width,
+                onWidth: onWidth,
+                onChangeEnd: onChangeEnd,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   /// Build a side-bar resize sash shared by the primary and secondary bars
