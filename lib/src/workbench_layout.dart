@@ -12,6 +12,16 @@ import 'workbench_view_container.dart';
 /// primary", which reads where "opposite `false`" does not.
 enum WorkbenchSidebarPosition { left, right }
 
+/// How the bottom panel aligns across the workbench width (§spec:panel-alignment):
+/// `center` spans the editor only (both side bars run full height past it — the
+/// §spec:workbench-layout default), `justify` spans the full width (neither side
+/// bar runs past it), `left` abuts the left edge's bar (which runs full height)
+/// and spans the rest, and `right` mirrors `left`. Each value is two booleans —
+/// does the left-edge bar group and the right-edge bar group run full height
+/// (outside the panel's band) or stop at the panel's top (inside it) — realized
+/// by *where the panel sits in the widget tree*, not a layout solver.
+enum WorkbenchPanelAlignment { center, justify, left, right }
+
 /// VS Code-style workbench layout with activity bar, sidebar, editor
 /// area, bottom panel, and status bar.
 ///
@@ -182,6 +192,26 @@ class WorkbenchLayout extends StatefulWidget {
   /// exists even though the shell raises no change of its own today.
   final ValueChanged<WorkbenchSidebarPosition>? onSidebarPositionChanged;
 
+  /// Initial panel alignment. Used only in uncontrolled mode (when
+  /// [panelAlignment] is null); ignored otherwise. Defaults to
+  /// [WorkbenchPanelAlignment.center], the §spec:workbench-layout default.
+  final WorkbenchPanelAlignment initialPanelAlignment;
+
+  /// Externally controlled panel alignment (§spec:panel-alignment). When
+  /// non-null, the shell re-parents the bottom panel between the editor column
+  /// and the outer column per this value and delegates changes to
+  /// [onPanelAlignmentChanged]; the host owns the state. When null, the shell
+  /// tracks the alignment internally (uncontrolled), seeded from
+  /// [initialPanelAlignment]. The four values reduce to two booleans — whether
+  /// each side bar runs full height past the panel or stops at its top —
+  /// realized by where the panel sits in the widget tree, not a layout solver.
+  final WorkbenchPanelAlignment? panelAlignment;
+
+  /// Called when the panel alignment changes. Required when [panelAlignment] is
+  /// non-null. See [onZenModeChanged] for why the callback exists even though
+  /// the shell raises no change of its own today.
+  final ValueChanged<WorkbenchPanelAlignment>? onPanelAlignmentChanged;
+
   /// Initial active container id for the secondary side bar
   /// (§spec:secondary-sidebar). Used only in uncontrolled mode (when
   /// [secondaryViewContainerId] is null). Empty (the default) shows no
@@ -260,6 +290,9 @@ class WorkbenchLayout extends StatefulWidget {
     this.initialSidebarPosition = WorkbenchSidebarPosition.left,
     this.sidebarPosition,
     this.onSidebarPositionChanged,
+    this.initialPanelAlignment = WorkbenchPanelAlignment.center,
+    this.panelAlignment,
+    this.onPanelAlignmentChanged,
     this.initialSecondaryViewContainerId,
     this.secondaryViewContainerId,
     this.onSecondaryViewContainerChanged,
@@ -295,6 +328,10 @@ class WorkbenchLayout extends StatefulWidget {
          'onSidebarPositionChanged is required when sidebarPosition is provided',
        ),
        assert(
+         panelAlignment == null || onPanelAlignmentChanged != null,
+         'onPanelAlignmentChanged is required when panelAlignment is provided',
+       ),
+       assert(
          secondaryViewContainerId == null ||
              onSecondaryViewContainerChanged != null,
          'onSecondaryViewContainerChanged is required when '
@@ -328,14 +365,17 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   /// reusing a view id keep independent state.
   final List<String> _openedContainerIds = [];
 
-  // Stable identities for the three row children. Moving the side bar to the
-  // opposite edge reorders the layout Row (§spec:sidebar-position); without
-  // keys, Flutter's positional reconciliation can't match the top and bottom
-  // children across the swap, deactivates the whole unkeyed range, and rebuilds
-  // every child — discarding the side bar's retained pane State
+  // Stable identities for the workbench's structural children. Two composition
+  // choices reorder or re-parent them: moving the side bar to the opposite edge
+  // reorders the layout Row (§spec:sidebar-position), and changing the panel
+  // alignment re-parents a bar between the outer row and the panel's band column
+  // (§spec:panel-alignment). Without keys, Flutter's positional reconciliation
+  // can't match a child across the move, deactivates the unkeyed range, and
+  // rebuilds every child — discarding the side bar's retained pane State
   // (§spec:view-container-state) and the panel's maintained State. GlobalKeys
   // make Flutter move each subtree's element to its new slot instead, so the
-  // bar travels rather than rebuilds.
+  // bar travels rather than rebuilds. The band key keeps the editor and panel
+  // identity stable as bars re-parent into and out of the band.
   final GlobalKey _activityBarKey = GlobalKey();
   final GlobalKey _sidebarKey = GlobalKey();
   final GlobalKey _editorAndPanelKey = GlobalKey();
@@ -416,10 +456,18 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   WorkbenchSidebarPosition get _sidebarPosition =>
       widget.sidebarPosition ?? _internalSidebarPosition;
 
+  // Panel alignment follows the same controlled/uncontrolled seam: a controlled
+  // value wins, else the internal value seeded from the initial flag. The shell
+  // raises no change of its own today (the host drives it from a menu item).
+  late WorkbenchPanelAlignment _internalPanelAlignment;
+  WorkbenchPanelAlignment get _panelAlignment =>
+      widget.panelAlignment ?? _internalPanelAlignment;
+
   @override
   void initState() {
     super.initState();
     _internalSidebarPosition = widget.initialSidebarPosition;
+    _internalPanelAlignment = widget.initialPanelAlignment;
     _internalActiveViewContainerId =
         widget.initialViewContainerId ??
         (widget.activityBarItems.isNotEmpty
@@ -592,75 +640,109 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       theme: theme,
     );
 
-    // Editor + bottom panel. The panel is wrapped in a
-    // Visibility(maintainState: true) so its widget subtree (and any State it
-    // owns — timers, scroll positions, fetched data) survives hide/show cycles.
-    // Without this, toggling showBottomPanel disposes the entire panel tree and
-    // discards content state every cycle.
-    final editorAndPanel = Expanded(
-      key: _editorAndPanelKey,
-      child: Column(
-        children: [
-          Expanded(child: editorContent),
-          Visibility(
-            visible: widget.showBottomPanel,
-            maintainState: true,
-            maintainAnimation: true,
-            child: SizedBox(
-              height: _panelHeight,
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    // Container (not bare DecoratedBox) so the child is inset
-                    // 1px from the top by Container-added padding. Bare
-                    // DecoratedBox paints the border behind the child and the
-                    // panel's own opaque background widget overdraws the 1px
-                    // border strip.
-                    //
-                    // Null panelBorder → theme explicitly suppresses the seam;
-                    // skip the BorderSide entirely rather than falling back to a
-                    // neighboring color.
-                    child: Container(
-                      decoration: BoxDecoration(
-                        border: theme.panelBorder == null
-                            ? null
-                            : Border(
-                                top: BorderSide(color: theme.panelBorder!),
-                              ),
-                      ),
-                      child: widget.bottomPanel,
-                    ),
-                  ),
-                  Positioned(
-                    // Sit the sash fully inside the panel (top: 0), like the
-                    // view-stack pane sashes. An overhang above the panel's top
-                    // edge is clipped by this Stack's hardEdge bound, halving the
-                    // painted highlight band; sitting inside keeps every seam's
-                    // sash the same canonical width. Height owned by
-                    // WorkbenchSash (sashSize).
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: _buildHorizontalResizer(theme),
-                  ),
-                ],
+    // Editor area, filling the inner row's free space beside any side bars the
+    // panel runs beneath.
+    final editorArea = Expanded(child: editorContent);
+
+    // Bottom panel, wrapped in a Visibility(maintainState: true) so its widget
+    // subtree (and any State it owns — timers, scroll positions, fetched data)
+    // survives hide/show cycles. Without this, toggling showBottomPanel disposes
+    // the entire panel tree and discards content state every cycle.
+    final panel = Visibility(
+      visible: widget.showBottomPanel,
+      maintainState: true,
+      maintainAnimation: true,
+      child: SizedBox(
+        height: _panelHeight,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              // Container (not bare DecoratedBox) so the child is inset
+              // 1px from the top by Container-added padding. Bare
+              // DecoratedBox paints the border behind the child and the
+              // panel's own opaque background widget overdraws the 1px
+              // border strip.
+              //
+              // Null panelBorder → theme explicitly suppresses the seam;
+              // skip the BorderSide entirely rather than falling back to a
+              // neighboring color.
+              child: Container(
+                decoration: BoxDecoration(
+                  border: theme.panelBorder == null
+                      ? null
+                      : Border(top: BorderSide(color: theme.panelBorder!)),
+                ),
+                child: widget.bottomPanel,
               ),
             ),
-          ),
-        ],
+            Positioned(
+              // Sit the sash fully inside the panel (top: 0), like the
+              // view-stack pane sashes. An overhang above the panel's top
+              // edge is clipped by this Stack's hardEdge bound, halving the
+              // painted highlight band; sitting inside keeps every seam's
+              // sash the same canonical width. Height owned by
+              // WorkbenchSash (sashSize).
+              top: 0,
+              left: 0,
+              right: 0,
+              child: _buildHorizontalResizer(theme),
+            ),
+          ],
+        ),
       ),
     );
 
     // The activity bar and primary side bar travel together to the selected
-    // edge; the editor takes the rest (§spec:sidebar-position). On the right the
-    // order mirrors so the activity bar stays outermost against the window edge.
-    // The secondary side bar (§spec:secondary-sidebar) sits outermost on the
-    // editor's opposite edge — the now-free side — so it always faces the
-    // primary across the editor. Each child is keyed, so flipping the primary
-    // reorders the Row and relocates every subtree rather than rebuilding it.
-    final rowChildren = onRight
-        ? [secondarySidebar, editorAndPanel, sidebar, activityBar]
-        : [activityBar, sidebar, editorAndPanel, secondarySidebar];
+    // edge; the secondary side bar sits on the editor's opposite edge
+    // (§spec:sidebar-position, §spec:secondary-sidebar). On the right the order
+    // mirrors so the activity bar stays outermost against the window edge.
+    // Grouped by screen edge so panel alignment can place each group inside or
+    // outside the panel's horizontal band.
+    final leftGroup = onRight ? [secondarySidebar] : [activityBar, sidebar];
+    final rightGroup = onRight ? [sidebar, activityBar] : [secondarySidebar];
+
+    // Panel alignment reduces to one question per screen edge: does that edge's
+    // bar group run full height (outside the panel's band) or stop at the
+    // panel's top (inside it)? Center = both outside; justify = both inside;
+    // left/right = one of each. Two booleans, realized by where the panel sits
+    // in the widget tree — not a layout solver (§spec:panel-alignment).
+    final (leftInside, rightInside) = switch (_panelAlignment) {
+      WorkbenchPanelAlignment.center => (false, false),
+      WorkbenchPanelAlignment.justify => (true, true),
+      WorkbenchPanelAlignment.left => (false, true),
+      WorkbenchPanelAlignment.right => (true, false),
+    };
+
+    // The band column holds the editor (beside any "inside" bars) above the
+    // panel, so the panel spans the band's width. "Outside" bars are siblings of
+    // the band in the outer row, running full height past the panel. The band
+    // and every bar carry stable keys, so changing the alignment re-parents bars
+    // between the inner and outer rows by relocating their subtrees rather than
+    // rebuilding them — the retained pane and panel State survives the move
+    // (§spec:view-container-state, mirroring §spec:sidebar-position).
+    final bandColumn = Expanded(
+      key: _editorAndPanelKey,
+      child: Column(
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                if (leftInside) ...leftGroup,
+                editorArea,
+                if (rightInside) ...rightGroup,
+              ],
+            ),
+          ),
+          panel,
+        ],
+      ),
+    );
+
+    final rowChildren = [
+      if (!leftInside) ...leftGroup,
+      bandColumn,
+      if (!rightInside) ...rightGroup,
+    ];
 
     return Scaffold(
       backgroundColor: theme.editorBackground,

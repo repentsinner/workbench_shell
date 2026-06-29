@@ -58,6 +58,8 @@ Widget _buildApp({
   ValueChanged<double>? onPanelHeightChangeEnd,
   WorkbenchSidebarPosition? sidebarPosition,
   ValueChanged<WorkbenchSidebarPosition>? onSidebarPositionChanged,
+  WorkbenchPanelAlignment? panelAlignment,
+  ValueChanged<WorkbenchPanelAlignment>? onPanelAlignmentChanged,
   WorkbenchViewContainerSpec Function(String)? containerBuilder,
   String? secondaryViewContainerId,
   ValueChanged<String>? onSecondaryViewContainerChanged,
@@ -81,6 +83,8 @@ Widget _buildApp({
       onPanelHeightChangeEnd: onPanelHeightChangeEnd,
       sidebarPosition: sidebarPosition,
       onSidebarPositionChanged: onSidebarPositionChanged,
+      panelAlignment: panelAlignment,
+      onPanelAlignmentChanged: onPanelAlignmentChanged,
       secondaryViewContainerId: secondaryViewContainerId,
       onSecondaryViewContainerChanged: onSecondaryViewContainerChanged,
       secondarySideBarVisible: secondarySideBarVisible,
@@ -1520,6 +1524,174 @@ void main() {
         ),
         throwsAssertionError,
       );
+    });
+  });
+
+  group('Panel alignment (§spec:panel-alignment)', () {
+    // The panel's horizontal band equals the width of its vertical resize sash,
+    // which spans the panel's top edge (Positioned left:0, right:0). Comparing
+    // the band against the full layout proves where the panel sits in the tree.
+    Rect panelBand(WidgetTester tester) =>
+        tester.getRect(_sashFinder(Axis.vertical));
+    Rect layoutRect(WidgetTester tester) =>
+        tester.getRect(find.byType(WorkbenchLayout));
+
+    testWidgets('uncontrolled default is center: the panel spans the editor, '
+        'not the full width', (tester) async {
+      await tester.pumpWidget(_buildApp());
+      final band = panelBand(tester);
+      final layout = layoutRect(tester);
+      // The activity bar + side bar run full height to the panel's left, so the
+      // band starts inboard of the window edge and stops short of full width.
+      expect(band.left, greaterThan(layout.left + 1));
+      expect(band.width, lessThan(layout.width));
+    });
+
+    testWidgets('justify: the panel spans the full width past both side bars', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildApp(
+          panelAlignment: WorkbenchPanelAlignment.justify,
+          onPanelAlignmentChanged: (_) {},
+        ),
+      );
+      final band = panelBand(tester);
+      final layout = layoutRect(tester);
+      expect(band.left, closeTo(layout.left, 1));
+      expect(band.right, closeTo(layout.right, 1));
+    });
+
+    testWidgets('left: the panel abuts the left side bar and spans to the right '
+        'edge past the secondary bar', (tester) async {
+      await tester.pumpWidget(
+        _buildApp(
+          panelAlignment: WorkbenchPanelAlignment.left,
+          onPanelAlignmentChanged: (_) {},
+          secondaryViewContainerId: 'search',
+          onSecondaryViewContainerChanged: (_) {},
+          secondarySideBarVisible: true,
+          onSecondarySideBarVisibilityChanged: (_) {},
+        ),
+      );
+      final band = panelBand(tester);
+      final layout = layoutRect(tester);
+      // Left bar runs full height (band starts inboard); the right/secondary bar
+      // stops at the panel top, so the band reaches the window's right edge.
+      expect(band.left, greaterThan(layout.left + 1));
+      expect(band.right, closeTo(layout.right, 1));
+    });
+
+    testWidgets('right: the panel abuts the right side bar and spans to the '
+        'left edge past the primary bar', (tester) async {
+      await tester.pumpWidget(
+        _buildApp(
+          panelAlignment: WorkbenchPanelAlignment.right,
+          onPanelAlignmentChanged: (_) {},
+          secondaryViewContainerId: 'search',
+          onSecondaryViewContainerChanged: (_) {},
+          secondarySideBarVisible: true,
+          onSecondarySideBarVisibilityChanged: (_) {},
+        ),
+      );
+      final band = panelBand(tester);
+      final layout = layoutRect(tester);
+      // Left/primary bar stops at the panel top → band reaches the left edge;
+      // the right/secondary bar runs full height → band stops short of right.
+      expect(band.left, closeTo(layout.left, 1));
+      expect(band.right, lessThan(layout.right - 1));
+    });
+
+    testWidgets('controlled: host drives panelAlignment; the band widens from '
+        'center to justify', (tester) async {
+      var alignment = WorkbenchPanelAlignment.center;
+      late StateSetter setOuter;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              setOuter = setState;
+              return WorkbenchLayout(
+                activityBarItems: _testItems,
+                editor: const Center(child: Text('Editor')),
+                containerBuilder: _sidebarSpec,
+                bottomPanel: const Center(child: Text('Panel')),
+                statusBar: const SizedBox(height: 22, child: Text('Status')),
+                panelAlignment: alignment,
+                onPanelAlignmentChanged: (next) =>
+                    setState(() => alignment = next),
+              );
+            },
+          ),
+        ),
+      );
+
+      final centerWidth = panelBand(tester).width;
+      setOuter(() => alignment = WorkbenchPanelAlignment.justify);
+      await tester.pumpAndSettle();
+      final justifyWidth = panelBand(tester).width;
+      expect(justifyWidth, greaterThan(centerWidth));
+      expect(justifyWidth, closeTo(layoutRect(tester).width, 1));
+    });
+
+    testWidgets('asserts onPanelAlignmentChanged is required in controlled '
+        'mode', (tester) async {
+      expect(
+        () => WorkbenchLayout(
+          activityBarItems: _testItems,
+          editor: const SizedBox(),
+          containerBuilder: _sidebarSpec,
+          bottomPanel: const SizedBox(),
+          statusBar: const SizedBox(),
+          panelAlignment: WorkbenchPanelAlignment.justify,
+        ),
+        throwsAssertionError,
+      );
+    });
+
+    testWidgets('RETENTION survives an alignment change: a side-bar pane '
+        'collapse persists when the panel re-parents', (tester) async {
+      // center→justify lifts the side bars into the panel's band, re-parenting
+      // them across the widget tree. Their subtrees carry stable GlobalKeys, so
+      // the retained pane State survives the move (§spec:view-container-state).
+      WorkbenchViewContainerSpec twoPaneSpec(String id) =>
+          WorkbenchViewContainerSpec(
+            views: [
+              WorkbenchViewDescriptor(
+                id: '$id-a',
+                title: '$id Alpha',
+                bodyBuilder: (_) => Text('$id-body-a'),
+              ),
+              WorkbenchViewDescriptor(
+                id: '$id-b',
+                title: '$id Beta',
+                bodyBuilder: (_) => Text('$id-body-b'),
+              ),
+            ],
+          );
+
+      Widget app(WorkbenchPanelAlignment alignment) => _buildApp(
+        containerBuilder: twoPaneSpec,
+        panelAlignment: alignment,
+        onPanelAlignmentChanged: (_) {},
+      );
+
+      await tester.pumpWidget(app(WorkbenchPanelAlignment.center));
+
+      // Collapse the primary's first pane.
+      await tester.tap(find.text('EXPLORER ALPHA'));
+      await tester.pumpAndSettle();
+      expect(find.text('explorer-body-a'), findsNothing);
+      expect(find.text('explorer-body-b'), findsOneWidget);
+
+      // Justify re-parents the primary side bar into the panel's band.
+      await tester.pumpWidget(app(WorkbenchPanelAlignment.justify));
+      await tester.pumpAndSettle();
+
+      // The collapse survived — the bar relocated, it did not rebuild.
+      expect(find.text('explorer-body-a'), findsNothing);
+      expect(find.text('explorer-body-b'), findsOneWidget);
     });
   });
 
