@@ -571,8 +571,9 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
               },
               child: WorkbenchMenuBar(
                 // VS Code's View menu structure built from the §spec:menu-model
-                // tree: an Appearance submenu of checkable visibility toggles,
-                // an Align Panel radio submenu, then the shell-derived panel
+                // tree: an Appearance submenu of checkable visibility toggles
+                // that itself nests the Align Panel radio submenu (canon: View ▸
+                // Appearance ▸ Align Panel ▸ value), then the shell-derived panel
                 // focus commands. Checkable entries carry the host's current
                 // state (a real check in-window, a leading "✓ " on macOS) so no
                 // entry mutates its label to convey state.
@@ -632,17 +633,20 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                             ? 'Move Primary Side Bar Right'
                             : 'Move Primary Side Bar Left',
                       ),
-                    ],
-                  ),
-                  WorkbenchMenuSubmenu(
-                    label: 'Align Panel',
-                    children: [
-                      for (final alignment in WorkbenchPanelAlignment.values)
-                        WorkbenchMenuRadio(
-                          intent: SetPanelAlignmentIntent(alignment),
-                          label: _panelAlignmentLabel(alignment),
-                          selected: _panelAlignment == alignment,
-                        ),
+                      // Align Panel nests inside Appearance (canon), a radio
+                      // submenu two levels deep — View ▸ Appearance ▸ Align
+                      // Panel ▸ value.
+                      WorkbenchMenuSubmenu(
+                        label: 'Align Panel',
+                        children: [
+                          for (final alignment in WorkbenchPanelAlignment.values)
+                            WorkbenchMenuRadio(
+                              intent: SetPanelAlignmentIntent(alignment),
+                              label: _panelAlignmentLabel(alignment),
+                              selected: _panelAlignment == alignment,
+                            ),
+                        ],
+                      ),
                     ],
                   ),
                   const WorkbenchMenuSeparator(),
