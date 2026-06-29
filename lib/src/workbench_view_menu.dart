@@ -5,28 +5,59 @@ import 'package:flutter/services.dart';
 import 'workbench_intents.dart';
 import 'workbench_theme.dart';
 
-/// Descriptor for a bottom-panel tab the View menu can select. The
-/// shell does not own tab content (see package SPEC
-/// §spec:tabbed-panel); it only owns the menu chrome.
+/// A node in the View menu's descriptor tree (§spec:menu-model). The
+/// shell renders the tree platform-agnostically: a [PlatformMenu] tree
+/// on macOS, a Material [SubmenuButton] tree in-window. Hosts build the
+/// tree; the shell owns only the rendering.
+///
+/// An entry is one of:
+///
+/// - [WorkbenchViewMenuTab] — a command leaf (label + intent).
+/// - [WorkbenchMenuCheckbox] — a command carrying a checked state.
+/// - [WorkbenchMenuRadio] — a command carrying a selected state; radio
+///   entries sharing a submenu read as a mutually-exclusive set.
+/// - [WorkbenchMenuSubmenu] — a nested submenu (label + children).
+/// - [WorkbenchMenuSeparator] — a divider between adjacent groups.
+sealed class WorkbenchMenuEntry {
+  const WorkbenchMenuEntry();
+}
+
+/// Base for entries that dispatch an [Intent] when selected. The host
+/// registers an `Action<Intent>` for the intent's runtime type at the
+/// widget that owns the target state; the shell does not constrain the
+/// intent shape — each entry carries its own.
+sealed class WorkbenchMenuActionEntry extends WorkbenchMenuEntry {
+  const WorkbenchMenuActionEntry();
+
+  /// Intent dispatched via `Actions.maybeInvoke` on selection.
+  Intent get intent;
+
+  /// Label shown in the menu.
+  String get label;
+
+  /// Optional keyboard shortcut, displayed next to the label. The
+  /// glyph is cosmetic — hosts bind the activator themselves via a
+  /// surrounding `Shortcuts` widget. `WorkbenchShortcuts` only installs
+  /// the Cmd/Ctrl+J bottom-panel toggle.
+  MenuSerializableShortcut? get shortcut;
+}
+
+/// A command leaf the View menu can select. The shell does not own tab
+/// content (see package SPEC §spec:tabbed-panel); it only owns the menu
+/// chrome.
 ///
 /// The menu item label is static. Selection semantics — focus the
 /// tab, or hide the panel if the tab is already focused — are
 /// decided by the host's registered `Action<Intent>` handler for
 /// [intent].
-class WorkbenchViewMenuTab {
-  /// Intent dispatched via `Actions.invoke` when the user selects this
-  /// menu entry. Hosts register an `Action<Intent>` for the intent's
-  /// runtime type at the widget that owns the target state. The shell
-  /// does not constrain intent shape — each tab carries its own.
+class WorkbenchViewMenuTab extends WorkbenchMenuActionEntry {
+  @override
   final Intent intent;
 
-  /// Label shown in the View menu.
+  @override
   final String label;
 
-  /// Optional keyboard shortcut, displayed next to the label. The
-  /// shortcut glyph is cosmetic — hosts bind the activator themselves
-  /// via a surrounding `Shortcuts` widget. `WorkbenchShortcuts` only
-  /// installs the Cmd/Ctrl+J bottom-panel toggle.
+  @override
   final MenuSerializableShortcut? shortcut;
 
   const WorkbenchViewMenuTab({
@@ -34,6 +65,78 @@ class WorkbenchViewMenuTab {
     required this.label,
     this.shortcut,
   });
+}
+
+/// A checkable command. [checked] is the host's value, owned through
+/// the same controlled/uncontrolled seam as every other property
+/// (§spec:layout-customization): the entry reports the current state and
+/// the host updates it via the [intent]'s `Action`. Renders a real
+/// `CheckboxMenuButton` mark in-window; degrades to a leading "✓ " glyph
+/// on the macOS native menu, which carries no checked field.
+class WorkbenchMenuCheckbox extends WorkbenchMenuActionEntry {
+  @override
+  final Intent intent;
+
+  @override
+  final String label;
+
+  @override
+  final MenuSerializableShortcut? shortcut;
+
+  /// Whether the item shows as checked.
+  final bool checked;
+
+  const WorkbenchMenuCheckbox({
+    required this.intent,
+    required this.label,
+    required this.checked,
+    this.shortcut,
+  });
+}
+
+/// A radio command. Radio entries listed together in one submenu read
+/// as a mutually-exclusive set: exactly one carries [selected] `true`.
+/// Renders a real `RadioMenuButton` mark in-window; degrades to a
+/// leading "✓ " glyph on the macOS native menu, as [WorkbenchMenuCheckbox]
+/// does.
+class WorkbenchMenuRadio extends WorkbenchMenuActionEntry {
+  @override
+  final Intent intent;
+
+  @override
+  final String label;
+
+  @override
+  final MenuSerializableShortcut? shortcut;
+
+  /// Whether this item is the selected member of its group.
+  final bool selected;
+
+  const WorkbenchMenuRadio({
+    required this.intent,
+    required this.label,
+    required this.selected,
+    this.shortcut,
+  });
+}
+
+/// A nested submenu — a label plus its own [children] tree. Nests
+/// natively on every platform (`PlatformMenu` on macOS, `SubmenuButton`
+/// in-window), so it needs no degradation.
+class WorkbenchMenuSubmenu extends WorkbenchMenuEntry {
+  /// Label shown on the parent menu, opening [children] on hover.
+  final String label;
+
+  /// Entries rendered inside the submenu.
+  final List<WorkbenchMenuEntry> children;
+
+  const WorkbenchMenuSubmenu({required this.label, required this.children});
+}
+
+/// A divider between adjacent menu groups. Leading and trailing
+/// separators, and runs of consecutive separators, collapse to nothing.
+class WorkbenchMenuSeparator extends WorkbenchMenuEntry {
+  const WorkbenchMenuSeparator();
 }
 
 bool _isMacOS() => !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
@@ -45,15 +148,18 @@ bool _isMacOS() => !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
 /// native keyboard-shortcut rendering). On other platforms, renders
 /// an in-window Material [MenuBar] above [child].
 ///
-/// The View menu is modeled on VS Code: a static "Panel" entry that
-/// dispatches [ToggleBottomPanelIntent], followed by static entries
-/// for each host-supplied tab. Each tab dispatches its own [Intent]
-/// via `Actions.invoke`; hosts register the matching
-/// `Action<Intent>` at the widget that owns the target state.
+/// The View menu is modeled on VS Code: the shell renders the
+/// host-supplied [entries] tree (§spec:menu-model) — commands, submenus,
+/// separators, and checkable/radio items. Each command dispatches its
+/// own [Intent] via `Actions.invoke`; hosts register the matching
+/// `Action<Intent>` at the widget that owns the target state. The shell
+/// publishes one default intent, [ToggleBottomPanelIntent], bound to
+/// Cmd/Ctrl+J by `WorkbenchShortcuts`; hosts add a Panel entry to the
+/// tree if they want a menu affordance for it.
 class WorkbenchMenuBar extends StatelessWidget {
-  /// Tab descriptors. Each generates a static menu item that dispatches
-  /// its [WorkbenchViewMenuTab.intent] on selection.
-  final List<WorkbenchViewMenuTab> tabs;
+  /// The View menu's entry tree (§spec:menu-model). Each command-bearing
+  /// node dispatches its [WorkbenchMenuActionEntry.intent] on selection.
+  final List<WorkbenchMenuEntry> entries;
 
   /// Child widget tree to wrap. On macOS, [PlatformMenuBar] passes
   /// this through unchanged while attaching menus to the system
@@ -84,7 +190,7 @@ class WorkbenchMenuBar extends StatelessWidget {
 
   const WorkbenchMenuBar({
     super.key,
-    required this.tabs,
+    required this.entries,
     required this.child,
     this.useNativeMenuBar,
     this.applicationMenuLabel = defaultApplicationMenuLabel,
@@ -120,29 +226,7 @@ class WorkbenchMenuBar extends StatelessWidget {
         ),
         PlatformMenu(
           label: 'View',
-          menus: [
-            PlatformMenuItem(
-              label: 'Panel',
-              shortcut: const SingleActivator(
-                LogicalKeyboardKey.keyJ,
-                meta: true,
-              ),
-              onSelected: _onSelectedFor(
-                context,
-                const ToggleBottomPanelIntent(),
-              ),
-            ),
-            PlatformMenuItemGroup(
-              members: [
-                for (final tab in tabs)
-                  PlatformMenuItem(
-                    label: tab.label,
-                    shortcut: tab.shortcut,
-                    onSelected: _onSelectedFor(context, tab.intent),
-                  ),
-              ],
-            ),
-          ],
+          menus: _buildPlatformChildren(context, entries),
         ),
         const PlatformMenu(
           label: 'Window',
@@ -228,29 +312,7 @@ class WorkbenchMenuBar extends StatelessWidget {
               child: MenuBar(
                 children: [
                   SubmenuButton(
-                    menuChildren: [
-                      _EnableAwareMenuItem(
-                        key: const ValueKey('view-menu-panel'),
-                        intent: const ToggleBottomPanelIntent(),
-                        dispatchContext: context,
-                        shortcut: const SingleActivator(
-                          LogicalKeyboardKey.keyJ,
-                          control: true,
-                        ),
-                        label: const Text('Panel'),
-                      ),
-                      const Divider(height: 1),
-                      for (final tab in tabs)
-                        _EnableAwareMenuItem(
-                          key: ValueKey(
-                            'view-menu-tab-${tab.intent.runtimeType}-${tab.label}',
-                          ),
-                          intent: tab.intent,
-                          dispatchContext: context,
-                          shortcut: tab.shortcut,
-                          label: Text(tab.label),
-                        ),
-                    ],
+                    menuChildren: _buildMaterialChildren(context, entries),
                     child: const Text('View'),
                   ),
                 ],
@@ -276,36 +338,113 @@ class WorkbenchMenuBar extends StatelessWidget {
     if (action == null || !action.isEnabled(intent)) return null;
     return () => Actions.maybeInvoke(context, intent);
   }
+
+  // --- macOS native path (PlatformMenu tree) ---
+
+  /// Builds the native menu children for [entries], splitting the list
+  /// into [PlatformMenuItemGroup] runs at each [WorkbenchMenuSeparator]
+  /// so the native menu draws a divider between groups. A single run
+  /// (no separators) is returned unwrapped, since a lone group draws no
+  /// divider.
+  List<PlatformMenuItem> _buildPlatformChildren(
+    BuildContext context,
+    List<WorkbenchMenuEntry> entries,
+  ) {
+    final groups = <List<PlatformMenuItem>>[<PlatformMenuItem>[]];
+    for (final entry in entries) {
+      switch (entry) {
+        case WorkbenchMenuSeparator():
+          if (groups.last.isNotEmpty) groups.add(<PlatformMenuItem>[]);
+        case WorkbenchMenuSubmenu(:final label, :final children):
+          groups.last.add(
+            PlatformMenu(
+              label: label,
+              menus: _buildPlatformChildren(context, children),
+            ),
+          );
+        case final WorkbenchMenuActionEntry entry:
+          groups.last.add(
+            PlatformMenuItem(
+              // The native menu carries no checked field, so a checked
+              // checkbox/radio degrades to a leading "✓ " glyph
+              // (§spec:menu-model).
+              label: _platformLabel(entry),
+              shortcut: entry.shortcut,
+              onSelected: _onSelectedFor(context, entry.intent),
+            ),
+          );
+      }
+    }
+    groups.removeWhere((group) => group.isEmpty);
+    if (groups.length <= 1) {
+      return groups.isEmpty ? const <PlatformMenuItem>[] : groups.single;
+    }
+    return [for (final group in groups) PlatformMenuItemGroup(members: group)];
+  }
+
+  String _platformLabel(WorkbenchMenuActionEntry entry) => switch (entry) {
+    WorkbenchMenuCheckbox(:final label, :final checked) =>
+      checked ? '✓ $label' : label,
+    WorkbenchMenuRadio(:final label, :final selected) =>
+      selected ? '✓ $label' : label,
+    WorkbenchViewMenuTab(:final label) => label,
+  };
+
+  // --- in-window Material path (SubmenuButton tree) ---
+
+  /// Builds the Material menu children for [entries]. Separators render
+  /// as a [Divider]; submenus nest a [SubmenuButton]; command-bearing
+  /// entries render an enable-aware checkbox/radio/command button.
+  List<Widget> _buildMaterialChildren(
+    BuildContext context,
+    List<WorkbenchMenuEntry> entries,
+  ) {
+    return [
+      for (final entry in entries)
+        switch (entry) {
+          WorkbenchMenuSeparator() => const Divider(height: 1),
+          WorkbenchMenuSubmenu(:final label, :final children) => SubmenuButton(
+            menuChildren: _buildMaterialChildren(context, children),
+            child: Text(label),
+          ),
+          final WorkbenchMenuActionEntry entry => _EnableAwareMenuEntry(
+            key: ValueKey(
+              'view-menu-${entry.intent.runtimeType}-${entry.label}',
+            ),
+            entry: entry,
+            dispatchContext: context,
+          ),
+        },
+    ];
+  }
 }
 
-/// A [MenuItemButton] that mirrors the enable state of the host's
-/// registered `Action<Intent>`. When no matching action exists, or the
-/// action reports `isActionEnabled == false`, the item renders with a
-/// null `onPressed`, which Material's menu paints as disabled.
+/// Renders one command-bearing [WorkbenchMenuActionEntry] — a command,
+/// checkbox, or radio — on the in-window Material path, mirroring the
+/// enable state of the host's registered `Action<Intent>`. When no
+/// matching action exists, or the action reports `isActionEnabled ==
+/// false`, the item renders with a null callback, which Material's menu
+/// paints as disabled.
 ///
 /// Subscribes to the action via [Action.addActionListener] so that
 /// hosts can toggle availability at runtime (e.g. register or
 /// unregister a bottom-panel tab) and the menu re-renders without a
 /// full parent rebuild.
-class _EnableAwareMenuItem extends StatefulWidget {
-  const _EnableAwareMenuItem({
+class _EnableAwareMenuEntry extends StatefulWidget {
+  const _EnableAwareMenuEntry({
     super.key,
-    required this.intent,
+    required this.entry,
     required this.dispatchContext,
-    required this.label,
-    this.shortcut,
   });
 
-  final Intent intent;
+  final WorkbenchMenuActionEntry entry;
   final BuildContext dispatchContext;
-  final Widget label;
-  final MenuSerializableShortcut? shortcut;
 
   @override
-  State<_EnableAwareMenuItem> createState() => _EnableAwareMenuItemState();
+  State<_EnableAwareMenuEntry> createState() => _EnableAwareMenuEntryState();
 }
 
-class _EnableAwareMenuItemState extends State<_EnableAwareMenuItem> {
+class _EnableAwareMenuEntryState extends State<_EnableAwareMenuEntry> {
   Action<Intent>? _action;
 
   @override
@@ -315,9 +454,10 @@ class _EnableAwareMenuItemState extends State<_EnableAwareMenuItem> {
   }
 
   @override
-  void didUpdateWidget(_EnableAwareMenuItem oldWidget) {
+  void didUpdateWidget(_EnableAwareMenuEntry oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.intent.runtimeType != widget.intent.runtimeType ||
+    if (oldWidget.entry.intent.runtimeType !=
+            widget.entry.intent.runtimeType ||
         oldWidget.dispatchContext != widget.dispatchContext) {
       _updateActionSubscription();
     }
@@ -326,7 +466,7 @@ class _EnableAwareMenuItemState extends State<_EnableAwareMenuItem> {
   void _updateActionSubscription() {
     final resolved = Actions.maybeFind<Intent>(
       widget.dispatchContext,
-      intent: widget.intent,
+      intent: widget.entry.intent,
     );
     if (identical(resolved, _action)) return;
     _action?.removeActionListener(_handleActionChanged);
@@ -344,17 +484,41 @@ class _EnableAwareMenuItemState extends State<_EnableAwareMenuItem> {
     super.dispose();
   }
 
+  void _invoke() =>
+      Actions.maybeInvoke(widget.dispatchContext, widget.entry.intent);
+
   @override
   Widget build(BuildContext context) {
     final action = _action;
-    final enabled = action != null && action.isEnabled(widget.intent);
-    return MenuItemButton(
-      shortcut: widget.shortcut,
-      onPressed: enabled
-          ? () => Actions.maybeInvoke(widget.dispatchContext, widget.intent)
-          : null,
-      child: widget.label,
-    );
+    final enabled = action != null && action.isEnabled(widget.entry.intent);
+    final entry = widget.entry;
+    final label = Text(entry.label);
+    switch (entry) {
+      case WorkbenchMenuCheckbox(:final checked):
+        return CheckboxMenuButton(
+          value: checked,
+          shortcut: entry.shortcut,
+          onChanged: enabled ? (_) => _invoke() : null,
+          child: label,
+        );
+      case WorkbenchMenuRadio(:final selected):
+        // A single boolean RadioMenuButton: the value is selected
+        // against a group value that equals it only when this item is
+        // the chosen one, so the real radio mark tracks [selected].
+        return RadioMenuButton<bool>(
+          value: true,
+          groupValue: selected,
+          shortcut: entry.shortcut,
+          onChanged: enabled ? (_) => _invoke() : null,
+          child: label,
+        );
+      case WorkbenchViewMenuTab():
+        return MenuItemButton(
+          shortcut: entry.shortcut,
+          onPressed: enabled ? _invoke : null,
+          child: label,
+        );
+    }
   }
 }
 

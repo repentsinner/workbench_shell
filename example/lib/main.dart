@@ -234,12 +234,13 @@ class ToggleStatusBarIntent extends Intent {
   const ToggleStatusBarIntent();
 }
 
-/// Host-defined intent to cycle the bottom panel's alignment
-/// (§spec:panel-alignment) through center → justify → left → right. The shell
-/// exposes the `panelAlignment` property; the host owns the state and the menu
-/// affordance.
-class CyclePanelAlignmentIntent extends Intent {
-  const CyclePanelAlignmentIntent();
+/// Host-defined intent to set the bottom panel's alignment
+/// (§spec:panel-alignment) to a specific value. The View menu's Align Panel
+/// radio submenu dispatches one per choice; the shell exposes the
+/// `panelAlignment` property and the host owns the state.
+class SetPanelAlignmentIntent extends Intent {
+  const SetPanelAlignmentIntent(this.alignment);
+  final WorkbenchPanelAlignment alignment;
 }
 
 class WorkbenchHome extends StatefulWidget {
@@ -381,16 +382,11 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
     setState(() => _statusBarVisible = !_statusBarVisible);
   }
 
-  /// Cycle the panel alignment through center → justify → left → right and back,
-  /// so one menu item exercises all four §spec:panel-alignment values.
-  void _cyclePanelAlignment() {
-    setState(() {
-      const order = WorkbenchPanelAlignment.values;
-      _panelAlignment = order[(_panelAlignment.index + 1) % order.length];
-    });
+  void _setPanelAlignment(WorkbenchPanelAlignment alignment) {
+    setState(() => _panelAlignment = alignment);
   }
 
-  /// Display name for the active alignment, shown in the View menu item.
+  /// Display name for an alignment, shown on the Align Panel radio items.
   static String _panelAlignmentLabel(WorkbenchPanelAlignment alignment) {
     switch (alignment) {
       case WorkbenchPanelAlignment.center:
@@ -565,70 +561,96 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                     return null;
                   },
                 ),
-                CyclePanelAlignmentIntent:
-                    CallbackAction<CyclePanelAlignmentIntent>(
-                      onInvoke: (_) {
-                        _cyclePanelAlignment();
+                SetPanelAlignmentIntent:
+                    CallbackAction<SetPanelAlignmentIntent>(
+                      onInvoke: (intent) {
+                        _setPanelAlignment(intent.alignment);
                         return null;
                       },
                     ),
               },
               child: WorkbenchMenuBar(
-                // The shell's panel/tab entries plus the host's editing-mode
-                // toggles (§spec:editing-modes). The label reflects the current
-                // state so the menu reads as a checkable toggle.
-                tabs: [
+                // VS Code's View menu structure built from the §spec:menu-model
+                // tree: an Appearance submenu of checkable visibility toggles
+                // that itself nests the Align Panel radio submenu (canon: View ▸
+                // Appearance ▸ Align Panel ▸ value), then the shell-derived panel
+                // focus commands. Checkable entries carry the host's current
+                // state (a real check in-window, a leading "✓ " on macOS) so no
+                // entry mutates its label to convey state.
+                entries: [
+                  WorkbenchMenuSubmenu(
+                    label: 'Appearance',
+                    children: [
+                      WorkbenchMenuCheckbox(
+                        intent: const ToggleZenModeIntent(),
+                        label: 'Zen Mode',
+                        checked: _zenMode,
+                      ),
+                      WorkbenchMenuCheckbox(
+                        intent: const ToggleCenteredLayoutIntent(),
+                        label: 'Centered Layout',
+                        checked: _centeredLayout,
+                      ),
+                      const WorkbenchMenuSeparator(),
+                      WorkbenchMenuCheckbox(
+                        intent: const ToggleSidebarIntent(),
+                        label: 'Primary Side Bar',
+                        checked: _sidebarVisible,
+                        shortcut: const SingleActivator(
+                          LogicalKeyboardKey.keyB,
+                          meta: true,
+                        ),
+                      ),
+                      WorkbenchMenuCheckbox(
+                        intent: const ToggleSecondarySideBarIntent(),
+                        label: 'Secondary Side Bar',
+                        checked: _secondarySideBarVisible,
+                        shortcut: const SingleActivator(
+                          LogicalKeyboardKey.keyB,
+                          meta: true,
+                          alt: true,
+                        ),
+                      ),
+                      WorkbenchMenuCheckbox(
+                        intent: const ToggleStatusBarIntent(),
+                        label: 'Status Bar',
+                        checked: _statusBarVisible,
+                      ),
+                      WorkbenchMenuCheckbox(
+                        intent: const ToggleBottomPanelIntent(),
+                        label: 'Panel',
+                        checked: _panelVisible,
+                        shortcut: const SingleActivator(
+                          LogicalKeyboardKey.keyJ,
+                          meta: true,
+                        ),
+                      ),
+                      const WorkbenchMenuSeparator(),
+                      WorkbenchViewMenuTab(
+                        intent: const ToggleSidebarPositionIntent(),
+                        label:
+                            _sidebarPosition == WorkbenchSidebarPosition.left
+                            ? 'Move Primary Side Bar Right'
+                            : 'Move Primary Side Bar Left',
+                      ),
+                      // Align Panel nests inside Appearance (canon), a radio
+                      // submenu two levels deep — View ▸ Appearance ▸ Align
+                      // Panel ▸ value.
+                      WorkbenchMenuSubmenu(
+                        label: 'Align Panel',
+                        children: [
+                          for (final alignment in WorkbenchPanelAlignment.values)
+                            WorkbenchMenuRadio(
+                              intent: SetPanelAlignmentIntent(alignment),
+                              label: _panelAlignmentLabel(alignment),
+                              selected: _panelAlignment == alignment,
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const WorkbenchMenuSeparator(),
                   ...scope.viewMenuTabs,
-                  WorkbenchViewMenuTab(
-                    intent: const ToggleZenModeIntent(),
-                    label: _zenMode ? 'Exit Zen Mode' : 'Zen Mode',
-                  ),
-                  WorkbenchViewMenuTab(
-                    intent: const ToggleCenteredLayoutIntent(),
-                    label: _centeredLayout
-                        ? 'Uncenter Layout'
-                        : 'Centered Layout',
-                  ),
-                  WorkbenchViewMenuTab(
-                    intent: const ToggleSidebarPositionIntent(),
-                    label:
-                        _sidebarPosition == WorkbenchSidebarPosition.left
-                        ? 'Move Primary Side Bar Right'
-                        : 'Move Primary Side Bar Left',
-                  ),
-                  WorkbenchViewMenuTab(
-                    intent: const ToggleSidebarIntent(),
-                    label: _sidebarVisible
-                        ? 'Hide Primary Side Bar'
-                        : 'Show Primary Side Bar',
-                    shortcut: const SingleActivator(
-                      LogicalKeyboardKey.keyB,
-                      meta: true,
-                    ),
-                  ),
-                  WorkbenchViewMenuTab(
-                    intent: const ToggleSecondarySideBarIntent(),
-                    label: _secondarySideBarVisible
-                        ? 'Hide Secondary Side Bar'
-                        : 'Show Secondary Side Bar',
-                    shortcut: const SingleActivator(
-                      LogicalKeyboardKey.keyB,
-                      meta: true,
-                      alt: true,
-                    ),
-                  ),
-                  WorkbenchViewMenuTab(
-                    intent: const ToggleStatusBarIntent(),
-                    label: _statusBarVisible
-                        ? 'Hide Status Bar'
-                        : 'Show Status Bar',
-                  ),
-                  WorkbenchViewMenuTab(
-                    intent: const CyclePanelAlignmentIntent(),
-                    label:
-                        'Panel Alignment: '
-                        '${_panelAlignmentLabel(_panelAlignment)}',
-                  ),
                 ],
                 child: NotificationHost(
                   service: _notificationService,
