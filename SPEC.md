@@ -1271,7 +1271,7 @@ warrant one.
 
 ## Workbench Layout Customization §spec:layout-customization
 
-*Status: in progress*
+*Status: complete*
 
 §spec:workbench-layout composes a fixed arrangement: activity bar and
 primary side bar on the left, bottom panel under the editor, status bar
@@ -1376,23 +1376,28 @@ drag-to-relocate as a future, separable addition.
 ### Panel Alignment §spec:panel-alignment
 
 When the bottom panel is at the bottom, its horizontal extent is
-host-selectable: `center` (spans the editor only; both side bars run
-full height past it — the §spec:workbench-layout default), `justify`
-(spans the full width; neither side bar runs past it), `left` (abuts the
-left edge's side bar, which runs full height; spans the rest), and
-`right` (mirror of `left`).
+host-selectable through the controlled/uncontrolled seam above
+(`initialPanelAlignment`, or `panelAlignment` plus
+`onPanelAlignmentChanged`): `center` spans the editor only (both side
+bars run full height past it — the §spec:workbench-layout default),
+`justify` spans the full width (neither side bar runs past it), `left`
+abuts the left edge's side bar (which runs full height) and spans the
+rest, and `right` mirrors `left`.
 
 **Why re-parenting, not a layout solver.** Each alignment reduces to one
-question per side bar: does this bar run full height (outside the panel's
-horizontal band) or stop at the panel's top (inside it)? Center =
-both outside; justify = both inside; left/right = one of each. The four
-values are therefore two booleans realized by *where the panel sits in
-the widget tree*, not a constraint solver or a multi-child layout
-delegate. This is the most subtle composition in this section — it forces
-the layout to compute its nesting rather than return a fixed tree — and
-it is the boundary case the §spec:layout-customization "no layout engine"
-decision is tested against: if these four alignments express cleanly as
-nesting choices, no graph abstraction is warranted.
+question per screen edge: does that edge's bar group run full height
+(outside the panel's horizontal band) or stop at the panel's top (inside
+it)? Center = both outside; justify = both inside; left/right = one of
+each. The four values are therefore two booleans realized by *where the
+panel sits in the widget tree*, not a constraint solver or a multi-child
+layout delegate. This is the boundary case the §spec:layout-customization
+"no layout engine" decision is tested against, and it holds: the four
+alignments express cleanly as the per-edge nesting choice — bars marked
+inside sit in the row above the panel so it spans beneath them, outside
+bars are siblings of the panel's band column running full height — so no
+layout-graph abstraction is warranted. Re-parenting preserves element
+identity through the same GlobalKeys §spec:sidebar-position relies on, so
+a host's retained pane and panel State survives an alignment change.
 
 ### Zen and Centered Layout §spec:editing-modes
 

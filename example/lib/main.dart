@@ -234,6 +234,14 @@ class ToggleStatusBarIntent extends Intent {
   const ToggleStatusBarIntent();
 }
 
+/// Host-defined intent to cycle the bottom panel's alignment
+/// (§spec:panel-alignment) through center → justify → left → right. The shell
+/// exposes the `panelAlignment` property; the host owns the state and the menu
+/// affordance.
+class CyclePanelAlignmentIntent extends Intent {
+  const CyclePanelAlignmentIntent();
+}
+
 class WorkbenchHome extends StatefulWidget {
   const WorkbenchHome({super.key, required this.themeController});
 
@@ -267,6 +275,10 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   // Status bar (§spec:layout-customization): host-owned visibility, driven from
   // the View menu into the shell's controlled `statusBarVisible` property.
   bool _statusBarVisible = true;
+  // Panel alignment (§spec:panel-alignment): host-owned, driven from the View
+  // menu into the shell's controlled `panelAlignment` property. Center is the
+  // default — the panel spans the editor while both side bars run full height.
+  WorkbenchPanelAlignment _panelAlignment = WorkbenchPanelAlignment.center;
   void Function(Object id)? _focusPanelById;
   final NotificationService _notificationService = NotificationService();
 
@@ -367,6 +379,29 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
 
   void _toggleStatusBar() {
     setState(() => _statusBarVisible = !_statusBarVisible);
+  }
+
+  /// Cycle the panel alignment through center → justify → left → right and back,
+  /// so one menu item exercises all four §spec:panel-alignment values.
+  void _cyclePanelAlignment() {
+    setState(() {
+      const order = WorkbenchPanelAlignment.values;
+      _panelAlignment = order[(_panelAlignment.index + 1) % order.length];
+    });
+  }
+
+  /// Display name for the active alignment, shown in the View menu item.
+  static String _panelAlignmentLabel(WorkbenchPanelAlignment alignment) {
+    switch (alignment) {
+      case WorkbenchPanelAlignment.center:
+        return 'Center';
+      case WorkbenchPanelAlignment.justify:
+        return 'Justify';
+      case WorkbenchPanelAlignment.left:
+        return 'Left';
+      case WorkbenchPanelAlignment.right:
+        return 'Right';
+    }
   }
 
   /// VS Code's defaults: Shift+Cmd+M Problems, Shift+Cmd+U Output,
@@ -530,6 +565,13 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                     return null;
                   },
                 ),
+                CyclePanelAlignmentIntent:
+                    CallbackAction<CyclePanelAlignmentIntent>(
+                      onInvoke: (_) {
+                        _cyclePanelAlignment();
+                        return null;
+                      },
+                    ),
               },
               child: WorkbenchMenuBar(
                 // The shell's panel/tab entries plus the host's editing-mode
@@ -581,6 +623,12 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                         ? 'Hide Status Bar'
                         : 'Show Status Bar',
                   ),
+                  WorkbenchViewMenuTab(
+                    intent: const CyclePanelAlignmentIntent(),
+                    label:
+                        'Panel Alignment: '
+                        '${_panelAlignmentLabel(_panelAlignment)}',
+                  ),
                 ],
                 child: NotificationHost(
                   service: _notificationService,
@@ -610,6 +658,12 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                     sidebarPosition: _sidebarPosition,
                     onSidebarPositionChanged: (next) =>
                         setState(() => _sidebarPosition = next),
+                    // Controlled panel alignment (§spec:panel-alignment): the
+                    // host owns the alignment and the shell re-parents the panel
+                    // to match, mirroring the side-bar position property above.
+                    panelAlignment: _panelAlignment,
+                    onPanelAlignmentChanged: (next) =>
+                        setState(() => _panelAlignment = next),
                     // Controlled primary side-bar visibility
                     // (§spec:layout-customization): the host owns the flag; the
                     // shell renders it and also raises onSidebarVisibilityChanged
