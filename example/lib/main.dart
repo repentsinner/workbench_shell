@@ -612,6 +612,11 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                         ),
                       ),
                       WorkbenchMenuCheckbox(
+                        intent: const ToggleStatusBarIntent(),
+                        label: 'Status Bar',
+                        checked: _statusBarVisible,
+                      ),
+                      WorkbenchMenuCheckbox(
                         intent: const ToggleBottomPanelIntent(),
                         label: 'Panel',
                         checked: _panelVisible,
@@ -619,11 +624,6 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                           LogicalKeyboardKey.keyJ,
                           meta: true,
                         ),
-                      ),
-                      WorkbenchMenuCheckbox(
-                        intent: const ToggleStatusBarIntent(),
-                        label: 'Status Bar',
-                        checked: _statusBarVisible,
                       ),
                       const WorkbenchMenuSeparator(),
                       WorkbenchViewMenuTab(
