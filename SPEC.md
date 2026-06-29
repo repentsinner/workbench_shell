@@ -1206,6 +1206,51 @@ model and do not participate in this contract.
 
 ---
 
+## View Menu Item Model §spec:menu-model
+
+*Status: not started*
+
+§spec:menu-bar renders a flat View menu: one `WorkbenchViewMenuTab` per
+entry, each a label plus an intent. Flat labels cannot express VS Code's
+menu structure — nested submenus (Appearance ▸ …, Align Panel ▸ …) or a
+checked/radio item marking the active choice in a group. Lacking them, a
+host conveys state by mutating an entry's label ("Panel Alignment:
+Center"), which reads as prose rather than a selectable list and cannot
+show which of several options is active. This section gives the menu
+model a nesting and selection-state vocabulary so a host builds a
+canon-faithful menu.
+
+**Model.** The View menu accepts a tree of entries, not a flat list. An
+entry is one of: a *command* (label plus intent — today's
+`WorkbenchViewMenuTab`), a *submenu* (label plus child entries), a
+*separator* group, or a *checkable* entry (a command carrying a checked
+state; checkable entries sharing a radio group render as a
+mutually-exclusive set). The checked value is the host's, reported by the
+entry and owned through the same controlled/uncontrolled seam as every
+other property (§spec:layout-customization). The descriptor tree stays
+platform-agnostic, as §spec:menu-bar's flat model already is.
+
+**Checkmark rendering — the platform split.** True checkmarks render only
+on the in-window Material path. Flutter's `PlatformMenuBar`
+(`PlatformMenuItem`) exposes no checked field, so the macOS system menu
+bar cannot draw the native checkmark gutter. A checkable entry therefore
+degrades on macOS to a leading "✓ " glyph in the label — visible and
+non-mutating, but not the native mark. Submenus need no degradation:
+`PlatformMenu` nests natively everywhere. The in-window path (Windows,
+Linux) renders `RadioMenuButton` / `CheckboxMenuButton` / `SubmenuButton`
+with real checkmarks.
+
+**Why not abandon the native macOS menu for full fidelity.** A fully
+canon menu — native checkmark gutter and submenus — is reachable only by
+dropping `PlatformMenuBar` for an in-window Material menu on macOS too,
+forfeiting the system menu bar at the top of the screen. The system menu
+bar is the stronger macOS-native signal; trading it for a checkmark is
+rejected. The "✓ " degradation is the accepted compromise until Flutter
+exposes checked state on `PlatformMenuItem`, at which point the macOS
+path adopts it with no model change.
+
+---
+
 ## Form Controls Are Excluded §spec:form-controls-excluded
 
 *Status: complete*
