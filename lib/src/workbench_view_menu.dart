@@ -352,43 +352,34 @@ class WorkbenchMenuBar extends StatelessWidget {
   ) {
     final groups = <List<PlatformMenuItem>>[<PlatformMenuItem>[]];
     for (final entry in entries) {
-      if (entry is WorkbenchMenuSeparator) {
-        if (groups.last.isNotEmpty) groups.add(<PlatformMenuItem>[]);
-        continue;
+      switch (entry) {
+        case WorkbenchMenuSeparator():
+          if (groups.last.isNotEmpty) groups.add(<PlatformMenuItem>[]);
+        case WorkbenchMenuSubmenu(:final label, :final children):
+          groups.last.add(
+            PlatformMenu(
+              label: label,
+              menus: _buildPlatformChildren(context, children),
+            ),
+          );
+        case final WorkbenchMenuActionEntry entry:
+          groups.last.add(
+            PlatformMenuItem(
+              // The native menu carries no checked field, so a checked
+              // checkbox/radio degrades to a leading "✓ " glyph
+              // (§spec:menu-model).
+              label: _platformLabel(entry),
+              shortcut: entry.shortcut,
+              onSelected: _onSelectedFor(context, entry.intent),
+            ),
+          );
       }
-      groups.last.add(_platformItemFor(context, entry));
     }
     groups.removeWhere((group) => group.isEmpty);
     if (groups.length <= 1) {
       return groups.isEmpty ? const <PlatformMenuItem>[] : groups.single;
     }
     return [for (final group in groups) PlatformMenuItemGroup(members: group)];
-  }
-
-  PlatformMenuItem _platformItemFor(
-    BuildContext context,
-    WorkbenchMenuEntry entry,
-  ) {
-    switch (entry) {
-      case WorkbenchMenuSubmenu(:final label, :final children):
-        return PlatformMenu(
-          label: label,
-          menus: _buildPlatformChildren(context, children),
-        );
-      case final WorkbenchMenuActionEntry entry:
-        return PlatformMenuItem(
-          // The native menu carries no checked field, so a checked
-          // checkbox/radio degrades to a leading "✓ " glyph
-          // (§spec:menu-model).
-          label: _platformLabel(entry),
-          shortcut: entry.shortcut,
-          onSelected: _onSelectedFor(context, entry.intent),
-        );
-      case WorkbenchMenuSeparator():
-        // Separators are consumed by _buildPlatformChildren before
-        // reaching here.
-        throw StateError('WorkbenchMenuSeparator has no native item');
-    }
   }
 
   String _platformLabel(WorkbenchMenuActionEntry entry) => switch (entry) {
