@@ -60,7 +60,7 @@ void main() {
             invocations: invocations,
             child: const WorkbenchMenuBar(
               useNativeMenuBar: false,
-              tabs: tabs,
+              entries: tabs,
               child: SizedBox(width: 400, height: 200),
             ),
           ),
@@ -70,12 +70,11 @@ void main() {
       await tester.tap(find.text('View'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Panel'), findsOneWidget);
       expect(find.text('Tasks'), findsOneWidget);
       expect(find.text('MDI'), findsOneWidget);
     });
 
-    testWidgets('Panel menu item dispatches ToggleBottomPanelIntent', (
+    testWidgets('command entry dispatches its intent on selection', (
       tester,
     ) async {
       final invocations = <Object>[];
@@ -85,7 +84,12 @@ void main() {
             invocations: invocations,
             child: const WorkbenchMenuBar(
               useNativeMenuBar: false,
-              tabs: [],
+              entries: [
+                WorkbenchViewMenuTab(
+                  intent: ToggleBottomPanelIntent(),
+                  label: 'Panel',
+                ),
+              ],
               child: SizedBox(width: 400, height: 200),
             ),
           ),
@@ -144,7 +148,7 @@ void main() {
             invocations: invocations,
             child: const WorkbenchMenuBar(
               useNativeMenuBar: false,
-              tabs: tabs,
+              entries: tabs,
               child: SizedBox(width: 400, height: 200),
             ),
           ),
@@ -184,7 +188,7 @@ void main() {
             invocations: invocations,
             child: const WorkbenchMenuBar(
               useNativeMenuBar: false,
-              tabs: [
+              entries: [
                 WorkbenchViewMenuTab(
                   intent: _FocusTestTabIntent('mdi'),
                   label: 'MDI',
@@ -203,9 +207,278 @@ void main() {
     });
   });
 
+  group('WorkbenchMenuBar entry model (in-window)', () {
+    testWidgets('submenu nests its children behind a SubmenuButton', (
+      tester,
+    ) async {
+      final invocations = <Object>[];
+      await tester.pumpWidget(
+        wrapWithTheme(
+          _actionsHarness(
+            invocations: invocations,
+            child: const WorkbenchMenuBar(
+              useNativeMenuBar: false,
+              entries: [
+                WorkbenchMenuSubmenu(
+                  label: 'Appearance',
+                  children: [
+                    WorkbenchViewMenuTab(
+                      intent: _FocusTestTabIntent('zen'),
+                      label: 'Zen Mode',
+                    ),
+                  ],
+                ),
+              ],
+              child: SizedBox(width: 400, height: 200),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('View'));
+      await tester.pumpAndSettle();
+      // The child is not visible until the submenu opens.
+      expect(find.text('Zen Mode'), findsNothing);
+      await tester.tap(find.text('Appearance'));
+      await tester.pumpAndSettle();
+      expect(find.text('Zen Mode'), findsOneWidget);
+      await tester.tap(find.text('Zen Mode'));
+      await tester.pumpAndSettle();
+      expect(invocations, ['zen']);
+    });
+
+    testWidgets('checkbox renders a CheckboxMenuButton tracking checked', (
+      tester,
+    ) async {
+      final invocations = <Object>[];
+      await tester.pumpWidget(
+        wrapWithTheme(
+          _actionsHarness(
+            invocations: invocations,
+            child: const WorkbenchMenuBar(
+              useNativeMenuBar: false,
+              entries: [
+                WorkbenchMenuCheckbox(
+                  intent: ToggleBottomPanelIntent(),
+                  label: 'Panel',
+                  checked: true,
+                ),
+              ],
+              child: SizedBox(width: 400, height: 200),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('View'));
+      await tester.pumpAndSettle();
+      final checkbox = tester.widget<CheckboxMenuButton>(
+        find.widgetWithText(CheckboxMenuButton, 'Panel'),
+      );
+      expect(checkbox.value, isTrue);
+      await tester.tap(find.text('Panel'));
+      await tester.pumpAndSettle();
+      expect(invocations.single, isA<ToggleBottomPanelIntent>());
+    });
+
+    testWidgets('radio renders a RadioMenuButton tracking selected', (
+      tester,
+    ) async {
+      final invocations = <Object>[];
+      await tester.pumpWidget(
+        wrapWithTheme(
+          _actionsHarness(
+            invocations: invocations,
+            child: const WorkbenchMenuBar(
+              useNativeMenuBar: false,
+              entries: [
+                WorkbenchMenuSubmenu(
+                  label: 'Align Panel',
+                  children: [
+                    WorkbenchMenuRadio(
+                      intent: _FocusTestTabIntent('center'),
+                      label: 'Center',
+                      selected: true,
+                    ),
+                    WorkbenchMenuRadio(
+                      intent: _FocusTestTabIntent('left'),
+                      label: 'Left',
+                      selected: false,
+                    ),
+                  ],
+                ),
+              ],
+              child: SizedBox(width: 400, height: 200),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('View'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Align Panel'));
+      await tester.pumpAndSettle();
+      final center = tester.widget<RadioMenuButton<bool>>(
+        find.widgetWithText(RadioMenuButton<bool>, 'Center'),
+      );
+      final left = tester.widget<RadioMenuButton<bool>>(
+        find.widgetWithText(RadioMenuButton<bool>, 'Left'),
+      );
+      // Selected when value == groupValue.
+      expect(center.value == center.groupValue, isTrue);
+      expect(left.value == left.groupValue, isFalse);
+      await tester.tap(find.text('Left'));
+      await tester.pumpAndSettle();
+      expect(invocations, ['left']);
+    });
+
+    testWidgets('separator renders a Divider between groups', (tester) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          _actionsHarness(
+            invocations: <Object>[],
+            child: const WorkbenchMenuBar(
+              useNativeMenuBar: false,
+              entries: [
+                WorkbenchViewMenuTab(
+                  intent: _FocusTestTabIntent('a'),
+                  label: 'Alpha',
+                ),
+                WorkbenchMenuSeparator(),
+                WorkbenchViewMenuTab(
+                  intent: _FocusTestTabIntent('b'),
+                  label: 'Beta',
+                ),
+              ],
+              child: SizedBox(width: 400, height: 200),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('View'));
+      await tester.pumpAndSettle();
+      expect(find.byType(Divider), findsOneWidget);
+    });
+  });
+
+  group('WorkbenchMenuBar entry model (macOS native)', () {
+    // Drives the macOS path. PlatformMenuBar serializes to the
+    // `flutter/menu` channel on mount; stub it so the native path mounts
+    // headless, then inspect the configured PlatformMenu tree.
+    Future<PlatformMenu> pumpAndReadViewMenu(
+      WidgetTester tester,
+      List<WorkbenchMenuEntry> entries,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel('flutter/menu'),
+        (call) async => null,
+      );
+      addTearDown(() {
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          const MethodChannel('flutter/menu'),
+          null,
+        );
+      });
+      await tester.pumpWidget(
+        wrapWithTheme(
+          Actions(
+            actions: <Type, Action<Intent>>{
+              ToggleBottomPanelIntent: CallbackAction<ToggleBottomPanelIntent>(
+                onInvoke: (_) => null,
+              ),
+              _FocusTestTabIntent: CallbackAction<_FocusTestTabIntent>(
+                onInvoke: (_) => null,
+              ),
+            },
+            child: WorkbenchMenuBar(
+              useNativeMenuBar: true,
+              entries: entries,
+              child: const SizedBox(width: 400, height: 200),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      final menuBar = tester.widget<PlatformMenuBar>(
+        find.byType(PlatformMenuBar),
+      );
+      return menuBar.menus.firstWhere(
+            (m) => m is PlatformMenu && m.label == 'View',
+          )
+          as PlatformMenu;
+    }
+
+    testWidgets('checkbox degrades to a leading "✓ " when checked', (
+      tester,
+    ) async {
+      final view = await pumpAndReadViewMenu(tester, const [
+        WorkbenchMenuCheckbox(
+          intent: ToggleBottomPanelIntent(),
+          label: 'Panel',
+          checked: true,
+        ),
+        WorkbenchMenuCheckbox(
+          intent: ToggleBottomPanelIntent(),
+          label: 'Status Bar',
+          checked: false,
+        ),
+      ]);
+      final labels = view.menus
+          .cast<PlatformMenuItem>()
+          .map((m) => m.label)
+          .toList();
+      expect(labels, ['✓ Panel', 'Status Bar']);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('radio degrades to a leading "✓ " on the selected member', (
+      tester,
+    ) async {
+      final view = await pumpAndReadViewMenu(tester, const [
+        WorkbenchMenuSubmenu(
+          label: 'Align Panel',
+          children: [
+            WorkbenchMenuRadio(
+              intent: _FocusTestTabIntent('center'),
+              label: 'Center',
+              selected: true,
+            ),
+            WorkbenchMenuRadio(
+              intent: _FocusTestTabIntent('left'),
+              label: 'Left',
+              selected: false,
+            ),
+          ],
+        ),
+      ]);
+      final submenu = view.menus.single as PlatformMenu;
+      expect(submenu.label, 'Align Panel');
+      final labels = submenu.menus
+          .cast<PlatformMenuItem>()
+          .map((m) => m.label)
+          .toList();
+      expect(labels, ['✓ Center', 'Left']);
+      debugDefaultTargetPlatformOverride = null;
+    });
+
+    testWidgets('separator splits children into PlatformMenuItemGroups', (
+      tester,
+    ) async {
+      final view = await pumpAndReadViewMenu(tester, const [
+        WorkbenchViewMenuTab(
+          intent: _FocusTestTabIntent('a'),
+          label: 'Alpha',
+        ),
+        WorkbenchMenuSeparator(),
+        WorkbenchViewMenuTab(intent: _FocusTestTabIntent('b'), label: 'Beta'),
+      ]);
+      expect(view.menus, hasLength(2));
+      expect(view.menus.every((m) => m is PlatformMenuItemGroup), isTrue);
+      debugDefaultTargetPlatformOverride = null;
+    });
+  });
+
   group('WorkbenchMenuBar application menu label', () {
     test('defaults to the neutral host-agnostic label', () {
-      const bar = WorkbenchMenuBar(tabs: [], child: SizedBox.shrink());
+      const bar = WorkbenchMenuBar(entries: [], child: SizedBox.shrink());
       expect(bar.applicationMenuLabel, isNotEmpty);
       expect(
         bar.applicationMenuLabel,
@@ -216,7 +489,7 @@ void main() {
     test('threads the configured label through the widget field', () {
       const bar = WorkbenchMenuBar(
         applicationMenuLabel: 'Acme',
-        tabs: [],
+        entries: [],
         child: SizedBox.shrink(),
       );
       expect(bar.applicationMenuLabel, 'Acme');
@@ -254,7 +527,7 @@ void main() {
               applicationMenuLabel: 'Acme',
               // A non-empty tab keeps the View menu's
               // PlatformMenuItemGroup valid during channel serialization.
-              tabs: [
+              entries: [
                 WorkbenchViewMenuTab(
                   intent: _FocusTestTabIntent('mdi'),
                   label: 'MDI',
@@ -295,7 +568,7 @@ void main() {
             },
             child: const WorkbenchMenuBar(
               useNativeMenuBar: false,
-              tabs: [
+              entries: [
                 WorkbenchViewMenuTab(
                   intent: _FocusTestTabIntent('mdi'),
                   label: 'MDI',
@@ -470,7 +743,12 @@ void main() {
               },
               child: const WorkbenchMenuBar(
                 useNativeMenuBar: false,
-                tabs: [],
+                entries: [
+                  WorkbenchViewMenuTab(
+                    intent: ToggleBottomPanelIntent(),
+                    label: 'Panel',
+                  ),
+                ],
                 child: SizedBox(width: 400, height: 200),
               ),
             ),
@@ -498,7 +776,12 @@ void main() {
               },
               child: const WorkbenchMenuBar(
                 useNativeMenuBar: false,
-                tabs: [],
+                entries: [
+                  WorkbenchViewMenuTab(
+                    intent: ToggleBottomPanelIntent(),
+                    label: 'Panel',
+                  ),
+                ],
                 child: SizedBox(width: 400, height: 200),
               ),
             ),
