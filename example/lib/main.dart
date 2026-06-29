@@ -211,6 +211,14 @@ class ToggleSidebarPositionIntent extends Intent {
   const ToggleSidebarPositionIntent();
 }
 
+/// Host-defined intent to toggle the primary side bar
+/// (§spec:layout-customization). The shell exposes the `sidebarVisible`
+/// property; the host owns the state, the menu affordance, and VS Code's Cmd+B
+/// keybinding.
+class ToggleSidebarIntent extends Intent {
+  const ToggleSidebarIntent();
+}
+
 /// Host-defined intent to toggle the secondary side bar
 /// (§spec:secondary-sidebar). The shell exposes the `secondarySideBarVisible`
 /// property; the host owns the state, the menu affordance, and VS Code's
@@ -238,6 +246,11 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   // Side-bar position (§spec:sidebar-position): host-owned, driven from the View
   // menu and fed back into the shell's controlled `sidebarPosition` property.
   WorkbenchSidebarPosition _sidebarPosition = WorkbenchSidebarPosition.left;
+  // Primary side bar (§spec:layout-customization): host-owned visibility, driven
+  // from the View menu (and VS Code's Cmd+B) into the shell's controlled
+  // `sidebarVisible` property. The shell also raises the toggle when the active
+  // activity icon is tapped, so the host updates this on `onSidebarVisibilityChanged`.
+  bool _sidebarVisible = true;
   // Secondary side bar (§spec:secondary-sidebar): host-owned visibility, driven
   // from the View menu (and VS Code's Cmd+Alt+B) into the shell's controlled
   // `secondarySideBarVisible` property. Hidden by default, matching VS Code. The
@@ -334,6 +347,10 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
     );
   }
 
+  void _togglePrimarySideBar() {
+    setState(() => _sidebarVisible = !_sidebarVisible);
+  }
+
   void _toggleSecondarySideBar() {
     setState(() => _secondarySideBarVisible = !_secondarySideBarVisible);
   }
@@ -384,6 +401,15 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
         FocusExamplePanelIntent(ExamplePanel.debugConsole),
   };
 
+  /// VS Code's primary side bar toggle: Cmd+B on macOS, Ctrl+B elsewhere
+  /// (§spec:layout-customization). Both activators live in the map so the
+  /// binding fires regardless of platform.
+  static const _primarySideBarShortcuts = <ShortcutActivator, Intent>{
+    SingleActivator(LogicalKeyboardKey.keyB, meta: true): ToggleSidebarIntent(),
+    SingleActivator(LogicalKeyboardKey.keyB, control: true):
+        ToggleSidebarIntent(),
+  };
+
   /// VS Code's secondary side bar toggle: Cmd+Alt+B on macOS, Ctrl+Alt+B
   /// elsewhere (§spec:secondary-sidebar). Both activators live in the map so the
   /// binding fires regardless of platform.
@@ -428,6 +454,7 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
           shortcuts: {
             ...scope.shortcuts,
             ..._ctrlVariantShortcuts,
+            ..._primarySideBarShortcuts,
             ..._secondarySideBarShortcuts,
           },
           child: WorkbenchShortcuts(
@@ -470,6 +497,12 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                         return null;
                       },
                     ),
+                ToggleSidebarIntent: CallbackAction<ToggleSidebarIntent>(
+                  onInvoke: (_) {
+                    _togglePrimarySideBar();
+                    return null;
+                  },
+                ),
                 ToggleSecondarySideBarIntent:
                     CallbackAction<ToggleSecondarySideBarIntent>(
                       onInvoke: (_) {
@@ -500,6 +533,16 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                         _sidebarPosition == WorkbenchSidebarPosition.left
                         ? 'Move Primary Side Bar Right'
                         : 'Move Primary Side Bar Left',
+                  ),
+                  WorkbenchViewMenuTab(
+                    intent: const ToggleSidebarIntent(),
+                    label: _sidebarVisible
+                        ? 'Hide Primary Side Bar'
+                        : 'Show Primary Side Bar',
+                    shortcut: const SingleActivator(
+                      LogicalKeyboardKey.keyB,
+                      meta: true,
+                    ),
                   ),
                   WorkbenchViewMenuTab(
                     intent: const ToggleSecondarySideBarIntent(),
@@ -541,6 +584,13 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                     sidebarPosition: _sidebarPosition,
                     onSidebarPositionChanged: (next) =>
                         setState(() => _sidebarPosition = next),
+                    // Controlled primary side-bar visibility
+                    // (§spec:layout-customization): the host owns the flag; the
+                    // shell renders it and also raises onSidebarVisibilityChanged
+                    // when the active activity icon is tapped.
+                    sidebarVisible: _sidebarVisible,
+                    onSidebarVisibilityChanged: (next) =>
+                        setState(() => _sidebarVisible = next),
                     // Secondary side bar (§spec:secondary-sidebar): the host
                     // owns its visibility and assigns the "Search" container to
                     // it. It renders on the editor's opposite edge from the

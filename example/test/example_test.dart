@@ -459,4 +459,27 @@ void main() {
     await tester.pumpAndSettle();
     expect(searchBody, findsNothing);
   });
+
+  // Primary side bar visibility (§spec:layout-customization). The View menu
+  // dispatches ToggleSidebarIntent (VS Code's Cmd+B); the host owns the flag and
+  // feeds the shell's controlled sidebarVisible property.
+  testWidgets('Primary Side Bar intent hides and restores the primary bar', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const WorkbenchExampleApp());
+    await tester.pumpAndSettle();
+
+    // Explorer is visible by default.
+    expect(find.text('EXPLORER'), findsOneWidget);
+
+    final context = tester.element(find.byType(WorkbenchLayout));
+    Actions.invoke(context, const ToggleSidebarIntent());
+    await tester.pumpAndSettle();
+    expect(find.text('EXPLORER'), findsNothing);
+
+    // Toggling again brings it back.
+    Actions.invoke(context, const ToggleSidebarIntent());
+    await tester.pumpAndSettle();
+    expect(find.text('EXPLORER'), findsOneWidget);
+  });
 }

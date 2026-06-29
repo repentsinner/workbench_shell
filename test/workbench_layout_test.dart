@@ -821,6 +821,86 @@ void main() {
     });
   });
 
+  group('Primary side bar visibility (§spec:layout-customization)', () {
+    testWidgets('uncontrolled: initialSidebarVisible false hides the bar at '
+        'start; the activity bar stays', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: WorkbenchLayout(
+            activityBarItems: _testItems,
+            editor: const Center(child: Text('Editor')),
+            containerBuilder: _sidebarSpec,
+            bottomPanel: const Center(child: Text('Panel')),
+            statusBar: const SizedBox(height: 22, child: Text('Status')),
+            initialSidebarVisible: false,
+          ),
+        ),
+      );
+
+      // The side bar body is hidden; the activity bar remains so the user can
+      // bring it back.
+      expect(find.text('EXPLORER'), findsNothing);
+      expect(find.byIcon(Symbols.folder_rounded), findsOneWidget);
+    });
+
+    testWidgets('controlled: host drives sidebarVisible and is notified when the '
+        'active activity icon toggles the bar', (tester) async {
+      bool visible = true;
+      late StateSetter setOuter;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              setOuter = setState;
+              return WorkbenchLayout(
+                activityBarItems: _testItems,
+                editor: const Center(child: Text('Editor')),
+                containerBuilder: _sidebarSpec,
+                bottomPanel: const Center(child: Text('Panel')),
+                statusBar: const SizedBox(height: 22, child: Text('Status')),
+                sidebarVisible: visible,
+                onSidebarVisibilityChanged: (next) =>
+                    setState(() => visible = next),
+              );
+            },
+          ),
+        ),
+      );
+
+      expect(find.text('EXPLORER'), findsOneWidget);
+
+      // Tapping the active container icon requests a hide through the seam; the
+      // controlled value flips and the bar disappears.
+      await tester.tap(find.byIcon(Symbols.folder_rounded));
+      await tester.pumpAndSettle();
+      expect(visible, isFalse);
+      expect(find.text('EXPLORER'), findsNothing);
+
+      // Host flips its own state back on → the bar returns.
+      setOuter(() => visible = true);
+      await tester.pumpAndSettle();
+      expect(find.text('EXPLORER'), findsOneWidget);
+    });
+
+    testWidgets('asserts onSidebarVisibilityChanged is required in controlled '
+        'mode', (tester) async {
+      expect(
+        () => WorkbenchLayout(
+          activityBarItems: _testItems,
+          editor: const SizedBox(),
+          containerBuilder: _sidebarSpec,
+          bottomPanel: const SizedBox(),
+          statusBar: const SizedBox(),
+          sidebarVisible: true,
+        ),
+        throwsAssertionError,
+      );
+    });
+  });
+
   group('Centered layout (§spec:editing-modes)', () {
     testWidgets('on: editor narrows to the golden-ratio fraction and centers; '
         'chrome stays', (tester) async {

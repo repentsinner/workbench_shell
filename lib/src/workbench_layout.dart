@@ -63,6 +63,26 @@ class WorkbenchLayout extends StatefulWidget {
   /// Required when [activeViewContainerId] is non-null.
   final ValueChanged<String>? onViewContainerChanged;
 
+  /// Initial primary side-bar visibility. Used only in uncontrolled mode
+  /// (when [sidebarVisible] is null); ignored otherwise. Defaults to shown.
+  final bool initialSidebarVisible;
+
+  /// Externally controlled primary side-bar visibility
+  /// (§spec:layout-customization). When non-null, the shell shows or hides the
+  /// primary side bar per this value and delegates toggles to
+  /// [onSidebarVisibilityChanged]; the host owns the state (VS Code's Cmd+B is a
+  /// host command). When null, the shell tracks visibility internally, seeded
+  /// from [initialSidebarVisible], and toggles it when the active activity-bar
+  /// icon is tapped.
+  final bool? sidebarVisible;
+
+  /// Called when the primary side bar's visibility is toggled — including the
+  /// shell's own toggle when the active activity-bar icon is tapped. Required
+  /// when [sidebarVisible] is non-null. Unlike the other layout toggles, the
+  /// shell does raise this itself, so a controlled host must honor it to keep
+  /// the activity-bar affordance working.
+  final ValueChanged<bool>? onSidebarVisibilityChanged;
+
   /// Seed for the sidebar width in pixels (§spec:resize-geometry). The shell
   /// owns the live width — there is no controlled width property — and seeds it
   /// once at startup from this value, falling back to
@@ -205,6 +225,9 @@ class WorkbenchLayout extends StatefulWidget {
     this.initialViewContainerId,
     this.activeViewContainerId,
     this.onViewContainerChanged,
+    this.initialSidebarVisible = true,
+    this.sidebarVisible,
+    this.onSidebarVisibilityChanged,
     this.initialSidebarWidth,
     this.onSidebarWidthChangeEnd,
     this.initialPanelHeight,
@@ -230,6 +253,10 @@ class WorkbenchLayout extends StatefulWidget {
          activeViewContainerId == null || onViewContainerChanged != null,
          'onViewContainerChanged is required when activeViewContainerId is '
          'provided',
+       ),
+       assert(
+         sidebarVisible == null || onSidebarVisibilityChanged != null,
+         'onSidebarVisibilityChanged is required when sidebarVisible is provided',
        ),
        assert(
          zenMode == null || onZenModeChanged != null,
@@ -262,7 +289,7 @@ class WorkbenchLayout extends StatefulWidget {
 
 class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   String _internalActiveViewContainerId = '';
-  bool _sidebarVisible = true;
+  late bool _internalSidebarVisible;
   double _sidebarWidth = WorkbenchLayoutConstants.sidebarDefaultWidth;
   double _panelHeight = WorkbenchLayoutConstants.panelDefaultHeight;
 
@@ -305,6 +332,13 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
 
   String get _activeViewContainerId =>
       widget.activeViewContainerId ?? _internalActiveViewContainerId;
+
+  // Primary side-bar visibility follows the same controlled/uncontrolled seam:
+  // a controlled value wins, else the internal value seeded from the initial
+  // flag. Unlike the other seams the shell raises its own toggle here (tapping
+  // the active activity icon), routed through [_setSidebarVisible].
+  bool get _sidebarVisible =>
+      widget.sidebarVisible ?? _internalSidebarVisible;
 
   // Secondary side bar state (§spec:secondary-sidebar), each following the same
   // controlled/uncontrolled seam as the primary: a controlled value wins, else
@@ -361,6 +395,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
         (widget.activityBarItems.isNotEmpty
             ? widget.activityBarItems.first.id
             : '');
+    _internalSidebarVisible = widget.initialSidebarVisible;
     _internalZenMode = widget.initialZenMode;
     _internalCenteredLayout = widget.initialCenteredLayout;
     // Seed the shell-owned resize geometry once at startup (§spec:resize-geometry).
@@ -413,20 +448,33 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
           ..sort(byOrder);
   }
 
+  /// Show or hide the primary side bar through the controlled/uncontrolled
+  /// seam: mutate internal state only in uncontrolled mode, and always notify
+  /// the host so a controlled parent can drive the value. No-op when the
+  /// visibility is unchanged, so revealing an already-open bar raises nothing.
+  void _setSidebarVisible(bool visible) {
+    if (_sidebarVisible == visible) return;
+    setState(() {
+      if (widget.sidebarVisible == null) {
+        _internalSidebarVisible = visible;
+      }
+    });
+    widget.onSidebarVisibilityChanged?.call(visible);
+  }
+
   void _setActiveViewContainer(String containerId) {
     final current = _activeViewContainerId;
     if (current == containerId) {
-      setState(() {
-        _sidebarVisible = !_sidebarVisible;
-      });
+      _setSidebarVisible(!_sidebarVisible);
       return;
     }
     setState(() {
-      _sidebarVisible = true;
       if (widget.activeViewContainerId == null) {
         _internalActiveViewContainerId = containerId;
       }
     });
+    // Selecting a different container always reveals the side bar.
+    _setSidebarVisible(true);
     widget.onViewContainerChanged?.call(containerId);
   }
 
