@@ -1,3 +1,11 @@
+# [0.22.0](https://github.com/repentsinner/workbench_shell/compare/v0.21.0...v0.22.0) (2026-06-29)
+
+
+### Features
+
+* **example:** cycle panel alignment from the View menu ([508c0e1](https://github.com/repentsinner/workbench_shell/commit/508c0e1f8ece0d9d01b46bf3dc7b1fcb552bbf41))
+* **layout:** align the bottom panel by re-parenting it ([dc189aa](https://github.com/repentsinner/workbench_shell/commit/dc189aaea5a5637c235485ecf7971bb9d67f4a57))
+
 # [0.21.0](https://github.com/repentsinner/workbench_shell/compare/v0.20.0...v0.21.0) (2026-06-29)
 
 
