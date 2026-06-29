@@ -1285,10 +1285,10 @@ makes the arrangement a set of host-driven choices.
 **Scope boundary — what the shell owns.** The shell owns chrome that
 lives *below* the OS window frame (§spec:custom-window-chrome). Full
 Screen toggles the OS window and therefore belongs to the host, which
-owns the window; the shell does not expose it. The shell owns side-bar
-position, the secondary side bar, panel alignment, Zen mode, and
-centered layout — all expressible within the region the shell already
-renders. This is why "Full Screen" from VS Code's panel is absent here:
+owns the window; the shell does not expose it. The shell owns primary side-bar
+visibility, side-bar position, the secondary side bar, panel alignment,
+Zen mode, and centered layout — all expressible within the region the
+shell already renders. This is why "Full Screen" from VS Code's panel is absent here:
 it is not the shell's to give.
 
 **One mechanism: controlled/uncontrolled, mirroring §spec:workbench-layout.**
@@ -1305,6 +1305,23 @@ registry" abstraction: with a handful of degrees of freedom, the choices
 are enums consumed by conditional composition, not a layout engine. The
 abstraction is reconsidered only if a later choice cannot be expressed by
 the nesting rule §spec:panel-alignment defines.
+
+### Primary Side Bar Visibility §spec:sidebar-visibility
+
+The primary side bar shows or hides as a host-driven property, the same
+controlled/uncontrolled seam as the choices above (`initialSidebarVisible`,
+or `sidebarVisible` plus `onSidebarVisibilityChanged`). Hidden, the bar
+yields its space to the editor; the activity bar stays so the user can
+bring it back.
+
+**Why a host property, not only the activity-bar tap.** The shell already
+toggles the bar when the active activity-bar icon is tapped, but that
+affordance is unreachable from a host menu item or keybinding (VS Code's
+Cmd+B). So the shell raises `onSidebarVisibilityChanged` on its own tap
+too — unlike the other layout toggles, which the host alone drives — and
+a controlled host shall honor it to keep the activity-bar affordance
+working. This is the one seam where the shell both originates and reports
+a toggle.
 
 ### Side Bar Position §spec:sidebar-position
 
@@ -1331,7 +1348,11 @@ A second side bar occupies the editor's opposite edge from the primary
 resizable through the same canonical sash. It hosts view containers
 through the same `containerBuilder`/`WorkbenchViewContainer` path the
 primary uses, with its own controlled/uncontrolled active-container id,
-visibility, and width.
+visibility, and width. It has no activity bar of its own. Swapping the
+primary's edge moves the secondary to the now-free opposite edge,
+relocating its subtree rather than rebuilding it, so its retained pane
+State and width survive the move (§spec:view-container-state, the
+relocation rationale §spec:sidebar-position records).
 
 **Why the host assigns containers, not drag-and-drop.** VS Code populates
 its secondary side bar by dragging views between bars. View relocation by

@@ -58,13 +58,20 @@ Widget _buildApp({
   ValueChanged<double>? onPanelHeightChangeEnd,
   WorkbenchSidebarPosition? sidebarPosition,
   ValueChanged<WorkbenchSidebarPosition>? onSidebarPositionChanged,
+  WorkbenchViewContainerSpec Function(String)? containerBuilder,
+  String? secondaryViewContainerId,
+  ValueChanged<String>? onSecondaryViewContainerChanged,
+  bool? secondarySideBarVisible,
+  ValueChanged<bool>? onSecondarySideBarVisibilityChanged,
+  double? initialSecondarySideBarWidth,
+  ValueChanged<double>? onSecondarySideBarWidthChangeEnd,
 }) {
   return MaterialApp(
     theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
     home: WorkbenchLayout(
       activityBarItems: items ?? _testItems,
       editor: const Center(child: Text('Editor')),
-      containerBuilder: _sidebarSpec,
+      containerBuilder: containerBuilder ?? _sidebarSpec,
       bottomPanel: const Center(child: Text('Panel')),
       statusBar: statusBar ?? const SizedBox(height: 22, child: Text('Status')),
       showBottomPanel: showBottomPanel,
@@ -74,6 +81,12 @@ Widget _buildApp({
       onPanelHeightChangeEnd: onPanelHeightChangeEnd,
       sidebarPosition: sidebarPosition,
       onSidebarPositionChanged: onSidebarPositionChanged,
+      secondaryViewContainerId: secondaryViewContainerId,
+      onSecondaryViewContainerChanged: onSecondaryViewContainerChanged,
+      secondarySideBarVisible: secondarySideBarVisible,
+      onSecondarySideBarVisibilityChanged: onSecondarySideBarVisibilityChanged,
+      initialSecondarySideBarWidth: initialSecondarySideBarWidth,
+      onSecondarySideBarWidthChangeEnd: onSecondarySideBarWidthChangeEnd,
     ),
   );
 }
@@ -808,6 +821,86 @@ void main() {
     });
   });
 
+  group('Primary side bar visibility (§spec:layout-customization)', () {
+    testWidgets('uncontrolled: initialSidebarVisible false hides the bar at '
+        'start; the activity bar stays', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: WorkbenchLayout(
+            activityBarItems: _testItems,
+            editor: const Center(child: Text('Editor')),
+            containerBuilder: _sidebarSpec,
+            bottomPanel: const Center(child: Text('Panel')),
+            statusBar: const SizedBox(height: 22, child: Text('Status')),
+            initialSidebarVisible: false,
+          ),
+        ),
+      );
+
+      // The side bar body is hidden; the activity bar remains so the user can
+      // bring it back.
+      expect(find.text('EXPLORER'), findsNothing);
+      expect(find.byIcon(Symbols.folder_rounded), findsOneWidget);
+    });
+
+    testWidgets('controlled: host drives sidebarVisible and is notified when the '
+        'active activity icon toggles the bar', (tester) async {
+      bool visible = true;
+      late StateSetter setOuter;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              setOuter = setState;
+              return WorkbenchLayout(
+                activityBarItems: _testItems,
+                editor: const Center(child: Text('Editor')),
+                containerBuilder: _sidebarSpec,
+                bottomPanel: const Center(child: Text('Panel')),
+                statusBar: const SizedBox(height: 22, child: Text('Status')),
+                sidebarVisible: visible,
+                onSidebarVisibilityChanged: (next) =>
+                    setState(() => visible = next),
+              );
+            },
+          ),
+        ),
+      );
+
+      expect(find.text('EXPLORER'), findsOneWidget);
+
+      // Tapping the active container icon requests a hide through the seam; the
+      // controlled value flips and the bar disappears.
+      await tester.tap(find.byIcon(Symbols.folder_rounded));
+      await tester.pumpAndSettle();
+      expect(visible, isFalse);
+      expect(find.text('EXPLORER'), findsNothing);
+
+      // Host flips its own state back on → the bar returns.
+      setOuter(() => visible = true);
+      await tester.pumpAndSettle();
+      expect(find.text('EXPLORER'), findsOneWidget);
+    });
+
+    testWidgets('asserts onSidebarVisibilityChanged is required in controlled '
+        'mode', (tester) async {
+      expect(
+        () => WorkbenchLayout(
+          activityBarItems: _testItems,
+          editor: const SizedBox(),
+          containerBuilder: _sidebarSpec,
+          bottomPanel: const SizedBox(),
+          statusBar: const SizedBox(),
+          sidebarVisible: true,
+        ),
+        throwsAssertionError,
+      );
+    });
+  });
+
   group('Centered layout (§spec:editing-modes)', () {
     testWidgets('on: editor narrows to the golden-ratio fraction and centers; '
         'chrome stays', (tester) async {
@@ -1171,6 +1264,184 @@ void main() {
           bottomPanel: const SizedBox(),
           statusBar: const SizedBox(),
           sidebarPosition: WorkbenchSidebarPosition.right,
+        ),
+        throwsAssertionError,
+      );
+    });
+  });
+
+  group('Secondary Side Bar (§spec:secondary-sidebar)', () {
+    // The secondary side bar reuses _sidebarSpec: the primary shows
+    // 'Sidebar: explorer' (the default active container) and the secondary
+    // shows 'Sidebar: search', so the two bars carry distinct, locatable text.
+    Finder secondarySash() => find.byWidgetPredicate(
+      (w) => w is WorkbenchSash && w.axis == Axis.horizontal && w.growSign == -1,
+    );
+
+    testWidgets('hidden by default: the secondary container is never built '
+        '(lazy)', (tester) async {
+      await tester.pumpWidget(
+        _buildApp(
+          secondaryViewContainerId: 'search',
+          onSecondaryViewContainerChanged: (_) {},
+          secondarySideBarVisible: false,
+          onSecondarySideBarVisibilityChanged: (_) {},
+        ),
+      );
+
+      // Hidden secondary: its body builder never runs (mirrors the primary's
+      // lazy retention — an un-opened container contributes no child).
+      expect(find.text('Sidebar: search'), findsNothing);
+      expect(find.text('Sidebar: explorer'), findsOneWidget);
+    });
+
+    testWidgets('visible: the secondary sits on the edge opposite the primary',
+        (tester) async {
+      await tester.pumpWidget(
+        _buildApp(
+          secondaryViewContainerId: 'search',
+          onSecondaryViewContainerChanged: (_) {},
+          secondarySideBarVisible: true,
+          onSecondarySideBarVisibilityChanged: (_) {},
+        ),
+      );
+
+      // Primary on the left (default) → secondary on the right of the editor.
+      final editor = tester.getRect(find.text('Editor'));
+      final primary = tester.getRect(find.text('Sidebar: explorer'));
+      final secondary = tester.getRect(find.text('Sidebar: search'));
+      expect(primary.center.dx, lessThan(editor.center.dx));
+      expect(secondary.center.dx, greaterThan(editor.center.dx));
+      // Its own sash grows leftward (toward the editor) from the right edge.
+      expect(secondarySash(), findsOneWidget);
+    });
+
+    testWidgets('follows the primary: swapping the primary to the right moves '
+        'the secondary to the now-free left edge', (tester) async {
+      await tester.pumpWidget(
+        _buildApp(
+          sidebarPosition: WorkbenchSidebarPosition.right,
+          onSidebarPositionChanged: (_) {},
+          secondaryViewContainerId: 'search',
+          onSecondaryViewContainerChanged: (_) {},
+          secondarySideBarVisible: true,
+          onSecondarySideBarVisibilityChanged: (_) {},
+        ),
+      );
+
+      // Primary on the right → secondary on the left of the editor.
+      final editor = tester.getRect(find.text('Editor'));
+      final primary = tester.getRect(find.text('Sidebar: explorer'));
+      final secondary = tester.getRect(find.text('Sidebar: search'));
+      expect(primary.center.dx, greaterThan(editor.center.dx));
+      expect(secondary.center.dx, lessThan(editor.center.dx));
+    });
+
+    testWidgets('its sash commits the secondary width once on release',
+        (tester) async {
+      final ends = <double>[];
+      await tester.pumpWidget(
+        _buildApp(
+          secondaryViewContainerId: 'search',
+          onSecondaryViewContainerChanged: (_) {},
+          secondarySideBarVisible: true,
+          onSecondarySideBarVisibilityChanged: (_) {},
+          onSecondarySideBarWidthChangeEnd: ends.add,
+        ),
+      );
+
+      final before = tester.widget<WorkbenchSash>(secondarySash()).value;
+      final gesture = await tester.startGesture(
+        tester.getCenter(secondarySash()),
+      );
+      // On the right edge the sash grows the bar when dragged left; nothing
+      // commits mid-drag.
+      await gesture.moveBy(const Offset(-40, 0));
+      await tester.pump();
+      expect(tester.widget<WorkbenchSash>(secondarySash()).value,
+          greaterThan(before));
+      expect(ends, isEmpty);
+
+      await gesture.up();
+      await tester.pump();
+      expect(ends, hasLength(1));
+      expect(ends.single, tester.widget<WorkbenchSash>(secondarySash()).value);
+    });
+
+    testWidgets('RETENTION survives a primary-position swap: a secondary pane '
+        'collapse persists when the primary moves left↔right', (tester) async {
+      // The secondary is a Row child keyed by a stable GlobalKey, so a primary
+      // position swap (which reorders the Row) relocates its subtree rather
+      // than rebuilding it — the retained pane State survives the move
+      // (§spec:secondary-sidebar, mirroring §spec:sidebar-position).
+      WorkbenchViewContainerSpec twoPaneSpec(String id) =>
+          WorkbenchViewContainerSpec(
+            views: [
+              WorkbenchViewDescriptor(
+                id: '$id-a',
+                title: '$id Alpha',
+                bodyBuilder: (_) => Text('$id-body-a'),
+              ),
+              WorkbenchViewDescriptor(
+                id: '$id-b',
+                title: '$id Beta',
+                bodyBuilder: (_) => Text('$id-body-b'),
+              ),
+            ],
+          );
+
+      Widget app(WorkbenchSidebarPosition position) => _buildApp(
+        containerBuilder: twoPaneSpec,
+        sidebarPosition: position,
+        onSidebarPositionChanged: (_) {},
+        secondaryViewContainerId: 'search',
+        onSecondaryViewContainerChanged: (_) {},
+        secondarySideBarVisible: true,
+        onSecondarySideBarVisibilityChanged: (_) {},
+      );
+
+      await tester.pumpWidget(app(WorkbenchSidebarPosition.left));
+
+      // Collapse the secondary's first pane (SEARCH ALPHA).
+      await tester.tap(find.text('SEARCH ALPHA'));
+      await tester.pumpAndSettle();
+      expect(find.text('search-body-a'), findsNothing);
+      expect(find.text('search-body-b'), findsOneWidget);
+
+      // Move the primary to the right edge: the secondary travels to the left.
+      await tester.pumpWidget(app(WorkbenchSidebarPosition.right));
+      await tester.pumpAndSettle();
+
+      // The collapse survived the move — the secondary relocated, not rebuilt.
+      expect(find.text('search-body-a'), findsNothing);
+      expect(find.text('search-body-b'), findsOneWidget);
+    });
+
+    testWidgets('asserts onSecondaryViewContainerChanged is required in '
+        'controlled mode', (tester) async {
+      expect(
+        () => WorkbenchLayout(
+          activityBarItems: _testItems,
+          editor: const SizedBox(),
+          containerBuilder: _sidebarSpec,
+          bottomPanel: const SizedBox(),
+          statusBar: const SizedBox(),
+          secondaryViewContainerId: 'search',
+        ),
+        throwsAssertionError,
+      );
+    });
+
+    testWidgets('asserts onSecondarySideBarVisibilityChanged is required in '
+        'controlled mode', (tester) async {
+      expect(
+        () => WorkbenchLayout(
+          activityBarItems: _testItems,
+          editor: const SizedBox(),
+          containerBuilder: _sidebarSpec,
+          bottomPanel: const SizedBox(),
+          statusBar: const SizedBox(),
+          secondarySideBarVisible: true,
         ),
         throwsAssertionError,
       );

@@ -63,6 +63,26 @@ class WorkbenchLayout extends StatefulWidget {
   /// Required when [activeViewContainerId] is non-null.
   final ValueChanged<String>? onViewContainerChanged;
 
+  /// Initial primary side-bar visibility. Used only in uncontrolled mode
+  /// (when [sidebarVisible] is null); ignored otherwise. Defaults to shown.
+  final bool initialSidebarVisible;
+
+  /// Externally controlled primary side-bar visibility
+  /// (§spec:layout-customization). When non-null, the shell shows or hides the
+  /// primary side bar per this value and delegates toggles to
+  /// [onSidebarVisibilityChanged]; the host owns the state (VS Code's Cmd+B is a
+  /// host command). When null, the shell tracks visibility internally, seeded
+  /// from [initialSidebarVisible], and toggles it when the active activity-bar
+  /// icon is tapped.
+  final bool? sidebarVisible;
+
+  /// Called when the primary side bar's visibility is toggled — including the
+  /// shell's own toggle when the active activity-bar icon is tapped. Required
+  /// when [sidebarVisible] is non-null. Unlike the other layout toggles, the
+  /// shell does raise this itself, so a controlled host must honor it to keep
+  /// the activity-bar affordance working.
+  final ValueChanged<bool>? onSidebarVisibilityChanged;
+
   /// Seed for the sidebar width in pixels (§spec:resize-geometry). The shell
   /// owns the live width — there is no controlled width property — and seeds it
   /// once at startup from this value, falling back to
@@ -146,6 +166,53 @@ class WorkbenchLayout extends StatefulWidget {
   /// exists even though the shell raises no change of its own today.
   final ValueChanged<WorkbenchSidebarPosition>? onSidebarPositionChanged;
 
+  /// Initial active container id for the secondary side bar
+  /// (§spec:secondary-sidebar). Used only in uncontrolled mode (when
+  /// [secondaryViewContainerId] is null). Empty (the default) shows no
+  /// container until the host assigns one.
+  final String? initialSecondaryViewContainerId;
+
+  /// Externally controlled active container for the secondary side bar
+  /// (§spec:secondary-sidebar). When non-null, the shell renders this container
+  /// and delegates changes to [onSecondaryViewContainerChanged]; the host owns
+  /// the state. The secondary has no activity bar — the host assigns which
+  /// container it shows, so the shell raises no change of its own today (see
+  /// [onZenModeChanged]). Mirrors [activeViewContainerId] for the primary.
+  final String? secondaryViewContainerId;
+
+  /// Called when the secondary side bar's active container changes. Required
+  /// when [secondaryViewContainerId] is non-null.
+  final ValueChanged<String>? onSecondaryViewContainerChanged;
+
+  /// Initial secondary side-bar visibility. Used only in uncontrolled mode
+  /// (when [secondarySideBarVisible] is null). Defaults to hidden, matching VS
+  /// Code — the secondary is off until the host shows it.
+  final bool initialSecondarySideBarVisible;
+
+  /// Externally controlled secondary side-bar visibility
+  /// (§spec:secondary-sidebar). When non-null, the shell shows or hides the
+  /// secondary per this value and delegates toggles to
+  /// [onSecondarySideBarVisibilityChanged]; the host owns the state (VS Code's
+  /// Cmd+Alt+B is a host command). When null, the shell tracks visibility
+  /// internally, seeded from [initialSecondarySideBarVisible].
+  final bool? secondarySideBarVisible;
+
+  /// Called when the secondary side bar's visibility is toggled. Required when
+  /// [secondarySideBarVisible] is non-null. See [onZenModeChanged] for why the
+  /// callback exists even though the shell raises no toggle of its own today.
+  final ValueChanged<bool>? onSecondarySideBarVisibilityChanged;
+
+  /// Seed for the secondary side-bar width in pixels (§spec:resize-geometry).
+  /// The shell owns the live width and seeds it once at startup, falling back to
+  /// [WorkbenchLayoutConstants.sidebarDefaultWidth] when null. Mirrors
+  /// [initialSidebarWidth].
+  final double? initialSecondarySideBarWidth;
+
+  /// Notified once when the secondary side-bar sash drag ends, with the final
+  /// clamped width (§spec:resize-geometry). Fires on release only, like
+  /// [onSidebarWidthChangeEnd].
+  final ValueChanged<double>? onSecondarySideBarWidthChangeEnd;
+
   const WorkbenchLayout({
     super.key,
     required this.activityBarItems,
@@ -158,6 +225,9 @@ class WorkbenchLayout extends StatefulWidget {
     this.initialViewContainerId,
     this.activeViewContainerId,
     this.onViewContainerChanged,
+    this.initialSidebarVisible = true,
+    this.sidebarVisible,
+    this.onSidebarVisibilityChanged,
     this.initialSidebarWidth,
     this.onSidebarWidthChangeEnd,
     this.initialPanelHeight,
@@ -171,10 +241,22 @@ class WorkbenchLayout extends StatefulWidget {
     this.initialSidebarPosition = WorkbenchSidebarPosition.left,
     this.sidebarPosition,
     this.onSidebarPositionChanged,
+    this.initialSecondaryViewContainerId,
+    this.secondaryViewContainerId,
+    this.onSecondaryViewContainerChanged,
+    this.initialSecondarySideBarVisible = false,
+    this.secondarySideBarVisible,
+    this.onSecondarySideBarVisibilityChanged,
+    this.initialSecondarySideBarWidth,
+    this.onSecondarySideBarWidthChangeEnd,
   }) : assert(
          activeViewContainerId == null || onViewContainerChanged != null,
          'onViewContainerChanged is required when activeViewContainerId is '
          'provided',
+       ),
+       assert(
+         sidebarVisible == null || onSidebarVisibilityChanged != null,
+         'onSidebarVisibilityChanged is required when sidebarVisible is provided',
        ),
        assert(
          zenMode == null || onZenModeChanged != null,
@@ -187,6 +269,18 @@ class WorkbenchLayout extends StatefulWidget {
        assert(
          sidebarPosition == null || onSidebarPositionChanged != null,
          'onSidebarPositionChanged is required when sidebarPosition is provided',
+       ),
+       assert(
+         secondaryViewContainerId == null ||
+             onSecondaryViewContainerChanged != null,
+         'onSecondaryViewContainerChanged is required when '
+         'secondaryViewContainerId is provided',
+       ),
+       assert(
+         secondarySideBarVisible == null ||
+             onSecondarySideBarVisibilityChanged != null,
+         'onSecondarySideBarVisibilityChanged is required when '
+         'secondarySideBarVisible is provided',
        );
 
   @override
@@ -195,7 +289,7 @@ class WorkbenchLayout extends StatefulWidget {
 
 class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   String _internalActiveViewContainerId = '';
-  bool _sidebarVisible = true;
+  late bool _internalSidebarVisible;
   double _sidebarWidth = WorkbenchLayoutConstants.sidebarDefaultWidth;
   double _panelHeight = WorkbenchLayoutConstants.panelDefaultHeight;
 
@@ -221,6 +315,14 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   final GlobalKey _sidebarKey = GlobalKey();
   final GlobalKey _editorAndPanelKey = GlobalKey();
 
+  // The secondary side bar is a fourth Row child on the editor's opposite edge
+  // from the primary (§spec:secondary-sidebar). Like the other three it carries
+  // a stable GlobalKey: the secondary's edge is the opposite of the primary's,
+  // so swapping sidebarPosition reorders the Row, and an unkeyed secondary
+  // subtree would reset its retained pane State and width on every primary move.
+  // The key makes Flutter relocate the subtree across the swap instead.
+  final GlobalKey _secondarySidebarKey = GlobalKey();
+
   // Activity-bar items partitioned by zone and sorted by sortOrder.
   // Derived once from widget.activityBarItems (which is immutable for a
   // given widget) rather than on every rebuild — the layout rebuilds on
@@ -230,6 +332,33 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
 
   String get _activeViewContainerId =>
       widget.activeViewContainerId ?? _internalActiveViewContainerId;
+
+  // Primary side-bar visibility follows the same controlled/uncontrolled seam:
+  // a controlled value wins, else the internal value seeded from the initial
+  // flag. Unlike the other seams the shell raises its own toggle here (tapping
+  // the active activity icon), routed through [_setSidebarVisible].
+  bool get _sidebarVisible =>
+      widget.sidebarVisible ?? _internalSidebarVisible;
+
+  // Secondary side bar state (§spec:secondary-sidebar), each following the same
+  // controlled/uncontrolled seam as the primary: a controlled value wins, else
+  // the internal value seeded from the initial flag. The shell has no secondary
+  // activity bar, so it raises no container change or visibility toggle of its
+  // own today — the host drives both through the controlled values.
+  String _internalSecondaryActiveId = '';
+  late bool _internalSecondarySideBarVisible;
+  double _secondarySideBarWidth = WorkbenchLayoutConstants.sidebarDefaultWidth;
+
+  /// Secondary container ids opened at least once, in first-open order — the
+  /// secondary's own retention set, scoped independently of the primary's
+  /// [_openedContainerIds] (§spec:view-container-state). Lazy: a container the
+  /// secondary never shows never enters here, so its body builders never run.
+  final List<String> _openedSecondaryContainerIds = [];
+
+  String get _secondaryActiveId =>
+      widget.secondaryViewContainerId ?? _internalSecondaryActiveId;
+  bool get _secondarySideBarVisible =>
+      widget.secondarySideBarVisible ?? _internalSecondarySideBarVisible;
 
   // Zen and centered layout follow the same controlled/uncontrolled seam as
   // the active view container: a controlled value wins, else the internal
@@ -266,6 +395,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
         (widget.activityBarItems.isNotEmpty
             ? widget.activityBarItems.first.id
             : '');
+    _internalSidebarVisible = widget.initialSidebarVisible;
     _internalZenMode = widget.initialZenMode;
     _internalCenteredLayout = widget.initialCenteredLayout;
     // Seed the shell-owned resize geometry once at startup (§spec:resize-geometry).
@@ -277,16 +407,22 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     _panelHeight =
         widget.initialPanelHeight ??
         WorkbenchLayoutConstants.panelDefaultHeight;
+    // Seed the secondary side bar (§spec:secondary-sidebar), mirroring the
+    // primary's container/visibility/width seeding above.
+    _internalSecondaryActiveId = widget.initialSecondaryViewContainerId ?? '';
+    _internalSecondarySideBarVisible = widget.initialSecondarySideBarVisible;
+    _secondarySideBarWidth =
+        widget.initialSecondarySideBarWidth ??
+        WorkbenchLayoutConstants.sidebarDefaultWidth;
     _partitionActivityItems();
   }
 
-  /// Record [containerId] as opened so the shell builds and retains it. Empty
-  /// ids (no activity-bar items) contribute nothing.
-  void _markOpened(String containerId) {
+  /// Record [containerId] as opened in [opened] so the shell builds and retains
+  /// it. Empty ids (no active container) contribute nothing. Shared by the
+  /// primary and secondary side bars, each with its own retention set.
+  void _markOpened(String containerId, List<String> opened) {
     if (containerId.isEmpty) return;
-    if (!_openedContainerIds.contains(containerId)) {
-      _openedContainerIds.add(containerId);
-    }
+    if (!opened.contains(containerId)) opened.add(containerId);
   }
 
   @override
@@ -312,20 +448,33 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
           ..sort(byOrder);
   }
 
+  /// Show or hide the primary side bar through the controlled/uncontrolled
+  /// seam: mutate internal state only in uncontrolled mode, and always notify
+  /// the host so a controlled parent can drive the value. No-op when the
+  /// visibility is unchanged, so revealing an already-open bar raises nothing.
+  void _setSidebarVisible(bool visible) {
+    if (_sidebarVisible == visible) return;
+    setState(() {
+      if (widget.sidebarVisible == null) {
+        _internalSidebarVisible = visible;
+      }
+    });
+    widget.onSidebarVisibilityChanged?.call(visible);
+  }
+
   void _setActiveViewContainer(String containerId) {
     final current = _activeViewContainerId;
     if (current == containerId) {
-      setState(() {
-        _sidebarVisible = !_sidebarVisible;
-      });
+      _setSidebarVisible(!_sidebarVisible);
       return;
     }
     setState(() {
-      _sidebarVisible = true;
       if (widget.activeViewContainerId == null) {
         _internalActiveViewContainerId = containerId;
       }
     });
+    // Selecting a different container always reveals the side bar.
+    _setSidebarVisible(true);
     widget.onViewContainerChanged?.call(containerId);
   }
 
@@ -338,7 +487,13 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     // records retention. Idempotent and build-time, so it covers the initial
     // active container, shell-driven activity-bar taps, and host-driven
     // (controlled) container changes alike without a separate call at each.
-    _markOpened(_activeViewContainerId);
+    _markOpened(_activeViewContainerId, _openedContainerIds);
+    // The secondary container is opened only while the secondary is visible, so
+    // a hidden secondary builds nothing — its retention stays lazy
+    // (§spec:secondary-sidebar). Once opened it survives a later hide/show.
+    if (_secondarySideBarVisible) {
+      _markOpened(_secondaryActiveId, _openedSecondaryContainerIds);
+    }
 
     // Centered layout narrows the editor between two proportional margins and
     // centers it; chrome stays. Applied to the editor alone so the bottom panel
@@ -372,45 +527,38 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       theme: theme,
     );
 
-    // Sidebar (collapsible). Always kept in the tree — Offstage when hidden
-    // rather than removed — so the retained container subtrees (and their
-    // shell-owned pane State) survive a hide/show cycle, not only a container
-    // switch (§spec:view-container-state: retained "for the life of the
-    // layout"). Offstage takes no layout space when hidden, so the editor still
-    // fills the row exactly as before; the visible hide/show behavior is
-    // unchanged.
-    final sidebar = Offstage(
+    // Primary side bar (collapsible), on the activity bar's edge.
+    final sidebar = _buildSideBar(
       key: _sidebarKey,
-      offstage: !_sidebarVisible,
-      child: TickerMode(
-        enabled: _sidebarVisible,
-        child: Stack(
-          children: [
-            _Sidebar(
-              width: _sidebarWidth,
-              activeLabel: _activeLabelFor(_activeViewContainerId),
-              activeContainerId: _activeViewContainerId,
-              openedContainerIds: _openedContainerIds,
-              containerBuilder: widget.containerBuilder,
-              position: _sidebarPosition,
-              theme: theme,
-            ),
-            // The sash overlays the sidebar's editor-facing edge rather than
-            // taking a strip of layout, so at rest it adds nothing (canon: the
-            // sash is transparent; the seam is the sidebar's own border). That
-            // edge is the right when the bar is on the left and the left when
-            // it is on the right (§spec:sidebar-position). Mirrors the panel and
-            // view-stack pane sashes.
-            Positioned(
-              top: 0,
-              bottom: 0,
-              left: onRight ? 0 : null,
-              right: onRight ? null : 0,
-              child: _buildVerticalResizer(growSign: onRight ? -1 : 1),
-            ),
-          ],
-        ),
-      ),
+      visible: _sidebarVisible,
+      width: _sidebarWidth,
+      activeId: _activeViewContainerId,
+      openedContainerIds: _openedContainerIds,
+      position: _sidebarPosition,
+      onWidth: (next) => setState(() => _sidebarWidth = next),
+      onChangeEnd: widget.onSidebarWidthChangeEnd,
+      theme: theme,
+    );
+
+    // Secondary side bar (§spec:secondary-sidebar): a second collapsible bar on
+    // the editor's opposite edge from the primary, hosting host-assigned
+    // containers through the same containerBuilder path. Its position is the
+    // opposite of the primary's, so its border and sash face the editor from the
+    // other side. It has no activity bar — the host owns its active container
+    // and visibility.
+    final secondaryPosition = onRight
+        ? WorkbenchSidebarPosition.left
+        : WorkbenchSidebarPosition.right;
+    final secondarySidebar = _buildSideBar(
+      key: _secondarySidebarKey,
+      visible: _secondarySideBarVisible,
+      width: _secondarySideBarWidth,
+      activeId: _secondaryActiveId,
+      openedContainerIds: _openedSecondaryContainerIds,
+      position: secondaryPosition,
+      onWidth: (next) => setState(() => _secondarySideBarWidth = next),
+      onChangeEnd: widget.onSecondarySideBarWidthChangeEnd,
+      theme: theme,
     );
 
     // Editor + bottom panel. The panel is wrapped in a
@@ -472,12 +620,16 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       ),
     );
 
-    // The activity bar and side bar travel together to the selected edge; the
-    // editor takes the rest (§spec:sidebar-position). On the right the order
-    // mirrors so the activity bar stays outermost against the window edge.
+    // The activity bar and primary side bar travel together to the selected
+    // edge; the editor takes the rest (§spec:sidebar-position). On the right the
+    // order mirrors so the activity bar stays outermost against the window edge.
+    // The secondary side bar (§spec:secondary-sidebar) sits outermost on the
+    // editor's opposite edge — the now-free side — so it always faces the
+    // primary across the editor. Each child is keyed, so flipping the primary
+    // reorders the Row and relocates every subtree rather than rebuilding it.
     final rowChildren = onRight
-        ? [editorAndPanel, sidebar, activityBar]
-        : [activityBar, sidebar, editorAndPanel];
+        ? [secondarySidebar, editorAndPanel, sidebar, activityBar]
+        : [activityBar, sidebar, editorAndPanel, secondarySidebar];
 
     return Scaffold(
       backgroundColor: theme.editorBackground,
@@ -499,31 +651,92 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     return '';
   }
 
-  Widget _buildVerticalResizer({required double growSign}) {
-    // The seam grows the sidebar toward the editor: dragging right when the bar
-    // is on the left (growSign +1), dragging left when it is on the right
-    // (growSign -1) (§spec:sidebar-position). The sash is transparent at rest
-    // like the panel/view-pane sashes — the seam is the sidebar's own border,
-    // which this overlays. WorkbenchSash owns the canonical drag, directional
-    // cursor, and hover/drag highlight (§spec:workbench-layout).
+  /// Build a collapsible side bar shared by the primary and secondary bars
+  /// (§spec:secondary-sidebar). The bar is always kept in the tree — Offstage
+  /// when hidden rather than removed — so its retained container subtrees (and
+  /// their shell-owned pane State) survive a hide/show cycle, not only a
+  /// container switch (§spec:view-container-state). Offstage takes no layout
+  /// space when hidden, so the editor still fills the row. A resize sash overlays
+  /// the bar's editor-facing edge — the right when on the left, the left when on
+  /// the right (§spec:sidebar-position) — transparent at rest, mirroring the
+  /// panel and view-stack pane sashes.
+  Widget _buildSideBar({
+    required GlobalKey key,
+    required bool visible,
+    required double width,
+    required String activeId,
+    required List<String> openedContainerIds,
+    required WorkbenchSidebarPosition position,
+    required ValueChanged<double> onWidth,
+    required ValueChanged<double>? onChangeEnd,
+    required WorkbenchTheme theme,
+  }) {
+    final onRight = position == WorkbenchSidebarPosition.right;
+    return Offstage(
+      key: key,
+      offstage: !visible,
+      child: TickerMode(
+        enabled: visible,
+        child: Stack(
+          children: [
+            _Sidebar(
+              width: width,
+              activeLabel: _activeLabelFor(activeId),
+              activeContainerId: activeId,
+              openedContainerIds: openedContainerIds,
+              containerBuilder: widget.containerBuilder,
+              position: position,
+              theme: theme,
+            ),
+            Positioned(
+              top: 0,
+              bottom: 0,
+              left: onRight ? 0 : null,
+              right: onRight ? null : 0,
+              child: _buildSidebarResizer(
+                growSign: onRight ? -1 : 1,
+                width: width,
+                onWidth: onWidth,
+                onChangeEnd: onChangeEnd,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build a side-bar resize sash shared by the primary and secondary bars
+  /// (§spec:secondary-sidebar). The seam grows its bar toward the editor:
+  /// dragging right when the bar is on the left (growSign +1), dragging left
+  /// when it is on the right (growSign -1) (§spec:sidebar-position). The sash is
+  /// transparent at rest like the panel/view-pane sashes — the seam is the
+  /// bar's own border, which this overlays. WorkbenchSash owns the canonical
+  /// drag, directional cursor, and hover/drag highlight (§spec:workbench-layout).
+  /// The shell owns the live [width]: [onWidth] permutes it each frame so the
+  /// tree relayouts, and [onChangeEnd] commits the final value once on release
+  /// for persistence (§spec:resize-geometry). No per-frame host callback.
+  Widget _buildSidebarResizer({
+    required double growSign,
+    required double width,
+    required ValueChanged<double> onWidth,
+    required ValueChanged<double>? onChangeEnd,
+  }) {
     return WorkbenchSash(
       axis: Axis.horizontal,
-      value: _sidebarWidth,
+      value: width,
       min: WorkbenchLayoutConstants.sidebarMinWidth,
       max: WorkbenchLayoutConstants.sidebarMaxWidth,
       growSign: growSign,
-      // The shell owns the width: permute it live each frame so the tree
-      // relayouts, and commit the final value once on release for persistence
-      // (§spec:resize-geometry). No per-frame host callback.
-      onChanged: (next) => setState(() => _sidebarWidth = next),
-      onChangeEnd: widget.onSidebarWidthChangeEnd,
+      onChanged: onWidth,
+      onChangeEnd: onChangeEnd,
       // Double-click resets the seam to its default and commits it through the
       // same change-end seam, so the host persists the reset (§spec:workbench-layout,
       // VS Code's `onDidSashReset` → part preferred size).
       onReset: () {
         const reset = WorkbenchLayoutConstants.sidebarDefaultWidth;
-        setState(() => _sidebarWidth = reset);
-        widget.onSidebarWidthChangeEnd?.call(reset);
+        onWidth(reset);
+        onChangeEnd?.call(reset);
       },
       child: const SizedBox.expand(),
     );

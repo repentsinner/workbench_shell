@@ -11,29 +11,6 @@ show/hide submenu — the bar above the panes carrying container-level
 actions to toggle which views are visible. Run `/plan` to add a spec
 section, then `/roadmap`.
 
-## Secondary Side Bar §road:secondary-sidebar
-
-Closes §spec:secondary-sidebar. A second side bar on the editor's
-opposite edge, reusing the container machinery and the canonical sash.
-Derives its edge from the shipped §spec:sidebar-position
-(`WorkbenchSidebarPosition`).
-
-### Secondary Side Bar Slot §road:secondary-sidebar-prop
-
-Add an independently visible and resizable secondary side bar on the edge
-opposite the primary, hosting view containers through the same
-`containerBuilder` path with its own controlled/uncontrolled active
-container, visibility, and width — in `lib/src/workbench_layout.dart`,
-exported from `lib/workbench_shell.dart`, with example wiring in
-`example/lib/main.dart`. §spec:secondary-sidebar. Builds on the shipped
-§spec:sidebar-position edge logic.
-
-**Verify:** In the example app, enable the secondary side bar with a
-sample container — confirm it appears on the edge opposite the primary,
-toggles visibility independently, and resizes with its own sash. Swap the
-primary to the other edge — confirm the secondary follows to the now-free
-opposite edge.
-
 ## Panel Alignment §road:panel-alignment
 
 Closes §spec:panel-alignment. The bottom panel's horizontal extent via
@@ -56,10 +33,10 @@ exported from `lib/workbench_shell.dart`, with a View-menu item in
 Extend `panelAlignment` with `left` and `right`, where the panel abuts
 one edge's side bar while the other side bar runs full height, via the
 per-side-bar nesting choice — in `lib/src/workbench_layout.dart`.
-§spec:panel-alignment. Depends on §road:panel-align-center-justify and
-§road:secondary-sidebar-prop (the nesting must place both bars). Stop and
-defer if the nesting collapses into per-combination special-casing rather
-than two booleans.
+§spec:panel-alignment. Depends on §road:panel-align-center-justify; the
+nesting must place both the primary and the shipped secondary side bar
+(§spec:secondary-sidebar). Stop and defer if the nesting collapses into
+per-combination special-casing rather than two booleans.
 
 **Verify:** In the example app's View menu, set Panel Alignment to
 Justify — confirm the bottom panel spans the full window width past both

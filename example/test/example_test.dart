@@ -423,4 +423,63 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.getCenter(activityIcon).dx, closeTo(leftX, 1));
   });
+
+  // Secondary side bar (§spec:secondary-sidebar). The View menu dispatches
+  // ToggleSecondarySideBarIntent; the host owns visibility and assigns the
+  // "Search" container to the secondary, which renders on the editor's opposite
+  // edge from the primary and follows when the primary swaps sides.
+  testWidgets('Secondary Side Bar intent shows the assigned container on the '
+      'opposite edge and follows a primary swap', (tester) async {
+    await tester.pumpWidget(const WorkbenchExampleApp());
+    await tester.pumpAndSettle();
+
+    final searchBody = find.textContaining('Search sidebar');
+    // Hidden by default — the host assigns 'search' but the secondary is off,
+    // so its container is never built (lazy retention).
+    expect(searchBody, findsNothing);
+
+    final context = tester.element(find.byType(WorkbenchLayout));
+    Actions.invoke(context, const ToggleSecondarySideBarIntent());
+    await tester.pumpAndSettle();
+
+    // Primary on the left (default) → the secondary appears on the right of the
+    // editor.
+    expect(searchBody, findsOneWidget);
+    final editor = tester.getRect(find.textContaining('Lorem ipsum'));
+    expect(tester.getCenter(searchBody).dx, greaterThan(editor.center.dx));
+
+    // Swap the primary to the right → the secondary follows to the left edge.
+    Actions.invoke(context, const ToggleSidebarPositionIntent());
+    await tester.pumpAndSettle();
+    final editorAfter = tester.getRect(find.textContaining('Lorem ipsum'));
+    expect(tester.getCenter(searchBody).dx, lessThan(editorAfter.center.dx));
+
+    // Toggling the secondary off hides it again.
+    Actions.invoke(context, const ToggleSecondarySideBarIntent());
+    await tester.pumpAndSettle();
+    expect(searchBody, findsNothing);
+  });
+
+  // Primary side bar visibility (§spec:layout-customization). The View menu
+  // dispatches ToggleSidebarIntent (VS Code's Cmd+B); the host owns the flag and
+  // feeds the shell's controlled sidebarVisible property.
+  testWidgets('Primary Side Bar intent hides and restores the primary bar', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const WorkbenchExampleApp());
+    await tester.pumpAndSettle();
+
+    // Explorer is visible by default.
+    expect(find.text('EXPLORER'), findsOneWidget);
+
+    final context = tester.element(find.byType(WorkbenchLayout));
+    Actions.invoke(context, const ToggleSidebarIntent());
+    await tester.pumpAndSettle();
+    expect(find.text('EXPLORER'), findsNothing);
+
+    // Toggling again brings it back.
+    Actions.invoke(context, const ToggleSidebarIntent());
+    await tester.pumpAndSettle();
+    expect(find.text('EXPLORER'), findsOneWidget);
+  });
 }
