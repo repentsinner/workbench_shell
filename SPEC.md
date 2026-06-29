@@ -1331,7 +1331,11 @@ A second side bar occupies the editor's opposite edge from the primary
 resizable through the same canonical sash. It hosts view containers
 through the same `containerBuilder`/`WorkbenchViewContainer` path the
 primary uses, with its own controlled/uncontrolled active-container id,
-visibility, and width.
+visibility, and width. It has no activity bar of its own. Swapping the
+primary's edge moves the secondary to the now-free opposite edge,
+relocating its subtree rather than rebuilding it, so its retained pane
+State and width survive the move (§spec:view-container-state, the
+relocation rationale §spec:sidebar-position records).
 
 **Why the host assigns containers, not drag-and-drop.** VS Code populates
 its secondary side bar by dragging views between bars. View relocation by

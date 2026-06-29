@@ -211,6 +211,14 @@ class ToggleSidebarPositionIntent extends Intent {
   const ToggleSidebarPositionIntent();
 }
 
+/// Host-defined intent to toggle the secondary side bar
+/// (§spec:secondary-sidebar). The shell exposes the `secondarySideBarVisible`
+/// property; the host owns the state, the menu affordance, and VS Code's
+/// Cmd+Alt+B keybinding.
+class ToggleSecondarySideBarIntent extends Intent {
+  const ToggleSecondarySideBarIntent();
+}
+
 class WorkbenchHome extends StatefulWidget {
   const WorkbenchHome({super.key, required this.themeController});
 
@@ -230,6 +238,12 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   // Side-bar position (§spec:sidebar-position): host-owned, driven from the View
   // menu and fed back into the shell's controlled `sidebarPosition` property.
   WorkbenchSidebarPosition _sidebarPosition = WorkbenchSidebarPosition.left;
+  // Secondary side bar (§spec:secondary-sidebar): host-owned visibility, driven
+  // from the View menu (and VS Code's Cmd+Alt+B) into the shell's controlled
+  // `secondarySideBarVisible` property. Hidden by default, matching VS Code. The
+  // host assigns which container it shows (here, the "Search" container) — the
+  // secondary has no activity bar of its own.
+  bool _secondarySideBarVisible = false;
   void Function(Object id)? _focusPanelById;
   final NotificationService _notificationService = NotificationService();
 
@@ -252,6 +266,12 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   /// release, where a real consumer would persist it across restarts.
   double? _sidebarWidth;
   double? _panelHeight;
+
+  /// Host-persisted secondary side-bar width (§spec:secondary-sidebar /
+  /// §spec:resize-geometry). Dogfoods the secondary's seed-plus-commit
+  /// `initialSecondarySideBarWidth`/`onSecondarySideBarWidthChangeEnd` hooks
+  /// exactly as [_sidebarWidth] does for the primary.
+  double? _secondarySideBarWidth;
 
   /// Notifications demo state, shared by the "Severities" and "Progress"
   /// view panes (§spec:view-stack) so both drive the same service.
@@ -314,6 +334,10 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
     );
   }
 
+  void _toggleSecondarySideBar() {
+    setState(() => _secondarySideBarVisible = !_secondarySideBarVisible);
+  }
+
   /// VS Code's defaults: Shift+Cmd+M Problems, Shift+Cmd+U Output,
   /// Shift+Cmd+Y Debug Console, Ctrl+` Terminal (Ctrl on every
   /// platform — matches VS Code itself). Ports has no default
@@ -360,6 +384,16 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
         FocusExamplePanelIntent(ExamplePanel.debugConsole),
   };
 
+  /// VS Code's secondary side bar toggle: Cmd+Alt+B on macOS, Ctrl+Alt+B
+  /// elsewhere (§spec:secondary-sidebar). Both activators live in the map so the
+  /// binding fires regardless of platform.
+  static const _secondarySideBarShortcuts = <ShortcutActivator, Intent>{
+    SingleActivator(LogicalKeyboardKey.keyB, meta: true, alt: true):
+        ToggleSecondarySideBarIntent(),
+    SingleActivator(LogicalKeyboardKey.keyB, control: true, alt: true):
+        ToggleSecondarySideBarIntent(),
+  };
+
   Widget _buildPanelContent(ExamplePanel panel, PanelLifecycle lifecycle) {
     if (panel == ExamplePanel.output) {
       return _OutputCounterBody(lifecycle: lifecycle);
@@ -391,7 +425,11 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
       onRegisterFocus: (focusById) => _focusPanelById = focusById,
       builder: (ctx, scope) {
         return Shortcuts(
-          shortcuts: {...scope.shortcuts, ..._ctrlVariantShortcuts},
+          shortcuts: {
+            ...scope.shortcuts,
+            ..._ctrlVariantShortcuts,
+            ..._secondarySideBarShortcuts,
+          },
           child: WorkbenchShortcuts(
             child: Actions(
               actions: <Type, Action<Intent>>{
@@ -432,6 +470,13 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                         return null;
                       },
                     ),
+                ToggleSecondarySideBarIntent:
+                    CallbackAction<ToggleSecondarySideBarIntent>(
+                      onInvoke: (_) {
+                        _toggleSecondarySideBar();
+                        return null;
+                      },
+                    ),
               },
               child: WorkbenchMenuBar(
                 // The shell's panel/tab entries plus the host's editing-mode
@@ -455,6 +500,17 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                         _sidebarPosition == WorkbenchSidebarPosition.left
                         ? 'Move Primary Side Bar Right'
                         : 'Move Primary Side Bar Left',
+                  ),
+                  WorkbenchViewMenuTab(
+                    intent: const ToggleSecondarySideBarIntent(),
+                    label: _secondarySideBarVisible
+                        ? 'Hide Secondary Side Bar'
+                        : 'Show Secondary Side Bar',
+                    shortcut: const SingleActivator(
+                      LogicalKeyboardKey.keyB,
+                      meta: true,
+                      alt: true,
+                    ),
                   ),
                 ],
                 child: NotificationHost(
@@ -485,6 +541,19 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                     sidebarPosition: _sidebarPosition,
                     onSidebarPositionChanged: (next) =>
                         setState(() => _sidebarPosition = next),
+                    // Secondary side bar (§spec:secondary-sidebar): the host
+                    // owns its visibility and assigns the "Search" container to
+                    // it. It renders on the editor's opposite edge from the
+                    // primary and follows when the primary swaps sides. The
+                    // width dogfoods the seed-plus-commit hook like the primary.
+                    secondaryViewContainerId: 'search',
+                    onSecondaryViewContainerChanged: (_) {},
+                    secondarySideBarVisible: _secondarySideBarVisible,
+                    onSecondarySideBarVisibilityChanged: (next) =>
+                        setState(() => _secondarySideBarVisible = next),
+                    initialSecondarySideBarWidth: _secondarySideBarWidth,
+                    onSecondarySideBarWidthChangeEnd: (w) =>
+                        _secondarySideBarWidth = w,
                     statusBar: const WorkbenchStatusBar(
                       leading: [
                         WorkbenchStatusBarItem(
