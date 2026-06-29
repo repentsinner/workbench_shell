@@ -56,6 +56,8 @@ Widget _buildApp({
   double? initialPanelHeight,
   ValueChanged<double>? onSidebarWidthChangeEnd,
   ValueChanged<double>? onPanelHeightChangeEnd,
+  WorkbenchSidebarPosition? sidebarPosition,
+  ValueChanged<WorkbenchSidebarPosition>? onSidebarPositionChanged,
 }) {
   return MaterialApp(
     theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
@@ -70,6 +72,8 @@ Widget _buildApp({
       initialPanelHeight: initialPanelHeight,
       onSidebarWidthChangeEnd: onSidebarWidthChangeEnd,
       onPanelHeightChangeEnd: onPanelHeightChangeEnd,
+      sidebarPosition: sidebarPosition,
+      onSidebarPositionChanged: onSidebarPositionChanged,
     ),
   );
 }
@@ -511,6 +515,40 @@ void main() {
       await tester.pumpAndSettle();
 
       // Collapse survived hide/show.
+      expect(find.text('explorer-body-a'), findsNothing);
+      expect(find.text('explorer-body-b'), findsOneWidget);
+    });
+
+    testWidgets('RETENTION survives sidebar position flip: collapse persists '
+        'when the bar moves left↔right', (tester) async {
+      // The bar travels to the opposite edge by reordering the layout Row.
+      // Without stable element identity Flutter rebuilds the whole row from
+      // scratch and the retained pane State is discarded (§spec:sidebar-position).
+      Widget app(WorkbenchSidebarPosition position) => MaterialApp(
+        theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+        home: WorkbenchLayout(
+          activityBarItems: _testItems,
+          editor: const Center(child: Text('Editor')),
+          containerBuilder: twoPaneSpec,
+          bottomPanel: const Center(child: Text('Panel')),
+          statusBar: const SizedBox(height: 22, child: Text('Status')),
+          sidebarPosition: position,
+          onSidebarPositionChanged: (_) {},
+        ),
+      );
+
+      await tester.pumpWidget(app(WorkbenchSidebarPosition.left));
+
+      // Collapse pane A on the left edge.
+      await tester.tap(find.text('EXPLORER ALPHA'));
+      await tester.pumpAndSettle();
+      expect(find.text('explorer-body-a'), findsNothing);
+
+      // Move the bar to the right edge.
+      await tester.pumpWidget(app(WorkbenchSidebarPosition.right));
+      await tester.pumpAndSettle();
+
+      // The collapse survived the move — the bar moved, it did not rebuild.
       expect(find.text('explorer-body-a'), findsNothing);
       expect(find.text('explorer-body-b'), findsOneWidget);
     });
@@ -1006,6 +1044,133 @@ void main() {
           bottomPanel: const SizedBox(),
           statusBar: const SizedBox(),
           centeredLayout: true,
+        ),
+        throwsAssertionError,
+      );
+    });
+  });
+
+  group('Side Bar position (§spec:sidebar-position)', () {
+    // The full layout fills the test window; the activity bar is 48px wide and
+    // travels with the side bar to the selected edge. The sidebar sash's
+    // growSign encodes which way a drag grows the bar: +1 on the left (drag
+    // right), -1 on the right (drag left).
+    Rect layoutRect(WidgetTester tester) =>
+        tester.getRect(find.byType(WorkbenchLayout));
+
+    testWidgets('uncontrolled default: activity bar is on the left, sash grows '
+        'rightward', (tester) async {
+      await tester.pumpWidget(_buildApp());
+
+      // Left-to-right: activity bar, side bar, editor.
+      final ab = tester.getRect(find.byIcon(Symbols.folder_rounded));
+      final sidebarHeading = tester.getRect(find.text('EXPLORER'));
+      final editor = tester.getRect(find.text('Editor'));
+      expect(ab.left, lessThan(sidebarHeading.left));
+      expect(sidebarHeading.left, lessThan(editor.left));
+      expect(_sash(tester, Axis.horizontal).growSign, 1);
+    });
+
+    testWidgets('right: activity bar and side bar move to the editor’s right '
+        'edge, sash grows leftward', (tester) async {
+      await tester.pumpWidget(
+        _buildApp(
+          sidebarPosition: WorkbenchSidebarPosition.right,
+          onSidebarPositionChanged: (_) {},
+        ),
+      );
+
+      // Left-to-right mirror: editor, side bar, activity bar against the
+      // window's right edge.
+      final layout = layoutRect(tester);
+      final ab = tester.getRect(find.byIcon(Symbols.folder_rounded));
+      final sidebarHeading = tester.getRect(find.text('EXPLORER'));
+      final editor = tester.getRect(find.text('Editor'));
+      expect(editor.right, lessThan(sidebarHeading.left));
+      expect(sidebarHeading.left, lessThan(ab.left));
+      // The activity bar (48px) sits flush against the window's right edge.
+      expect(ab.right, closeTo(layout.right, 3));
+
+      // The sash now grows the bar when dragged left (toward the editor).
+      expect(_sash(tester, Axis.horizontal).growSign, -1);
+    });
+
+    testWidgets('right: the side bar sash drags from the right edge and commits '
+        'once on release', (tester) async {
+      final ends = <double>[];
+      await tester.pumpWidget(
+        _buildApp(
+          sidebarPosition: WorkbenchSidebarPosition.right,
+          onSidebarPositionChanged: (_) {},
+          onSidebarWidthChangeEnd: ends.add,
+        ),
+      );
+
+      final before = _sash(tester, Axis.horizontal).value;
+      final gesture = await tester.startGesture(
+        tester.getCenter(_sashFinder(Axis.horizontal)),
+      );
+
+      // Drag left grows the bar (growSign -1); nothing commits mid-drag.
+      await gesture.moveBy(const Offset(-50, 0));
+      await tester.pump();
+      expect(_sash(tester, Axis.horizontal).value, greaterThan(before));
+      expect(ends, isEmpty);
+
+      await gesture.up();
+      await tester.pump();
+      expect(ends, hasLength(1));
+      expect(ends.single, _sash(tester, Axis.horizontal).value);
+    });
+
+    testWidgets('controlled: host drives sidebarPosition; the bar moves edges', (
+      tester,
+    ) async {
+      var position = WorkbenchSidebarPosition.left;
+      late StateSetter setOuter;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              setOuter = setState;
+              return WorkbenchLayout(
+                activityBarItems: _testItems,
+                editor: const Center(child: Text('Editor')),
+                containerBuilder: _sidebarSpec,
+                bottomPanel: const Center(child: Text('Panel')),
+                statusBar: const SizedBox(height: 22, child: Text('Status')),
+                sidebarPosition: position,
+                onSidebarPositionChanged: (next) =>
+                    setState(() => position = next),
+              );
+            },
+          ),
+        ),
+      );
+
+      // Left: activity bar near the window's left edge.
+      final leftIcon = tester.getRect(find.byIcon(Symbols.folder_rounded));
+
+      // Host flips to the right → the bar moves to the right edge.
+      setOuter(() => position = WorkbenchSidebarPosition.right);
+      await tester.pumpAndSettle();
+      final rightIcon = tester.getRect(find.byIcon(Symbols.folder_rounded));
+      expect(rightIcon.left, greaterThan(leftIcon.left + 400));
+      expect(_sash(tester, Axis.horizontal).growSign, -1);
+    });
+
+    testWidgets('asserts onSidebarPositionChanged is required in controlled '
+        'mode', (tester) async {
+      expect(
+        () => WorkbenchLayout(
+          activityBarItems: _testItems,
+          editor: const SizedBox(),
+          containerBuilder: _sidebarSpec,
+          bottomPanel: const SizedBox(),
+          statusBar: const SizedBox(),
+          sidebarPosition: WorkbenchSidebarPosition.right,
         ),
         throwsAssertionError,
       );

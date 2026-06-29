@@ -11,31 +11,12 @@ show/hide submenu — the bar above the panes carrying container-level
 actions to toggle which views are visible. Run `/plan` to add a spec
 section, then `/roadmap`.
 
-## Primary Side Bar Position §road:sidebar-position
-
-Closes §spec:sidebar-position. Names the side bar's edge so the secondary
-bar can derive its opposite. Depends on the §spec:workbench-layout sash
-holding unchanged on either edge.
-
-### Side Bar Left/Right §road:sidebar-position-prop
-
-Add a `WorkbenchSidebarPosition { left, right }` enum and a
-controlled/uncontrolled `sidebarPosition` property to `WorkbenchLayout`,
-moving the primary side bar (with its activity bar), its sash, and its
-border to the selected edge — in `lib/src/workbench_layout.dart`,
-exported from `lib/workbench_shell.dart`, with a View-menu item in
-`example/lib/main.dart`. §spec:sidebar-position
-
-**Verify:** In the example app's View menu, set Side Bar Position to
-Right — confirm the activity bar and side bar move to the editor's right
-edge and the resize sash drags correctly from that edge. Set back to Left
-— confirm they return and the sash still tracks.
-
 ## Secondary Side Bar §road:secondary-sidebar
 
 Closes §spec:secondary-sidebar. A second side bar on the editor's
 opposite edge, reusing the container machinery and the canonical sash.
-Depends on §road:sidebar-position-prop for the edge-derivation logic.
+Derives its edge from the shipped §spec:sidebar-position
+(`WorkbenchSidebarPosition`).
 
 ### Secondary Side Bar Slot §road:secondary-sidebar-prop
 
@@ -44,8 +25,8 @@ opposite the primary, hosting view containers through the same
 `containerBuilder` path with its own controlled/uncontrolled active
 container, visibility, and width — in `lib/src/workbench_layout.dart`,
 exported from `lib/workbench_shell.dart`, with example wiring in
-`example/lib/main.dart`. §spec:secondary-sidebar. Depends on
-§road:sidebar-position-prop.
+`example/lib/main.dart`. §spec:secondary-sidebar. Builds on the shipped
+§spec:sidebar-position edge logic.
 
 **Verify:** In the example app, enable the secondary side bar with a
 sample container — confirm it appears on the edge opposite the primary,
