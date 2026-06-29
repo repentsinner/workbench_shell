@@ -227,6 +227,13 @@ class ToggleSecondarySideBarIntent extends Intent {
   const ToggleSecondarySideBarIntent();
 }
 
+/// Host-defined intent to toggle the status bar (§spec:layout-customization).
+/// The shell exposes the `statusBarVisible` property; the host owns the state
+/// and the menu affordance. VS Code has no default keybinding for it.
+class ToggleStatusBarIntent extends Intent {
+  const ToggleStatusBarIntent();
+}
+
 class WorkbenchHome extends StatefulWidget {
   const WorkbenchHome({super.key, required this.themeController});
 
@@ -257,6 +264,9 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   // host assigns which container it shows (here, the "Search" container) — the
   // secondary has no activity bar of its own.
   bool _secondarySideBarVisible = false;
+  // Status bar (§spec:layout-customization): host-owned visibility, driven from
+  // the View menu into the shell's controlled `statusBarVisible` property.
+  bool _statusBarVisible = true;
   void Function(Object id)? _focusPanelById;
   final NotificationService _notificationService = NotificationService();
 
@@ -353,6 +363,10 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
 
   void _toggleSecondarySideBar() {
     setState(() => _secondarySideBarVisible = !_secondarySideBarVisible);
+  }
+
+  void _toggleStatusBar() {
+    setState(() => _statusBarVisible = !_statusBarVisible);
   }
 
   /// VS Code's defaults: Shift+Cmd+M Problems, Shift+Cmd+U Output,
@@ -510,6 +524,12 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                         return null;
                       },
                     ),
+                ToggleStatusBarIntent: CallbackAction<ToggleStatusBarIntent>(
+                  onInvoke: (_) {
+                    _toggleStatusBar();
+                    return null;
+                  },
+                ),
               },
               child: WorkbenchMenuBar(
                 // The shell's panel/tab entries plus the host's editing-mode
@@ -554,6 +574,12 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                       meta: true,
                       alt: true,
                     ),
+                  ),
+                  WorkbenchViewMenuTab(
+                    intent: const ToggleStatusBarIntent(),
+                    label: _statusBarVisible
+                        ? 'Hide Status Bar'
+                        : 'Show Status Bar',
                   ),
                 ],
                 child: NotificationHost(
@@ -612,6 +638,12 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                         ),
                       ],
                     ),
+                    // Controlled status-bar visibility
+                    // (§spec:layout-customization): the host owns the flag and
+                    // the shell renders it, mirroring the editing-mode toggles.
+                    statusBarVisible: _statusBarVisible,
+                    onStatusBarVisibilityChanged: (next) =>
+                        setState(() => _statusBarVisible = next),
                   ),
                 ),
               ),

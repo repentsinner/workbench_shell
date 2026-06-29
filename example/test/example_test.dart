@@ -482,4 +482,26 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('EXPLORER'), findsOneWidget);
   });
+
+  // Status bar visibility (§spec:layout-customization). The View menu dispatches
+  // ToggleStatusBarIntent; the host owns the flag and feeds the shell's
+  // controlled statusBarVisible property.
+  testWidgets('Status Bar intent hides and restores the status bar', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const WorkbenchExampleApp());
+    await tester.pumpAndSettle();
+
+    final statusLabel = find.text('workbench_shell example');
+    expect(statusLabel, findsOneWidget);
+
+    final context = tester.element(find.byType(WorkbenchLayout));
+    Actions.invoke(context, const ToggleStatusBarIntent());
+    await tester.pumpAndSettle();
+    expect(statusLabel, findsNothing);
+
+    Actions.invoke(context, const ToggleStatusBarIntent());
+    await tester.pumpAndSettle();
+    expect(statusLabel, findsOneWidget);
+  });
 }

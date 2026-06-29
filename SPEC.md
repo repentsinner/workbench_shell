@@ -1286,9 +1286,9 @@ makes the arrangement a set of host-driven choices.
 lives *below* the OS window frame (§spec:custom-window-chrome). Full
 Screen toggles the OS window and therefore belongs to the host, which
 owns the window; the shell does not expose it. The shell owns primary side-bar
-visibility, side-bar position, the secondary side bar, panel alignment,
-Zen mode, and centered layout — all expressible within the region the
-shell already renders. This is why "Full Screen" from VS Code's panel is absent here:
+visibility, status-bar visibility, side-bar position, the secondary side
+bar, panel alignment, Zen mode, and centered layout — all expressible
+within the region the shell already renders. This is why "Full Screen" from VS Code's panel is absent here:
 it is not the shell's to give.
 
 **One mechanism: controlled/uncontrolled, mirroring §spec:workbench-layout.**
@@ -1322,6 +1322,16 @@ too — unlike the other layout toggles, which the host alone drives — and
 a controlled host shall honor it to keep the activity-bar affordance
 working. This is the one seam where the shell both originates and reports
 a toggle.
+
+### Status Bar Visibility §spec:status-bar-visibility
+
+The status bar shows or hides as a host-driven property on the same
+controlled/uncontrolled seam (`initialStatusBarVisible`, or
+`statusBarVisible` plus `onStatusBarVisibilityChanged`). Hidden, it yields
+its strip to the workbench above. The shell raises no toggle of its own —
+the host drives it from a menu item (VS Code's "Status Bar" toggle, which
+has no default keybinding). Zen mode hides the status bar wholesale
+alongside all other chrome, independent of this property.
 
 ### Side Bar Position §spec:sidebar-position
 
