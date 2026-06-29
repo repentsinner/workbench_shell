@@ -1,3 +1,17 @@
+# [0.23.0](https://github.com/repentsinner/workbench_shell/compare/v0.22.0...v0.23.0) (2026-06-29)
+
+
+### Bug Fixes
+
+* **example:** nest Align Panel inside Appearance to match canon ([61460a0](https://github.com/repentsinner/workbench_shell/commit/61460a03f79eebac4b0e5afe6f8291aed2fa8333))
+* **example:** order Appearance toggles to match canon (Status Bar before Panel) ([4b033a2](https://github.com/repentsinner/workbench_shell/commit/4b033a26f5657a6f3df2a9fd9dc027561292fe49))
+
+
+### Features
+
+* **example:** rewire View menu to the canon submenu/checkable model ([d626c03](https://github.com/repentsinner/workbench_shell/commit/d626c03bc48d094430d7c33eb72ddb560db8ba42))
+* extend View menu to a WorkbenchMenuEntry descriptor tree ([196a9cc](https://github.com/repentsinner/workbench_shell/commit/196a9cc3327373e4c500ba280f6c3d37564e8691))
+
 # [0.22.0](https://github.com/repentsinner/workbench_shell/compare/v0.21.0...v0.22.0) (2026-06-29)
 
 
