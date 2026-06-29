@@ -519,6 +519,40 @@ void main() {
       expect(find.text('explorer-body-b'), findsOneWidget);
     });
 
+    testWidgets('RETENTION survives sidebar position flip: collapse persists '
+        'when the bar moves left↔right', (tester) async {
+      // The bar travels to the opposite edge by reordering the layout Row.
+      // Without stable element identity Flutter rebuilds the whole row from
+      // scratch and the retained pane State is discarded (§spec:sidebar-position).
+      Widget app(WorkbenchSidebarPosition position) => MaterialApp(
+        theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+        home: WorkbenchLayout(
+          activityBarItems: _testItems,
+          editor: const Center(child: Text('Editor')),
+          containerBuilder: twoPaneSpec,
+          bottomPanel: const Center(child: Text('Panel')),
+          statusBar: const SizedBox(height: 22, child: Text('Status')),
+          sidebarPosition: position,
+          onSidebarPositionChanged: (_) {},
+        ),
+      );
+
+      await tester.pumpWidget(app(WorkbenchSidebarPosition.left));
+
+      // Collapse pane A on the left edge.
+      await tester.tap(find.text('EXPLORER ALPHA'));
+      await tester.pumpAndSettle();
+      expect(find.text('explorer-body-a'), findsNothing);
+
+      // Move the bar to the right edge.
+      await tester.pumpWidget(app(WorkbenchSidebarPosition.right));
+      await tester.pumpAndSettle();
+
+      // The collapse survived the move — the bar moved, it did not rebuild.
+      expect(find.text('explorer-body-a'), findsNothing);
+      expect(find.text('explorer-body-b'), findsOneWidget);
+    });
+
     testWidgets('two containers reusing the same view id keep independent '
         'pane state', (tester) async {
       // Both explorer and search declare a view id "shared". Collapsing it in

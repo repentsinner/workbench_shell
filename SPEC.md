@@ -1312,6 +1312,10 @@ The primary side bar (with its activity bar) sits on the left or the
 right of the editor, host-selectable. The resize sash and the side
 border follow the bar to whichever edge it occupies, so the
 §spec:workbench-layout sash invariants hold unchanged on either side.
+Moving the bar relocates its subtree to the opposite edge rather than
+rebuilding it: the width, pane order, expansion, and sash sizes retained
+per §spec:view-container-state survive the move, so the host need not
+persist and restore them across a position change.
 
 **Why an enum, not a boolean.** The position is named (`left` / `right`)
 rather than `isOnRight` because the secondary side bar (§spec:secondary-sidebar)

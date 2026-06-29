@@ -209,6 +209,18 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   /// reusing a view id keep independent state.
   final List<String> _openedContainerIds = [];
 
+  // Stable identities for the three row children. Moving the side bar to the
+  // opposite edge reorders the layout Row (§spec:sidebar-position); without
+  // keys, Flutter's positional reconciliation can't match the top and bottom
+  // children across the swap, deactivates the whole unkeyed range, and rebuilds
+  // every child — discarding the side bar's retained pane State
+  // (§spec:view-container-state) and the panel's maintained State. GlobalKeys
+  // make Flutter move each subtree's element to its new slot instead, so the
+  // bar travels rather than rebuilds.
+  final GlobalKey _activityBarKey = GlobalKey();
+  final GlobalKey _sidebarKey = GlobalKey();
+  final GlobalKey _editorAndPanelKey = GlobalKey();
+
   // Activity-bar items partitioned by zone and sorted by sortOrder.
   // Derived once from widget.activityBarItems (which is immutable for a
   // given widget) rather than on every rebuild — the layout rebuilds on
@@ -350,6 +362,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     final onRight = _sidebarPosition == WorkbenchSidebarPosition.right;
 
     final activityBar = _ActivityBar(
+      key: _activityBarKey,
       mainItems: _mainActivityItems,
       bottomItems: _bottomActivityItems,
       activeViewContainerId: _activeViewContainerId,
@@ -367,6 +380,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     // fills the row exactly as before; the visible hide/show behavior is
     // unchanged.
     final sidebar = Offstage(
+      key: _sidebarKey,
       offstage: !_sidebarVisible,
       child: TickerMode(
         enabled: _sidebarVisible,
@@ -405,6 +419,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     // Without this, toggling showBottomPanel disposes the entire panel tree and
     // discards content state every cycle.
     final editorAndPanel = Expanded(
+      key: _editorAndPanelKey,
       child: Column(
         children: [
           Expanded(child: editorContent),
@@ -657,6 +672,7 @@ class _ActivityBar extends StatelessWidget {
   final WorkbenchTheme theme;
 
   const _ActivityBar({
+    super.key,
     required this.mainItems,
     required this.bottomItems,
     required this.activeViewContainerId,
