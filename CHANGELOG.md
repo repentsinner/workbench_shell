@@ -1,3 +1,10 @@
+# [0.21.0](https://github.com/repentsinner/workbench_shell/compare/v0.20.0...v0.21.0) (2026-06-29)
+
+
+### Features
+
+* **layout:** expose status bar visibility as a host property ([beae6e3](https://github.com/repentsinner/workbench_shell/commit/beae6e32e6a873e724f9f3d5d2b3f44cc1c845d2)), closes [#77](https://github.com/repentsinner/workbench_shell/issues/77)
+
 # [0.20.0](https://github.com/repentsinner/workbench_shell/compare/v0.19.0...v0.20.0) (2026-06-29)
 
 
