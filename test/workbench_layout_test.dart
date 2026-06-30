@@ -1857,6 +1857,44 @@ void main() {
       expect(find.text('BETA'), findsNothing);
       expect(find.text('ALPHA'), findsOneWidget);
     });
+
+    // Canon: with no host overflow entries, the Views group is the only
+    // secondary action, so VS Code inlines the toggles instead of nesting them
+    // under a `Views ▸` submenu (panecomposite.ts getSecondaryActions).
+    testWidgets('overflow popup inlines the Views toggles when there are no '
+        'host overflow entries', (tester) async {
+      WorkbenchViewContainerSpec flatSpec(String id) {
+        if (id != 'explorer') return const WorkbenchViewContainerSpec(views: []);
+        return WorkbenchViewContainerSpec(
+          views: [
+            WorkbenchViewDescriptor(
+              id: 'a',
+              title: 'Alpha',
+              bodyBuilder: (_) => const Text('body-a'),
+            ),
+            WorkbenchViewDescriptor(
+              id: 'b',
+              title: 'Beta',
+              bodyBuilder: (_) => const Text('body-b'),
+            ),
+          ],
+        );
+      }
+
+      await tester.pumpWidget(_buildApp(containerBuilder: flatSpec));
+
+      await tester.tap(find.byIcon(Symbols.more_horiz));
+      await tester.pumpAndSettle();
+
+      // No `Views` wrapper — the toggles are reachable directly.
+      expect(find.text('Views'), findsNothing);
+      expect(find.text('Alpha'), findsOneWidget);
+
+      // Uncheck Beta straight from the root popup.
+      await tester.tap(find.text('Beta'));
+      await tester.pumpAndSettle();
+      expect(find.text('BETA'), findsNothing);
+    });
   });
 
   group('WorkbenchLayoutConstants', () {

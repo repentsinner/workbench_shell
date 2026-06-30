@@ -1265,7 +1265,7 @@ class _Sidebar extends StatelessWidget {
   /// VS Code's single `CompositePart` title area re-rendered for the active
   /// container — not per-container DOM. It carries the active container's label,
   /// any host inline title actions, and a right-aligned `⋯` overflow whose first
-  /// group is the shell-built Views submenu. Persistent chrome: the `⋯` shows
+  /// group is the shell-built Views toggles. Persistent chrome: the `⋯` shows
   /// whenever the active container has a hideable view or host overflow entries.
   Widget _buildTitle(BuildContext context) {
     final spec = containerBuilder(activeContainerId);
@@ -1317,14 +1317,17 @@ class _Sidebar extends StatelessWidget {
           child: Text(view.title),
         ),
     ];
-    final menuChildren = <Widget>[
-      // Views submenu first (VS Code's `Views` group at order 1).
-      SubmenuButton(menuChildren: viewItems, child: const Text('Views')),
-      if (spec.titleOverflowEntries.isNotEmpty) ...[
-        const Divider(height: 1),
-        ...buildMaterialMenuChildren(context, spec.titleOverflowEntries),
-      ],
-    ];
+    // VS Code dissolves the `Views` submenu and inlines the toggles when it is
+    // the container title's only secondary action, keeping a nested `Views ▸`
+    // submenu only when host overflow entries share the popup (panecomposite.ts
+    // getSecondaryActions, the `length === 1` branch).
+    final menuChildren = spec.titleOverflowEntries.isEmpty
+        ? viewItems
+        : <Widget>[
+            SubmenuButton(menuChildren: viewItems, child: const Text('Views')),
+            const Divider(height: 1),
+            ...buildMaterialMenuChildren(context, spec.titleOverflowEntries),
+          ];
     return Theme(
       data: workbenchMenuThemeData(context),
       child: MenuAnchor(

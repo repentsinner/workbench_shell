@@ -586,14 +586,18 @@ declare the same view id would otherwise collide on expansion and size state.
 *Status: complete*
 
 The sidebar heading above the pane stack carries a right-aligned **overflow
-(`⋯`) menu** whose first group is a shell-built **Views submenu** — one
+(`⋯`) menu** whose first group is the shell-built **Views toggles** — one
 checkable item per view in the container, checked when the view is visible.
-Toggling an item shows or hides that view's pane in the stack. This is VS
-Code's composite title area: the bar above the panes that names the active
-container and exposes container-level actions, the canonical surface for
-choosing which of a container's views are shown. (VS Code reference: the
-composite title renders `MenuId.ViewContainerTitle`; a `Views` submenu at
-`order: 1` lists per-view visibility toggles driven by
+Toggling an item shows or hides that view's pane in the stack. The toggles
+render **inline** in the `⋯` popup when they are its only group, and collapse
+into a nested **`Views ▸` submenu** only when host overflow entries share the
+popup — matching VS Code, which dissolves the submenu when it is the title's
+sole secondary action (`panecomposite.ts` `getSecondaryActions`, the
+`length === 1` branch). This is VS Code's composite title area: the bar above
+the panes that names the active container and exposes container-level actions,
+the canonical surface for choosing which of a container's views are shown. (VS
+Code reference: the composite title renders `MenuId.ViewContainerTitle`; a
+`Views` submenu at `order: 1` lists per-view visibility toggles driven by
 `ViewContainerModel.setVisible`, gated by each descriptor's
 `canToggleVisibility`. This section documents the shell's deviations, not VS
 Code's internals.)
