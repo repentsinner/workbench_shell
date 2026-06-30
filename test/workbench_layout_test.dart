@@ -105,6 +105,9 @@ WorkbenchSash _sash(WidgetTester tester, Axis axis) => tester.widget<WorkbenchSa
 Finder _sashFinder(Axis axis) =>
     find.byWidgetPredicate((w) => w is WorkbenchSash && w.axis == axis);
 
+/// Empty pane body for a const view descriptor in the overflow tests.
+Widget _emptyBody(BuildContext _) => const Text('body-c');
+
 void main() {
   group('WorkbenchLayout', () {
     testWidgets('renders activity bar with items', (tester) async {
@@ -1747,6 +1750,112 @@ void main() {
       final result = _testTheme.lerp(other, 0.5);
       expect(result.editorBackground, isNot(_testTheme.editorBackground));
       expect(result.editorBackground, isNot(other.editorBackground));
+    });
+  });
+
+  group('view-container title overflow (§spec:view-container-title)', () {
+    // A three-view Explorer container with a non-hideable Gamma view, host
+    // title action, and a host overflow entry. Other ids render empty (no
+    // overflow), so only the primary sidebar shows the `⋯` button.
+    WorkbenchViewContainerSpec multiSpec(String id) {
+      if (id != 'explorer') return const WorkbenchViewContainerSpec(views: []);
+      return WorkbenchViewContainerSpec(
+        views: [
+          WorkbenchViewDescriptor(
+            id: 'a',
+            title: 'Alpha',
+            bodyBuilder: (_) => const Text('body-a'),
+          ),
+          WorkbenchViewDescriptor(
+            id: 'b',
+            title: 'Beta',
+            bodyBuilder: (_) => const Text('body-b'),
+          ),
+          const WorkbenchViewDescriptor(
+            id: 'c',
+            title: 'Gamma',
+            canHide: false,
+            bodyBuilder: _emptyBody,
+          ),
+        ],
+        titleActions: [
+          IconButton(
+            key: const ValueKey('title-action'),
+            icon: const Icon(Symbols.add_rounded),
+            onPressed: () {},
+          ),
+        ],
+        titleOverflowEntries: const [
+          WorkbenchViewMenuTab(intent: ActivateIntent(), label: 'Extra Action'),
+        ],
+      );
+    }
+
+    testWidgets('title row shows the host action and the overflow button', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_buildApp(containerBuilder: multiSpec));
+
+      expect(find.byKey(const ValueKey('title-action')), findsOneWidget);
+      expect(find.byIcon(Symbols.more_horiz), findsOneWidget);
+    });
+
+    testWidgets('overflow popup carries the Views group and host entries', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_buildApp(containerBuilder: multiSpec));
+
+      await tester.tap(find.byIcon(Symbols.more_horiz));
+      await tester.pumpAndSettle();
+
+      // Root popup: shell-built Views submenu + host overflow entry.
+      expect(find.text('Views'), findsOneWidget);
+      expect(find.text('Extra Action'), findsOneWidget);
+
+      await tester.tap(find.text('Views'));
+      await tester.pumpAndSettle();
+
+      // One checkbox per view; the non-hideable Gamma is disabled.
+      for (final title in ['Alpha', 'Beta', 'Gamma']) {
+        expect(find.text(title), findsOneWidget);
+      }
+      final gamma = tester.widget<CheckboxMenuButton>(
+        find.ancestor(
+          of: find.text('Gamma'),
+          matching: find.byType(CheckboxMenuButton),
+        ),
+      );
+      expect(gamma.onChanged, isNull);
+    });
+
+    testWidgets('toggling a Views checkbox hides the pane; the change survives '
+        'an activity-bar switch', (tester) async {
+      await tester.pumpWidget(_buildApp(containerBuilder: multiSpec));
+
+      // All three pane headers present initially.
+      expect(find.text('BETA'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Symbols.more_horiz));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Views'));
+      await tester.pumpAndSettle();
+
+      // Uncheck Beta → its pane leaves the stack.
+      await tester.tap(find.text('Beta'));
+      await tester.pumpAndSettle();
+      expect(find.text('BETA'), findsNothing);
+
+      // Close the popup, switch to Search and back to Explorer.
+      await tester.tap(find.byIcon(Symbols.more_horiz));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Symbols.search_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Symbols.folder_rounded));
+      await tester.pumpAndSettle();
+
+      // Visibility is shell-owned and container-keyed, so Beta stays hidden.
+      expect(find.text('BETA'), findsNothing);
+      expect(find.text('ALPHA'), findsOneWidget);
     });
   });
 

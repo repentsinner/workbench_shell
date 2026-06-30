@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import 'activity_bar_item.dart';
 import 'layout_constants.dart';
 import 'workbench_sash.dart';
 import 'workbench_theme.dart';
 import 'workbench_view_container.dart';
+import 'workbench_view_menu.dart';
 
 /// Which editor edge the primary side bar (with its activity bar) occupies
 /// (§spec:sidebar-position). Named rather than a boolean because the secondary
@@ -364,6 +366,81 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   /// scopes each container's State to its id by construction, so two containers
   /// reusing a view id keep independent state.
   final List<String> _openedContainerIds = [];
+
+  /// Per-view visibility, the shell's source of truth for the Views overflow
+  /// (§spec:view-container-title) — the port of VS Code's `ViewContainerModel`
+  /// (`isVisible`/`setVisible`, persisted per container id). Keyed by container
+  /// id → the set of *hidden* uncontrolled view ids. Living here, above the
+  /// retained `WorkbenchViewContainer`s, makes it independent of which container
+  /// is active, so a hidden/shown view survives activity-bar switches like order
+  /// and expansion (§spec:view-container-state). Absent id = not yet seeded;
+  /// absent view = visible. Controlled views (a descriptor with
+  /// `onVisibleChanged`) never enter this map — the host owns their visibility.
+  final Map<String, Set<String>> _hiddenViewIds = {};
+
+  /// The live hidden-id set for [containerId], seeded once from descriptors that
+  /// start hidden (`visible == false`) and are shell-owned (no `onVisibleChanged`).
+  Set<String> _hiddenStore(
+    String containerId,
+    List<WorkbenchViewDescriptor> views,
+  ) {
+    return _hiddenViewIds.putIfAbsent(containerId, () {
+      return {
+        for (final view in views)
+          if (view.onVisibleChanged == null && !view.visible) view.id,
+      };
+    });
+  }
+
+  /// Whether [view] in [containerId] is currently visible. A controlled view
+  /// reads its host-owned `visible`; an uncontrolled one is visible unless the
+  /// shell store hides it.
+  bool _isViewVisible(
+    String containerId,
+    WorkbenchViewDescriptor view,
+    List<WorkbenchViewDescriptor> views,
+  ) {
+    if (view.onVisibleChanged != null) return view.visible;
+    return !_hiddenStore(containerId, views).contains(view.id);
+  }
+
+  /// The resolved hidden-id set for [containerId]'s [views], combining the
+  /// shell store (uncontrolled) with controlled views the host marks hidden.
+  /// Passed to the container so it drops those panes from the stack.
+  Set<String> _resolvedHidden(
+    String containerId,
+    List<WorkbenchViewDescriptor> views,
+  ) {
+    return {
+      for (final view in views)
+        if (!_isViewVisible(containerId, view, views)) view.id,
+    };
+  }
+
+  /// Toggle [view]'s visibility from the Views overflow. A controlled view
+  /// reports the requested state through its callback without self-mutating; an
+  /// uncontrolled one flips the shell store and rebuilds. No-op for a
+  /// non-hideable view (`canHide == false`).
+  void _toggleViewVisible(
+    String containerId,
+    WorkbenchViewDescriptor view,
+    List<WorkbenchViewDescriptor> views,
+  ) {
+    if (!view.canHide) return;
+    final nowVisible = _isViewVisible(containerId, view, views);
+    if (view.onVisibleChanged != null) {
+      view.onVisibleChanged!(!nowVisible);
+      return;
+    }
+    setState(() {
+      final hidden = _hiddenStore(containerId, views);
+      if (nowVisible) {
+        hidden.add(view.id);
+      } else {
+        hidden.remove(view.id);
+      }
+    });
+  }
 
   // Stable identities for the workbench's structural children. Two composition
   // choices reorder or re-parent them: moving the side bar to the opposite edge
@@ -800,6 +877,8 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
               activeContainerId: activeId,
               openedContainerIds: openedContainerIds,
               containerBuilder: widget.containerBuilder,
+              resolvedHidden: _resolvedHidden,
+              toggleViewVisible: _toggleViewVisible,
               position: position,
               theme: theme,
             ),
@@ -1093,6 +1172,21 @@ class _Sidebar extends StatelessWidget {
   final String activeContainerId;
   final List<String> openedContainerIds;
   final WorkbenchViewContainerSpec Function(String containerId) containerBuilder;
+
+  /// Resolved hidden-id set for a container, from the shell visibility store
+  /// (§spec:view-container-title). Drives both the title's Views checkboxes and
+  /// the dropped panes in each container.
+  final Set<String> Function(String containerId, List<WorkbenchViewDescriptor>)
+  resolvedHidden;
+
+  /// Toggle a view's visibility from the Views overflow.
+  final void Function(
+    String containerId,
+    WorkbenchViewDescriptor,
+    List<WorkbenchViewDescriptor>,
+  )
+  toggleViewVisible;
+
   final WorkbenchSidebarPosition position;
   final WorkbenchTheme theme;
 
@@ -1102,6 +1196,8 @@ class _Sidebar extends StatelessWidget {
     required this.activeContainerId,
     required this.openedContainerIds,
     required this.containerBuilder,
+    required this.resolvedHidden,
+    required this.toggleViewVisible,
     required this.position,
     required this.theme,
   });
@@ -1132,23 +1228,7 @@ class _Sidebar extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Container(
-            height: WorkbenchLayoutConstants.sidebarHeadingHeight,
-            padding: const EdgeInsets.symmetric(
-              horizontal: WorkbenchLayoutConstants.spacingLg,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    activeLabel.toUpperCase(),
-                    style: theme.sidebarOrPanelHeading,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          _buildTitle(context),
           Expanded(
             // One WorkbenchViewContainer per opened id, each in a stable Stack
             // slot keyed by container id so its element/State identity is per
@@ -1160,16 +1240,108 @@ class _Sidebar extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                for (final id in openedContainerIds)
-                  _RetainedContainer(
-                    key: ValueKey(id),
-                    active: id == activeContainerId,
-                    spec: containerBuilder(id),
-                  ),
+                for (final id in openedContainerIds) _retainedContainer(id),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// One retained container slot. Computes the spec once so the spec and its
+  /// resolved hidden set come from a single `containerBuilder` call.
+  Widget _retainedContainer(String id) {
+    final spec = containerBuilder(id);
+    return _RetainedContainer(
+      key: ValueKey(id),
+      active: id == activeContainerId,
+      spec: spec,
+      hiddenViewIds: resolvedHidden(id, spec.views),
+    );
+  }
+
+  /// The shared composite-title chrome (§spec:view-container-title), the port of
+  /// VS Code's single `CompositePart` title area re-rendered for the active
+  /// container — not per-container DOM. It carries the active container's label,
+  /// any host inline title actions, and a right-aligned `⋯` overflow whose first
+  /// group is the shell-built Views submenu. Persistent chrome: the `⋯` shows
+  /// whenever the active container has a hideable view or host overflow entries.
+  Widget _buildTitle(BuildContext context) {
+    final spec = containerBuilder(activeContainerId);
+    final showOverflow =
+        spec.views.any((v) => v.canHide) || spec.titleOverflowEntries.isNotEmpty;
+    return Container(
+      height: WorkbenchLayoutConstants.sidebarHeadingHeight,
+      padding: const EdgeInsets.symmetric(
+        horizontal: WorkbenchLayoutConstants.spacingLg,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              activeLabel.toUpperCase(),
+              style: theme.sidebarOrPanelHeading,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          // Host inline title actions, persistent (the composite title is
+          // always-shown chrome), placed left of the overflow button.
+          ...spec.titleActions,
+          if (showOverflow) _buildOverflowButton(context, spec),
+        ],
+      ),
+    );
+  }
+
+  /// The `⋯` overflow button and its in-window Material popup
+  /// (§spec:view-container-title). The popup is never the macOS system menu bar,
+  /// so the Views checkboxes draw real check marks on every platform — the
+  /// `PlatformMenuItem` degradation (§spec:menu-model) does not apply. Themed
+  /// through the same [workbenchMenuThemeData] the View menu bar uses.
+  Widget _buildOverflowButton(
+    BuildContext context,
+    WorkbenchViewContainerSpec spec,
+  ) {
+    final hidden = resolvedHidden(activeContainerId, spec.views);
+    final viewItems = <Widget>[
+      for (final view in spec.views)
+        CheckboxMenuButton(
+          value: !hidden.contains(view.id),
+          // Keep the popup open after a toggle so the user can hide several
+          // views and watch each check update live (VS Code's Views submenu).
+          closeOnActivate: false,
+          onChanged: view.canHide
+              ? (_) => toggleViewVisible(activeContainerId, view, spec.views)
+              : null,
+          child: Text(view.title),
+        ),
+    ];
+    final menuChildren = <Widget>[
+      // Views submenu first (VS Code's `Views` group at order 1).
+      SubmenuButton(menuChildren: viewItems, child: const Text('Views')),
+      if (spec.titleOverflowEntries.isNotEmpty) ...[
+        const Divider(height: 1),
+        ...buildMaterialMenuChildren(context, spec.titleOverflowEntries),
+      ],
+    ];
+    return Theme(
+      data: workbenchMenuThemeData(context),
+      child: MenuAnchor(
+        menuChildren: menuChildren,
+        builder: (context, controller, child) => IconButton(
+          icon: const Icon(
+            Symbols.more_horiz,
+            size: WorkbenchLayoutConstants.iconMd,
+          ),
+          color: theme.descriptionForeground,
+          tooltip: 'Views and More Actions…',
+          visualDensity: VisualDensity.compact,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          onPressed: () =>
+              controller.isOpen ? controller.close() : controller.open(),
+        ),
       ),
     );
   }
@@ -1184,10 +1356,15 @@ class _RetainedContainer extends StatelessWidget {
   final bool active;
   final WorkbenchViewContainerSpec spec;
 
+  /// Views resolved hidden by the shell store (§spec:view-container-title);
+  /// dropped from the stack while keeping their order slot.
+  final Set<String> hiddenViewIds;
+
   const _RetainedContainer({
     super.key,
     required this.active,
     required this.spec,
+    required this.hiddenViewIds,
   });
 
   @override
@@ -1203,6 +1380,7 @@ class _RetainedContainer extends StatelessWidget {
           onReorder: spec.onReorder,
           initialSizes: spec.initialSizes,
           onSizesChangeEnd: spec.onSizesChangeEnd,
+          hiddenViewIds: hiddenViewIds,
         ),
       ),
     );

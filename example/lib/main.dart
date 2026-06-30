@@ -243,6 +243,14 @@ class SetPanelAlignmentIntent extends Intent {
   final WorkbenchPanelAlignment alignment;
 }
 
+/// Host-defined intent dispatched by an Explorer container-title overflow entry
+/// (§spec:view-container-title) — dogfoods host-supplied overflow entries
+/// alongside the shell-built Views submenu.
+class ExplorerActionIntent extends Intent {
+  const ExplorerActionIntent(this.message);
+  final String message;
+}
+
 class WorkbenchHome extends StatefulWidget {
   const WorkbenchHome({super.key, required this.themeController});
 
@@ -561,6 +569,15 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                     return null;
                   },
                 ),
+                ExplorerActionIntent: CallbackAction<ExplorerActionIntent>(
+                  onInvoke: (intent) {
+                    _notificationService.show(
+                      severity: NotificationSeverity.info,
+                      message: intent.message,
+                    );
+                    return null;
+                  },
+                ),
                 SetPanelAlignmentIntent:
                     CallbackAction<SetPanelAlignmentIntent>(
                       onInvoke: (intent) {
@@ -750,6 +767,25 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
             byId['open-editors']!,
             byId['outline']!,
             byId['timeline']!,
+          ],
+          // Dogfood host container-title extras (§spec:view-container-title): an
+          // inline title action beside the `⋯` button, and an extra overflow
+          // entry rendered below the shell-built Views group.
+          titleActions: [
+            _explorerHeaderAction(
+              icon: Symbols.create_new_folder_rounded,
+              tooltip: 'New Folder',
+              onPressed: () => _notificationService.show(
+                severity: NotificationSeverity.info,
+                message: 'New folder',
+              ),
+            ),
+          ],
+          titleOverflowEntries: const [
+            WorkbenchViewMenuTab(
+              intent: ExplorerActionIntent('Collapsed Explorer folders'),
+              label: 'Collapse Folders in Explorer',
+            ),
           ],
           // Seed-plus-commit body sizing (§spec:resize-geometry): the shell owns
           // Explorer's sash sizes; the host seeds the apportionment from its
