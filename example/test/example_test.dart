@@ -290,11 +290,15 @@ void main() {
       await tester.pumpAndSettle();
       expect(isFocused('open-editors'), isTrue);
 
-      // Down walks forward through the three headers.
+      // Down walks forward through the four headers.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(isFocused('folders'), isTrue);
+      expect(isFocused('open-editors'), isFalse);
+
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pumpAndSettle();
       expect(isFocused('outline'), isTrue);
-      expect(isFocused('open-editors'), isFalse);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pumpAndSettle();
@@ -307,6 +311,7 @@ void main() {
       expect(isFocused('open-editors'), isFalse);
 
       // Up walks back and clamps at the first.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await tester.pumpAndSettle();

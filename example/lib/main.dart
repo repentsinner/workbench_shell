@@ -243,13 +243,6 @@ class SetPanelAlignmentIntent extends Intent {
   final WorkbenchPanelAlignment alignment;
 }
 
-/// Host-defined intent dispatched by an Explorer container-title overflow entry
-/// (§spec:view-container-title) — dogfoods host-supplied overflow entries
-/// alongside the shell-built Views submenu.
-class ExplorerActionIntent extends Intent {
-  const ExplorerActionIntent(this.message);
-  final String message;
-}
 
 class WorkbenchHome extends StatefulWidget {
   const WorkbenchHome({super.key, required this.themeController});
@@ -569,15 +562,6 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                     return null;
                   },
                 ),
-                ExplorerActionIntent: CallbackAction<ExplorerActionIntent>(
-                  onInvoke: (intent) {
-                    _notificationService.show(
-                      severity: NotificationSeverity.info,
-                      message: intent.message,
-                    );
-                    return null;
-                  },
-                ),
                 SetPanelAlignmentIntent:
                     CallbackAction<SetPanelAlignmentIntent>(
                       onInvoke: (intent) {
@@ -762,30 +746,16 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
         // order state. (A host that needs to persist order across restarts can
         // pass a controlled `order` plus `onReorder`.)
         final byId = _explorerViews(_notificationService);
+        // Canon (VS Code): the EXPLORER container title carries only the `⋯`
+        // overflow (the Views toggles). New File / New Folder / Refresh /
+        // Collapse Folders are VIEW-title actions on the Folders view
+        // (explorerView.ts, MenuId.ViewTitle), not container-title actions.
         return WorkbenchViewContainerSpec(
           views: [
             byId['open-editors']!,
+            byId['folders']!,
             byId['outline']!,
             byId['timeline']!,
-          ],
-          // Dogfood host container-title extras (§spec:view-container-title): an
-          // inline title action beside the `⋯` button, and an extra overflow
-          // entry rendered below the shell-built Views group.
-          titleActions: [
-            _explorerHeaderAction(
-              icon: Symbols.create_new_folder_rounded,
-              tooltip: 'New Folder',
-              onPressed: () => _notificationService.show(
-                severity: NotificationSeverity.info,
-                message: 'New folder',
-              ),
-            ),
-          ],
-          titleOverflowEntries: const [
-            WorkbenchViewMenuTab(
-              intent: ExplorerActionIntent('Collapsed Explorer folders'),
-              label: 'Collapse Folders in Explorer',
-            ),
           ],
           // Seed-plus-commit body sizing (§spec:resize-geometry): the shell owns
           // Explorer's sash sizes; the host seeds the apportionment from its
@@ -1459,14 +1429,41 @@ Map<String, WorkbenchViewDescriptor> _explorerViews(
           tooltip: 'Refresh',
           onPressed: () => notify('Refreshed Open Editors'),
         ),
-        _explorerHeaderAction(
-          icon: Symbols.add_rounded,
-          tooltip: 'New File',
-          onPressed: () => notify('New file'),
-        ),
       ],
       bodyBuilder: (_) => const _SidebarBodyPlaceholder(
         text: 'main.dart\nworkbench_content.dart',
+      ),
+    ),
+    // The Folders view is the project tree (canon's `workbench.explorer.fileView`).
+    // It owns New File / New Folder / Refresh / Collapse Folders as view-title
+    // actions — these are per-view, not container-title, actions.
+    'folders': WorkbenchViewDescriptor(
+      id: 'folders',
+      title: 'workbench_shell',
+      actions: [
+        _explorerHeaderAction(
+          icon: Symbols.note_add_rounded,
+          tooltip: 'New File',
+          onPressed: () => notify('New file'),
+        ),
+        _explorerHeaderAction(
+          icon: Symbols.create_new_folder_rounded,
+          tooltip: 'New Folder',
+          onPressed: () => notify('New folder'),
+        ),
+        _explorerHeaderAction(
+          icon: Symbols.refresh_rounded,
+          tooltip: 'Refresh Explorer',
+          onPressed: () => notify('Refreshed Explorer'),
+        ),
+        _explorerHeaderAction(
+          icon: Symbols.collapse_all,
+          tooltip: 'Collapse Folders in Explorer',
+          onPressed: () => notify('Collapsed Explorer folders'),
+        ),
+      ],
+      bodyBuilder: (_) => const _SidebarBodyPlaceholder(
+        text: 'lib/\nexample/\ntest/\nstyles/',
       ),
     ),
     'outline': WorkbenchViewDescriptor(
