@@ -1,3 +1,10 @@
+# [0.25.0](https://github.com/repentsinner/workbench_shell/compare/v0.24.0...v0.25.0) (2026-07-01)
+
+
+### Features
+
+* **view-container:** add copyWith to WorkbenchViewContainerSpec and WorkbenchViewDescriptor ([2d53afd](https://github.com/repentsinner/workbench_shell/commit/2d53afdd6be8a7e5d3c827756efc75a83df920cc))
+
 # [0.24.0](https://github.com/repentsinner/workbench_shell/compare/v0.23.0...v0.24.0) (2026-07-01)
 
 
