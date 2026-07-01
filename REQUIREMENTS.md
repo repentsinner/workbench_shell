@@ -48,7 +48,7 @@ Success is measured first by **integration ease**: how little a host
 builds, and how little shell mechanics it reimplements, to ship
 canonical chrome.
 
-- A host renders a complete VS Code-style workbench — activity bar,
+- A host renders a full VS Code-style workbench — activity bar,
   sidebar, editor, bottom panel, status bar, menu bar — by adopting a
   single layout entry point and supplying content and a theme. It
   writes no chrome layout, typography, or spacing of its own.
@@ -143,21 +143,21 @@ canonical chrome.
 
 ## Priorities §req:priorities
 
-**Essential** — the canonical workbench baseline, already shipped:
-activity bar and stacked sidebar, tabbed bottom panel, status bar,
+Priority is by user impact, not build order — what the package
+**shall** deliver to solve its problem versus what it **may** add as
+consumers need it. Which items are built or in progress lives in
+SPEC.md status lines and ROADMAP.md, not here.
+
+**Shall** — a host renders the full VS Code-style workbench (activity
+bar and stacked sidebar, tabbed bottom panel, status bar,
 platform-conditional menu bar, theming with VS Code theme loading,
-structural primitives, and the notification center. This is the floor
-the package's value rests on.
+structural primitives, notification center) canonically from content
+and a theme, and does not reimplement shell mechanics: pane order,
+expansion, visibility, sizing, and their persistence across restarts
+are the shell's to own. Without these the package does not solve its
+problem (§req:problem-statement, §req:success-criteria).
 
-**Essential, ongoing** — the integration-ease seams that keep hosts
-from reimplementing shell mechanics. Every persistable concern (pane
-order, expansion, visibility, sizing, outer layout dimensions) is
-exposed so a host can rehydrate to VS Code parity, and the shell — not
-the host — owns the mechanics of applying that state. Reducing the
-plumbing a host writes is a first-class, continuing goal, not a
-finished one.
-
-**Nice to have** — broader coverage of the VS Code workbench surface
-as consumers need it, and re-promotion of deferred surfaces (custom
-window chrome, tree rows, form controls) only when a concrete consumer
-need clears their gate.
+**May** — broader coverage of the VS Code workbench surface as
+consumers need it, and re-promotion of deferred surfaces (custom
+window chrome, tree rows, form controls) when a concrete consumer need
+clears their gate.
