@@ -1873,6 +1873,100 @@ void main() {
       expect(by, lessThan(ay));
     });
   });
+
+  group('copyWith', () {
+    Widget body(BuildContext _) => const SizedBox();
+
+    test('WorkbenchViewDescriptor.copyWith with no overrides preserves every '
+        'field', () {
+      void onVis(bool _) {}
+      void onExp(bool _) {}
+      final actions = <Widget>[const SizedBox()];
+      final base = WorkbenchViewDescriptor(
+        id: 'v',
+        title: 'View',
+        menuLabel: 'Menu',
+        infoTooltip: 'info',
+        visible: false,
+        canHide: false,
+        onVisibleChanged: onVis,
+        actions: actions,
+        actionsAlwaysVisible: true,
+        initiallyExpanded: false,
+        expanded: true,
+        onExpandedChanged: onExp,
+        maximumBodySize: 120,
+        bodyBuilder: body,
+      );
+      final copy = base.copyWith();
+
+      expect(copy.id, 'v');
+      expect(copy.title, 'View');
+      expect(copy.menuLabel, 'Menu');
+      expect(copy.infoTooltip, 'info');
+      expect(copy.visible, isFalse);
+      expect(copy.canHide, isFalse);
+      expect(copy.onVisibleChanged, same(onVis));
+      expect(copy.actions, same(actions));
+      expect(copy.actionsAlwaysVisible, isTrue);
+      expect(copy.initiallyExpanded, isFalse);
+      expect(copy.expanded, isTrue);
+      expect(copy.onExpandedChanged, same(onExp));
+      expect(copy.maximumBodySize, 120);
+      expect(copy.bodyBuilder, same(body));
+    });
+
+    test('WorkbenchViewDescriptor.copyWith overrides only the named fields', () {
+      final base = WorkbenchViewDescriptor(
+        id: 'v',
+        title: 'View',
+        bodyBuilder: body,
+      );
+      final copy = base.copyWith(title: 'Renamed', visible: false);
+
+      expect(copy.title, 'Renamed');
+      expect(copy.visible, isFalse);
+      // Untouched fields carry over.
+      expect(copy.id, 'v');
+      expect(copy.canHide, isTrue);
+      expect(copy.bodyBuilder, same(body));
+    });
+
+    test('WorkbenchViewContainerSpec.copyWith seeds sizing onto a base without '
+        'reconstructing its other fields', () {
+      final views = <WorkbenchViewDescriptor>[
+        WorkbenchViewDescriptor(id: 'v', title: 'View', bodyBuilder: body),
+      ];
+      final titleActions = <Widget>[const SizedBox()];
+      const overflow = <WorkbenchMenuEntry>[
+        WorkbenchViewMenuTab(intent: ActivateIntent(), label: 'X'),
+      ];
+      void onReorder(int _, int _) {}
+      final base = WorkbenchViewContainerSpec(
+        views: views,
+        mergeSingleView: true,
+        order: const ['v'],
+        onReorder: onReorder,
+        titleActions: titleActions,
+        titleOverflowEntries: overflow,
+      );
+
+      final sizes = {'v': 100.0};
+      void onEnd(Map<String, double> _) {}
+      final copy = base.copyWith(initialSizes: sizes, onSizesChangeEnd: onEnd);
+
+      // Seeded fields updated.
+      expect(copy.initialSizes, same(sizes));
+      expect(copy.onSizesChangeEnd, same(onEnd));
+      // Everything else carried over untouched.
+      expect(copy.views, same(views));
+      expect(copy.mergeSingleView, isTrue);
+      expect(copy.order, const ['v']);
+      expect(copy.onReorder, same(onReorder));
+      expect(copy.titleActions, same(titleActions));
+      expect(copy.titleOverflowEntries, same(overflow));
+    });
+  });
 }
 
 /// Short body: well under any minimum body allotment, so its pane never engages

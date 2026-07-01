@@ -105,6 +105,44 @@ class WorkbenchViewDescriptor {
     this.maximumBodySize,
     required this.bodyBuilder,
   });
+
+  /// Returns a copy with the given fields replaced. Omitted fields keep their
+  /// current value (the standard `copyWith` idiom, so a nullable field cannot be
+  /// reset to null through it) — lets a host seed a subset without hand-copying
+  /// every field and silently dropping any the shell adds later.
+  WorkbenchViewDescriptor copyWith({
+    String? id,
+    String? title,
+    String? menuLabel,
+    String? infoTooltip,
+    bool? visible,
+    bool? canHide,
+    ValueChanged<bool>? onVisibleChanged,
+    List<Widget>? actions,
+    bool? actionsAlwaysVisible,
+    bool? initiallyExpanded,
+    bool? expanded,
+    ValueChanged<bool>? onExpandedChanged,
+    double? maximumBodySize,
+    Widget Function(BuildContext)? bodyBuilder,
+  }) {
+    return WorkbenchViewDescriptor(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      menuLabel: menuLabel ?? this.menuLabel,
+      infoTooltip: infoTooltip ?? this.infoTooltip,
+      visible: visible ?? this.visible,
+      canHide: canHide ?? this.canHide,
+      onVisibleChanged: onVisibleChanged ?? this.onVisibleChanged,
+      actions: actions ?? this.actions,
+      actionsAlwaysVisible: actionsAlwaysVisible ?? this.actionsAlwaysVisible,
+      initiallyExpanded: initiallyExpanded ?? this.initiallyExpanded,
+      expanded: expanded ?? this.expanded,
+      onExpandedChanged: onExpandedChanged ?? this.onExpandedChanged,
+      maximumBodySize: maximumBodySize ?? this.maximumBodySize,
+      bodyBuilder: bodyBuilder ?? this.bodyBuilder,
+    );
+  }
 }
 
 /// Typed spec for one activity-bar view container (§spec:view-stack). The
@@ -171,6 +209,34 @@ class WorkbenchViewContainerSpec {
     this.titleActions = const [],
     this.titleOverflowEntries = const [],
   });
+
+  /// Returns a copy with the given fields replaced. Omitted fields keep their
+  /// current value (the standard `copyWith` idiom, so a nullable field cannot be
+  /// reset to null through it). Collapses the common seed-a-subset pattern — a
+  /// host layering persisted `initialSizes`/`onSizesChangeEnd` onto a base spec
+  /// no longer hand-reconstructs every field (and silently drops any the shell
+  /// adds later).
+  WorkbenchViewContainerSpec copyWith({
+    List<WorkbenchViewDescriptor>? views,
+    bool? mergeSingleView,
+    List<String>? order,
+    void Function(int oldIndex, int newIndex)? onReorder,
+    Map<String, double>? initialSizes,
+    void Function(Map<String, double> sizes)? onSizesChangeEnd,
+    List<Widget>? titleActions,
+    List<WorkbenchMenuEntry>? titleOverflowEntries,
+  }) {
+    return WorkbenchViewContainerSpec(
+      views: views ?? this.views,
+      mergeSingleView: mergeSingleView ?? this.mergeSingleView,
+      order: order ?? this.order,
+      onReorder: onReorder ?? this.onReorder,
+      initialSizes: initialSizes ?? this.initialSizes,
+      onSizesChangeEnd: onSizesChangeEnd ?? this.onSizesChangeEnd,
+      titleActions: titleActions ?? this.titleActions,
+      titleOverflowEntries: titleOverflowEntries ?? this.titleOverflowEntries,
+    );
+  }
 }
 
 /// Renders an ordered list of [WorkbenchViewDescriptor]s as a flush stack of
