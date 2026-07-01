@@ -1895,6 +1895,43 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('BETA'), findsNothing);
     });
+
+    // Canon: the file explorer's pane header shows the workspace folder name
+    // while its Views toggle reads "Folders" (IViewDescriptor.name vs the
+    // runtime-overridden title). menuLabel drives the toggle independently.
+    testWidgets('a view menuLabel overrides its Views-toggle text without '
+        'changing the pane header', (tester) async {
+      WorkbenchViewContainerSpec labelSpec(String id) {
+        if (id != 'explorer') return const WorkbenchViewContainerSpec(views: []);
+        return WorkbenchViewContainerSpec(
+          views: [
+            WorkbenchViewDescriptor(
+              id: 'folders',
+              title: 'workbench_shell',
+              menuLabel: 'Folders',
+              bodyBuilder: (_) => const Text('body-folders'),
+            ),
+            WorkbenchViewDescriptor(
+              id: 'b',
+              title: 'Beta',
+              bodyBuilder: (_) => const Text('body-b'),
+            ),
+          ],
+        );
+      }
+
+      await tester.pumpWidget(_buildApp(containerBuilder: labelSpec));
+
+      // Header shows the title, uppercased per pane-header canon.
+      expect(find.text('WORKBENCH_SHELL'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Symbols.more_horiz));
+      await tester.pumpAndSettle();
+
+      // The toggle reads the menuLabel, not the header title.
+      expect(find.text('Folders'), findsOneWidget);
+      expect(find.text('workbench_shell'), findsNothing);
+    });
   });
 
   group('WorkbenchLayoutConstants', () {

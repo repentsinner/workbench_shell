@@ -588,7 +588,11 @@ declare the same view id would otherwise collide on expansion and size state.
 The sidebar heading above the pane stack carries a right-aligned **overflow
 (`⋯`) menu** whose first group is the shell-built **Views toggles** — one
 checkable item per view in the container, checked when the view is visible.
-Toggling an item shows or hides that view's pane in the stack. The toggles
+Each item reads the view's `menuLabel` when set, falling back to its pane-header
+`title` — mirroring VS Code's `IViewDescriptor.name` (the Views-menu label) being
+distinct from a runtime-overridden pane title, as the file explorer shows the
+workspace folder name in its header but "Folders" in the menu. Toggling an item
+shows or hides that view's pane in the stack. The toggles
 render **inline** in the `⋯` popup when they are its only group, and collapse
 into a nested **`Views ▸` submenu** only when host overflow entries share the
 popup — matching VS Code, which dissolves the submenu when it is the title's

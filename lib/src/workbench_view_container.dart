@@ -24,6 +24,13 @@ class WorkbenchViewDescriptor {
 
   final String title;
 
+  /// Label for this view in the container title's Views overflow, when it must
+  /// differ from the pane-header [title]. VS Code's file explorer shows the
+  /// workspace folder name in its pane header but "Folders" in the Views menu —
+  /// its `IViewDescriptor.name` (menu) is distinct from its runtime-overridden
+  /// title (header). Null (the default) reuses [title] for both.
+  final String? menuLabel;
+
   /// Optional metadata icon tooltip in the header (the shell's analog of VS
   /// Code's dimmed `.description`).
   final String? infoTooltip;
@@ -85,6 +92,7 @@ class WorkbenchViewDescriptor {
   const WorkbenchViewDescriptor({
     required this.id,
     required this.title,
+    this.menuLabel,
     this.infoTooltip,
     this.visible = true,
     this.canHide = true,

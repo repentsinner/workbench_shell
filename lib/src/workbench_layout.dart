@@ -1314,7 +1314,7 @@ class _Sidebar extends StatelessWidget {
           onChanged: view.canHide
               ? (_) => toggleViewVisible(activeContainerId, view, spec.views)
               : null,
-          child: Text(view.title),
+          child: Text(view.menuLabel ?? view.title),
         ),
     ];
     // VS Code dissolves the `Views` submenu and inlines the toggles when it is
