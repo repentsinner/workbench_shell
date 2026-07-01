@@ -6,6 +6,7 @@ import 'layout_constants.dart';
 import 'workbench_content.dart';
 import 'workbench_sash.dart';
 import 'workbench_theme.dart';
+import 'workbench_view_menu.dart';
 
 /// Typed descriptor for one view in a [WorkbenchViewContainer]
 /// (§spec:view-stack). The host supplies an ordered list of these — never a
@@ -23,9 +24,40 @@ class WorkbenchViewDescriptor {
 
   final String title;
 
+  /// Label for this view in the container title's Views overflow, when it must
+  /// differ from the pane-header [title]. VS Code's file explorer shows the
+  /// workspace folder name in its pane header but "Folders" in the Views menu —
+  /// its `IViewDescriptor.name` (menu) is distinct from its runtime-overridden
+  /// title (header). Null (the default) reuses [title] for both.
+  final String? menuLabel;
+
   /// Optional metadata icon tooltip in the header (the shell's analog of VS
   /// Code's dimmed `.description`).
   final String? infoTooltip;
+
+  /// Seed for this view's visibility in the container title's Views overflow
+  /// (§spec:view-container-title). True (the default) shows the pane in the
+  /// stack; false starts it hidden. Visibility is a third per-view state
+  /// distinct from order and expansion: a hidden view leaves the stack entirely
+  /// while keeping its `order` slot, so re-showing restores its position.
+  ///
+  /// Controlled/uncontrolled seam, gated by [onVisibleChanged]: when
+  /// [onVisibleChanged] is non-null the host owns this value (VS Code's
+  /// `ViewContainerModel.isVisible` persisted to storage) — the shell renders
+  /// [visible] directly and reports a toggle through the callback without
+  /// self-mutating. When [onVisibleChanged] is null the shell owns visibility,
+  /// seeded once from [visible] and held across activity-bar switches like order
+  /// and expansion (§spec:view-container-state).
+  final bool visible;
+
+  /// Whether the user may hide this view from the Views overflow (VS Code's
+  /// `canToggleVisibility`, §spec:view-container-title). A non-hideable view
+  /// shows a disabled Views-submenu checkbox and cannot be hidden.
+  final bool canHide;
+
+  /// Fired when a Views-overflow toggle requests a new visible state. Its
+  /// presence makes [visible] host-controlled (see [visible]).
+  final ValueChanged<bool>? onVisibleChanged;
 
   /// Host-supplied header widgets, placed and revealed by the pane
   /// (§spec:section-header-actions).
@@ -60,7 +92,11 @@ class WorkbenchViewDescriptor {
   const WorkbenchViewDescriptor({
     required this.id,
     required this.title,
+    this.menuLabel,
     this.infoTooltip,
+    this.visible = true,
+    this.canHide = true,
+    this.onVisibleChanged,
     this.actions = const [],
     this.actionsAlwaysVisible = false,
     this.initiallyExpanded = true,
@@ -112,6 +148,19 @@ class WorkbenchViewContainerSpec {
   /// host persists one write per drag with no debounce of its own.
   final void Function(Map<String, double> sizes)? onSizesChangeEnd;
 
+  /// Host-supplied inline actions for the container title row, placed left of
+  /// the `⋯` overflow button (§spec:view-container-title, mirroring the pane
+  /// header's `List<Widget>` actions in §spec:section-header-actions). The shell
+  /// places and themes the row; the host supplies the widgets. Persistent, not
+  /// hover-gated — the composite title is always-shown chrome.
+  final List<Widget> titleActions;
+
+  /// Host-supplied extra entries for the `⋯` overflow popup, rendered below the
+  /// shell-built Views group (§spec:view-container-title). A
+  /// [WorkbenchMenuEntry] tree (§spec:menu-model) reused through the same
+  /// in-window Material menu path the View menu bar uses.
+  final List<WorkbenchMenuEntry> titleOverflowEntries;
+
   const WorkbenchViewContainerSpec({
     required this.views,
     this.mergeSingleView = false,
@@ -119,6 +168,8 @@ class WorkbenchViewContainerSpec {
     this.onReorder,
     this.initialSizes,
     this.onSizesChangeEnd,
+    this.titleActions = const [],
+    this.titleOverflowEntries = const [],
   });
 }
 
@@ -195,6 +246,15 @@ class WorkbenchViewContainer extends StatefulWidget {
   /// [WorkbenchLayout.onSidebarWidthChangeEnd].
   final void Function(Map<String, double> sizes)? onSizesChangeEnd;
 
+  /// Descriptor ids hidden from the stack (§spec:view-container-title). A hidden
+  /// view is dropped from the rendered panes but keeps its slot in [order], so
+  /// re-showing restores its position. Visibility is owned upstream (the
+  /// container-keyed store in `WorkbenchLayout`, VS Code's `ViewContainerModel`)
+  /// — the container is a pure renderer of the resolved set. Collapsibility
+  /// derives from the *visible* count, so hiding all but one makes the lone pane
+  /// non-collapsible (or merged under [mergeSingleView]).
+  final Set<String> hiddenViewIds;
+
   const WorkbenchViewContainer({
     super.key,
     required this.views,
@@ -203,6 +263,7 @@ class WorkbenchViewContainer extends StatefulWidget {
     this.onReorder,
     this.initialSizes,
     this.onSizesChangeEnd,
+    this.hiddenViewIds = const {},
   });
 
   @override
@@ -242,6 +303,11 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
   /// expansion model — [_uncontrolledExpanded] is to `expanded` as this is to
   /// `order`.
   List<String>? _order;
+
+  /// The visible descriptor ids in render order, captured each build so the
+  /// reorder commit can permute the full [_order] from a drag expressed in
+  /// visible-pane indices without disturbing hidden views' slots.
+  List<String> _renderedIds = const [];
 
   /// The descriptors in their effective render order: the controlled
   /// [WorkbenchViewContainer.order] when the host supplies one, otherwise the
@@ -403,7 +469,7 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
   int _resolveNewIndex(int from, int targetIndex, bool before) {
     var insertAt = before ? targetIndex : targetIndex + 1;
     if (insertAt > from) insertAt -= 1;
-    return insertAt.clamp(0, widget.views.length - 1);
+    return insertAt.clamp(0, _renderedIds.length - 1);
   }
 
   void _commitReorder() {
@@ -412,14 +478,22 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
     if (from != null && target != null) {
       final newIndex = _resolveNewIndex(from, target.index, target.before);
       if (newIndex != from) {
-        // The shell owns the order: permute it directly (§spec:view-stack). A
-        // controlled host order defers to the host, which updates `order` from
-        // the notification below. `onReorder` is an optional notification in
-        // either mode, not a requirement.
+        // The shell owns the order: rebuild [_order] so the visible ids land in
+        // their new order while hidden ids keep their absolute slots
+        // (§spec:view-container-title, §spec:view-stack). `from`/`newIndex` are
+        // visible-pane indices, so permute the visible sublist by id and splice
+        // it back over [_order]'s visible slots. A controlled host order defers
+        // to the host, which updates `order` from the notification below.
         if (widget.order == null) {
           _order ??= [for (final view in widget.views) view.id];
-          final moved = _order!.removeAt(from);
-          _order!.insert(newIndex, moved);
+          final newVisible = [..._renderedIds]..removeAt(from);
+          newVisible.insert(newIndex, _renderedIds[from]);
+          final visible = _renderedIds.toSet();
+          var vi = 0;
+          _order = [
+            for (final id in _order!)
+              if (visible.contains(id)) newVisible[vi++] else id,
+          ];
         }
         widget.onReorder?.call(from, newIndex);
       }
@@ -647,11 +721,20 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
 
   @override
   Widget build(BuildContext context) {
-    final views = _orderedViews();
+    // Hidden views leave the stack but keep their slot in the order
+    // (§spec:view-container-title): order first, then drop hidden. Re-showing a
+    // view restores its position because its id stays in [_order].
+    final views = [
+      for (final view in _orderedViews())
+        if (!widget.hiddenViewIds.contains(view.id)) view,
+    ];
+    // The visible render order, captured for the reorder commit so a drag among
+    // visible panes permutes the full order without disturbing hidden slots.
+    _renderedIds = [for (final view in views) view.id];
 
     // Prune header focus nodes for views no longer present, so a removed view's
     // node does not leak (§spec:view-pane-focus).
-    _syncHeaderNodes([for (final view in views) view.id]);
+    _syncHeaderNodes(_renderedIds);
 
     // Merged single view: no pane, body fills the container.
     if (views.length == 1 && widget.mergeSingleView) {

@@ -243,6 +243,7 @@ class SetPanelAlignmentIntent extends Intent {
   final WorkbenchPanelAlignment alignment;
 }
 
+
 class WorkbenchHome extends StatefulWidget {
   const WorkbenchHome({super.key, required this.themeController});
 
@@ -745,9 +746,14 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
         // order state. (A host that needs to persist order across restarts can
         // pass a controlled `order` plus `onReorder`.)
         final byId = _explorerViews(_notificationService);
+        // Canon (VS Code): the EXPLORER container title carries only the `⋯`
+        // overflow (the Views toggles). New File / New Folder / Refresh /
+        // Collapse Folders are VIEW-title actions on the Folders view
+        // (explorerView.ts, MenuId.ViewTitle), not container-title actions.
         return WorkbenchViewContainerSpec(
           views: [
             byId['open-editors']!,
+            byId['folders']!,
             byId['outline']!,
             byId['timeline']!,
           ],
@@ -1414,23 +1420,58 @@ Map<String, WorkbenchViewDescriptor> _explorerViews(
   }
 
   return {
+    // Open Editors lists the open tabs. Canon hides it by default (the Folders
+    // tree is the Explorer's primary pane); the user re-shows it from the `⋯`
+    // Views overflow.
     'open-editors': WorkbenchViewDescriptor(
       id: 'open-editors',
       title: 'Open Editors',
+      visible: false,
       actions: [
         _explorerHeaderAction(
           icon: Symbols.refresh_rounded,
           tooltip: 'Refresh',
           onPressed: () => notify('Refreshed Open Editors'),
         ),
-        _explorerHeaderAction(
-          icon: Symbols.add_rounded,
-          tooltip: 'New File',
-          onPressed: () => notify('New file'),
-        ),
       ],
       bodyBuilder: (_) => const _SidebarBodyPlaceholder(
         text: 'main.dart\nworkbench_content.dart',
+      ),
+    ),
+    // The Folders view is the project tree (canon's `workbench.explorer.fileView`)
+    // and the Explorer's primary pane. Its header shows the workspace folder name
+    // while the Views menu labels it "Folders" (menuLabel), and it is
+    // non-hideable (canHide: false) — matching VS Code. It owns New File / New
+    // Folder / Refresh / Collapse Folders as view-title actions.
+    'folders': WorkbenchViewDescriptor(
+      id: 'folders',
+      title: 'workbench_shell',
+      menuLabel: 'Folders',
+      canHide: false,
+      actions: [
+        _explorerHeaderAction(
+          icon: Symbols.note_add_rounded,
+          tooltip: 'New File',
+          onPressed: () => notify('New file'),
+        ),
+        _explorerHeaderAction(
+          icon: Symbols.create_new_folder_rounded,
+          tooltip: 'New Folder',
+          onPressed: () => notify('New folder'),
+        ),
+        _explorerHeaderAction(
+          icon: Symbols.refresh_rounded,
+          tooltip: 'Refresh Explorer',
+          onPressed: () => notify('Refreshed Explorer'),
+        ),
+        _explorerHeaderAction(
+          icon: Symbols.collapse_all,
+          tooltip: 'Collapse Folders in Explorer',
+          onPressed: () => notify('Collapsed Explorer folders'),
+        ),
+      ],
+      bodyBuilder: (_) => const _SidebarBodyPlaceholder(
+        text: 'lib/\nexample/\ntest/\nstyles/',
       ),
     ),
     'outline': WorkbenchViewDescriptor(

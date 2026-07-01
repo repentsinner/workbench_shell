@@ -583,17 +583,25 @@ declare the same view id would otherwise collide on expansion and size state.
 
 ## View Container Title and Views Overflow §spec:view-container-title
 
-*Status: not started*
+*Status: complete*
 
 The sidebar heading above the pane stack carries a right-aligned **overflow
-(`⋯`) menu** whose first group is a shell-built **Views submenu** — one
+(`⋯`) menu** whose first group is the shell-built **Views toggles** — one
 checkable item per view in the container, checked when the view is visible.
-Toggling an item shows or hides that view's pane in the stack. This is VS
-Code's composite title area: the bar above the panes that names the active
-container and exposes container-level actions, the canonical surface for
-choosing which of a container's views are shown. (VS Code reference: the
-composite title renders `MenuId.ViewContainerTitle`; a `Views` submenu at
-`order: 1` lists per-view visibility toggles driven by
+Each item reads the view's `menuLabel` when set, falling back to its pane-header
+`title` — mirroring VS Code's `IViewDescriptor.name` (the Views-menu label) being
+distinct from a runtime-overridden pane title, as the file explorer shows the
+workspace folder name in its header but "Folders" in the menu. Toggling an item
+shows or hides that view's pane in the stack. The toggles
+render **inline** in the `⋯` popup when they are its only group, and collapse
+into a nested **`Views ▸` submenu** only when host overflow entries share the
+popup — matching VS Code, which dissolves the submenu when it is the title's
+sole secondary action (`panecomposite.ts` `getSecondaryActions`, the
+`length === 1` branch). This is VS Code's composite title area: the bar above
+the panes that names the active container and exposes container-level actions,
+the canonical surface for choosing which of a container's views are shown. (VS
+Code reference: the composite title renders `MenuId.ViewContainerTitle`; a
+`Views` submenu at `order: 1` lists per-view visibility toggles driven by
 `ViewContainerModel.setVisible`, gated by each descriptor's
 `canToggleVisibility`. This section documents the shell's deviations, not VS
 Code's internals.)
@@ -618,12 +626,23 @@ flag (default true, VS Code's `canToggleVisibility`); a non-hideable view
 shows no Views-submenu checkbox (or a disabled one) and cannot be hidden.
 
 **Visibility follows the same controlled/uncontrolled retention seam as
-order and expansion** (§spec:view-container-state): uncontrolled by default
-(the shell holds it and it survives activity-bar switches like order,
-expansion, and sizes), or controlled via `visible` + `onVisibleChanged` so a
-host can persist and rehydrate it to VS Code parity. Visibility joins
-`order`/`onReorder` and `expanded`/`onExpandedChanged` as a per-container
-persistable concern, not a new persistence mechanism.
+order and expansion** (§spec:view-container-state): uncontrolled by default,
+or controlled via `visible` + `onVisibleChanged` (presence of the callback
+gates the mode) so a host can persist and rehydrate it to VS Code parity.
+Visibility joins `order`/`onReorder` and `expanded`/`onExpandedChanged` as a
+per-container persistable concern, not a new persistence mechanism.
+
+**Where the shell holds it — the canon architecture.** Unlike order and
+expansion (held in each `WorkbenchViewContainer`'s State), the uncontrolled
+visibility store lives *above* the retained containers, in `WorkbenchLayout`
+keyed by container id — the port of VS Code's `ViewContainerModel`
+(`isVisible`/`setVisible`, persisted per container id, independent of the
+active composite). This is what makes a hidden/shown view survive activity-bar
+switches. The title row is the matching port of VS Code's single
+`CompositePart` title area: **one** shared title chrome re-rendered for the
+active container (not per-container title DOM), reading and writing the same
+store — so toggling a checkbox updates both the active container's stack and
+the open popup's live check state.
 
 **Hidden panes keep their order slot; visible-view count drives
 collapsibility.** Hiding a view removes its pane from the stack but retains

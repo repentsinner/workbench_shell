@@ -1722,6 +1722,157 @@ void main() {
       expect(isFocused(tester, 'c'), isTrue);
     });
   });
+
+  group('WorkbenchViewContainer visibility (§spec:view-container-title)', () {
+    List<WorkbenchViewDescriptor> threeViews() => [
+      WorkbenchViewDescriptor(
+        id: 'a',
+        title: 'Alpha',
+        bodyBuilder: (_) => const Text('body-a'),
+      ),
+      WorkbenchViewDescriptor(
+        id: 'b',
+        title: 'Beta',
+        bodyBuilder: (_) => const Text('body-b'),
+      ),
+      WorkbenchViewDescriptor(
+        id: 'c',
+        title: 'Gamma',
+        bodyBuilder: (_) => const Text('body-c'),
+      ),
+    ];
+
+    testWidgets('a hidden view drops from the stack', (tester) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          SizedBox(
+            height: 600,
+            child: WorkbenchViewContainer(
+              views: threeViews(),
+              hiddenViewIds: const {'b'},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('ALPHA'), findsOneWidget);
+      expect(find.text('BETA'), findsNothing);
+      expect(find.text('GAMMA'), findsOneWidget);
+    });
+
+    testWidgets('re-showing a hidden view restores its original slot', (
+      tester,
+    ) async {
+      Widget build(Set<String> hidden) => wrapWithTheme(
+        SizedBox(
+          height: 600,
+          child: WorkbenchViewContainer(
+            views: threeViews(),
+            hiddenViewIds: hidden,
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(build(const {'b'}));
+      await tester.pumpWidget(build(const {}));
+      await tester.pumpAndSettle();
+
+      // Beta returns between Alpha and Gamma — its order slot was retained.
+      final ay = tester.getTopLeft(find.text('ALPHA')).dy;
+      final by = tester.getTopLeft(find.text('BETA')).dy;
+      final cy = tester.getTopLeft(find.text('GAMMA')).dy;
+      expect(ay, lessThan(by));
+      expect(by, lessThan(cy));
+    });
+
+    testWidgets('collapsibility derives from the visible count: hide to one '
+        'leaves a non-collapsible pane', (tester) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          SizedBox(
+            height: 600,
+            child: WorkbenchViewContainer(
+              views: threeViews(),
+              // Two of three hidden → a lone visible pane, non-collapsible.
+              hiddenViewIds: const {'b', 'c'},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('ALPHA'), findsOneWidget);
+      // A lone visible pane shows no chevron (non-collapsible).
+      expect(find.byIcon(Symbols.expand_more_rounded), findsNothing);
+      expect(find.byIcon(Symbols.chevron_right_rounded), findsNothing);
+    });
+
+    testWidgets('hiding all views yields an empty stack', (tester) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          SizedBox(
+            height: 600,
+            child: WorkbenchViewContainer(
+              views: threeViews(),
+              hiddenViewIds: const {'a', 'b', 'c'},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('ALPHA'), findsNothing);
+      expect(find.text('BETA'), findsNothing);
+      expect(find.text('GAMMA'), findsNothing);
+    });
+
+    testWidgets('a hidden middle view keeps its slot through a reorder of the '
+        'visible panes', (tester) async {
+      // Hide Beta, then drag Gamma's header above Alpha. Beta must return to
+      // its original middle slot when re-shown.
+      Widget build(Set<String> hidden) => wrapWithChromeTheme(
+        SizedBox(
+          height: 600,
+          child: WorkbenchViewContainer(
+            views: threeViews(),
+            hiddenViewIds: hidden,
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(build(const {'b'}));
+      await tester.pumpAndSettle();
+
+      // Drag Gamma's header onto Alpha's top half (visible order A, C → C, A).
+      final gamma = find.text('GAMMA');
+      final alpha = find.text('ALPHA');
+      final alphaCenter = tester.getCenter(
+        find.byKey(const ValueKey('workbench-view-pane-a')),
+      );
+      final gesture = await tester.startGesture(tester.getCenter(gamma));
+      await tester.pump(const Duration(milliseconds: 200));
+      await gesture.moveTo(Offset(alphaCenter.dx, alphaCenter.dy - 8));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getTopLeft(gamma).dy,
+        lessThan(tester.getTopLeft(alpha).dy),
+        reason: 'Gamma reordered above Alpha',
+      );
+
+      // Re-show Beta: it returns to the middle slot of the original order,
+      // i.e. between the (now reordered) visible panes per its retained index.
+      await tester.pumpWidget(build(const {}));
+      await tester.pumpAndSettle();
+      // Beta sits where its id slot landed: original order was a,b,c; reordering
+      // visible [a,c]→[c,a] rebuilt order to c,b,a, so Beta is the middle pane.
+      final cy = tester.getTopLeft(find.text('GAMMA')).dy;
+      final by = tester.getTopLeft(find.text('BETA')).dy;
+      final ay = tester.getTopLeft(find.text('ALPHA')).dy;
+      expect(cy, lessThan(by));
+      expect(by, lessThan(ay));
+    });
+  });
 }
 
 /// Short body: well under any minimum body allotment, so its pane never engages

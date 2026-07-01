@@ -249,57 +249,11 @@ class WorkbenchMenuBar extends StatelessWidget {
 
   Widget _buildInWindowMenuBar(BuildContext context) {
     final workbench = context.workbenchTheme;
-    // Force the Material `MenuBar` chrome to read from
-    // `WorkbenchTheme` rather than the ambient `ThemeData`. macOS
-    // is untouched — it renders through `PlatformMenuBar`, which
-    // binds to `NSMenu` and ignores Material theming.
-    //
-    // `MenuButtonThemeData` covers both the top-level `SubmenuButton`
-    // in the bar and the `MenuItemButton` entries in the submenu —
-    // both descend from Flutter's private menu-button base class and
-    // resolve through `MenuButtonTheme`. Flutter does not expose a
-    // separate `SubmenuButtonTheme`.
-    final foreground = workbench.menuBarForeground;
-    final hoverBackground = workbench.menuBarHoverBackground;
-    final menuSurface = workbench.panelBackground;
-    final labelStyle = workbench.helperStyle.copyWith(color: foreground);
-    final menuBarTheme = MenuBarThemeData(
-      style: MenuStyle(
-        backgroundColor: WidgetStatePropertyAll(workbench.menuBarBackground),
-        elevation: const WidgetStatePropertyAll(0),
-        shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
-        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-      ),
-    );
-    final menuButtonTheme = MenuButtonThemeData(
-      style: ButtonStyle(
-        backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
-        foregroundColor: WidgetStatePropertyAll(foreground),
-        overlayColor: WidgetStatePropertyAll(hoverBackground),
-        textStyle: WidgetStatePropertyAll(labelStyle),
-        iconColor: WidgetStatePropertyAll(foreground),
-        shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
-      ),
-    );
-    final menuTheme = MenuThemeData(
-      style: MenuStyle(
-        backgroundColor: WidgetStatePropertyAll(menuSurface),
-        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
-        elevation: const WidgetStatePropertyAll(2),
-        shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
-      ),
-    );
-    final dividerTheme = DividerThemeData(color: workbench.menuBarBorder);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Theme(
-          data: Theme.of(context).copyWith(
-            menuBarTheme: menuBarTheme,
-            menuButtonTheme: menuButtonTheme,
-            menuTheme: menuTheme,
-            dividerTheme: dividerTheme,
-          ),
+          data: workbenchMenuThemeData(context),
           child: Container(
             decoration: BoxDecoration(
               color: workbench.menuBarBackground,
@@ -392,31 +346,91 @@ class WorkbenchMenuBar extends StatelessWidget {
 
   // --- in-window Material path (SubmenuButton tree) ---
 
-  /// Builds the Material menu children for [entries]. Separators render
-  /// as a [Divider]; submenus nest a [SubmenuButton]; command-bearing
-  /// entries render an enable-aware checkbox/radio/command button.
+  /// Builds the Material menu children for [entries]. Delegates to the shared
+  /// [buildMaterialMenuChildren] so the container-title overflow popup
+  /// (§spec:view-container-title) renders host entries through the same path.
   List<Widget> _buildMaterialChildren(
     BuildContext context,
     List<WorkbenchMenuEntry> entries,
-  ) {
-    return [
-      for (final entry in entries)
-        switch (entry) {
-          WorkbenchMenuSeparator() => const Divider(height: 1),
-          WorkbenchMenuSubmenu(:final label, :final children) => SubmenuButton(
-            menuChildren: _buildMaterialChildren(context, children),
-            child: Text(label),
-          ),
-          final WorkbenchMenuActionEntry entry => _EnableAwareMenuEntry(
-            key: ValueKey(
-              'view-menu-${entry.intent.runtimeType}-${entry.label}',
-            ),
-            entry: entry,
-            dispatchContext: context,
-          ),
-        },
-    ];
-  }
+  ) => buildMaterialMenuChildren(context, entries);
+}
+
+/// Renders a [WorkbenchMenuEntry] tree as in-window Material menu children
+/// (§spec:menu-model): separators become a [Divider], submenus nest a
+/// [SubmenuButton], and command-bearing entries render an enable-aware
+/// checkbox/radio/command button bound to the host's `Action<Intent>`.
+///
+/// Library-internal so both [WorkbenchMenuBar] and the view-container title
+/// overflow popup (§spec:view-container-title) share one renderer rather than
+/// duplicating the switch.
+List<Widget> buildMaterialMenuChildren(
+  BuildContext context,
+  List<WorkbenchMenuEntry> entries,
+) {
+  return [
+    for (final entry in entries)
+      switch (entry) {
+        WorkbenchMenuSeparator() => const Divider(height: 1),
+        WorkbenchMenuSubmenu(:final label, :final children) => SubmenuButton(
+          menuChildren: buildMaterialMenuChildren(context, children),
+          child: Text(label),
+        ),
+        final WorkbenchMenuActionEntry entry => _EnableAwareMenuEntry(
+          key: ValueKey('view-menu-${entry.intent.runtimeType}-${entry.label}'),
+          entry: entry,
+          dispatchContext: context,
+        ),
+      },
+  ];
+}
+
+/// Forces in-window Material menu chrome — `MenuBar`, `MenuAnchor`,
+/// `SubmenuButton`, `MenuItemButton`, `CheckboxMenuButton` — to read from
+/// [WorkbenchTheme] rather than the ambient [ThemeData]. macOS's system menu
+/// bar is untouched; it renders through `PlatformMenuBar` (`NSMenu`), which
+/// ignores Material theming.
+///
+/// `MenuButtonThemeData` covers both top-level `SubmenuButton`s and the
+/// `MenuItemButton`/checkbox entries inside a menu — all descend from Flutter's
+/// private menu-button base and resolve through `MenuButtonTheme` (Flutter
+/// exposes no separate `SubmenuButtonTheme`). Shared by the View menu bar and
+/// the view-container title overflow popup (§spec:view-container-title) so both
+/// surfaces render identically.
+ThemeData workbenchMenuThemeData(BuildContext context) {
+  final workbench = context.workbenchTheme;
+  final foreground = workbench.menuBarForeground;
+  final hoverBackground = workbench.menuBarHoverBackground;
+  final menuSurface = workbench.panelBackground;
+  final labelStyle = workbench.helperStyle.copyWith(color: foreground);
+  return Theme.of(context).copyWith(
+    menuBarTheme: MenuBarThemeData(
+      style: MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(workbench.menuBarBackground),
+        elevation: const WidgetStatePropertyAll(0),
+        shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
+        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+      ),
+    ),
+    menuButtonTheme: MenuButtonThemeData(
+      style: ButtonStyle(
+        backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
+        foregroundColor: WidgetStatePropertyAll(foreground),
+        overlayColor: WidgetStatePropertyAll(hoverBackground),
+        textStyle: WidgetStatePropertyAll(labelStyle),
+        iconColor: WidgetStatePropertyAll(foreground),
+        shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
+      ),
+    ),
+    menuTheme: MenuThemeData(
+      style: MenuStyle(
+        backgroundColor: WidgetStatePropertyAll(menuSurface),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+        elevation: const WidgetStatePropertyAll(2),
+        shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
+      ),
+    ),
+    dividerTheme: DividerThemeData(color: workbench.menuBarBorder),
+  );
 }
 
 /// Renders one command-bearing [WorkbenchMenuActionEntry] — a command,

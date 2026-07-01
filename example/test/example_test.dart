@@ -26,9 +26,12 @@ void main() {
 
     // Default sidebar (Explorer) renders its collapsible view panes
     // (§spec:section-disclosure). Titles uppercase per the pane-header canon.
-    expect(find.text('OPEN EDITORS'), findsOneWidget);
+    // Folders (the file tree, headered by the workspace folder name) is the
+    // Explorer's primary pane; Open Editors is hidden by default (canon).
+    expect(find.text('WORKBENCH_SHELL'), findsOneWidget);
     expect(find.text('OUTLINE'), findsOneWidget);
     expect(find.text('TIMELINE'), findsOneWidget);
+    expect(find.text('OPEN EDITORS'), findsNothing);
 
     // All five canonical panels render their tab labels. The tab
     // strip uppercases labels per the §spec:tab-strip-canon canon, so assert against
@@ -70,7 +73,7 @@ void main() {
       findsOneWidget,
     );
     // Explorer's collapsible panes are gone once Search is active.
-    expect(find.text('OPEN EDITORS'), findsNothing);
+    expect(find.text('WORKBENCH_SHELL'), findsNothing);
   });
 
   testWidgets('Explorer view pane collapses and expands on header tap', (
@@ -79,19 +82,19 @@ void main() {
     await tester.pumpWidget(const WorkbenchExampleApp());
     await tester.pumpAndSettle();
 
-    // The "Open Editors" pane starts expanded: chevron down, body visible.
-    expect(find.text('main.dart\nworkbench_content.dart'), findsOneWidget);
+    // The Folders pane starts expanded: chevron down, body visible.
+    expect(find.text('lib/\nexample/\ntest/\nstyles/'), findsOneWidget);
     expect(find.byIcon(Symbols.expand_more_rounded), findsWidgets);
 
     // Tapping the header collapses it — body hidden, chevron flips right.
-    await tester.tap(find.text('OPEN EDITORS'));
+    await tester.tap(find.text('WORKBENCH_SHELL'));
     await tester.pumpAndSettle();
-    expect(find.text('main.dart\nworkbench_content.dart'), findsNothing);
+    expect(find.text('lib/\nexample/\ntest/\nstyles/'), findsNothing);
 
     // Tapping again restores the body.
-    await tester.tap(find.text('OPEN EDITORS'));
+    await tester.tap(find.text('WORKBENCH_SHELL'));
     await tester.pumpAndSettle();
-    expect(find.text('main.dart\nworkbench_content.dart'), findsOneWidget);
+    expect(find.text('lib/\nexample/\ntest/\nstyles/'), findsOneWidget);
   });
 
   testWidgets('dragging an Explorer pane header reorders the panes', (
@@ -100,19 +103,19 @@ void main() {
     await tester.pumpWidget(const WorkbenchExampleApp());
     await tester.pumpAndSettle();
 
-    // Initial Explorer order: Open Editors, Outline, Timeline.
+    // Initial Explorer order: Folders, Outline, Timeline.
     expect(
-      tester.getTopLeft(find.text('OPEN EDITORS')).dy,
+      tester.getTopLeft(find.text('WORKBENCH_SHELL')).dy,
       lessThan(tester.getTopLeft(find.text('OUTLINE')).dy),
     );
 
-    // Drag the Outline header up onto the top half of Open Editors: Outline
+    // Drag the Outline header up onto the top half of Folders: Outline
     // lands before it. The drop indicator shows the target slot mid-drag.
     final outlineHeader = tester.getCenter(find.text('OUTLINE'));
-    final openEditors = tester.getCenter(find.text('OPEN EDITORS'));
+    final foldersHeader = tester.getCenter(find.text('WORKBENCH_SHELL'));
     final gesture = await tester.startGesture(outlineHeader);
     await tester.pump(const Duration(milliseconds: 200));
-    await gesture.moveTo(Offset(openEditors.dx, openEditors.dy - 6));
+    await gesture.moveTo(Offset(foldersHeader.dx, foldersHeader.dy - 6));
     await tester.pump();
     expect(
       find.byKey(const ValueKey('workbench-view-drop-indicator')),
@@ -121,10 +124,10 @@ void main() {
     await gesture.up();
     await tester.pumpAndSettle();
 
-    // Order persists: Outline is now above Open Editors.
+    // Order persists: Outline is now above Folders.
     expect(
       tester.getTopLeft(find.text('OUTLINE')).dy,
-      lessThan(tester.getTopLeft(find.text('OPEN EDITORS')).dy),
+      lessThan(tester.getTopLeft(find.text('WORKBENCH_SHELL')).dy),
     );
   });
 
@@ -135,20 +138,20 @@ void main() {
       await tester.pumpAndSettle();
 
       // Header actions are hover-revealed: move a mouse pointer over the
-      // "Open Editors" header to reveal its Refresh action.
+      // Folders header (WORKBENCH_SHELL) to reveal its actions.
       final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await gesture.addPointer(location: Offset.zero);
       addTearDown(gesture.removePointer);
-      await gesture.moveTo(tester.getCenter(find.text('OPEN EDITORS')));
+      await gesture.moveTo(tester.getCenter(find.text('WORKBENCH_SHELL')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Refresh'));
+      await tester.tap(find.byTooltip('Refresh Explorer'));
       await tester.pumpAndSettle();
 
       // The action routes through NotificationService, so its message
       // surfaces as a card in the NotificationHost overlay — never a raw
       // Material SnackBar.
-      expect(find.textContaining('Refreshed Open Editors'), findsOneWidget);
+      expect(find.textContaining('Refreshed Explorer'), findsOneWidget);
       expect(find.byType(SnackBar), findsNothing);
     },
   );
@@ -282,19 +285,20 @@ void main() {
 
       bool isFocused(String id) => ringColorOf(id) != Colors.transparent;
 
-      // Focus the first Explorer header. Clicking a collapsible header also
-      // toggles it, so re-click to leave the stack fully expanded.
-      await tester.tap(find.text('OPEN EDITORS'));
+      // Focus the first visible Explorer header (Folders; Open Editors is
+      // hidden by default). Clicking a collapsible header also toggles it, so
+      // re-click to leave the stack fully expanded.
+      await tester.tap(find.text('WORKBENCH_SHELL'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('OPEN EDITORS'));
+      await tester.tap(find.text('WORKBENCH_SHELL'));
       await tester.pumpAndSettle();
-      expect(isFocused('open-editors'), isTrue);
+      expect(isFocused('folders'), isTrue);
 
-      // Down walks forward through the three headers.
+      // Down walks forward through the three visible headers.
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pumpAndSettle();
       expect(isFocused('outline'), isTrue);
-      expect(isFocused('open-editors'), isFalse);
+      expect(isFocused('folders'), isFalse);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pumpAndSettle();
@@ -304,17 +308,17 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pumpAndSettle();
       expect(isFocused('timeline'), isTrue);
-      expect(isFocused('open-editors'), isFalse);
+      expect(isFocused('folders'), isFalse);
 
       // Up walks back and clamps at the first.
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await tester.pumpAndSettle();
-      expect(isFocused('open-editors'), isTrue);
+      expect(isFocused('folders'), isTrue);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await tester.pumpAndSettle();
-      expect(isFocused('open-editors'), isTrue);
+      expect(isFocused('folders'), isTrue);
       expect(isFocused('outline'), isFalse);
     },
   );
@@ -343,7 +347,7 @@ void main() {
     // Editor only — activity bar, sidebar, and status bar gone.
     expect(find.textContaining('Lorem ipsum'), findsOneWidget);
     expect(find.byIcon(Symbols.folder_rounded), findsNothing);
-    expect(find.text('OPEN EDITORS'), findsNothing);
+    expect(find.text('WORKBENCH_SHELL'), findsNothing);
     expect(find.text('workbench_shell example'), findsNothing);
 
     // Toggling off restores all chrome.
