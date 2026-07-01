@@ -1420,9 +1420,13 @@ Map<String, WorkbenchViewDescriptor> _explorerViews(
   }
 
   return {
+    // Open Editors lists the open tabs. Canon hides it by default (the Folders
+    // tree is the Explorer's primary pane); the user re-shows it from the `⋯`
+    // Views overflow.
     'open-editors': WorkbenchViewDescriptor(
       id: 'open-editors',
       title: 'Open Editors',
+      visible: false,
       actions: [
         _explorerHeaderAction(
           icon: Symbols.refresh_rounded,
@@ -1434,12 +1438,16 @@ Map<String, WorkbenchViewDescriptor> _explorerViews(
         text: 'main.dart\nworkbench_content.dart',
       ),
     ),
-    // The Folders view is the project tree (canon's `workbench.explorer.fileView`).
-    // It owns New File / New Folder / Refresh / Collapse Folders as view-title
-    // actions — these are per-view, not container-title, actions.
+    // The Folders view is the project tree (canon's `workbench.explorer.fileView`)
+    // and the Explorer's primary pane. Its header shows the workspace folder name
+    // while the Views menu labels it "Folders" (menuLabel), and it is
+    // non-hideable (canHide: false) — matching VS Code. It owns New File / New
+    // Folder / Refresh / Collapse Folders as view-title actions.
     'folders': WorkbenchViewDescriptor(
       id: 'folders',
       title: 'workbench_shell',
+      menuLabel: 'Folders',
+      canHide: false,
       actions: [
         _explorerHeaderAction(
           icon: Symbols.note_add_rounded,
