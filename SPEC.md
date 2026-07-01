@@ -563,6 +563,9 @@ geometry instead follows seed-plus-commit (§spec:resize-geometry): a container'
 `initialSizes` with `onSizesChangeEnd`, and the layout's `initialSidebarWidth` /
 `initialPanelHeight` with `onSidebarWidthChangeEnd` / `onPanelHeightChangeEnd`
 (the outer resize seams) — shell-owned, seeded once, committed on drag-end.
+§spec:layout-state-persistence bundles these per-concern seams into a single
+serializable value, so a host persists one blob and lets the shell reconcile it
+against changed descriptors rather than wiring and reconciling each seam.
 
 **Retention also scopes pane state to its container by construction**,
 removing a latent defect of the single shared instance: two containers that
@@ -578,6 +581,117 @@ declare the same view id would otherwise collide on expansion and size state.
   expansion, and sizes they held when it was last active, for the life of the
   layout.
 - Two containers that reuse the same view id keep independent pane state.
+
+---
+
+## View Container Layout State Persistence §spec:layout-state-persistence
+
+*Status: not started*
+
+**Problem**: §spec:view-container-state retains pane order, expansion,
+visibility, and sizes for the life of the layout but not across
+application restarts, and delegates cross-restart persistence to the
+host through four per-concern seams (a container's `order` / `onReorder`
+and `initialSizes` / `onSizesChangeEnd`, a descriptor's `expanded` /
+`onExpandedChanged` and `visible` / `onVisibleChanged`). A host that
+wants a user's sidebar arrangement to survive a restart therefore does
+three things itself: (a) derives the shape of four container-keyed maps
+from those seams, (b) on load, reconciles a saved arrangement against a
+descriptor set that may have changed since it was written — dropping
+views that no longer exist, admitting new ones, clamping stale sizes —
+and (c) translates a drag that reports visible-pane indices back into
+the full persisted order that still includes hidden panes. This is shell-internal mechanics: the shell
+already knows the map shapes and owns the reconcile and reorder rules,
+yet every host reimplements them and drifts (§req:success-criteria — a
+host shall not reimplement shell mechanics; §req:priorities — shell
+ownership of applying persisted state is a *shall*).
+
+**The shell exposes its view-container arrangement as a single
+serializable value.** A `WorkbenchLayoutState` bundles the four
+controlled-seam concerns as container-keyed maps — pane sizes, pane
+order, pane expansion, and view visibility — that a host reads once,
+hands to its own storage, and hands back at startup. A host that
+persists and rehydrates this one value restores a user's sidebar
+arrangement across restarts; it derives no map shapes and writes no
+reconcile or reorder logic of its own. The maps mirror the shell's
+existing seam vocabulary exactly (§spec:view-stack order and expansion,
+§spec:view-container-title visibility, §spec:resize-geometry sizing), so
+the state is a faithful snapshot of what those seams already control,
+not a second model to keep in sync.
+
+**Serialization is the host's mechanism; the shape is the shell's
+contract.** The state converts to and from a JSON-encodable primitive
+map. This is a map, not bytes: the shell never encodes a string, names a
+storage key, or writes to disk — the host owns the codec (JSON, binary,
+a key–value store) and the bytes, consistent with the shell owning no
+storage (§spec:capability-boundary). Exposing a shell-owned conversion,
+rather than leaving the host to serialize raw fields, keeps the
+serialized *shape* the shell's to evolve: a state concern the shell adds
+later travels through the conversion instead of being silently dropped
+by a host that hand-listed the old fields — the same brittleness the
+descriptor and spec `copyWith` seams remove. Deserialization is
+tolerant: it defaults absent concerns and ignores unrecognized ones, so
+a value written by an older or newer shell rehydrates without the host
+guarding versions.
+
+**Reconciliation is distinct from deserialization and owns the
+invariants.** Turning a map into a `WorkbenchLayoutState` is a dumb
+structural round-trip. Reconciling that state against the container's
+*current* view descriptors is a separate operation, because it requires
+the live descriptors — which do not exist at deserialize time.
+Reconciliation drops arrangement for container or view ids the host no
+longer declares, admits newly declared views at their descriptor
+defaults, clamps persisted sizes to the current geometry, and splices a
+visible-index reorder back into the full order that includes hidden
+panes. The shell owns these rules because they mirror shell internals —
+the visible-versus-hidden order model of §spec:view-container-title and
+the size geometry of §spec:resize-geometry — that a host cannot
+reimplement without duplicating mechanics it does not own.
+
+**Division of labor**: the shell owns the state model and its invariants
+— the shape, the conversion contract, and reconciliation. The host owns
+everything outside the shell's boundary: where the bytes live, what the
+storage keys are named, when to seed (a host awaits its persistence load
+before the layout's first build), and how the state merges alongside
+unrelated host preferences. This is the boundary §spec:capability-boundary
+draws for every concern — the shell is chrome and arrangement, the host
+is storage and domain.
+
+**Observable behavior**:
+
+- A host that persists a `WorkbenchLayoutState` and rehydrates it on
+  next launch restores the user's pane order, expansion, visibility, and
+  sizes as they were, across an application restart.
+- When the host's declared view set changes between persisting and
+  rehydrating, the layout drops arrangement for views that no longer
+  exist, shows newly declared views at their descriptor defaults, and
+  clamps out-of-range sizes — rendering without error rather than
+  stranding or mis-placing panes.
+- A value written by a different shell version rehydrates: absent
+  concerns take defaults, unrecognized concerns are ignored.
+- The shell writes no bytes and names no storage key; removing the
+  host's persistence layer leaves the shell's session-lifetime retention
+  (§spec:view-container-state) unchanged.
+
+**Rejected alternatives**:
+
+- *Raw public maps only, no conversion.* The four maps are already
+  primitive, so a host could serialize them by hand — but that
+  reintroduces the silent field-drop the shell removes elsewhere: a new
+  state concern would never reach persisted output. The shell owns the
+  conversion so the shape evolves in one place.
+- *The shell owns storage.* A storage layer in the shell violates
+  §spec:capability-boundary and forces a persistence mechanism on every
+  consumer. The shell hands over a serializable value; the host writes
+  it.
+- *Reconcile inside deserialization.* Impossible: reconciliation needs
+  the live descriptors, absent when a map is turned into state.
+  Deserialization and reconciliation are necessarily separate steps.
+
+**Tradeoff accepted**: tolerant deserialization cannot distinguish a
+concern that was absent from one explicitly at its default. For a
+seed-and-restore model this is immaterial — both yield the default — and
+it is the price of forward-compatibility across shell versions.
 
 ---
 
