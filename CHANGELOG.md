@@ -1,3 +1,17 @@
+# [0.24.0](https://github.com/repentsinner/workbench_shell/compare/v0.23.0...v0.24.0) (2026-07-01)
+
+
+### Bug Fixes
+
+* **example:** move file actions to the Folders view, not the Explorer container title ([15b7629](https://github.com/repentsinner/workbench_shell/commit/15b762907d1cfef1fd271b05888ffb30c3551ab7))
+* **view-container:** inline Views toggles when they are the overflow's only group ([43761d3](https://github.com/repentsinner/workbench_shell/commit/43761d3280f5da5b119f8b99f5c26238852171b8))
+
+
+### Features
+
+* **view-container:** add view menuLabel for a distinct Views-menu label ([bd0f9a2](https://github.com/repentsinner/workbench_shell/commit/bd0f9a2c257b0a54fb64aeac184cd5974947c67e))
+* **view-container:** Views overflow menu and per-view visibility ([6e65b7b](https://github.com/repentsinner/workbench_shell/commit/6e65b7ba6de5b5583701c4db2f83a20c461e131e))
+
 # [0.23.0](https://github.com/repentsinner/workbench_shell/compare/v0.22.0...v0.23.0) (2026-06-29)
 
 
