@@ -45,8 +45,8 @@ point.
 ## Success criteria §req:success-criteria
 
 Success is measured first by **integration ease**: how little a host
-must build, and how little shell mechanics it must reimplement, to
-ship canonical chrome.
+builds, and how little shell mechanics it reimplements, to ship
+canonical chrome.
 
 - A host renders a complete VS Code-style workbench — activity bar,
   sidebar, editor, bottom panel, status bar, menu bar — by adopting a
@@ -118,7 +118,7 @@ ship canonical chrome.
   types, no application state management, and no storage. It is
   chrome, theme, and layout only. A host's domain model and its
   persisted bytes never become the shell's concern; conversely, shell
-  arrangement never becomes something the host must model.
+  arrangement never becomes something the host has to model.
 - **Accessibility and keyboard parity.** Keyboard bindings, focus
   order, and pane navigation follow VS Code, and chrome carries the
   semantics assistive technology needs.
@@ -143,13 +143,13 @@ ship canonical chrome.
 
 ## Priorities §req:priorities
 
-**Must have** — the canonical workbench baseline, already shipped:
+**Essential** — the canonical workbench baseline, already shipped:
 activity bar and stacked sidebar, tabbed bottom panel, status bar,
 platform-conditional menu bar, theming with VS Code theme loading,
 structural primitives, and the notification center. This is the floor
 the package's value rests on.
 
-**Must have, ongoing** — the integration-ease seams that keep hosts
+**Essential, ongoing** — the integration-ease seams that keep hosts
 from reimplementing shell mechanics. Every persistable concern (pane
 order, expansion, visibility, sizing, outer layout dimensions) is
 exposed so a host can rehydrate to VS Code parity, and the shell — not
