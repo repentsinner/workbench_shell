@@ -755,11 +755,15 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                     onSidebarVisibilityChanged: (next) =>
                         setState(() => _sidebarVisible = next),
                     // Secondary side bar (§spec:secondary-sidebar): the host
-                    // owns its visibility and assigns the "Search" container to
-                    // it. It renders on the editor's opposite edge from the
-                    // primary and follows when the primary swaps sides. The
-                    // width dogfoods the seed-plus-commit hook like the primary.
-                    secondaryViewContainerId: 'search',
+                    // owns its visibility and assigns a dedicated multi-view
+                    // container the activity bar never lists. That container has
+                    // no activity item to name it, so it titles itself through
+                    // WorkbenchViewContainerSpec.title (§spec:view-container-title)
+                    // — without which its composite title strip would be blank.
+                    // It renders on the editor's opposite edge from the primary
+                    // and follows when the primary swaps sides. The width
+                    // dogfoods the seed-plus-commit hook like the primary.
+                    secondaryViewContainerId: 'secondary',
                     onSecondaryViewContainerChanged: (_) {},
                     secondarySideBarVisible: _secondarySideBarVisible,
                     onSecondarySideBarVisibilityChanged: (next) =>
@@ -831,6 +835,26 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
             ),
           ],
         );
+      case 'secondary':
+        // The secondary side bar's container (§spec:secondary-sidebar). The
+        // activity bar never lists it, so the spec-level title is its only title
+        // source — without it the composite title strip renders blank
+        // (§spec:view-container-title). Two views make it a real pane stack.
+        return const WorkbenchViewContainerSpec(
+          title: 'Secondary Side Bar',
+          views: [
+            WorkbenchViewDescriptor(
+              id: 'secondary-outline',
+              title: 'Outline',
+              bodyBuilder: _secondaryOutlineBody,
+            ),
+            WorkbenchViewDescriptor(
+              id: 'secondary-notes',
+              title: 'Notes',
+              bodyBuilder: _secondaryNotesBody,
+            ),
+          ],
+        );
       case 'buttons':
         return const WorkbenchViewContainerSpec(
           views: [
@@ -897,6 +921,18 @@ Widget _searchResultsBody(BuildContext context) =>
 
 /// "Button Tiers" pane body for the Buttons container.
 Widget _buttonTiersBody(BuildContext context) => const _ButtonsReviewSidebar();
+
+/// "Outline" pane body for the secondary side bar container.
+Widget _secondaryOutlineBody(BuildContext context) =>
+    const _SidebarBodyPlaceholder(
+      text: 'Secondary side bar — titled by WorkbenchViewContainerSpec.title.',
+    );
+
+/// "Notes" pane body for the secondary side bar container.
+Widget _secondaryNotesBody(BuildContext context) =>
+    const _SidebarBodyPlaceholder(
+      text: 'A container the activity bar never lists names itself here.',
+    );
 
 /// Notifications demo controller — holds the demo state (counter, progress
 /// jobs) so the "Severities" and "Progress" view panes both drive the shared

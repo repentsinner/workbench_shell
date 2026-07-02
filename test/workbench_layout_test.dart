@@ -1753,6 +1753,87 @@ void main() {
     });
   });
 
+  group('composite title source (§spec:view-container-title)', () {
+    // A container spec whose optional title is set only for the ids present in
+    // [titles], so one builder covers both the primary override and the
+    // secondary (no-activity-item) cases.
+    WorkbenchViewContainerSpec Function(String) builderTitling(
+      Map<String, String> titles,
+    ) {
+      return (id) => WorkbenchViewContainerSpec(
+        title: titles[id],
+        views: [
+          WorkbenchViewDescriptor(
+            id: '$id-a',
+            title: 'A',
+            bodyBuilder: (_) => Text('body-$id-a'),
+          ),
+          WorkbenchViewDescriptor(
+            id: '$id-b',
+            title: 'B',
+            bodyBuilder: (_) => Text('body-$id-b'),
+          ),
+        ],
+      );
+    }
+
+    testWidgets('spec.title overrides the activity-bar label', (tester) async {
+      await tester.pumpWidget(
+        _buildApp(containerBuilder: builderTitling({'explorer': 'My Files'})),
+      );
+
+      expect(find.text('MY FILES'), findsOneWidget);
+      expect(find.text('EXPLORER'), findsNothing);
+    });
+
+    testWidgets('a null spec.title keeps the activity-bar label', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_buildApp(containerBuilder: builderTitling({})));
+
+      expect(find.text('EXPLORER'), findsOneWidget);
+    });
+
+    testWidgets(
+      'a secondary container with no activity item renders a blank title '
+      'without spec.title',
+      (tester) async {
+        await tester.pumpWidget(
+          _buildApp(
+            containerBuilder: builderTitling({}),
+            secondaryViewContainerId: 'notes',
+            onSecondaryViewContainerChanged: (_) {},
+            secondarySideBarVisible: true,
+            onSecondarySideBarVisibilityChanged: (_) {},
+          ),
+        );
+
+        // The secondary container is built (its body renders) but no title text
+        // names it — the activity bar never lists 'notes'.
+        expect(find.text('body-notes-a'), findsOneWidget);
+        expect(find.text('NOTES'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'spec.title names a secondary container the activity bar never lists',
+      (tester) async {
+        await tester.pumpWidget(
+          _buildApp(
+            containerBuilder: builderTitling({'notes': 'Notes'}),
+            secondaryViewContainerId: 'notes',
+            onSecondaryViewContainerChanged: (_) {},
+            secondarySideBarVisible: true,
+            onSecondarySideBarVisibilityChanged: (_) {},
+          ),
+        );
+
+        expect(find.text('NOTES'), findsOneWidget); // secondary composite title
+        expect(find.text('EXPLORER'), findsOneWidget); // primary unchanged
+      },
+    );
+  });
+
   group('view-container title overflow (§spec:view-container-title)', () {
     // A three-view Explorer container with a non-hideable Gamma view, host
     // title action, and a host overflow entry. Other ids render empty (no
