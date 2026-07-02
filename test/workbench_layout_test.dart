@@ -1950,4 +1950,116 @@ void main() {
       );
     });
   });
+
+  group('layout state persistence (§spec:layout-state-persistence)', () {
+    // A two-view Explorer whose panes are id-identifiable by body text.
+    WorkbenchViewContainerSpec explorerSpec(String id) {
+      if (id != 'explorer') return _sidebarSpec(id);
+      return WorkbenchViewContainerSpec(
+        views: [
+          WorkbenchViewDescriptor(
+            id: 'folders',
+            title: 'Folders',
+            bodyBuilder: (_) => const Text('body-folders'),
+          ),
+          WorkbenchViewDescriptor(
+            id: 'outline',
+            title: 'Outline',
+            initiallyExpanded: false,
+            bodyBuilder: (_) => const Text('body-outline'),
+          ),
+        ],
+      );
+    }
+
+    testWidgets('seeds view visibility from initialLayoutState', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: WorkbenchLayout(
+            activityBarItems: _testItems,
+            editor: const Center(child: Text('Editor')),
+            containerBuilder: explorerSpec,
+            bottomPanel: const SizedBox.shrink(),
+            statusBar: const SizedBox(height: 22),
+            // Seed the visibility store to hide Outline; Folders stays.
+            initialLayoutState: const WorkbenchLayoutState(
+              hidden: {
+                'explorer': {'outline'},
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Outline is hidden by the seeded visibility store.
+      expect(find.text('OUTLINE'), findsNothing);
+      expect(find.text('FOLDERS'), findsOneWidget);
+    });
+
+    testWidgets('drops stale ids in the seed without error (reconcile)', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: WorkbenchLayout(
+            activityBarItems: _testItems,
+            editor: const Center(child: Text('Editor')),
+            containerBuilder: explorerSpec,
+            bottomPanel: const SizedBox.shrink(),
+            statusBar: const SizedBox(height: 22),
+            // A persisted state referencing a removed container and a removed
+            // view — reconcile drops both; the layout renders the live panes.
+            initialLayoutState: const WorkbenchLayoutState(
+              order: {
+                'explorer': ['removed-view', 'outline', 'folders'],
+                'gone-container': ['x'],
+              },
+              hidden: {
+                'explorer': {'removed-view'},
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Both live panes render; the stale ids are simply absent.
+      expect(find.text('FOLDERS'), findsOneWidget);
+      expect(find.text('OUTLINE'), findsOneWidget);
+    });
+
+    testWidgets('toggling visibility notifies host with the snapshot', (
+      tester,
+    ) async {
+      final snapshots = <WorkbenchLayoutState>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: WorkbenchLayout(
+            activityBarItems: _testItems,
+            editor: const Center(child: Text('Editor')),
+            containerBuilder: explorerSpec,
+            bottomPanel: const SizedBox.shrink(),
+            statusBar: const SizedBox(height: 22),
+            onLayoutStateChanged: snapshots.add,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Open the container title's ⋯ overflow and toggle Outline off.
+      await tester.tap(find.byIcon(Symbols.more_horiz));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Outline').last);
+      await tester.pumpAndSettle();
+
+      expect(snapshots, isNotEmpty);
+      expect(snapshots.last.hidden['explorer'], contains('outline'));
+    });
+  });
 }

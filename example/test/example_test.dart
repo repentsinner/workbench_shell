@@ -547,4 +547,37 @@ void main() {
     await tester.pumpAndSettle();
     expect(panelRect().left, closeTo(centerLeft, 2));
   });
+
+  testWidgets(
+    'seeded WorkbenchLayoutState restores the Explorer arrangement '
+    '(§spec:layout-state-persistence)',
+    (tester) async {
+      // Rehydrate a persisted arrangement that hides the Timeline pane and
+      // re-shows Open Editors (which is hidden by descriptor default). The
+      // example seeds this into the shell exactly as it would from disk.
+      await tester.pumpWidget(
+        const WorkbenchExampleApp(
+          initialLayoutState: WorkbenchLayoutState(
+            // A full persisted order marks every view "known", so reconcile
+            // honors the persisted hidden set rather than descriptor defaults.
+            order: {
+              'explorer': ['folders', 'open-editors', 'outline', 'timeline'],
+            },
+            hidden: {
+              'explorer': {'timeline'},
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Timeline is dropped from the stack; the other panes render.
+      expect(find.text('TIMELINE'), findsNothing);
+      expect(find.text('WORKBENCH_SHELL'), findsOneWidget);
+      expect(find.text('OUTLINE'), findsOneWidget);
+      // Open Editors — hidden by descriptor default — is re-shown because the
+      // persisted state marks it known and not hidden (reconcile honors it).
+      expect(find.text('OPEN EDITORS'), findsOneWidget);
+    },
+  );
 }

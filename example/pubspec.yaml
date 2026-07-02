@@ -16,6 +16,10 @@ dependencies:
   workbench_shell:
     path: ../
   material_symbols_icons: ^4.2928.1
+  # Host territory: the shell owns no storage (§spec:capability-boundary), so
+  # the example supplies its own key–value store to demonstrate cross-restart
+  # layout-state persistence (§spec:layout-state-persistence).
+  shared_preferences: ^2.3.2
 
 dev_dependencies:
   flutter_test:
