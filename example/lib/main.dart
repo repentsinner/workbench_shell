@@ -25,11 +25,13 @@
 // Windows title bar tracks the workbench appearance (SPEC §spec:platform-brightness-sync).
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workbench_shell/workbench_shell.dart';
 
 /// Canonical method channel for forwarding workbench brightness to the
@@ -89,12 +91,52 @@ Future<void> _publishBrightness(Brightness brightness) async {
   }
 }
 
-void main() {
-  runApp(const WorkbenchExampleApp());
+/// Storage key for the persisted [WorkbenchLayoutState] blob
+/// (§spec:layout-state-persistence). The shell owns no storage — the host names
+/// the key and owns the bytes (§spec:capability-boundary).
+const String _layoutStateKey = 'workbench_shell_example.layout_state';
+
+Future<void> main() async {
+  // Await the persistence load before the first build so the layout seeds its
+  // arrangement once from the rehydrated value (§spec:layout-state-persistence).
+  WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+  runApp(
+    WorkbenchExampleApp(
+      prefs: prefs,
+      initialLayoutState: _loadLayoutState(prefs),
+    ),
+  );
+}
+
+/// Decode the persisted layout state, tolerating a missing or corrupt value by
+/// falling back to the empty default (the shell then seeds every store from
+/// descriptor defaults).
+WorkbenchLayoutState _loadLayoutState(SharedPreferences prefs) {
+  final raw = prefs.getString(_layoutStateKey);
+  if (raw == null) return const WorkbenchLayoutState();
+  try {
+    return WorkbenchLayoutState.fromJson(
+      jsonDecode(raw) as Map<String, dynamic>,
+    );
+  } catch (_) {
+    return const WorkbenchLayoutState();
+  }
 }
 
 class WorkbenchExampleApp extends StatefulWidget {
-  const WorkbenchExampleApp({super.key});
+  const WorkbenchExampleApp({
+    super.key,
+    this.prefs,
+    this.initialLayoutState = const WorkbenchLayoutState(),
+  });
+
+  /// Host key–value store for cross-restart persistence. Null in widget tests
+  /// (persistence degrades to a no-op).
+  final SharedPreferences? prefs;
+
+  /// The rehydrated layout arrangement seeded into the shell on first build.
+  final WorkbenchLayoutState initialLayoutState;
 
   @override
   State<WorkbenchExampleApp> createState() => _WorkbenchExampleAppState();
@@ -163,7 +205,11 @@ class _WorkbenchExampleAppState extends State<WorkbenchExampleApp> {
             isDark ? ThemeData.dark() : ThemeData.light(),
             _themeController.theme,
           ),
-          home: WorkbenchHome(themeController: _themeController),
+          home: WorkbenchHome(
+            themeController: _themeController,
+            prefs: widget.prefs,
+            initialLayoutState: widget.initialLayoutState,
+          ),
         );
       },
     );
@@ -245,9 +291,20 @@ class SetPanelAlignmentIntent extends Intent {
 
 
 class WorkbenchHome extends StatefulWidget {
-  const WorkbenchHome({super.key, required this.themeController});
+  const WorkbenchHome({
+    super.key,
+    required this.themeController,
+    this.prefs,
+    this.initialLayoutState = const WorkbenchLayoutState(),
+  });
 
   final WorkbenchThemeController themeController;
+
+  /// Host key–value store; null in tests (persistence no-op).
+  final SharedPreferences? prefs;
+
+  /// Rehydrated arrangement seeded into [WorkbenchLayout.initialLayoutState].
+  final WorkbenchLayoutState initialLayoutState;
 
   @override
   State<WorkbenchHome> createState() => _WorkbenchHomeState();
@@ -283,17 +340,6 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   WorkbenchPanelAlignment _panelAlignment = WorkbenchPanelAlignment.center;
   void Function(Object id)? _focusPanelById;
   final NotificationService _notificationService = NotificationService();
-
-  /// Host-persisted Explorer pane body sizes, keyed by view id
-  /// (§spec:resize-geometry). Dogfoods the seed-plus-commit `initialSizes` /
-  /// `onSizesChangeEnd` hook: the shell seeds Explorer's apportionment from this
-  /// map at first build and reports the final sizing once on drag-end, where a
-  /// real consumer would persist it across restarts. Null until the first sash
-  /// drag, so the shell uses its even default until the user resizes. (The shell
-  /// still owns pane *order* and *expansion* for Explorer — only sizing is
-  /// persisted here, to demonstrate the hook end to end alongside shell-owned
-  /// reorder.)
-  Map<String, double>? _explorerSizes;
 
   /// Host-persisted sidebar width and panel height (§spec:resize-geometry).
   /// Dogfoods the seed-plus-commit `initialSidebarWidth`/`onSidebarWidthChangeEnd`
@@ -385,6 +431,14 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
 
   void _setPanelAlignment(WorkbenchPanelAlignment alignment) {
     setState(() => _panelAlignment = alignment);
+  }
+
+  /// Persist the shell's arrangement snapshot to the host store
+  /// (§spec:layout-state-persistence). The shell hands over a JSON-encodable
+  /// map; the host owns the codec and the bytes. No-op when no store is wired
+  /// (widget tests).
+  void _persistLayoutState(WorkbenchLayoutState state) {
+    widget.prefs?.setString(_layoutStateKey, jsonEncode(state.toJson()));
   }
 
   /// Display name for an alignment, shown on the Align Panel radio items.
@@ -662,6 +716,12 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                     editor: const _EditorPlaceholder(),
                     bottomPanel: scope.tabbedPanel,
                     showBottomPanel: _panelVisible,
+                    // Cross-restart persistence (§spec:layout-state-persistence):
+                    // seed the rehydrated arrangement and write every change back
+                    // to the host store. The shell reconciles the seed against
+                    // live descriptors and owns the model; the host owns the bytes.
+                    initialLayoutState: widget.initialLayoutState,
+                    onLayoutStateChanged: _persistLayoutState,
                     initialSidebarWidth: _sidebarWidth,
                     onSidebarWidthChangeEnd: (w) => _sidebarWidth = w,
                     initialPanelHeight: _panelHeight,
@@ -757,13 +817,9 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
             byId['outline']!,
             byId['timeline']!,
           ],
-          // Seed-plus-commit body sizing (§spec:resize-geometry): the shell owns
-          // Explorer's sash sizes; the host seeds the apportionment from its
-          // persisted map and records the final map once on drag-end. Combined
-          // with the shell-owned reorder above, Explorer dogfoods the persistence
-          // hooks (order/expansion shell-owned, sizing seed-plus-committed).
-          initialSizes: _explorerSizes,
-          onSizesChangeEnd: (next) => _explorerSizes = next,
+          // Pane sizing, order, expansion, and visibility all persist through the
+          // aggregate WorkbenchLayoutState seam on WorkbenchLayout below — no
+          // per-concern seed here (§spec:layout-state-persistence).
         );
       case 'search':
         return const WorkbenchViewContainerSpec(
