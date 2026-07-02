@@ -19,6 +19,7 @@ export 'src/theming/workbench_chrome_theme.dart';
 export 'src/workbench_content.dart';
 export 'src/workbench_intents.dart';
 export 'src/workbench_layout.dart';
+export 'src/workbench_layout_state.dart';
 export 'src/workbench_panel.dart';
 export 'src/workbench_panel_host.dart';
 export 'src/workbench_status_bar.dart';
