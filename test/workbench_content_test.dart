@@ -834,18 +834,6 @@ void main() {
     });
   });
 
-  group('WorkbenchSubsection', () {
-    testWidgets('renders title with subsectionTitleStyle', (tester) async {
-      await tester.pumpWidget(
-        wrapWithTheme(
-          const WorkbenchSubsection(title: 'Sub', child: Text('body')),
-        ),
-      );
-      final textWidget = tester.widget<Text>(find.text('Sub'));
-      expect(textWidget.style, testWorkbenchTheme.subsectionTitleStyle);
-    });
-  });
-
   group('WorkbenchCard', () {
     testWidgets('renders bordered container around child', (tester) async {
       await tester.pumpWidget(

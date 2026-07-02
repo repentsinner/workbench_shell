@@ -231,7 +231,6 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   // ---- Content primitive tokens (legacy slots retained for
   // back-compat with widgets that read them; see §spec:chrome-typography-canon table for the
   // canonical replacements). ----
-  final TextStyle subsectionTitleStyle;
   final TextStyle bodyStyle;
   final TextStyle helperStyle;
 
@@ -410,7 +409,6 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.tabBarDividerColor,
     required this.badgeBackground,
     required this.badgeForeground,
-    required this.subsectionTitleStyle,
     required this.bodyStyle,
     required this.helperStyle,
     required this.borderColor,
@@ -797,7 +795,6 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       ),
       // Legacy content-primitive tokens (kept for widgets that read
       // them; canonical replacements live in the §spec:chrome-typography-canon block below).
-      subsectionTitleStyle: t(12, FontWeight.w500),
       bodyStyle: t(12, FontWeight.w400),
       borderColor: panelBorder,
       focusBorderColor: accentFg,
@@ -969,7 +966,6 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? tabBarDividerColor,
     Color? badgeBackground,
     Color? badgeForeground,
-    TextStyle? subsectionTitleStyle,
     TextStyle? bodyStyle,
     TextStyle? helperStyle,
     Color? borderColor,
@@ -1105,7 +1101,6 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       tabBarDividerColor: tabBarDividerColor ?? this.tabBarDividerColor,
       badgeBackground: badgeBackground ?? this.badgeBackground,
       badgeForeground: badgeForeground ?? this.badgeForeground,
-      subsectionTitleStyle: subsectionTitleStyle ?? this.subsectionTitleStyle,
       bodyStyle: bodyStyle ?? this.bodyStyle,
       helperStyle: helperStyle ?? this.helperStyle,
       borderColor: borderColor ?? this.borderColor,
@@ -1321,10 +1316,6 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       tabBarDividerColor: c(tabBarDividerColor, other.tabBarDividerColor),
       badgeBackground: c(badgeBackground, other.badgeBackground),
       badgeForeground: c(badgeForeground, other.badgeForeground),
-      subsectionTitleStyle: ts(
-        subsectionTitleStyle,
-        other.subsectionTitleStyle,
-      ),
       bodyStyle: ts(bodyStyle, other.bodyStyle),
       helperStyle: ts(helperStyle, other.helperStyle),
       borderColor: cn(borderColor, other.borderColor),
@@ -1469,7 +1460,6 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           tabBarDividerColor == other.tabBarDividerColor &&
           badgeBackground == other.badgeBackground &&
           badgeForeground == other.badgeForeground &&
-          subsectionTitleStyle == other.subsectionTitleStyle &&
           bodyStyle == other.bodyStyle &&
           helperStyle == other.helperStyle &&
           borderColor == other.borderColor &&
@@ -1580,7 +1570,6 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     tabBarDividerColor,
     badgeBackground,
     badgeForeground,
-    subsectionTitleStyle,
     bodyStyle,
     helperStyle,
     borderColor,
