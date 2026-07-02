@@ -715,10 +715,10 @@ Code's internals.)
 `WorkbenchViewContainerSpec` carries an optional `title`; the composite title
 resolves to `spec.title` when set, otherwise the container's activity-bar item
 label. The activity-item label stays the default for a primary container, so no
-existing host changes. A container the activity bar never lists — the secondary
-side bar's, assigned directly through `secondaryViewContainerId`
-(§spec:secondary-sidebar) — has no activity item to name it, so without a
-spec-level title its composite title renders blank. The spec-level `title` gives
+existing host changes. A container the activity bar never lists — a secondary
+side bar member (§spec:secondary-sidebar) — has no activity item to name it, so
+without a spec-level title its title surface (the secondary renders it as the
+container's tab label) renders blank. The spec-level `title` gives
 every container a title source independent of the activity bar, mirroring VS
 Code, where a view container carries its own title. A single-view container
 merged under `mergeSingleView` hides the title strip regardless, so `title`
@@ -1591,7 +1591,7 @@ warrant one.
 
 ## Workbench Layout Customization §spec:layout-customization
 
-*Status: complete*
+*Status: in progress*
 
 §spec:workbench-layout composes a fixed arrangement: activity bar and
 primary side bar on the left, bottom panel under the editor, status bar
@@ -1677,26 +1677,61 @@ A second side bar occupies the editor's opposite edge from the primary
 (§spec:sidebar-position), independently visible and independently
 resizable through the same canonical sash. It hosts view containers
 through the same `containerBuilder`/`WorkbenchViewContainer` path the
-primary uses, with its own controlled/uncontrolled active-container id,
-visibility, and width. It has no activity bar of its own. Swapping the
-primary's edge moves the secondary to the now-free opposite edge,
-relocating its subtree rather than rebuilding it, so its retained pane
-State and width survive the move (§spec:view-container-state, the
-relocation rationale §spec:sidebar-position records).
+primary uses, with its own controlled/uncontrolled visibility and width.
+It has no activity bar of its own. Swapping the primary's edge moves the
+secondary to the now-free opposite edge, relocating its subtree rather
+than rebuilding it, so its retained pane State and width survive the move
+(§spec:view-container-state, the relocation rationale
+§spec:sidebar-position records).
 
-**Why the host assigns containers, not drag-and-drop.** VS Code populates
+**Membership is a host-supplied list; containers land as top-level
+tabs.** The host names the secondary's containers through an ordered
+membership list (`secondaryViewContainerIds`). The bar's title row
+renders one compact text-label tab per member — labeled by
+`WorkbenchViewContainerSpec.title` (§spec:view-container-title) — in
+place of the composite title label, styled per §spec:tab-strip-canon.
+Tapping a tab activates that container. The active id follows the
+controlled/uncontrolled seam (`initialSecondaryActiveViewContainerId`,
+or `secondaryActiveViewContainerId` plus
+`onSecondaryActiveViewContainerChanged`); as with the activity-bar tap
+(§spec:sidebar-visibility), the shell both originates the change on a
+tab tap and reports it, and a controlled host shall honor it to keep
+the tabs functional. Each container opened in the secondary is retained
+per §spec:view-container-state, so switching tabs preserves pane state.
+A single-member bar still shows its one tab, matching canon's default
+presentation. The active container's `titleActions` and `⋯` overflow
+(§spec:view-container-title) sit right of the tabs, unchanged.
+
+**Why tabs in the title row, not a second activity bar.** VS Code's
+secondary side bar (`AuxiliaryBarPart`) has no activity bar; it embeds
+its container switcher inside its own title row as text-label tabs (a
+`PaneCompositeBar` at the title position, labels by default per
+`workbench.secondarySideBar.showLabels` — icon mode exists only when
+the workbench-wide activity-bar location moves to top/bottom, a setting
+this shell does not model). The primary externalizes its switcher to
+the activity bar; the secondary carries its own. A second activity bar
+was rejected as non-canon. The prior single host-assigned container was
+rejected because canon presents secondary containers as user-switchable
+top-level tabs; a host had to swap the container itself to change what
+the bar showed, an affordance no menu or keybinding could reach without
+host plumbing.
+
+**Why the host assigns membership, not drag-and-drop.** VS Code populates
 its secondary side bar by dragging views between bars. View relocation by
 drag is a separate capability with its own interaction surface; it is
 explicitly out of scope here. In its place, the host decides which
 containers a bar shows. The activity bar drives the primary side bar
 only. This keeps the secondary bar a thin reuse of existing container
 machinery rather than a new view-management system, and leaves
-drag-to-relocate as a future, separable addition.
+drag-to-relocate as a future, separable addition. The same boundary
+defers the rest of canon's tab machinery — pin/unpin through the tab
+context menu with persisted pinned state, the tab-overflow dropdown,
+tab badges, and aux-bar maximize. A host hides a tab by removing its id
+from the membership list.
 
-Because the secondary bar has no activity bar to name its container, the
-host titles a secondary container through `WorkbenchViewContainerSpec.title`
-(§spec:view-container-title); an untitled multi-view secondary container
-renders a blank composite title.
+Because no activity bar names a secondary container, a tab's only label
+source is `WorkbenchViewContainerSpec.title`
+(§spec:view-container-title); an untitled member renders a blank tab.
 
 ### Panel Alignment §spec:panel-alignment
 
