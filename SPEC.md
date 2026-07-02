@@ -711,6 +711,19 @@ Code reference: the composite title renders `MenuId.ViewContainerTitle`; a
 `canToggleVisibility`. This section documents the shell's deviations, not VS
 Code's internals.)
 
+**The container title comes from the spec, falling back to the activity item.**
+`WorkbenchViewContainerSpec` carries an optional `title`; the composite title
+resolves to `spec.title` when set, otherwise the container's activity-bar item
+label. The activity-item label stays the default for a primary container, so no
+existing host changes. A container the activity bar never lists — the secondary
+side bar's, assigned directly through `secondaryViewContainerId`
+(§spec:secondary-sidebar) — has no activity item to name it, so without a
+spec-level title its composite title renders blank. The spec-level `title` gives
+every container a title source independent of the activity bar, mirroring VS
+Code, where a view container carries its own title. A single-view container
+merged under `mergeSingleView` hides the title strip regardless, so `title`
+governs the multi-view and the unmerged single-view cases (reported in #93).
+
 **Problem**: the sidebar heading (§spec:workbench-layout) renders only the
 active container's uppercase label — a bare title row with an empty right
 zone. A user cannot hide a view they don't want and re-show it later; the
@@ -811,6 +824,10 @@ always visible — matching VS Code's always-shown composite title toolbar.
 
 **Observable behavior**:
 
+- The composite title reads `WorkbenchViewContainerSpec.title` when the spec
+  sets it, otherwise the active container's activity-bar item label — so a
+  secondary side bar container, which has no activity item, still shows a title
+  when the host sets `title` and no longer renders a blank strip.
 - The container title row shows a right-aligned `⋯` button whenever the
   container has at least one hideable view (or host-supplied overflow
   entries); activating it opens a popup whose Views submenu lists every view
@@ -1675,6 +1692,11 @@ containers a bar shows. The activity bar drives the primary side bar
 only. This keeps the secondary bar a thin reuse of existing container
 machinery rather than a new view-management system, and leaves
 drag-to-relocate as a future, separable addition.
+
+Because the secondary bar has no activity bar to name its container, the
+host titles a secondary container through `WorkbenchViewContainerSpec.title`
+(§spec:view-container-title); an untitled multi-view secondary container
+renders a blank composite title.
 
 ### Panel Alignment §spec:panel-alignment
 
