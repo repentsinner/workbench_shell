@@ -9,7 +9,7 @@ import 'workbench_theme.dart';
 /// Structural primitives for sidebars and bottom panels.
 ///
 /// `workbench_shell` deliberately scopes this surface to structural
-/// grouping (sections, subsections, cards, toggle cards, empty states).
+/// grouping (sections, cards, toggle cards, empty states).
 /// Form controls — text fields, dropdowns, toggles, action buttons —
 /// live in the host application as application helpers. See SPEC
 /// §spec:form-controls-excluded for rationale and the re-promotion gate.
@@ -447,32 +447,6 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
   }
 }
 
-/// Second-level grouping inside a section. Visually subordinate to
-/// [WorkbenchViewPane] but still acts as a header.
-class WorkbenchSubsection extends StatelessWidget {
-  final String title;
-  final Widget child;
-
-  const WorkbenchSubsection({
-    super.key,
-    required this.title,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = context.workbenchTheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: theme.subsectionTitleStyle),
-        const SizedBox(height: WorkbenchLayoutConstants.spacingSm),
-        child,
-      ],
-    );
-  }
-}
-
 /// Bordered container for an inline list item or grouped fields.
 /// No implicit heading.
 class WorkbenchCard extends StatelessWidget {
@@ -501,7 +475,7 @@ class WorkbenchCard extends StatelessWidget {
 }
 
 /// Bordered card whose header row contains a leading toggle and a
-/// subsection-style title. When [enabled] is false, [child] is dimmed
+/// settings-style label title. When [enabled] is false, [child] is dimmed
 /// and input is suppressed, but layout does not reflow. The toggle
 /// itself remains interactive so callers can re-enable.
 class WorkbenchToggleCard extends StatelessWidget {
@@ -547,7 +521,7 @@ class WorkbenchToggleCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: WorkbenchLayoutConstants.spacingSm),
-              Expanded(child: Text(title, style: theme.subsectionTitleStyle)),
+              Expanded(child: Text(title, style: theme.labelText)),
             ],
           ),
           const SizedBox(height: WorkbenchLayoutConstants.spacingSm),

@@ -3,7 +3,7 @@
 VS Code-style workbench layout chrome for Flutter desktop and mobile apps.
 Provides the activity bar, sidebar, editor area, tabbed bottom panel,
 status bar, and platform-conditional menu bar, plus a small vocabulary of
-structural primitives (section, subsection, card, toggle card, empty
+structural primitives (section, card, toggle card, empty
 state) that keep sidebar and panel content visually consistent by
 construction.
 
@@ -22,8 +22,8 @@ construction.
 - `WorkbenchShortcuts` — ships the Cmd/Ctrl+J bottom-panel toggle;
   hosts register additional shortcuts via `extraShortcuts` or a
   surrounding `Shortcuts` widget.
-- `WorkbenchViewPane`, `WorkbenchSubsection`, `WorkbenchCard`,
-  `WorkbenchToggleCard`, `WorkbenchEmptyState` — structural primitives
+- `WorkbenchViewPane`, `WorkbenchCard`, `WorkbenchToggleCard`,
+  `WorkbenchEmptyState` — structural primitives
   that encode the workbench's visual hierarchy.
 - `WorkbenchTheme` + `WorkbenchThemeController` — VS Code theme JSON
   loader, token map, and active theme state. Bundled themes: Dark/Light
