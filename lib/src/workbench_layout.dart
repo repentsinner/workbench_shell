@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import 'activity_bar_item.dart';
 import 'layout_constants.dart';
+import 'workbench_layout_state.dart';
 import 'workbench_sash.dart';
 import 'workbench_theme.dart';
 import 'workbench_view_container.dart';
@@ -261,6 +262,25 @@ class WorkbenchLayout extends StatefulWidget {
   /// [onSidebarWidthChangeEnd].
   final ValueChanged<double>? onSecondarySideBarWidthChangeEnd;
 
+  /// Seed for the view-container arrangement — pane sizes, order, expansion, and
+  /// visibility — as a single [WorkbenchLayoutState] (§spec:layout-state-persistence).
+  /// The shell reconciles it against the live view descriptors and distributes
+  /// each container's slice to the shell-owned (uncontrolled) stores once on
+  /// first build. This is the aggregate of the four per-concern seams; a host
+  /// awaits its persistence load before the layout's first build, then hands the
+  /// value back here. Per-concern controlled seams (`spec.order`/`onReorder`, a
+  /// descriptor's `expanded`/`onExpandedChanged` or `visible`/`onVisibleChanged`)
+  /// still win over this seed for the concerns they control — the aggregate
+  /// feeds the shell-owned path only, so the two do not double-apply.
+  final WorkbenchLayoutState? initialLayoutState;
+
+  /// Notified with the full arrangement snapshot whenever the shell-owned
+  /// arrangement changes — a pane reorder, expansion toggle, sash resize, or
+  /// visibility toggle (§spec:layout-state-persistence). A host persists this one
+  /// value and rehydrates it through [initialLayoutState]; the shell writes no
+  /// bytes and names no storage key (§spec:capability-boundary).
+  final ValueChanged<WorkbenchLayoutState>? onLayoutStateChanged;
+
   const WorkbenchLayout({
     super.key,
     required this.activityBarItems,
@@ -303,6 +323,8 @@ class WorkbenchLayout extends StatefulWidget {
     this.onSecondarySideBarVisibilityChanged,
     this.initialSecondarySideBarWidth,
     this.onSecondarySideBarWidthChangeEnd,
+    this.initialLayoutState,
+    this.onLayoutStateChanged,
   }) : assert(
          activeViewContainerId == null || onViewContainerChanged != null,
          'onViewContainerChanged is required when activeViewContainerId is '
@@ -378,18 +400,69 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   /// `onVisibleChanged`) never enter this map — the host owns their visibility.
   final Map<String, Set<String>> _hiddenViewIds = {};
 
-  /// The live hidden-id set for [containerId], seeded once from descriptors that
+  /// The aggregate view-container arrangement snapshot (§spec:layout-state-persistence).
+  /// Seeded once in [initState] from [WorkbenchLayout.initialLayoutState],
+  /// reconciled against the live descriptors, and updated as containers report
+  /// arrangement changes or the user toggles visibility. The layout notifies the
+  /// host through [WorkbenchLayout.onLayoutStateChanged]; it owns the model, not
+  /// the bytes (§spec:capability-boundary).
+  late WorkbenchLayoutState _layoutState;
+
+  /// The live view descriptors for every declared container, keyed by id. Built
+  /// from [WorkbenchLayout.containerBuilder] — which returns a spec (descriptors)
+  /// without running any body builder, so this stays cheap and does not defeat
+  /// lazy container retention (§spec:view-container-state). Used to reconcile the
+  /// seeded [_layoutState] against the current descriptor set.
+  Map<String, List<WorkbenchViewDescriptor>> _liveDescriptors() {
+    final result = <String, List<WorkbenchViewDescriptor>>{};
+    for (final item in widget.activityBarItems) {
+      result[item.id] = widget.containerBuilder(item.id).views;
+    }
+    final secondary =
+        widget.secondaryViewContainerId ??
+        widget.initialSecondaryViewContainerId;
+    if (secondary != null &&
+        secondary.isNotEmpty &&
+        !result.containsKey(secondary)) {
+      result[secondary] = widget.containerBuilder(secondary).views;
+    }
+    return result;
+  }
+
+  /// The live hidden-id set for [containerId], seeded once from the reconciled
+  /// [_layoutState] when it carries a persisted set, else from descriptors that
   /// start hidden (`visible == false`) and are shell-owned (no `onVisibleChanged`).
   Set<String> _hiddenStore(
     String containerId,
     List<WorkbenchViewDescriptor> views,
   ) {
     return _hiddenViewIds.putIfAbsent(containerId, () {
+      final seeded = _layoutState.hidden[containerId];
+      if (seeded != null) return {...seeded};
       return {
         for (final view in views)
           if (view.onVisibleChanged == null && !view.visible) view.id,
       };
     });
+  }
+
+  /// Fold a container's reported arrangement into [_layoutState] and notify the
+  /// host (§spec:layout-state-persistence). No `setState`: the reporting
+  /// container already rebuilt from its own state change, so the layout only
+  /// updates its snapshot and hands it to the host.
+  void _handleContainerArrangement(
+    String containerId,
+    List<String> order,
+    Map<String, bool> expanded,
+    Map<String, double> sizes,
+  ) {
+    _layoutState = _layoutState.withContainer(
+      containerId,
+      order: order,
+      expanded: expanded,
+      sizes: sizes,
+    );
+    widget.onLayoutStateChanged?.call(_layoutState);
   }
 
   /// Whether [view] in [containerId] is currently visible. A controlled view
@@ -440,6 +513,13 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
         hidden.remove(view.id);
       }
     });
+    // Fold the visibility change into the aggregate snapshot and notify the host
+    // (§spec:layout-state-persistence).
+    _layoutState = _layoutState.withHidden(
+      containerId,
+      _hiddenStore(containerId, views),
+    );
+    widget.onLayoutStateChanged?.call(_layoutState);
   }
 
   // Stable identities for the workbench's structural children. Two composition
@@ -570,6 +650,11 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     _secondarySideBarWidth =
         widget.initialSecondarySideBarWidth ??
         WorkbenchLayoutConstants.sidebarDefaultWidth;
+    // Seed the aggregate arrangement once, reconciled against the live
+    // descriptors so a persisted value that references removed containers or
+    // views (or stale sizes) renders without error (§spec:layout-state-persistence).
+    _layoutState = (widget.initialLayoutState ?? const WorkbenchLayoutState())
+        .reconcile(_liveDescriptors());
     _partitionActivityItems();
   }
 
@@ -879,6 +964,8 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
               containerBuilder: widget.containerBuilder,
               resolvedHidden: _resolvedHidden,
               toggleViewVisible: _toggleViewVisible,
+              layoutState: _layoutState,
+              onContainerArrangementChanged: _handleContainerArrangement,
               position: position,
               theme: theme,
             ),
@@ -1187,6 +1274,19 @@ class _Sidebar extends StatelessWidget {
   )
   toggleViewVisible;
 
+  /// The reconciled aggregate snapshot (§spec:layout-state-persistence); each
+  /// container seeds its shell-owned order/expansion/sizes from its slice.
+  final WorkbenchLayoutState layoutState;
+
+  /// Fold one container's reported arrangement into the aggregate snapshot.
+  final void Function(
+    String containerId,
+    List<String> order,
+    Map<String, bool> expanded,
+    Map<String, double> sizes,
+  )
+  onContainerArrangementChanged;
+
   final WorkbenchSidebarPosition position;
   final WorkbenchTheme theme;
 
@@ -1198,6 +1298,8 @@ class _Sidebar extends StatelessWidget {
     required this.containerBuilder,
     required this.resolvedHidden,
     required this.toggleViewVisible,
+    required this.layoutState,
+    required this.onContainerArrangementChanged,
     required this.position,
     required this.theme,
   });
@@ -1258,6 +1360,14 @@ class _Sidebar extends StatelessWidget {
       active: id == activeContainerId,
       spec: spec,
       hiddenViewIds: resolvedHidden(id, spec.views),
+      // Seed the container's shell-owned stores from the aggregate slice; sizes
+      // fall back to the spec's per-concern seed when the aggregate has none
+      // (§spec:layout-state-persistence).
+      initialOrder: layoutState.order[id],
+      initialExpanded: layoutState.expanded[id],
+      initialSizes: layoutState.sizes[id] ?? spec.initialSizes,
+      onArrangementChanged: (order, expanded, sizes) =>
+          onContainerArrangementChanged(id, order, expanded, sizes),
     );
   }
 
@@ -1363,11 +1473,27 @@ class _RetainedContainer extends StatelessWidget {
   /// dropped from the stack while keeping their order slot.
   final Set<String> hiddenViewIds;
 
+  /// Aggregate-seeded shell-owned order/expansion/sizes and the change
+  /// notification (§spec:layout-state-persistence).
+  final List<String>? initialOrder;
+  final Map<String, bool>? initialExpanded;
+  final Map<String, double>? initialSizes;
+  final void Function(
+    List<String> order,
+    Map<String, bool> expanded,
+    Map<String, double> sizes,
+  )
+  onArrangementChanged;
+
   const _RetainedContainer({
     super.key,
     required this.active,
     required this.spec,
     required this.hiddenViewIds,
+    required this.initialOrder,
+    required this.initialExpanded,
+    required this.initialSizes,
+    required this.onArrangementChanged,
   });
 
   @override
@@ -1381,8 +1507,11 @@ class _RetainedContainer extends StatelessWidget {
           mergeSingleView: spec.mergeSingleView,
           order: spec.order,
           onReorder: spec.onReorder,
-          initialSizes: spec.initialSizes,
+          initialOrder: initialOrder,
+          initialExpanded: initialExpanded,
+          initialSizes: initialSizes,
           onSizesChangeEnd: spec.onSizesChangeEnd,
+          onArrangementChanged: onArrangementChanged,
           hiddenViewIds: hiddenViewIds,
         ),
       ),

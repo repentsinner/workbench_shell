@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import 'layout_constants.dart';
 import 'workbench_content.dart';
+import 'workbench_layout_state.dart';
 import 'workbench_sash.dart';
 import 'workbench_theme.dart';
 import 'workbench_view_menu.dart';
@@ -321,6 +322,30 @@ class WorkbenchViewContainer extends StatefulWidget {
   /// non-collapsible (or merged under [mergeSingleView]).
   final Set<String> hiddenViewIds;
 
+  /// Seed for the shell-owned (uncontrolled) pane order as descriptor ids
+  /// (§spec:layout-state-persistence). Used only when [order] is null: it seeds
+  /// [_order] once on first build so a host can rehydrate a persisted order.
+  /// A controlled [order] wins — this seed feeds the shell-owned path only.
+  final List<String>? initialOrder;
+
+  /// Seed for shell-owned (uncontrolled) pane expansion, descriptor id →
+  /// expanded (§spec:layout-state-persistence). Seeds the uncontrolled store
+  /// once on first build; a descriptor's controlled `expanded` wins for that
+  /// view, so this feeds the shell-owned path only.
+  final Map<String, bool>? initialExpanded;
+
+  /// Notified whenever the shell-owned arrangement changes — a reorder, an
+  /// expansion toggle, or a sash resize commit (§spec:layout-state-persistence).
+  /// Reports the full order (including hidden panes), effective expansion for
+  /// every view, and the live sizing map, so the layout can fold this
+  /// container's slice into an aggregate [WorkbenchLayoutState] snapshot.
+  final void Function(
+    List<String> order,
+    Map<String, bool> expanded,
+    Map<String, double> sizes,
+  )?
+  onArrangementChanged;
+
   const WorkbenchViewContainer({
     super.key,
     required this.views,
@@ -330,6 +355,9 @@ class WorkbenchViewContainer extends StatefulWidget {
     this.initialSizes,
     this.onSizesChangeEnd,
     this.hiddenViewIds = const {},
+    this.initialOrder,
+    this.initialExpanded,
+    this.onArrangementChanged,
   });
 
   @override
@@ -360,6 +388,28 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
     // (§spec:resize-geometry); the shell owns the live weights thereafter and
     // records changes via onSizesChangeEnd.
     if (widget.initialSizes != null) _manualBody.addAll(widget.initialSizes!);
+    // Seed the shell-owned (uncontrolled) order and expansion once
+    // (§spec:layout-state-persistence). A controlled `order` or a descriptor's
+    // controlled `expanded` wins; these seeds feed the shell-owned path only.
+    if (widget.initialOrder != null) _order = [...widget.initialOrder!];
+    if (widget.initialExpanded != null) {
+      _uncontrolledExpanded.addAll(widget.initialExpanded!);
+    }
+  }
+
+  /// Report the shell-owned arrangement to [WorkbenchViewContainer.onArrangementChanged]
+  /// after a reorder, expansion toggle, or sash commit
+  /// (§spec:layout-state-persistence). Reads the reconciled full order (hidden
+  /// panes included) and effective expansion so the layout persists a faithful
+  /// snapshot.
+  void _notifyArrangement() {
+    final onChanged = widget.onArrangementChanged;
+    if (onChanged == null) return;
+    onChanged(
+      [for (final view in _orderedViews()) view.id],
+      {for (final view in widget.views) view.id: _isExpanded(view)},
+      Map<String, double>.from(_manualBody),
+    );
   }
 
   /// Uncontrolled pane order, a list of descriptor ids. The shell owns the
@@ -515,6 +565,7 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
       setState(() => _uncontrolledExpanded[view.id] = next);
     }
     view.onExpandedChanged?.call(next);
+    _notifyArrangement();
   }
 
   /// Index of the pane whose header is being dragged for reorder, or null when
@@ -552,16 +603,18 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
         // to the host, which updates `order` from the notification below.
         if (widget.order == null) {
           _order ??= [for (final view in widget.views) view.id];
-          final newVisible = [..._renderedIds]..removeAt(from);
-          newVisible.insert(newIndex, _renderedIds[from]);
-          final visible = _renderedIds.toSet();
-          var vi = 0;
-          _order = [
-            for (final id in _order!)
-              if (visible.contains(id)) newVisible[vi++] else id,
-          ];
+          // Splice the visible-index move into the full order without disturbing
+          // hidden panes' slots (§spec:view-container-title). The shared model
+          // owns this rule so a controlled host reuses the same splice.
+          _order = WorkbenchLayoutState.applyReorder(
+            _order!,
+            widget.hiddenViewIds,
+            from,
+            newIndex,
+          );
         }
         widget.onReorder?.call(from, newIndex);
+        _notifyArrangement();
       }
     }
     setState(() {
@@ -762,8 +815,12 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
                 _manualBody[lowerId] = pair - newUpper;
               });
             },
-            onChangeEnd: (_) =>
-                widget.onSizesChangeEnd?.call(Map<String, double>.from(_manualBody)),
+            onChangeEnd: (_) {
+              widget.onSizesChangeEnd?.call(
+                Map<String, double>.from(_manualBody),
+              );
+              _notifyArrangement();
+            },
             // Double-click resets the two adjacent expanded panes to an even
             // split of their combined body height (§spec:workbench-layout, VS
             // Code's `ViewPaneContainer` sash-reset). Equal weights divide the
@@ -776,7 +833,10 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
                 _manualBody[upperId] = half;
                 _manualBody[lowerId] = half;
               });
-              widget.onSizesChangeEnd?.call(Map<String, double>.from(_manualBody));
+              widget.onSizesChangeEnd?.call(
+                Map<String, double>.from(_manualBody),
+              );
+              _notifyArrangement();
             },
             child: const SizedBox.expand(),
           ),

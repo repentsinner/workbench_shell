@@ -135,7 +135,16 @@ class WorkbenchLayoutState {
 
     live.forEach((containerId, views) {
       final byId = {for (final v in views) v.id: v};
-      final known = (order[containerId] ?? const <String>[]).toSet();
+      // A view is "known" (persisted before) if it appears in any concern, not
+      // just order — a host that only toggled visibility persists a hidden set
+      // with no order. A view absent from all concerns is new and takes its
+      // descriptor defaults.
+      final known = <String>{
+        ...?order[containerId],
+        ...?hidden[containerId],
+        ...?expanded[containerId]?.keys,
+        ...?sizes[containerId]?.keys,
+      };
 
       // Order: persisted ids still declared, in persisted sequence, then new
       // views appended in descriptor order (mirrors WorkbenchViewContainer's
