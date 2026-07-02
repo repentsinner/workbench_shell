@@ -1,3 +1,12 @@
+# [0.26.0](https://github.com/repentsinner/workbench_shell/compare/v0.25.0...v0.26.0) (2026-07-02)
+
+
+### Features
+
+* **example:** persist and restore layout state across restarts ([52ee97d](https://github.com/repentsinner/workbench_shell/commit/52ee97da9a74b74fed43284555a9bda28451a693))
+* **layout:** add serializable WorkbenchLayoutState model ([a53c886](https://github.com/repentsinner/workbench_shell/commit/a53c886db344033d2c5afa8adbaa0eb2c696b587))
+* **layout:** expose aggregate layout-state seam ([2e1b5cd](https://github.com/repentsinner/workbench_shell/commit/2e1b5cdd755d30c5b397397c7b5461312140c8d6))
+
 # [0.25.0](https://github.com/repentsinner/workbench_shell/compare/v0.24.0...v0.25.0) (2026-07-01)
 
 
