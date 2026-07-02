@@ -152,6 +152,14 @@ class WorkbenchViewDescriptor {
 /// (§spec:capability-boundary): the host supplies typed view descriptors, not
 /// a sidebar-body widget.
 class WorkbenchViewContainerSpec {
+  /// Composite-title text for this container (§spec:view-container-title). The
+  /// side bar resolves the title as `title ?? <activity-bar item label>`, so a
+  /// primary container leaves this null and keeps its activity-item label, while
+  /// a container the activity bar never lists — a secondary side bar's, assigned
+  /// through `secondaryViewContainerId` (§spec:secondary-sidebar) — sets it to
+  /// name an otherwise-blank title strip.
+  final String? title;
+
   /// Ordered views rendered as the container's pane stack. Empty renders an
   /// empty container.
   final List<WorkbenchViewDescriptor> views;
@@ -202,6 +210,7 @@ class WorkbenchViewContainerSpec {
 
   const WorkbenchViewContainerSpec({
     required this.views,
+    this.title,
     this.mergeSingleView = false,
     this.order,
     this.onReorder,
@@ -219,6 +228,7 @@ class WorkbenchViewContainerSpec {
   /// adds later).
   WorkbenchViewContainerSpec copyWith({
     List<WorkbenchViewDescriptor>? views,
+    String? title,
     bool? mergeSingleView,
     List<String>? order,
     void Function(int oldIndex, int newIndex)? onReorder,
@@ -229,6 +239,7 @@ class WorkbenchViewContainerSpec {
   }) {
     return WorkbenchViewContainerSpec(
       views: views ?? this.views,
+      title: title ?? this.title,
       mergeSingleView: mergeSingleView ?? this.mergeSingleView,
       order: order ?? this.order,
       onReorder: onReorder ?? this.onReorder,

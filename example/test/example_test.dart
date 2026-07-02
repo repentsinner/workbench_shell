@@ -437,10 +437,10 @@ void main() {
     await tester.pumpWidget(const WorkbenchExampleApp());
     await tester.pumpAndSettle();
 
-    final searchBody = find.textContaining('Search sidebar');
-    // Hidden by default — the host assigns 'search' but the secondary is off,
-    // so its container is never built (lazy retention).
-    expect(searchBody, findsNothing);
+    final secondaryBody = find.textContaining('WorkbenchViewContainerSpec.title');
+    // Hidden by default — the host assigns the 'secondary' container but the bar
+    // is off, so its container is never built (lazy retention).
+    expect(secondaryBody, findsNothing);
 
     final context = tester.element(find.byType(WorkbenchLayout));
     Actions.invoke(context, const ToggleSecondarySideBarIntent());
@@ -448,20 +448,23 @@ void main() {
 
     // Primary on the left (default) → the secondary appears on the right of the
     // editor.
-    expect(searchBody, findsOneWidget);
+    expect(secondaryBody, findsOneWidget);
+    // The container the activity bar never lists titles itself through
+    // WorkbenchViewContainerSpec.title (§spec:view-container-title).
+    expect(find.text('SECONDARY SIDE BAR'), findsOneWidget);
     final editor = tester.getRect(find.textContaining('Lorem ipsum'));
-    expect(tester.getCenter(searchBody).dx, greaterThan(editor.center.dx));
+    expect(tester.getCenter(secondaryBody).dx, greaterThan(editor.center.dx));
 
     // Swap the primary to the right → the secondary follows to the left edge.
     Actions.invoke(context, const ToggleSidebarPositionIntent());
     await tester.pumpAndSettle();
     final editorAfter = tester.getRect(find.textContaining('Lorem ipsum'));
-    expect(tester.getCenter(searchBody).dx, lessThan(editorAfter.center.dx));
+    expect(tester.getCenter(secondaryBody).dx, lessThan(editorAfter.center.dx));
 
     // Toggling the secondary off hides it again.
     Actions.invoke(context, const ToggleSecondarySideBarIntent());
     await tester.pumpAndSettle();
-    expect(searchBody, findsNothing);
+    expect(secondaryBody, findsNothing);
   });
 
   // Primary side bar visibility (§spec:layout-customization). The View menu

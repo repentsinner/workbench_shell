@@ -1390,7 +1390,11 @@ class _Sidebar extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              activeLabel.toUpperCase(),
+              // The spec titles the container; the activity-item label is the
+              // fallback (§spec:view-container-title). A container the activity
+              // bar never lists (a secondary's) has an empty [activeLabel], so
+              // its spec title is the only title source.
+              (spec.title ?? activeLabel).toUpperCase(),
               style: theme.sidebarOrPanelHeading,
               overflow: TextOverflow.ellipsis,
             ),
