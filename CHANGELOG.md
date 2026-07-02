@@ -1,3 +1,10 @@
+# [0.27.0](https://github.com/repentsinner/workbench_shell/compare/v0.26.0...v0.27.0) (2026-07-02)
+
+
+### Features
+
+* **view-container:** source the composite title from the spec ([4180181](https://github.com/repentsinner/workbench_shell/commit/418018108bf201eefe923eb8c8d3b5823e427389))
+
 # [0.26.0](https://github.com/repentsinner/workbench_shell/compare/v0.25.0...v0.26.0) (2026-07-02)
 
 
