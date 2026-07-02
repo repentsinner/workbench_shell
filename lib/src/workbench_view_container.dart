@@ -436,11 +436,12 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
     if (widget.order != null) {
       ids = widget.order!;
     } else {
-      _order ??= [for (final view in widget.views) view.id];
-      _order!.removeWhere((id) => !byId.containsKey(id));
-      for (final view in widget.views) {
-        if (!_order!.contains(view.id)) _order!.add(view.id);
-      }
+      // The shell owns the order: reconcile the seeded/permuted list against the
+      // live descriptors through the shared rule (§spec:layout-state-persistence).
+      _order = WorkbenchLayoutState.reconcileOrder(
+        _order ?? [for (final view in widget.views) view.id],
+        [for (final view in widget.views) view.id],
+      );
       ids = _order!;
     }
     final ordered = <WorkbenchViewDescriptor>[];

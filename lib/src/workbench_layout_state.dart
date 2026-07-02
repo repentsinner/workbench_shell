@@ -146,17 +146,10 @@ class WorkbenchLayoutState {
         ...?sizes[containerId]?.keys,
       };
 
-      // Order: persisted ids still declared, in persisted sequence, then new
-      // views appended in descriptor order (mirrors WorkbenchViewContainer's
-      // own reconcile in _orderedViews).
-      final resolvedOrder = <String>[
-        for (final id in order[containerId] ?? const <String>[])
-          if (byId.containsKey(id)) id,
-      ];
-      for (final v in views) {
-        if (!resolvedOrder.contains(v.id)) resolvedOrder.add(v.id);
-      }
-      newOrder[containerId] = resolvedOrder;
+      newOrder[containerId] = reconcileOrder(
+        order[containerId] ?? const <String>[],
+        [for (final v in views) v.id],
+      );
 
       // Sizes: keep entries for live views, clamped to the pane's geometry.
       final persistedSizes = sizes[containerId] ?? const <String, double>{};
@@ -206,13 +199,30 @@ class WorkbenchLayoutState {
     );
   }
 
+  /// Reconcile a [persisted] pane order against the [liveIds] currently
+  /// declared: keep persisted ids still live, in persisted sequence, then
+  /// append newly declared ids in live order. The drop/append rule
+  /// (§spec:view-stack) has one owner — [reconcile] resolves the persisted blob
+  /// with it, and `WorkbenchViewContainer` applies it to its live order at build.
+  static List<String> reconcileOrder(
+    Iterable<String> persisted,
+    Iterable<String> liveIds,
+  ) {
+    final live = liveIds.toList();
+    final liveSet = live.toSet();
+    final result = [for (final id in persisted) if (liveSet.contains(id)) id];
+    final seen = result.toSet();
+    for (final id in live) {
+      if (seen.add(id)) result.add(id);
+    }
+    return result;
+  }
+
   /// Splice a reorder expressed in *visible-pane* indices back into the full
   /// [fullOrder] that still includes hidden panes (§spec:view-container-title).
   /// A header drag reports indices among the visible panes; this maps the drag
   /// from index [fromVisible] to [toVisible] onto the full order without
-  /// disturbing hidden views' slots. The shell owns this rule because a host
-  /// with a controlled `order` cannot translate visible indices to full-order
-  /// positions without duplicating the visible-versus-hidden model.
+  /// disturbing hidden views' slots.
   static List<String> applyReorder(
     List<String> fullOrder,
     Set<String> hidden,
