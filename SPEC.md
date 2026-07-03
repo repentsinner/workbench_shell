@@ -1700,7 +1700,13 @@ the tabs functional. Each container opened in the secondary is retained
 per §spec:view-container-state, so switching tabs preserves pane state.
 A single-member bar still shows its one tab, matching canon's default
 presentation. The active container's `titleActions` and `⋯` overflow
-(§spec:view-container-title) sit right of the tabs, unchanged.
+(§spec:view-container-title) sit right of the tabs, unchanged. A
+container id occupies exactly one location: membership ids shall be
+disjoint from the activity-bar container ids, as in VS Code, where a
+view container holds a single `ViewContainerLocation`. A shared id
+would render one container in both bars and cross-contaminate its
+container-keyed retained state (§spec:layout-state-persistence), so
+the shell rejects it rather than rendering twice.
 
 **Why tabs in the title row, not a second activity bar.** VS Code's
 secondary side bar (`AuxiliaryBarPart`) has no activity bar; it embeds
