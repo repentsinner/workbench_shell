@@ -9,7 +9,7 @@ import 'workbench_theme.dart';
 /// Structural primitives for sidebars and bottom panels.
 ///
 /// `workbench_shell` deliberately scopes this surface to structural
-/// grouping (sections, empty states).
+/// grouping (sections, welcome content).
 /// Form controls — text fields, dropdowns, toggles, action buttons —
 /// live in the host application as application helpers. See SPEC
 /// §spec:form-controls-excluded for rationale and the re-promotion gate.
@@ -438,51 +438,55 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
   }
 }
 
-/// Centered icon + title + subtitle + optional action.
-class WorkbenchEmptyState extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-  final Widget? action;
+/// Canonical empty-view content — the port of VS Code's view-welcome
+/// surface (the `viewsWelcome` contribution): stacked paragraphs and
+/// full-width buttons in a column, buttons capped at
+/// [WorkbenchLayoutConstants.viewWelcomeButtonMaxWidth] and centered.
+/// Replaces the former icon-hero empty state, which had no canon
+/// counterpart (§spec:structural-primitives).
+class WorkbenchViewWelcome extends StatelessWidget {
+  final List<String> paragraphs;
 
-  const WorkbenchEmptyState({
+  /// Host-supplied buttons (§spec:form-controls-excluded keeps the
+  /// control itself in the host); the shell owns the full-width,
+  /// max-width-capped placement.
+  final List<Widget> buttons;
+
+  const WorkbenchViewWelcome({
     super.key,
-    required this.icon,
-    required this.title,
-    this.subtitle,
-    this.action,
+    required this.paragraphs,
+    this.buttons = const [],
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingLg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: WorkbenchLayoutConstants.iconXxl,
-              color: theme.descriptionForeground,
-            ),
-            const SizedBox(height: WorkbenchLayoutConstants.spacingMd),
-            Text(title, style: theme.sectionTitle, textAlign: TextAlign.center),
-            if (subtitle != null) ...[
-              const SizedBox(height: WorkbenchLayoutConstants.spacingXs),
-              Text(
-                subtitle!,
-                style: theme.helperStyle,
-                textAlign: TextAlign.center,
-              ),
-            ],
-            if (action != null) ...[
-              const SizedBox(height: WorkbenchLayoutConstants.spacingMd),
-              action!,
-            ],
+    return Padding(
+      padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingLg),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Paragraphs are full-width, default-aligned text — VS Code renders
+          // viewsWelcome content as stacked <p> elements, not centered text.
+          for (final (i, paragraph) in paragraphs.indexed) ...[
+            if (i > 0) const SizedBox(height: WorkbenchLayoutConstants.spacingSm),
+            Text(paragraph, style: theme.bodyText),
           ],
-        ),
+          // Each button stretches full width but caps at the canon 300px and
+          // centers when the pane is wider (VS Code's welcome-view button).
+          for (final button in buttons) ...[
+            const SizedBox(height: WorkbenchLayoutConstants.spacingMd),
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: WorkbenchLayoutConstants.viewWelcomeButtonMaxWidth,
+                ),
+                child: SizedBox(width: double.infinity, child: button),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

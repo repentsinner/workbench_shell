@@ -834,22 +834,80 @@ void main() {
     });
   });
 
-  group('WorkbenchEmptyState', () {
-    testWidgets('renders icon, title, subtitle, and action', (tester) async {
+  group('WorkbenchViewWelcome', () {
+    testWidgets('renders all paragraphs and buttons', (tester) async {
       await tester.pumpWidget(
         wrapWithTheme(
-          WorkbenchEmptyState(
-            icon: Symbols.inbox_rounded,
-            title: 'Nothing here',
-            subtitle: 'Try adding one',
-            action: OutlinedButton(onPressed: () {}, child: const Text('Add')),
+          WorkbenchViewWelcome(
+            paragraphs: const ['First paragraph.', 'Second paragraph.'],
+            buttons: [
+              FilledButton(onPressed: () {}, child: const Text('Do It')),
+              FilledButton(onPressed: () {}, child: const Text('Or This')),
+            ],
           ),
         ),
       );
-      expect(find.byIcon(Symbols.inbox_rounded), findsOneWidget);
-      expect(find.text('Nothing here'), findsOneWidget);
-      expect(find.text('Try adding one'), findsOneWidget);
-      expect(find.text('Add'), findsOneWidget);
+      expect(find.text('First paragraph.'), findsOneWidget);
+      expect(find.text('Second paragraph.'), findsOneWidget);
+      expect(find.text('Do It'), findsOneWidget);
+      expect(find.text('Or This'), findsOneWidget);
+    });
+
+    testWidgets('caps button width at viewWelcomeButtonMaxWidth when the '
+        'parent is wider', (tester) async {
+      const buttonKey = Key('welcome-button');
+      await tester.pumpWidget(
+        wrapWithTheme(
+          SizedBox(
+            width: 600,
+            child: WorkbenchViewWelcome(
+              paragraphs: const ['A paragraph.'],
+              buttons: [
+                FilledButton(
+                  key: buttonKey,
+                  onPressed: () {},
+                  child: const Text('Wide'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      expect(
+        tester.getSize(find.byKey(buttonKey)).width,
+        WorkbenchLayoutConstants.viewWelcomeButtonMaxWidth,
+      );
+    });
+
+    testWidgets('stretches a button to full width when the parent is '
+        'narrower than the cap', (tester) async {
+      const buttonKey = Key('welcome-button');
+      const paneWidth = 200.0;
+      await tester.pumpWidget(
+        wrapWithTheme(
+          Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: paneWidth,
+              child: WorkbenchViewWelcome(
+                paragraphs: const ['A paragraph.'],
+                buttons: [
+                  FilledButton(
+                    key: buttonKey,
+                    onPressed: () {},
+                    child: const Text('Narrow'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      // Full available width = pane width minus the outer padding.
+      expect(
+        tester.getSize(find.byKey(buttonKey)).width,
+        paneWidth - 2 * WorkbenchLayoutConstants.spacingLg,
+      );
     });
   });
 }

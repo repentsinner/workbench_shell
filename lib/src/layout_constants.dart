@@ -167,6 +167,12 @@ class WorkbenchLayoutConstants {
   /// vertical component is zero.
   static const EdgeInsets buttonPadding = EdgeInsets.symmetric(horizontal: 14);
 
+  /// 300px — welcome-view button width cap (§spec:structural-primitives).
+  /// VS Code's `welcomeView.css` caps `.monaco-button` at `max-width: 300px`;
+  /// a welcome button stretches full width in a narrow pane and centers at
+  /// this cap in a wider one.
+  static const double viewWelcomeButtonMaxWidth = 300.0;
+
   // ==================== NOTIFICATION CENTER (§spec:notification-center) ====================
 
   /// 4px — notification card border radius. Same scale as

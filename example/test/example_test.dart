@@ -66,12 +66,13 @@ void main() {
     await tester.pumpAndSettle();
 
     // Search content lives in a named "Results" view pane (header
-    // uppercased per canon), not a raw merged body.
+    // uppercased per canon), not a raw merged body. Its body is welcome
+    // content — paragraphs plus a host-supplied button
+    // (§spec:structural-primitives).
     expect(find.text('RESULTS'), findsOneWidget);
-    expect(
-      find.text('Search sidebar — host-supplied content lands here.'),
-      findsOneWidget,
-    );
+    expect(find.text('You have not yet opened a folder.'), findsOneWidget);
+    expect(find.text('Search across files in your workspace.'), findsOneWidget);
+    expect(find.text('Open Folder'), findsOneWidget);
     // Explorer's collapsible panes are gone once Search is active.
     expect(find.text('WORKBENCH_SHELL'), findsNothing);
   });
