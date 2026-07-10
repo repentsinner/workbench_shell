@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:workbench_shell/src/workbench_sash.dart';
@@ -61,8 +62,9 @@ Widget _buildApp({
   WorkbenchPanelAlignment? panelAlignment,
   ValueChanged<WorkbenchPanelAlignment>? onPanelAlignmentChanged,
   WorkbenchViewContainerSpec Function(String)? containerBuilder,
-  String? secondaryViewContainerId,
-  ValueChanged<String>? onSecondaryViewContainerChanged,
+  List<String>? secondaryViewContainerIds,
+  String? secondaryActiveViewContainerId,
+  ValueChanged<String>? onSecondaryActiveViewContainerChanged,
   bool? secondarySideBarVisible,
   ValueChanged<bool>? onSecondarySideBarVisibilityChanged,
   double? initialSecondarySideBarWidth,
@@ -85,8 +87,10 @@ Widget _buildApp({
       onSidebarPositionChanged: onSidebarPositionChanged,
       panelAlignment: panelAlignment,
       onPanelAlignmentChanged: onPanelAlignmentChanged,
-      secondaryViewContainerId: secondaryViewContainerId,
-      onSecondaryViewContainerChanged: onSecondaryViewContainerChanged,
+      secondaryViewContainerIds: secondaryViewContainerIds ?? const [],
+      secondaryActiveViewContainerId: secondaryActiveViewContainerId,
+      onSecondaryActiveViewContainerChanged:
+          onSecondaryActiveViewContainerChanged,
       secondarySideBarVisible: secondarySideBarVisible,
       onSecondarySideBarVisibilityChanged: onSecondarySideBarVisibilityChanged,
       initialSecondarySideBarWidth: initialSecondarySideBarWidth,
@@ -98,9 +102,10 @@ Widget _buildApp({
 /// The horizontal sash resizes the sidebar width; the vertical sash resizes the
 /// panel height. Each seam's live dimension is the sash's [value]
 /// (§spec:workbench-layout).
-WorkbenchSash _sash(WidgetTester tester, Axis axis) => tester.widget<WorkbenchSash>(
-  find.byWidgetPredicate((w) => w is WorkbenchSash && w.axis == axis),
-);
+WorkbenchSash _sash(WidgetTester tester, Axis axis) =>
+    tester.widget<WorkbenchSash>(
+      find.byWidgetPredicate((w) => w is WorkbenchSash && w.axis == axis),
+    );
 
 Finder _sashFinder(Axis axis) =>
     find.byWidgetPredicate((w) => w is WorkbenchSash && w.axis == axis);
@@ -349,45 +354,46 @@ void main() {
     // §spec:view-stack: the sidebar body is a typed view container built from
     // descriptors, not a host widget. The activity bar selects a container;
     // the shell renders its descriptor stack.
-    testWidgets('renders a multi-view container as a stacked WorkbenchViewContainer', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
-          home: WorkbenchLayout(
-            activityBarItems: _testItems,
-            editor: const Center(child: Text('Editor')),
-            containerBuilder: (id) => id == 'explorer'
-                ? WorkbenchViewContainerSpec(
-                    views: [
-                      WorkbenchViewDescriptor(
-                        id: 'open-editors',
-                        title: 'Open Editors',
-                        bodyBuilder: (_) => const Text('editors-body'),
-                      ),
-                      WorkbenchViewDescriptor(
-                        id: 'outline',
-                        title: 'Outline',
-                        bodyBuilder: (_) => const Text('outline-body'),
-                      ),
-                    ],
-                  )
-                : _sidebarSpec(id),
-            bottomPanel: const Center(child: Text('Panel')),
-            statusBar: const SizedBox(height: 22, child: Text('Status')),
+    testWidgets(
+      'renders a multi-view container as a stacked WorkbenchViewContainer',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+            home: WorkbenchLayout(
+              activityBarItems: _testItems,
+              editor: const Center(child: Text('Editor')),
+              containerBuilder: (id) => id == 'explorer'
+                  ? WorkbenchViewContainerSpec(
+                      views: [
+                        WorkbenchViewDescriptor(
+                          id: 'open-editors',
+                          title: 'Open Editors',
+                          bodyBuilder: (_) => const Text('editors-body'),
+                        ),
+                        WorkbenchViewDescriptor(
+                          id: 'outline',
+                          title: 'Outline',
+                          bodyBuilder: (_) => const Text('outline-body'),
+                        ),
+                      ],
+                    )
+                  : _sidebarSpec(id),
+              bottomPanel: const Center(child: Text('Panel')),
+              statusBar: const SizedBox(height: 22, child: Text('Status')),
+            ),
           ),
-        ),
-      );
+        );
 
-      // The container renders one WorkbenchViewContainer from the descriptors.
-      expect(find.byType(WorkbenchViewContainer), findsOneWidget);
-      // Two views → two collapsible panes, each header uppercased.
-      expect(find.text('OPEN EDITORS'), findsOneWidget);
-      expect(find.text('OUTLINE'), findsOneWidget);
-      expect(find.byIcon(Symbols.expand_more_rounded), findsNWidgets(2));
-      expect(find.text('editors-body'), findsOneWidget);
-    });
+        // The container renders one WorkbenchViewContainer from the descriptors.
+        expect(find.byType(WorkbenchViewContainer), findsOneWidget);
+        // Two views → two collapsible panes, each header uppercased.
+        expect(find.text('OPEN EDITORS'), findsOneWidget);
+        expect(find.text('OUTLINE'), findsOneWidget);
+        expect(find.byIcon(Symbols.expand_more_rounded), findsNWidgets(2));
+        expect(find.text('editors-body'), findsOneWidget);
+      },
+    );
 
     testWidgets('empty views list renders an empty container gracefully', (
       tester,
@@ -967,20 +973,23 @@ void main() {
       expect(find.text('Status'), findsOneWidget);
     });
 
-    testWidgets('asserts onStatusBarVisibilityChanged is required in controlled '
-        'mode', (tester) async {
-      expect(
-        () => WorkbenchLayout(
-          activityBarItems: _testItems,
-          editor: const SizedBox(),
-          containerBuilder: _sidebarSpec,
-          bottomPanel: const SizedBox(),
-          statusBar: const SizedBox(),
-          statusBarVisible: true,
-        ),
-        throwsAssertionError,
-      );
-    });
+    testWidgets(
+      'asserts onStatusBarVisibilityChanged is required in controlled '
+      'mode',
+      (tester) async {
+        expect(
+          () => WorkbenchLayout(
+            activityBarItems: _testItems,
+            editor: const SizedBox(),
+            containerBuilder: _sidebarSpec,
+            bottomPanel: const SizedBox(),
+            statusBar: const SizedBox(),
+            statusBarVisible: true,
+          ),
+          throwsAssertionError,
+        );
+      },
+    );
   });
 
   group('Centered layout (§spec:editing-modes)', () {
@@ -1029,8 +1038,7 @@ void main() {
 
       // Narrowed to the golden-ratio fraction (~0.618 of the column), not a
       // fixed cap.
-      final ratio =
-          1 - 2 * WorkbenchLayoutConstants.centeredLayoutMarginRatio;
+      final ratio = 1 - 2 * WorkbenchLayoutConstants.centeredLayoutMarginRatio;
       expect(on.width / off.width, closeTo(ratio, 0.05));
 
       // Centered: the freed width splits ~evenly into left and right margins.
@@ -1270,71 +1278,75 @@ void main() {
       expect(_sash(tester, Axis.horizontal).growSign, -1);
     });
 
-    testWidgets('right: the side bar sash drags from the right edge and commits '
-        'once on release', (tester) async {
-      final ends = <double>[];
-      await tester.pumpWidget(
-        _buildApp(
-          sidebarPosition: WorkbenchSidebarPosition.right,
-          onSidebarPositionChanged: (_) {},
-          onSidebarWidthChangeEnd: ends.add,
-        ),
-      );
-
-      final before = _sash(tester, Axis.horizontal).value;
-      final gesture = await tester.startGesture(
-        tester.getCenter(_sashFinder(Axis.horizontal)),
-      );
-
-      // Drag left grows the bar (growSign -1); nothing commits mid-drag.
-      await gesture.moveBy(const Offset(-50, 0));
-      await tester.pump();
-      expect(_sash(tester, Axis.horizontal).value, greaterThan(before));
-      expect(ends, isEmpty);
-
-      await gesture.up();
-      await tester.pump();
-      expect(ends, hasLength(1));
-      expect(ends.single, _sash(tester, Axis.horizontal).value);
-    });
-
-    testWidgets('controlled: host drives sidebarPosition; the bar moves edges', (
-      tester,
-    ) async {
-      var position = WorkbenchSidebarPosition.left;
-      late StateSetter setOuter;
-
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
-          home: StatefulBuilder(
-            builder: (context, setState) {
-              setOuter = setState;
-              return WorkbenchLayout(
-                activityBarItems: _testItems,
-                editor: const Center(child: Text('Editor')),
-                containerBuilder: _sidebarSpec,
-                bottomPanel: const Center(child: Text('Panel')),
-                statusBar: const SizedBox(height: 22, child: Text('Status')),
-                sidebarPosition: position,
-                onSidebarPositionChanged: (next) =>
-                    setState(() => position = next),
-              );
-            },
+    testWidgets(
+      'right: the side bar sash drags from the right edge and commits '
+      'once on release',
+      (tester) async {
+        final ends = <double>[];
+        await tester.pumpWidget(
+          _buildApp(
+            sidebarPosition: WorkbenchSidebarPosition.right,
+            onSidebarPositionChanged: (_) {},
+            onSidebarWidthChangeEnd: ends.add,
           ),
-        ),
-      );
+        );
 
-      // Left: activity bar near the window's left edge.
-      final leftIcon = tester.getRect(find.byIcon(Symbols.folder_rounded));
+        final before = _sash(tester, Axis.horizontal).value;
+        final gesture = await tester.startGesture(
+          tester.getCenter(_sashFinder(Axis.horizontal)),
+        );
 
-      // Host flips to the right → the bar moves to the right edge.
-      setOuter(() => position = WorkbenchSidebarPosition.right);
-      await tester.pumpAndSettle();
-      final rightIcon = tester.getRect(find.byIcon(Symbols.folder_rounded));
-      expect(rightIcon.left, greaterThan(leftIcon.left + 400));
-      expect(_sash(tester, Axis.horizontal).growSign, -1);
-    });
+        // Drag left grows the bar (growSign -1); nothing commits mid-drag.
+        await gesture.moveBy(const Offset(-50, 0));
+        await tester.pump();
+        expect(_sash(tester, Axis.horizontal).value, greaterThan(before));
+        expect(ends, isEmpty);
+
+        await gesture.up();
+        await tester.pump();
+        expect(ends, hasLength(1));
+        expect(ends.single, _sash(tester, Axis.horizontal).value);
+      },
+    );
+
+    testWidgets(
+      'controlled: host drives sidebarPosition; the bar moves edges',
+      (tester) async {
+        var position = WorkbenchSidebarPosition.left;
+        late StateSetter setOuter;
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+            home: StatefulBuilder(
+              builder: (context, setState) {
+                setOuter = setState;
+                return WorkbenchLayout(
+                  activityBarItems: _testItems,
+                  editor: const Center(child: Text('Editor')),
+                  containerBuilder: _sidebarSpec,
+                  bottomPanel: const Center(child: Text('Panel')),
+                  statusBar: const SizedBox(height: 22, child: Text('Status')),
+                  sidebarPosition: position,
+                  onSidebarPositionChanged: (next) =>
+                      setState(() => position = next),
+                );
+              },
+            ),
+          ),
+        );
+
+        // Left: activity bar near the window's left edge.
+        final leftIcon = tester.getRect(find.byIcon(Symbols.folder_rounded));
+
+        // Host flips to the right → the bar moves to the right edge.
+        setOuter(() => position = WorkbenchSidebarPosition.right);
+        await tester.pumpAndSettle();
+        final rightIcon = tester.getRect(find.byIcon(Symbols.folder_rounded));
+        expect(rightIcon.left, greaterThan(leftIcon.left + 400));
+        expect(_sash(tester, Axis.horizontal).growSign, -1);
+      },
+    );
 
     testWidgets('asserts onSidebarPositionChanged is required in controlled '
         'mode', (tester) async {
@@ -1355,17 +1367,39 @@ void main() {
   group('Secondary Side Bar (§spec:secondary-sidebar)', () {
     // The secondary side bar reuses _sidebarSpec: the primary shows
     // 'Sidebar: explorer' (the default active container) and the secondary
-    // shows 'Sidebar: search', so the two bars carry distinct, locatable text.
+    // shows 'Sidebar: aux'. Membership ids ('aux', 'outline', 'notes') are
+    // disjoint from the activity-bar ids — a container id occupies exactly
+    // one location.
     Finder secondarySash() => find.byWidgetPredicate(
-      (w) => w is WorkbenchSash && w.axis == Axis.horizontal && w.growSign == -1,
+      (w) =>
+          w is WorkbenchSash && w.axis == Axis.horizontal && w.growSign == -1,
     );
+
+    // Two titled members: the tab labels come from spec.title
+    // (§spec:view-container-title) — no activity item names them.
+    WorkbenchViewContainerSpec titledSpec(String id) {
+      final title = switch (id) {
+        'outline' => 'Outline',
+        'notes' => 'Notes',
+        _ => null,
+      };
+      return WorkbenchViewContainerSpec(
+        title: title,
+        views: [
+          WorkbenchViewDescriptor(
+            id: '$id-view',
+            title: '$id view',
+            bodyBuilder: (_) => Text('body-$id'),
+          ),
+        ],
+      );
+    }
 
     testWidgets('hidden by default: the secondary container is never built '
         '(lazy)', (tester) async {
       await tester.pumpWidget(
         _buildApp(
-          secondaryViewContainerId: 'search',
-          onSecondaryViewContainerChanged: (_) {},
+          secondaryViewContainerIds: const ['aux'],
           secondarySideBarVisible: false,
           onSecondarySideBarVisibilityChanged: (_) {},
         ),
@@ -1373,30 +1407,31 @@ void main() {
 
       // Hidden secondary: its body builder never runs (mirrors the primary's
       // lazy retention — an un-opened container contributes no child).
-      expect(find.text('Sidebar: search'), findsNothing);
+      expect(find.text('Sidebar: aux'), findsNothing);
       expect(find.text('Sidebar: explorer'), findsOneWidget);
     });
 
-    testWidgets('visible: the secondary sits on the edge opposite the primary',
-        (tester) async {
-      await tester.pumpWidget(
-        _buildApp(
-          secondaryViewContainerId: 'search',
-          onSecondaryViewContainerChanged: (_) {},
-          secondarySideBarVisible: true,
-          onSecondarySideBarVisibilityChanged: (_) {},
-        ),
-      );
+    testWidgets(
+      'visible: the secondary sits on the edge opposite the primary',
+      (tester) async {
+        await tester.pumpWidget(
+          _buildApp(
+            secondaryViewContainerIds: const ['aux'],
+            secondarySideBarVisible: true,
+            onSecondarySideBarVisibilityChanged: (_) {},
+          ),
+        );
 
-      // Primary on the left (default) → secondary on the right of the editor.
-      final editor = tester.getRect(find.text('Editor'));
-      final primary = tester.getRect(find.text('Sidebar: explorer'));
-      final secondary = tester.getRect(find.text('Sidebar: search'));
-      expect(primary.center.dx, lessThan(editor.center.dx));
-      expect(secondary.center.dx, greaterThan(editor.center.dx));
-      // Its own sash grows leftward (toward the editor) from the right edge.
-      expect(secondarySash(), findsOneWidget);
-    });
+        // Primary on the left (default) → secondary on the right of the editor.
+        final editor = tester.getRect(find.text('Editor'));
+        final primary = tester.getRect(find.text('Sidebar: explorer'));
+        final secondary = tester.getRect(find.text('Sidebar: aux'));
+        expect(primary.center.dx, lessThan(editor.center.dx));
+        expect(secondary.center.dx, greaterThan(editor.center.dx));
+        // Its own sash grows leftward (toward the editor) from the right edge.
+        expect(secondarySash(), findsOneWidget);
+      },
+    );
 
     testWidgets('follows the primary: swapping the primary to the right moves '
         'the secondary to the now-free left edge', (tester) async {
@@ -1404,8 +1439,7 @@ void main() {
         _buildApp(
           sidebarPosition: WorkbenchSidebarPosition.right,
           onSidebarPositionChanged: (_) {},
-          secondaryViewContainerId: 'search',
-          onSecondaryViewContainerChanged: (_) {},
+          secondaryViewContainerIds: const ['aux'],
           secondarySideBarVisible: true,
           onSecondarySideBarVisibilityChanged: (_) {},
         ),
@@ -1414,18 +1448,18 @@ void main() {
       // Primary on the right → secondary on the left of the editor.
       final editor = tester.getRect(find.text('Editor'));
       final primary = tester.getRect(find.text('Sidebar: explorer'));
-      final secondary = tester.getRect(find.text('Sidebar: search'));
+      final secondary = tester.getRect(find.text('Sidebar: aux'));
       expect(primary.center.dx, greaterThan(editor.center.dx));
       expect(secondary.center.dx, lessThan(editor.center.dx));
     });
 
-    testWidgets('its sash commits the secondary width once on release',
-        (tester) async {
+    testWidgets('its sash commits the secondary width once on release', (
+      tester,
+    ) async {
       final ends = <double>[];
       await tester.pumpWidget(
         _buildApp(
-          secondaryViewContainerId: 'search',
-          onSecondaryViewContainerChanged: (_) {},
+          secondaryViewContainerIds: const ['aux'],
           secondarySideBarVisible: true,
           onSecondarySideBarVisibilityChanged: (_) {},
           onSecondarySideBarWidthChangeEnd: ends.add,
@@ -1440,8 +1474,10 @@ void main() {
       // commits mid-drag.
       await gesture.moveBy(const Offset(-40, 0));
       await tester.pump();
-      expect(tester.widget<WorkbenchSash>(secondarySash()).value,
-          greaterThan(before));
+      expect(
+        tester.widget<WorkbenchSash>(secondarySash()).value,
+        greaterThan(before),
+      );
       expect(ends, isEmpty);
 
       await gesture.up();
@@ -1476,30 +1512,277 @@ void main() {
         containerBuilder: twoPaneSpec,
         sidebarPosition: position,
         onSidebarPositionChanged: (_) {},
-        secondaryViewContainerId: 'search',
-        onSecondaryViewContainerChanged: (_) {},
+        secondaryViewContainerIds: const ['aux'],
         secondarySideBarVisible: true,
         onSecondarySideBarVisibilityChanged: (_) {},
       );
 
       await tester.pumpWidget(app(WorkbenchSidebarPosition.left));
 
-      // Collapse the secondary's first pane (SEARCH ALPHA).
-      await tester.tap(find.text('SEARCH ALPHA'));
+      // Collapse the secondary's first pane (AUX ALPHA).
+      await tester.tap(find.text('AUX ALPHA'));
       await tester.pumpAndSettle();
-      expect(find.text('search-body-a'), findsNothing);
-      expect(find.text('search-body-b'), findsOneWidget);
+      expect(find.text('aux-body-a'), findsNothing);
+      expect(find.text('aux-body-b'), findsOneWidget);
 
       // Move the primary to the right edge: the secondary travels to the left.
       await tester.pumpWidget(app(WorkbenchSidebarPosition.right));
       await tester.pumpAndSettle();
 
       // The collapse survived the move — the secondary relocated, not rebuilt.
-      expect(find.text('search-body-a'), findsNothing);
-      expect(find.text('search-body-b'), findsOneWidget);
+      expect(find.text('aux-body-a'), findsNothing);
+      expect(find.text('aux-body-b'), findsOneWidget);
     });
 
-    testWidgets('asserts onSecondaryViewContainerChanged is required in '
+    testWidgets('title row renders one tab per member; the first member is '
+        'active by default and the other stays unbuilt (lazy)', (tester) async {
+      await tester.pumpWidget(
+        _buildApp(
+          containerBuilder: titledSpec,
+          secondaryViewContainerIds: const ['outline', 'notes'],
+          secondarySideBarVisible: true,
+          onSecondarySideBarVisibilityChanged: (_) {},
+        ),
+      );
+
+      // Both members render as uppercase tab labels — not a single composite
+      // title naming only the active container.
+      expect(find.text('OUTLINE'), findsOneWidget);
+      expect(find.text('NOTES'), findsOneWidget);
+      // First member active by default; the second's body never builds.
+      expect(find.text('body-outline'), findsOneWidget);
+      expect(find.text('body-notes'), findsNothing);
+    });
+
+    testWidgets('tapping the inactive tab switches the container and reports '
+        'the id (uncontrolled)', (tester) async {
+      final reported = <String>[];
+      await tester.pumpWidget(
+        _buildApp(
+          containerBuilder: titledSpec,
+          secondaryViewContainerIds: const ['outline', 'notes'],
+          onSecondaryActiveViewContainerChanged: reported.add,
+          secondarySideBarVisible: true,
+          onSecondarySideBarVisibilityChanged: (_) {},
+        ),
+      );
+
+      await tester.tap(find.text('NOTES'));
+      await tester.pumpAndSettle();
+
+      // The shell originated the switch AND reported it (§spec:secondary-sidebar,
+      // the §spec:sidebar-visibility tap-seam pattern).
+      expect(find.text('body-notes'), findsOneWidget);
+      expect(find.text('body-outline'), findsNothing);
+      expect(reported, ['notes']);
+    });
+
+    testWidgets('controlled: a tab tap reports without self-switching until '
+        'the host updates the value', (tester) async {
+      final reported = <String>[];
+      var active = 'outline';
+      late StateSetter setOuter;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              setOuter = setState;
+              return WorkbenchLayout(
+                activityBarItems: _testItems,
+                editor: const Center(child: Text('Editor')),
+                containerBuilder: titledSpec,
+                bottomPanel: const Center(child: Text('Panel')),
+                statusBar: const SizedBox(height: 22, child: Text('Status')),
+                secondaryViewContainerIds: const ['outline', 'notes'],
+                secondaryActiveViewContainerId: active,
+                onSecondaryActiveViewContainerChanged: reported.add,
+                secondarySideBarVisible: true,
+                onSecondarySideBarVisibilityChanged: (_) {},
+              );
+            },
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('NOTES'));
+      await tester.pumpAndSettle();
+
+      // Reported but not self-switched — the host owns the value.
+      expect(reported, ['notes']);
+      expect(find.text('body-outline'), findsOneWidget);
+      expect(find.text('body-notes'), findsNothing);
+
+      // The host honors the report; the shell renders the new active member.
+      setOuter(() => active = 'notes');
+      await tester.pumpAndSettle();
+      expect(find.text('body-notes'), findsOneWidget);
+      expect(find.text('body-outline'), findsNothing);
+    });
+
+    testWidgets('RETENTION across tab switches: a pane collapse in one member '
+        'survives switching away and back', (tester) async {
+      // Each opened member is retained (§spec:view-container-state), so
+      // switching tabs preserves pane order, expansion, and sash sizes.
+      WorkbenchViewContainerSpec twoPaneTitledSpec(String id) =>
+          WorkbenchViewContainerSpec(
+            // Title only the members: the primary containers keep their
+            // activity-item labels, so no tab label collides with them.
+            title: switch (id) {
+              'outline' => 'Outline',
+              'notes' => 'Notes',
+              _ => null,
+            },
+            views: [
+              WorkbenchViewDescriptor(
+                id: '$id-a',
+                title: '$id Alpha',
+                bodyBuilder: (_) => Text('$id-body-a'),
+              ),
+              WorkbenchViewDescriptor(
+                id: '$id-b',
+                title: '$id Beta',
+                bodyBuilder: (_) => Text('$id-body-b'),
+              ),
+            ],
+          );
+
+      await tester.pumpWidget(
+        _buildApp(
+          containerBuilder: twoPaneTitledSpec,
+          secondaryViewContainerIds: const ['outline', 'notes'],
+          secondarySideBarVisible: true,
+          onSecondarySideBarVisibilityChanged: (_) {},
+        ),
+      );
+
+      // Collapse the first pane of the active member (outline).
+      await tester.tap(find.text('OUTLINE ALPHA'));
+      await tester.pumpAndSettle();
+      expect(find.text('outline-body-a'), findsNothing);
+      expect(find.text('outline-body-b'), findsOneWidget);
+
+      // Switch to notes, then back to outline.
+      await tester.tap(find.text('NOTES'));
+      await tester.pumpAndSettle();
+      expect(find.text('notes-body-a'), findsOneWidget);
+      await tester.tap(find.text('OUTLINE'));
+      await tester.pumpAndSettle();
+
+      // The collapse survived the round trip.
+      expect(find.text('outline-body-a'), findsNothing);
+      expect(find.text('outline-body-b'), findsOneWidget);
+    });
+
+    testWidgets('a single-member bar still shows its one tab', (tester) async {
+      await tester.pumpWidget(
+        _buildApp(
+          containerBuilder: titledSpec,
+          secondaryViewContainerIds: const ['outline'],
+          secondarySideBarVisible: true,
+          onSecondarySideBarVisibilityChanged: (_) {},
+        ),
+      );
+
+      // Canon's default presentation: one member, one tab.
+      expect(find.text('OUTLINE'), findsOneWidget);
+      expect(find.text('body-outline'), findsOneWidget);
+    });
+
+    testWidgets('the ⋯ overflow sits right of the tabs and lists the ACTIVE '
+        'member\'s Views toggles', (tester) async {
+      // Members carry hideable views; every other container is empty, so the
+      // secondary title row shows the only overflow button
+      // (§spec:view-container-title unchanged under the tab presentation).
+      WorkbenchViewContainerSpec memberOnlySpec(String id) =>
+          const ['outline', 'notes'].contains(id)
+          ? titledSpec(id)
+          : const WorkbenchViewContainerSpec(views: []);
+
+      await tester.pumpWidget(
+        _buildApp(
+          containerBuilder: memberOnlySpec,
+          secondaryViewContainerIds: const ['outline', 'notes'],
+          secondarySideBarVisible: true,
+          onSecondarySideBarVisibilityChanged: (_) {},
+        ),
+      );
+
+      // One overflow button (the secondary's), right of the tabs.
+      final overflow = find.byIcon(Symbols.more_horiz);
+      expect(overflow, findsOneWidget);
+      expect(
+        tester.getCenter(overflow).dx,
+        greaterThan(tester.getCenter(find.text('NOTES')).dx),
+      );
+
+      // It lists the active member's views only.
+      await tester.tap(overflow);
+      await tester.pumpAndSettle();
+      expect(find.text('outline view'), findsOneWidget);
+      expect(find.text('notes view'), findsNothing);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      // Switching tabs retargets the overflow to the new active member.
+      await tester.tap(find.text('NOTES'));
+      await tester.pumpAndSettle();
+      await tester.tap(overflow);
+      await tester.pumpAndSettle();
+      expect(find.text('notes view'), findsOneWidget);
+      expect(find.text('outline view'), findsNothing);
+    });
+
+    testWidgets('tabs shrink and ellipsize instead of overflowing a narrow '
+        'bar', (tester) async {
+      // Canon's tab-overflow dropdown is deferred (§spec:secondary-sidebar);
+      // until then, tabs under width pressure ellipsize rather than throwing
+      // a RenderFlex overflow.
+      WorkbenchViewContainerSpec longTitledSpec(String id) =>
+          WorkbenchViewContainerSpec(
+            title: 'An Exceedingly Long Member Title $id',
+            views: [
+              WorkbenchViewDescriptor(
+                id: '$id-view',
+                title: '$id view',
+                bodyBuilder: (_) => Text('body-$id'),
+              ),
+            ],
+          );
+
+      await tester.pumpWidget(
+        _buildApp(
+          containerBuilder: longTitledSpec,
+          secondaryViewContainerIds: const ['aux', 'aux2', 'aux3'],
+          initialSecondarySideBarWidth:
+              WorkbenchLayoutConstants.sidebarMinWidth,
+          secondarySideBarVisible: true,
+          onSecondarySideBarVisibilityChanged: (_) {},
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('asserts membership ids are disjoint from activity-bar '
+        'container ids', (tester) async {
+      // A container id occupies exactly one location — the shell rejects a
+      // shared id rather than rendering the container twice
+      // (§spec:secondary-sidebar).
+      expect(
+        () => WorkbenchLayout(
+          activityBarItems: _testItems,
+          editor: const SizedBox(),
+          containerBuilder: _sidebarSpec,
+          bottomPanel: const SizedBox(),
+          statusBar: const SizedBox(),
+          secondaryViewContainerIds: const ['search'],
+        ),
+        throwsAssertionError,
+      );
+    });
+
+    testWidgets('asserts onSecondaryActiveViewContainerChanged is required in '
         'controlled mode', (tester) async {
       expect(
         () => WorkbenchLayout(
@@ -1508,7 +1791,8 @@ void main() {
           containerBuilder: _sidebarSpec,
           bottomPanel: const SizedBox(),
           statusBar: const SizedBox(),
-          secondaryViewContainerId: 'search',
+          secondaryViewContainerIds: const ['aux'],
+          secondaryActiveViewContainerId: 'aux',
         ),
         throwsAssertionError,
       );
@@ -1571,8 +1855,7 @@ void main() {
         _buildApp(
           panelAlignment: WorkbenchPanelAlignment.left,
           onPanelAlignmentChanged: (_) {},
-          secondaryViewContainerId: 'search',
-          onSecondaryViewContainerChanged: (_) {},
+          secondaryViewContainerIds: const ['aux'],
           secondarySideBarVisible: true,
           onSecondarySideBarVisibilityChanged: (_) {},
         ),
@@ -1591,8 +1874,7 @@ void main() {
         _buildApp(
           panelAlignment: WorkbenchPanelAlignment.right,
           onPanelAlignmentChanged: (_) {},
-          secondaryViewContainerId: 'search',
-          onSecondaryViewContainerChanged: (_) {},
+          secondaryViewContainerIds: const ['aux'],
           secondarySideBarVisible: true,
           onSecondarySideBarVisibilityChanged: (_) {},
         ),
@@ -1795,40 +2077,40 @@ void main() {
     });
 
     testWidgets(
-      'a secondary container with no activity item renders a blank title '
-      'without spec.title',
+      'an untitled secondary member renders a blank tab — no activity item '
+      'exists to fall back to',
       (tester) async {
         await tester.pumpWidget(
           _buildApp(
             containerBuilder: builderTitling({}),
-            secondaryViewContainerId: 'notes',
-            onSecondaryViewContainerChanged: (_) {},
+            secondaryViewContainerIds: const ['notes'],
             secondarySideBarVisible: true,
             onSecondarySideBarVisibilityChanged: (_) {},
           ),
         );
 
-        // The secondary container is built (its body renders) but no title text
-        // names it — the activity bar never lists 'notes'.
+        // The member is built (its body renders) but no tab text names it —
+        // the activity bar never lists 'notes' and spec.title is null
+        // (§spec:secondary-sidebar).
         expect(find.text('body-notes-a'), findsOneWidget);
         expect(find.text('NOTES'), findsNothing);
       },
     );
 
     testWidgets(
-      'spec.title names a secondary container the activity bar never lists',
+      'spec.title labels a secondary member\'s tab — the activity bar never '
+      'lists it',
       (tester) async {
         await tester.pumpWidget(
           _buildApp(
             containerBuilder: builderTitling({'notes': 'Notes'}),
-            secondaryViewContainerId: 'notes',
-            onSecondaryViewContainerChanged: (_) {},
+            secondaryViewContainerIds: const ['notes'],
             secondarySideBarVisible: true,
             onSecondarySideBarVisibilityChanged: (_) {},
           ),
         );
 
-        expect(find.text('NOTES'), findsOneWidget); // secondary composite title
+        expect(find.text('NOTES'), findsOneWidget); // the member's tab label
         expect(find.text('EXPLORER'), findsOneWidget); // primary unchanged
       },
     );
@@ -1945,7 +2227,9 @@ void main() {
     testWidgets('overflow popup inlines the Views toggles when there are no '
         'host overflow entries', (tester) async {
       WorkbenchViewContainerSpec flatSpec(String id) {
-        if (id != 'explorer') return const WorkbenchViewContainerSpec(views: []);
+        if (id != 'explorer') {
+          return const WorkbenchViewContainerSpec(views: []);
+        }
         return WorkbenchViewContainerSpec(
           views: [
             WorkbenchViewDescriptor(
@@ -1983,7 +2267,9 @@ void main() {
     testWidgets('a view menuLabel overrides its Views-toggle text without '
         'changing the pane header', (tester) async {
       WorkbenchViewContainerSpec labelSpec(String id) {
-        if (id != 'explorer') return const WorkbenchViewContainerSpec(views: []);
+        if (id != 'explorer') {
+          return const WorkbenchViewContainerSpec(views: []);
+        }
         return WorkbenchViewContainerSpec(
           views: [
             WorkbenchViewDescriptor(

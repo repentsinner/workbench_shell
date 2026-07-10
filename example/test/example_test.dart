@@ -308,9 +308,7 @@ void main() {
         final box = tester.widget<DecoratedBox>(
           find.descendant(
             of: find.byKey(ValueKey('workbench-view-pane-$id')),
-            matching: find.byKey(
-              const ValueKey('view-pane-header-focus-ring'),
-            ),
+            matching: find.byKey(const ValueKey('view-pane-header-focus-ring')),
           ),
         );
         return ((box.decoration as BoxDecoration).border! as Border).top.color;
@@ -462,29 +460,32 @@ void main() {
   });
 
   // Secondary side bar (§spec:secondary-sidebar). The View menu dispatches
-  // ToggleSecondarySideBarIntent; the host owns visibility and assigns the
-  // "Search" container to the secondary, which renders on the editor's opposite
+  // ToggleSecondarySideBarIntent; the host owns visibility and names the
+  // ['outline', 'notes'] membership, which renders on the editor's opposite
   // edge from the primary and follows when the primary swaps sides.
-  testWidgets('Secondary Side Bar intent shows the assigned container on the '
+  testWidgets('Secondary Side Bar intent shows the membership tabs on the '
       'opposite edge and follows a primary swap', (tester) async {
     await tester.pumpWidget(const WorkbenchExampleApp());
     await tester.pumpAndSettle();
 
-    final secondaryBody = find.textContaining('WorkbenchViewContainerSpec.title');
-    // Hidden by default — the host assigns the 'secondary' container but the bar
-    // is off, so its container is never built (lazy retention).
+    final secondaryBody = find.textContaining(
+      'WorkbenchViewContainerSpec.title',
+    );
+    // Hidden by default — the host names the membership but the bar is off, so
+    // no member is ever built (lazy retention).
     expect(secondaryBody, findsNothing);
 
     final context = tester.element(find.byType(WorkbenchLayout));
     Actions.invoke(context, const ToggleSecondarySideBarIntent());
     await tester.pumpAndSettle();
 
-    // Primary on the left (default) → the secondary appears on the right of the
-    // editor.
+    // Primary on the left (default) → the secondary appears on the right of
+    // the editor, its first member (Outline) active by default.
     expect(secondaryBody, findsOneWidget);
-    // The container the activity bar never lists titles itself through
-    // WorkbenchViewContainerSpec.title (§spec:view-container-title).
-    expect(find.text('SECONDARY SIDE BAR'), findsOneWidget);
+    // Members the activity bar never lists label their title-row tabs through
+    // WorkbenchViewContainerSpec.title (§spec:view-container-title). NOTES is
+    // the inactive member's tab; its body stays unbuilt until tapped.
+    expect(find.text('NOTES'), findsOneWidget);
     final editor = tester.getRect(find.textContaining('Lorem ipsum'));
     expect(tester.getCenter(secondaryBody).dx, greaterThan(editor.center.dx));
 
@@ -584,36 +585,33 @@ void main() {
     expect(panelRect().left, closeTo(centerLeft, 2));
   });
 
-  testWidgets(
-    'seeded WorkbenchLayoutState restores the Explorer arrangement '
-    '(§spec:layout-state-persistence)',
-    (tester) async {
-      // Rehydrate a persisted arrangement that hides the Timeline pane and
-      // re-shows Open Editors (which is hidden by descriptor default). The
-      // example seeds this into the shell exactly as it would from disk.
-      await tester.pumpWidget(
-        const WorkbenchExampleApp(
-          initialLayoutState: WorkbenchLayoutState(
-            // A full persisted order marks every view "known", so reconcile
-            // honors the persisted hidden set rather than descriptor defaults.
-            order: {
-              'explorer': ['folders', 'open-editors', 'outline', 'timeline'],
-            },
-            hidden: {
-              'explorer': {'timeline'},
-            },
-          ),
+  testWidgets('seeded WorkbenchLayoutState restores the Explorer arrangement '
+      '(§spec:layout-state-persistence)', (tester) async {
+    // Rehydrate a persisted arrangement that hides the Timeline pane and
+    // re-shows Open Editors (which is hidden by descriptor default). The
+    // example seeds this into the shell exactly as it would from disk.
+    await tester.pumpWidget(
+      const WorkbenchExampleApp(
+        initialLayoutState: WorkbenchLayoutState(
+          // A full persisted order marks every view "known", so reconcile
+          // honors the persisted hidden set rather than descriptor defaults.
+          order: {
+            'explorer': ['folders', 'open-editors', 'outline', 'timeline'],
+          },
+          hidden: {
+            'explorer': {'timeline'},
+          },
         ),
-      );
-      await tester.pumpAndSettle();
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      // Timeline is dropped from the stack; the other panes render.
-      expect(find.text('TIMELINE'), findsNothing);
-      expect(find.text('WORKBENCH_SHELL'), findsOneWidget);
-      expect(find.text('OUTLINE'), findsOneWidget);
-      // Open Editors — hidden by descriptor default — is re-shown because the
-      // persisted state marks it known and not hidden (reconcile honors it).
-      expect(find.text('OPEN EDITORS'), findsOneWidget);
-    },
-  );
+    // Timeline is dropped from the stack; the other panes render.
+    expect(find.text('TIMELINE'), findsNothing);
+    expect(find.text('WORKBENCH_SHELL'), findsOneWidget);
+    expect(find.text('OUTLINE'), findsOneWidget);
+    // Open Editors — hidden by descriptor default — is re-shown because the
+    // persisted state marks it known and not hidden (reconcile honors it).
+    expect(find.text('OPEN EDITORS'), findsOneWidget);
+  });
 }

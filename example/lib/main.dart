@@ -289,7 +289,6 @@ class SetPanelAlignmentIntent extends Intent {
   final WorkbenchPanelAlignment alignment;
 }
 
-
 class WorkbenchHome extends StatefulWidget {
   const WorkbenchHome({
     super.key,
@@ -683,8 +682,7 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                       const WorkbenchMenuSeparator(),
                       WorkbenchViewMenuTab(
                         intent: const ToggleSidebarPositionIntent(),
-                        label:
-                            _sidebarPosition == WorkbenchSidebarPosition.left
+                        label: _sidebarPosition == WorkbenchSidebarPosition.left
                             ? 'Move Primary Side Bar Right'
                             : 'Move Primary Side Bar Left',
                       ),
@@ -694,7 +692,8 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                       WorkbenchMenuSubmenu(
                         label: 'Align Panel',
                         children: [
-                          for (final alignment in WorkbenchPanelAlignment.values)
+                          for (final alignment
+                              in WorkbenchPanelAlignment.values)
                             WorkbenchMenuRadio(
                               intent: SetPanelAlignmentIntent(alignment),
                               label: _panelAlignmentLabel(alignment),
@@ -730,8 +729,7 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                     // owns the booleans and the shell renders them, mirroring
                     // the showBottomPanel pattern above.
                     zenMode: _zenMode,
-                    onZenModeChanged: (next) =>
-                        setState(() => _zenMode = next),
+                    onZenModeChanged: (next) => setState(() => _zenMode = next),
                     centeredLayout: _centeredLayout,
                     onCenteredLayoutChanged: (next) =>
                         setState(() => _centeredLayout = next),
@@ -755,16 +753,16 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                     onSidebarVisibilityChanged: (next) =>
                         setState(() => _sidebarVisible = next),
                     // Secondary side bar (§spec:secondary-sidebar): the host
-                    // owns its visibility and assigns a dedicated multi-view
-                    // container the activity bar never lists. That container has
-                    // no activity item to name it, so it titles itself through
-                    // WorkbenchViewContainerSpec.title (§spec:view-container-title)
-                    // — without which its composite title strip would be blank.
-                    // It renders on the editor's opposite edge from the primary
-                    // and follows when the primary swaps sides. The width
-                    // dogfoods the seed-plus-commit hook like the primary.
-                    secondaryViewContainerId: 'secondary',
-                    onSecondaryViewContainerChanged: (_) {},
+                    // owns its visibility and names an ordered membership of
+                    // containers the activity bar never lists. The bar's title
+                    // row renders one tab per member, labeled by each spec's
+                    // title (§spec:view-container-title) — without which a tab
+                    // would be blank. The active member is uncontrolled: the
+                    // first member starts active and the shell switches on tab
+                    // taps. The bar renders on the editor's opposite edge from
+                    // the primary and follows when the primary swaps sides. The
+                    // width dogfoods the seed-plus-commit hook like the primary.
+                    secondaryViewContainerIds: const ['outline', 'notes'],
                     secondarySideBarVisible: _secondarySideBarVisible,
                     onSecondarySideBarVisibilityChanged: (next) =>
                         setState(() => _secondarySideBarVisible = next),
@@ -879,23 +877,44 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
             ),
           ],
         );
-      case 'secondary':
-        // The secondary side bar's container (§spec:secondary-sidebar). The
-        // activity bar never lists it, so the spec-level title is its only title
-        // source — without it the composite title strip renders blank
-        // (§spec:view-container-title). Two views make it a real pane stack.
+      case 'outline':
+        // A secondary side bar member (§spec:secondary-sidebar). The activity
+        // bar never lists it, so the spec-level title is its only label source
+        // — without it the member's title-row tab renders blank
+        // (§spec:view-container-title). Single-view members merge per canon:
+        // the tab names the container, the pane header hides, and the body
+        // fills — the tab and a pane header never repeat the same word.
         return const WorkbenchViewContainerSpec(
-          title: 'Secondary Side Bar',
+          title: 'Outline',
+          mergeSingleView: true,
           views: [
             WorkbenchViewDescriptor(
               id: 'secondary-outline',
               title: 'Outline',
               bodyBuilder: _secondaryOutlineBody,
             ),
+          ],
+        );
+      case 'notes':
+        // The secondary side bar's second member. Two views make it the
+        // multi-pane dogfood for the secondary bar: switching tabs between it
+        // and Outline exercises per-member retention
+        // (§spec:view-container-state), and its panes exercise reorder, sash
+        // resize, and the `⋯` Views toggles inside the secondary. View names
+        // differ from the container title, as in canon (EXPLORER holds
+        // Folders/Outline/Timeline).
+        return const WorkbenchViewContainerSpec(
+          title: 'Notes',
+          views: [
             WorkbenchViewDescriptor(
-              id: 'secondary-notes',
-              title: 'Notes',
-              bodyBuilder: _secondaryNotesBody,
+              id: 'secondary-drafts',
+              title: 'Drafts',
+              bodyBuilder: _secondaryDraftsBody,
+            ),
+            WorkbenchViewDescriptor(
+              id: 'secondary-scratchpad',
+              title: 'Scratchpad',
+              bodyBuilder: _secondaryScratchpadBody,
             ),
           ],
         );
@@ -966,10 +985,16 @@ Widget _secondaryOutlineBody(BuildContext context) =>
       text: 'Secondary side bar — titled by WorkbenchViewContainerSpec.title.',
     );
 
-/// "Notes" pane body for the secondary side bar container.
-Widget _secondaryNotesBody(BuildContext context) =>
+/// "Drafts" pane body for the secondary side bar's Notes container.
+Widget _secondaryDraftsBody(BuildContext context) =>
     const _SidebarBodyPlaceholder(
       text: 'A container the activity bar never lists names itself here.',
+    );
+
+/// "Scratchpad" pane body for the secondary side bar's Notes container.
+Widget _secondaryScratchpadBody(BuildContext context) =>
+    const _SidebarBodyPlaceholder(
+      text: 'Second pane — drag headers to reorder, drag the sash to resize.',
     );
 
 /// Notifications demo controller — holds the demo state (counter, progress
@@ -1017,9 +1042,7 @@ class _NotificationsDemoController {
   /// converts the card to a 6 s success toast via
   /// `complete(successMessage:)`.
   void _showDeterminateProgress() {
-    final controller = service.showProgress(
-      message: 'Saving project file…',
-    );
+    final controller = service.showProgress(message: 'Saving project file…');
     final job = _DemoProgressJob(controller);
     _jobs[controller.id] = job;
     job.runDeterminate(onDone: () => _jobs.remove(controller.id));
@@ -1028,9 +1051,7 @@ class _NotificationsDemoController {
   /// Indeterminate progress — runs until the demo timer elapses or the
   /// host's `dispose` cleans it up. Demonstrates the spinner variant.
   void _showIndeterminateProgress() {
-    final controller = service.showProgress(
-      message: 'Refreshing index…',
-    );
+    final controller = service.showProgress(message: 'Refreshing index…');
     final job = _DemoProgressJob(controller);
     _jobs[controller.id] = job;
     job.runIndeterminate(onDone: () => _jobs.remove(controller.id));
@@ -1070,7 +1091,6 @@ class _NotificationsDemoController {
       ],
     );
   }
-
 }
 
 /// "Severities" view pane body — triggers a card of each severity, the
@@ -1600,9 +1620,8 @@ Map<String, WorkbenchViewDescriptor> _explorerViews(
           onPressed: () => notify('Collapsed Explorer folders'),
         ),
       ],
-      bodyBuilder: (_) => const _SidebarBodyPlaceholder(
-        text: 'lib/\nexample/\ntest/\nstyles/',
-      ),
+      bodyBuilder: (_) =>
+          const _SidebarBodyPlaceholder(text: 'lib/\nexample/\ntest/\nstyles/'),
     ),
     'outline': WorkbenchViewDescriptor(
       id: 'outline',
