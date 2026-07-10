@@ -142,7 +142,7 @@ collapse.
 
 ## Structural Primitives §spec:structural-primitives
 
-*Status: in progress*
+*Status: complete*
 
 Structural primitives encode the workbench's visual hierarchy as
 types. A sidebar built from `WorkbenchViewPane` gets consistent
@@ -1092,7 +1092,7 @@ section.
 
 ## Chrome Widgets §spec:chrome-widgets
 
-*Status: in progress*
+*Status: complete*
 
 ### WorkbenchLayout §spec:workbench-layout
 
