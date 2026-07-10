@@ -7,7 +7,36 @@ import 'test_theme.dart';
 
 void main() {
   group('WorkbenchStatusBarProblemsItem', () {
-    testWidgets('renders all three counts including zeros', (tester) async {
+    testWidgets(
+      'renders error and warning counts including zeros, no info glyph '
+      'when infoCount is zero',
+      (tester) async {
+        await tester.pumpWidget(
+          wrapWithTheme(
+            WorkbenchStatusBarProblemsItem(
+              errorCount: 2,
+              warningCount: 0,
+              infoCount: 0,
+              onTap: () {},
+            ),
+          ),
+        );
+
+        // Error and warning (including zero) are always visible so the
+        // indicator holds its position — matches VS Code.
+        expect(find.text('2'), findsOneWidget);
+        expect(find.text('0'), findsOneWidget);
+        expect(find.byIcon(Symbols.error_rounded), findsOneWidget);
+        expect(find.byIcon(Symbols.warning_rounded), findsOneWidget);
+        // The info segment is omitted entirely at zero — VS Code appends
+        // it "only if any".
+        expect(find.byIcon(Symbols.info_rounded), findsNothing);
+      },
+    );
+
+    testWidgets('renders the info segment when infoCount is positive', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         wrapWithTheme(
           WorkbenchStatusBarProblemsItem(
@@ -19,12 +48,7 @@ void main() {
         ),
       );
 
-      // Every count (including zero) is always visible — matches VS Code.
-      expect(find.text('2'), findsOneWidget);
-      expect(find.text('0'), findsOneWidget);
       expect(find.text('5'), findsOneWidget);
-      expect(find.byIcon(Symbols.error_rounded), findsOneWidget);
-      expect(find.byIcon(Symbols.warning_rounded), findsOneWidget);
       expect(find.byIcon(Symbols.info_rounded), findsOneWidget);
     });
 
@@ -62,6 +86,24 @@ void main() {
 
       final tooltip = tester.widget<Tooltip>(find.byType(Tooltip));
       expect(tooltip.message, '3 errors, 1 warnings, 4 info');
+    });
+
+    testWidgets('default tooltip omits info when infoCount is zero', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          WorkbenchStatusBarProblemsItem(
+            errorCount: 3,
+            warningCount: 1,
+            infoCount: 0,
+            onTap: () {},
+          ),
+        ),
+      );
+
+      final tooltip = tester.widget<Tooltip>(find.byType(Tooltip));
+      expect(tooltip.message, '3 errors, 1 warnings');
     });
 
     testWidgets('honours an explicit tooltip override', (tester) async {

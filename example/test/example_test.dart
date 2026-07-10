@@ -214,6 +214,38 @@ void main() {
     expect(find.textContaining('Info notice'), findsOneWidget);
   });
 
+  testWidgets('status bar problems item hides the info segment until the '
+      'host reports info diagnostics (§spec:status-bar)', (tester) async {
+    await tester.pumpWidget(const WorkbenchExampleApp());
+    await tester.pumpAndSettle();
+
+    Finder inProblemsItem(Finder matching) => find.descendant(
+      of: find.byType(WorkbenchStatusBarProblemsItem),
+      matching: matching,
+    );
+
+    // Idle: error 0 and warning 0 render unconditionally; no info glyph.
+    expect(inProblemsItem(find.byIcon(Symbols.error_rounded)), findsOneWidget);
+    expect(
+      inProblemsItem(find.byIcon(Symbols.warning_rounded)),
+      findsOneWidget,
+    );
+    expect(inProblemsItem(find.text('0')), findsNWidgets(2));
+    expect(inProblemsItem(find.byIcon(Symbols.info_rounded)), findsNothing);
+
+    // The host reports an info diagnostic (the demo derives counts from
+    // active notifications): the item grows an info segment.
+    await tester.tap(find.byIcon(Symbols.notifications_rounded));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Info'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Info'));
+    await tester.pump();
+
+    expect(inProblemsItem(find.byIcon(Symbols.info_rounded)), findsOneWidget);
+    expect(inProblemsItem(find.text('1')), findsOneWidget);
+  });
+
   testWidgets(
     'buttons review sidebar shows three flat VS Code tiers at rest (§spec:chrome-material-theming)',
     (tester) async {

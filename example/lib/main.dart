@@ -771,13 +771,39 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                     initialSecondarySideBarWidth: _secondarySideBarWidth,
                     onSecondarySideBarWidthChangeEnd: (w) =>
                         _secondarySideBarWidth = w,
-                    statusBar: const WorkbenchStatusBar(
-                      leading: [
-                        WorkbenchStatusBarItem(
-                          icon: Symbols.info_rounded,
-                          label: 'workbench_shell example',
-                        ),
-                      ],
+                    // Problems indicator (§spec:status-bar): the host
+                    // supplies the integers and the tap callback. Counts
+                    // here are demo-derived from active notifications, so
+                    // firing an info notification grows an info segment.
+                    statusBar: ListenableBuilder(
+                      listenable: _notificationService,
+                      builder: (context, _) {
+                        int countOf(NotificationSeverity severity) =>
+                            _notificationService.notifications
+                                .where((n) => n.severity == severity)
+                                .length;
+                        return WorkbenchStatusBar(
+                          leading: [
+                            const WorkbenchStatusBarItem(
+                              icon: Symbols.info_rounded,
+                              label: 'workbench_shell example',
+                            ),
+                            WorkbenchStatusBarProblemsItem(
+                              errorCount: countOf(NotificationSeverity.error),
+                              warningCount: countOf(
+                                NotificationSeverity.warning,
+                              ),
+                              infoCount: countOf(NotificationSeverity.info),
+                              onTap: () {
+                                if (!_panelVisible) {
+                                  setState(() => _panelVisible = true);
+                                }
+                                _focusPanelById?.call(ExamplePanel.problems);
+                              },
+                            ),
+                          ],
+                        );
+                      },
                     ),
                     // Controlled status-bar visibility
                     // (§spec:layout-customization): the host owns the flag and
