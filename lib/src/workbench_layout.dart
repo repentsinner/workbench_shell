@@ -43,7 +43,8 @@ class WorkbenchLayout extends StatefulWidget {
   /// spec's view descriptors through a [WorkbenchViewContainer]; the host
   /// supplies descriptors, not a sidebar-body widget
   /// (§spec:capability-boundary). An empty spec renders an empty sidebar body.
-  final WorkbenchViewContainerSpec Function(String containerId) containerBuilder;
+  final WorkbenchViewContainerSpec Function(String containerId)
+  containerBuilder;
 
   /// Bottom panel content. Pass [SizedBox.shrink] to hide.
   final Widget bottomPanel;
@@ -215,23 +216,36 @@ class WorkbenchLayout extends StatefulWidget {
   /// the shell raises no change of its own today.
   final ValueChanged<WorkbenchPanelAlignment>? onPanelAlignmentChanged;
 
-  /// Initial active container id for the secondary side bar
+  /// Ordered membership of the secondary side bar (§spec:secondary-sidebar).
+  /// Each id resolves through [containerBuilder]; the bar's title row renders
+  /// one compact text-label tab per member — labeled by the spec's `title`
+  /// (§spec:view-container-title), styled per §spec:tab-strip-canon — in place
+  /// of the composite title label. Empty (the default) shows no container.
+  /// Membership ids shall be disjoint from the activity-bar container ids: a
+  /// container id occupies exactly one location, so the shell rejects a shared
+  /// id (a debug-mode assert, like the class's other contract checks) rather
+  /// than rendering the container twice.
+  final List<String> secondaryViewContainerIds;
+
+  /// Initial active member of the secondary side bar
   /// (§spec:secondary-sidebar). Used only in uncontrolled mode (when
-  /// [secondaryViewContainerId] is null). Empty (the default) shows no
-  /// container until the host assigns one.
-  final String? initialSecondaryViewContainerId;
+  /// [secondaryActiveViewContainerId] is null). Null (the default) activates
+  /// the first member of [secondaryViewContainerIds].
+  final String? initialSecondaryActiveViewContainerId;
 
-  /// Externally controlled active container for the secondary side bar
-  /// (§spec:secondary-sidebar). When non-null, the shell renders this container
-  /// and delegates changes to [onSecondaryViewContainerChanged]; the host owns
-  /// the state. The secondary has no activity bar — the host assigns which
-  /// container it shows, so the shell raises no change of its own today (see
-  /// [onZenModeChanged]). Mirrors [activeViewContainerId] for the primary.
-  final String? secondaryViewContainerId;
+  /// Externally controlled active member of the secondary side bar
+  /// (§spec:secondary-sidebar). When non-null, the shell renders this member
+  /// and delegates changes to [onSecondaryActiveViewContainerChanged]; the
+  /// host owns the state. Mirrors [activeViewContainerId] for the primary.
+  final String? secondaryActiveViewContainerId;
 
-  /// Called when the secondary side bar's active container changes. Required
-  /// when [secondaryViewContainerId] is non-null.
-  final ValueChanged<String>? onSecondaryViewContainerChanged;
+  /// Called when the secondary side bar's active member changes — including
+  /// the shell's own change when a title-row tab is tapped. Required when
+  /// [secondaryActiveViewContainerId] is non-null. Like the activity-bar tap
+  /// (§spec:sidebar-visibility), the shell both originates the change and
+  /// reports it, so a controlled host shall honor it to keep the tabs
+  /// functional.
+  final ValueChanged<String>? onSecondaryActiveViewContainerChanged;
 
   /// Initial secondary side-bar visibility. Used only in uncontrolled mode
   /// (when [secondarySideBarVisible] is null). Defaults to hidden, matching VS
@@ -281,7 +295,7 @@ class WorkbenchLayout extends StatefulWidget {
   /// bytes and names no storage key (§spec:capability-boundary).
   final ValueChanged<WorkbenchLayoutState>? onLayoutStateChanged;
 
-  const WorkbenchLayout({
+  WorkbenchLayout({
     super.key,
     required this.activityBarItems,
     required this.editor,
@@ -315,9 +329,10 @@ class WorkbenchLayout extends StatefulWidget {
     this.initialPanelAlignment = WorkbenchPanelAlignment.center,
     this.panelAlignment,
     this.onPanelAlignmentChanged,
-    this.initialSecondaryViewContainerId,
-    this.secondaryViewContainerId,
-    this.onSecondaryViewContainerChanged,
+    this.secondaryViewContainerIds = const [],
+    this.initialSecondaryActiveViewContainerId,
+    this.secondaryActiveViewContainerId,
+    this.onSecondaryActiveViewContainerChanged,
     this.initialSecondarySideBarVisible = false,
     this.secondarySideBarVisible,
     this.onSecondarySideBarVisibilityChanged,
@@ -356,10 +371,21 @@ class WorkbenchLayout extends StatefulWidget {
          'onPanelAlignmentChanged is required when panelAlignment is provided',
        ),
        assert(
-         secondaryViewContainerId == null ||
-             onSecondaryViewContainerChanged != null,
-         'onSecondaryViewContainerChanged is required when '
-         'secondaryViewContainerId is provided',
+         secondaryActiveViewContainerId == null ||
+             onSecondaryActiveViewContainerChanged != null,
+         'onSecondaryActiveViewContainerChanged is required when '
+         'secondaryActiveViewContainerId is provided',
+       ),
+       // A container id occupies exactly one location (§spec:secondary-sidebar):
+       // a shared id would render one container in both bars and
+       // cross-contaminate its container-keyed retained state, so the shell
+       // rejects it rather than rendering twice.
+       assert(
+         !activityBarItems.any(
+           (item) => secondaryViewContainerIds.contains(item.id),
+         ),
+         'secondaryViewContainerIds must be disjoint from activity-bar '
+         'container ids',
        ),
        assert(
          secondarySideBarVisible == null ||
@@ -418,13 +444,8 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     for (final item in widget.activityBarItems) {
       result[item.id] = widget.containerBuilder(item.id).views;
     }
-    final secondary =
-        widget.secondaryViewContainerId ??
-        widget.initialSecondaryViewContainerId;
-    if (secondary != null &&
-        secondary.isNotEmpty &&
-        !result.containsKey(secondary)) {
-      result[secondary] = widget.containerBuilder(secondary).views;
+    for (final id in widget.secondaryViewContainerIds) {
+      result.putIfAbsent(id, () => widget.containerBuilder(id).views);
     }
     return result;
   }
@@ -559,8 +580,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   // a controlled value wins, else the internal value seeded from the initial
   // flag. Unlike the other seams the shell raises its own toggle here (tapping
   // the active activity icon), routed through [_setSidebarVisible].
-  bool get _sidebarVisible =>
-      widget.sidebarVisible ?? _internalSidebarVisible;
+  bool get _sidebarVisible => widget.sidebarVisible ?? _internalSidebarVisible;
 
   // Status-bar visibility follows the same controlled/uncontrolled seam; the
   // shell raises no toggle of its own (the host drives it from a menu item).
@@ -570,8 +590,9 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   // Secondary side bar state (§spec:secondary-sidebar), each following the same
   // controlled/uncontrolled seam as the primary: a controlled value wins, else
   // the internal value seeded from the initial flag. The shell has no secondary
-  // activity bar, so it raises no container change or visibility toggle of its
-  // own today — the host drives both through the controlled values.
+  // activity bar; its title-row tabs originate active-member changes (routed
+  // through [_setSecondaryActiveViewContainer]), while visibility is
+  // host-driven only.
   String _internalSecondaryActiveId = '';
   late bool _internalSecondarySideBarVisible;
   double _secondarySideBarWidth = WorkbenchLayoutConstants.sidebarDefaultWidth;
@@ -583,7 +604,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   final List<String> _openedSecondaryContainerIds = [];
 
   String get _secondaryActiveId =>
-      widget.secondaryViewContainerId ?? _internalSecondaryActiveId;
+      widget.secondaryActiveViewContainerId ?? _internalSecondaryActiveId;
   bool get _secondarySideBarVisible =>
       widget.secondarySideBarVisible ?? _internalSecondarySideBarVisible;
 
@@ -644,8 +665,13 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
         widget.initialPanelHeight ??
         WorkbenchLayoutConstants.panelDefaultHeight;
     // Seed the secondary side bar (§spec:secondary-sidebar), mirroring the
-    // primary's container/visibility/width seeding above.
-    _internalSecondaryActiveId = widget.initialSecondaryViewContainerId ?? '';
+    // primary's container/visibility/width seeding above. The first member is
+    // active when the host names no initial id.
+    _internalSecondaryActiveId =
+        widget.initialSecondaryActiveViewContainerId ??
+        (widget.secondaryViewContainerIds.isNotEmpty
+            ? widget.secondaryViewContainerIds.first
+            : '');
     _internalSecondarySideBarVisible = widget.initialSecondarySideBarVisible;
     _secondarySideBarWidth =
         widget.initialSecondarySideBarWidth ??
@@ -719,6 +745,22 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     widget.onViewContainerChanged?.call(containerId);
   }
 
+  /// Activate a secondary side-bar member from a title-row tab tap
+  /// (§spec:secondary-sidebar), mirroring [_setActiveViewContainer] without
+  /// the visibility toggling — a tab tap never hides the bar. Mutates internal
+  /// state only in uncontrolled mode, and always reports through
+  /// [WorkbenchLayout.onSecondaryActiveViewContainerChanged] so a controlled
+  /// host can honor the shell-originated change (the
+  /// §spec:sidebar-visibility tap-seam pattern).
+  void _setSecondaryActiveViewContainer(String containerId) {
+    if (_secondaryActiveId == containerId) return;
+    setState(() {
+      if (widget.secondaryActiveViewContainerId == null) {
+        _internalSecondaryActiveId = containerId;
+      }
+    });
+    widget.onSecondaryActiveViewContainerChanged?.call(containerId);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -782,11 +824,11 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     );
 
     // Secondary side bar (§spec:secondary-sidebar): a second collapsible bar on
-    // the editor's opposite edge from the primary, hosting host-assigned
-    // containers through the same containerBuilder path. Its position is the
+    // the editor's opposite edge from the primary, hosting the host-supplied
+    // membership through the same containerBuilder path. Its position is the
     // opposite of the primary's, so its border and sash face the editor from the
-    // other side. It has no activity bar — the host owns its active container
-    // and visibility.
+    // other side. It has no activity bar — its title row renders one tab per
+    // member, and tapping a tab activates that member.
     final secondaryPosition = onRight
         ? WorkbenchSidebarPosition.left
         : WorkbenchSidebarPosition.right;
@@ -800,6 +842,8 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       onWidth: (next) => setState(() => _secondarySideBarWidth = next),
       onChangeEnd: widget.onSecondarySideBarWidthChangeEnd,
       theme: theme,
+      tabIds: widget.secondaryViewContainerIds,
+      onTabSelected: _setSecondaryActiveViewContainer,
     );
 
     // Editor area, filling the inner row's free space beside any side bars the
@@ -947,6 +991,8 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     required ValueChanged<double> onWidth,
     required ValueChanged<double>? onChangeEnd,
     required WorkbenchTheme theme,
+    List<String>? tabIds,
+    ValueChanged<String>? onTabSelected,
   }) {
     final onRight = position == WorkbenchSidebarPosition.right;
     return Offstage(
@@ -968,6 +1014,8 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
               onContainerArrangementChanged: _handleContainerArrangement,
               position: position,
               theme: theme,
+              tabIds: tabIds,
+              onTabSelected: onTabSelected,
             ),
             Positioned(
               top: 0,
@@ -1258,7 +1306,8 @@ class _Sidebar extends StatelessWidget {
   final String activeLabel;
   final String activeContainerId;
   final List<String> openedContainerIds;
-  final WorkbenchViewContainerSpec Function(String containerId) containerBuilder;
+  final WorkbenchViewContainerSpec Function(String containerId)
+  containerBuilder;
 
   /// Resolved hidden-id set for a container, from the shell visibility store
   /// (§spec:view-container-title). Drives both the title's Views checkboxes and
@@ -1290,6 +1339,16 @@ class _Sidebar extends StatelessWidget {
   final WorkbenchSidebarPosition position;
   final WorkbenchTheme theme;
 
+  /// Secondary-bar membership (§spec:secondary-sidebar): when non-null the
+  /// title row renders one text-label tab per id in place of the composite
+  /// title label. Null for the primary side bar, whose switcher is the
+  /// activity bar.
+  final List<String>? tabIds;
+
+  /// Activates a member when its title-row tab is tapped. Non-null whenever
+  /// [tabIds] is.
+  final ValueChanged<String>? onTabSelected;
+
   const _Sidebar({
     required this.width,
     required this.activeLabel,
@@ -1302,6 +1361,8 @@ class _Sidebar extends StatelessWidget {
     required this.onContainerArrangementChanged,
     required this.position,
     required this.theme,
+    this.tabIds,
+    this.onTabSelected,
   });
 
   @override
@@ -1373,14 +1434,18 @@ class _Sidebar extends StatelessWidget {
 
   /// The shared composite-title chrome (§spec:view-container-title), the port of
   /// VS Code's single `CompositePart` title area re-rendered for the active
-  /// container — not per-container DOM. It carries the active container's label,
-  /// any host inline title actions, and a right-aligned `⋯` overflow whose first
-  /// group is the shell-built Views toggles. Persistent chrome: the `⋯` shows
-  /// whenever the active container has a hideable view or host overflow entries.
+  /// container — not per-container DOM. It carries the active container's label
+  /// — or, on a secondary bar with a [tabIds] membership, one text-label tab
+  /// per member (§spec:secondary-sidebar) — any host inline title actions, and
+  /// a right-aligned `⋯` overflow whose first group is the shell-built Views
+  /// toggles. The actions and overflow always act on the active container.
+  /// Persistent chrome: the `⋯` shows whenever the active container has a
+  /// hideable view or host overflow entries.
   Widget _buildTitle(BuildContext context) {
     final spec = containerBuilder(activeContainerId);
     final showOverflow =
-        spec.views.any((v) => v.canHide) || spec.titleOverflowEntries.isNotEmpty;
+        spec.views.any((v) => v.canHide) ||
+        spec.titleOverflowEntries.isNotEmpty;
     return Container(
       height: WorkbenchLayoutConstants.sidebarHeadingHeight,
       padding: const EdgeInsets.symmetric(
@@ -1389,15 +1454,18 @@ class _Sidebar extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              // The spec titles the container; the activity-item label is the
-              // fallback (§spec:view-container-title). A container the activity
-              // bar never lists (a secondary's) has an empty [activeLabel], so
-              // its spec title is the only title source.
-              (spec.title ?? activeLabel).toUpperCase(),
-              style: theme.sidebarOrPanelHeading,
-              overflow: TextOverflow.ellipsis,
-            ),
+            // A membership renders tabs (§spec:secondary-sidebar); otherwise
+            // the composite title, resolved as spec.title with the
+            // activity-item label as fallback (§spec:view-container-title).
+            // A container the activity bar never lists (a secondary's) has
+            // an empty [activeLabel], so its spec title is its only source.
+            child: tabIds != null
+                ? _buildTitleTabs()
+                : Text(
+                    (spec.title ?? activeLabel).toUpperCase(),
+                    style: theme.sidebarOrPanelHeading,
+                    overflow: TextOverflow.ellipsis,
+                  ),
           ),
           // Host inline title actions, persistent (the composite title is
           // always-shown chrome), placed left of the overflow button.
@@ -1405,6 +1473,34 @@ class _Sidebar extends StatelessWidget {
           if (showOverflow) _buildOverflowButton(context, spec),
         ],
       ),
+    );
+  }
+
+  /// One compact text-label tab per secondary member in the title row
+  /// (§spec:secondary-sidebar), the port of VS Code's `AuxiliaryBarPart`
+  /// embedding its `PaneCompositeBar` at the title position. Labels come from
+  /// each member's spec `title`, uppercased like the composite title
+  /// (§spec:view-container-title); an untitled member renders a blank tab — no
+  /// activity item exists to fall back to. A single-member bar still shows its
+  /// one tab, matching canon's default presentation. Stretched so the active
+  /// underline sits at the bottom of the row.
+  Widget _buildTitleTabs() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final id in tabIds!)
+          // Flexible (loose) keeps each tab compact but lets it shrink and
+          // ellipsize under width pressure instead of overflowing the row —
+          // canon's tab-overflow dropdown is deferred (§spec:secondary-sidebar).
+          Flexible(
+            child: _SecondaryBarTab(
+              label: (containerBuilder(id).title ?? '').toUpperCase(),
+              active: id == activeContainerId,
+              onTap: () => onTabSelected?.call(id),
+              theme: theme,
+            ),
+          ),
+      ],
     );
   }
 
@@ -1458,6 +1554,76 @@ class _Sidebar extends StatelessWidget {
           constraints: const BoxConstraints(),
           onPressed: () =>
               controller.isOpen ? controller.close() : controller.open(),
+        ),
+      ),
+    );
+  }
+}
+
+/// One secondary title-row tab (§spec:secondary-sidebar), styled per
+/// §spec:tab-strip-canon with the same [WorkbenchTheme] tokens
+/// `WorkbenchTabbedPanel` uses: the active underline in `tabBarIndicatorColor`
+/// (panelTitle.activeBorder), the active label in `tabBarLabelColor`, inactive
+/// labels in `tabBarUnselectedLabelColor`, and pointer hover tinting an
+/// inactive label to `tabBarLabelColor` (panelTitle.activeForeground) with no
+/// background overlay. Mirrors the tabbed panel's private `_HoverableTabLabel`,
+/// which is coupled to a `TabController` and cannot be reused here.
+class _SecondaryBarTab extends StatefulWidget {
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+  final WorkbenchTheme theme;
+
+  const _SecondaryBarTab({
+    required this.label,
+    required this.active,
+    required this.onTap,
+    required this.theme,
+  });
+
+  @override
+  State<_SecondaryBarTab> createState() => _SecondaryBarTabState();
+}
+
+class _SecondaryBarTabState extends State<_SecondaryBarTab> {
+  bool _hovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = widget.theme;
+    // Hover previews the active-tab text colour on the prospective click
+    // target; the active tab is unchanged on hover (§spec:tab-strip-canon).
+    final color = widget.active || _hovering
+        ? theme.tabBarLabelColor
+        : theme.tabBarUnselectedLabelColor;
+    return MouseRegion(
+      // The tabbed panel's TabBar supplies the click cursor; the bare
+      // GestureDetector below needs it explicitly for parity.
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovering = true),
+      onExit: (_) => setState(() => _hovering = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: WorkbenchLayoutConstants.spacingSm,
+          ),
+          // The underline sits at the bottom of the stretched title row.
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: widget.active
+                    ? theme.tabBarIndicatorColor
+                    : Colors.transparent,
+              ),
+            ),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            widget.label,
+            style: theme.sidebarOrPanelHeading.copyWith(color: color),
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       ),
     );

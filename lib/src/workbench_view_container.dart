@@ -155,9 +155,9 @@ class WorkbenchViewContainerSpec {
   /// Composite-title text for this container (§spec:view-container-title). The
   /// side bar resolves the title as `title ?? <activity-bar item label>`, so a
   /// primary container leaves this null and keeps its activity-item label, while
-  /// a container the activity bar never lists — a secondary side bar's, assigned
-  /// through `secondaryViewContainerId` (§spec:secondary-sidebar) — sets it to
-  /// name an otherwise-blank title strip.
+  /// a container the activity bar never lists — a secondary side bar member,
+  /// named in `secondaryViewContainerIds` (§spec:secondary-sidebar) — sets it
+  /// to label its title-row tab, which renders blank otherwise.
   final String? title;
 
   /// Ordered views rendered as the container's pane stack. Empty renders an
@@ -498,8 +498,10 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
 
   /// Return the stable pane key for view [id], creating it on first use. Pruned
   /// for dropped ids in [_syncHeaderNodes]; [GlobalKey]s need no disposal.
-  GlobalKey _paneKeyFor(String id) =>
-      _paneKeys.putIfAbsent(id, () => GlobalKey(debugLabel: 'WorkbenchViewPane $id'));
+  GlobalKey _paneKeyFor(String id) => _paneKeys.putIfAbsent(
+    id,
+    () => GlobalKey(debugLabel: 'WorkbenchViewPane $id'),
+  );
 
   /// Drop header nodes for views no longer present (§spec:view-pane-focus), so a
   /// removed view's node does not leak. Called each build with the live ordered
@@ -767,8 +769,9 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
   ({double upper, double lower}) _liveBodies(String upperId, String lowerId) {
     const minBody = WorkbenchLayoutConstants.viewPaneMinBodyHeight;
     final render = _stackKey.currentContext?.findRenderObject();
-    double bodyOf(String id) =>
-        render is _RenderViewStack ? (render.bodyHeightOf(id) ?? minBody) : minBody;
+    double bodyOf(String id) => render is _RenderViewStack
+        ? (render.bodyHeightOf(id) ?? minBody)
+        : minBody;
     return (upper: bodyOf(upperId), lower: bodyOf(lowerId));
   }
 
@@ -901,7 +904,9 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
           final expanded = _isExpanded(view);
           final isExpandedPane = !collapsible || expanded;
           // A sash sits above this pane only when an expanded pane precedes it.
-          final upperId = (isExpandedPane && collapsible) ? prevExpandedId : null;
+          final upperId = (isExpandedPane && collapsible)
+              ? prevExpandedId
+              : null;
           final index = i;
           final pane = WorkbenchViewPane.inContainer(
             // A stable key so the pane's element (and its header Focus) survives
@@ -920,8 +925,9 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
             boundedBody: true,
             // When reorder is enabled the header is a drag handle that carries
             // this pane's index (§spec:view-stack).
-            headerWrapper:
-                reorderable ? (header) => _draggableHeader(index, header) : null,
+            headerWrapper: reorderable
+                ? (header) => _draggableHeader(index, header)
+                : null,
             // The container owns the header focus stop so it can move focus
             // between headers for Up/Down traversal (§spec:view-pane-focus).
             headerFocusNode: _headerNodeFor(view.id),
@@ -931,11 +937,7 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
           );
           Widget paneVisual = upperId == null
               ? pane
-              : _sashedPane(
-                  upperId: upperId,
-                  lowerId: view.id,
-                  pane: pane,
-                );
+              : _sashedPane(upperId: upperId, lowerId: view.id, pane: pane);
           // Each pane is a drop target during a reorder drag, painting the
           // drop-overlay on the half the dragged header would land
           // (§spec:view-stack).
@@ -997,7 +999,6 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
     );
   }
 }
-
 
 /// Parent-data carrier for a stacked child: its [collapsed] state, its
 /// descriptor [viewId] (so the render object can report a pane's measured body
@@ -1229,17 +1230,11 @@ class _RenderViewStack extends RenderBox
     // (body-height pixels). A pane's effective weight is its stored value or this
     // default; weights only ever express ratios — the pool is rescaled to fill.
     final evenWeight = bodyPool > 0 ? bodyPool / count : minBody;
-    final weights = [
-      for (final pd in expanded) pd.weight ?? evenWeight,
-    ];
-    final caps = [
-      for (final pd in expanded) pd.maxBody ?? double.infinity,
-    ];
+    final weights = [for (final pd in expanded) pd.weight ?? evenWeight];
+    final caps = [for (final pd in expanded) pd.maxBody ?? double.infinity];
     // A cap below the floor wins (VS Code max-over-min); the effective floor is
     // never above the cap.
-    final floors = [
-      for (final cap in caps) cap < minBody ? cap : minBody,
-    ];
+    final floors = [for (final cap in caps) cap < minBody ? cap : minBody];
 
     final bodies = List<double>.filled(count, 0.0);
     final pinned = List<bool>.filled(count, false);
