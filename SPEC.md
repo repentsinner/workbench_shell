@@ -57,8 +57,7 @@ typography, spacing, and theming.
   on Windows and Linux.
 - Keyboard bindings (`WorkbenchShortcuts`) aligned with VS Code
   defaults.
-- Structural primitives: `WorkbenchViewPane`, `WorkbenchCard`,
-  `WorkbenchToggleCard`, `WorkbenchEmptyState`.
+- Structural primitives: `WorkbenchViewPane`, `WorkbenchViewWelcome`.
 - Theming: `WorkbenchTheme` (chrome tokens),
   `WorkbenchThemeController` (theme switching, VS Code JSON
   loader, `TokenTheme` for syntax highlighting), `TokenTheme`,
@@ -143,15 +142,15 @@ collapse.
 
 ## Structural Primitives §spec:structural-primitives
 
-*Status: complete*
+*Status: in progress*
 
 Structural primitives encode the workbench's visual hierarchy as
-types. A sidebar that uses `WorkbenchViewPane` around a
-`WorkbenchCard` gets consistent heading sizes, card borders, and
-section padding by construction. Every sidebar and panel reads the
-same `WorkbenchTheme` tokens through the same widgets, so styling
-drift (one sidebar's card title rendering 12pt, another's 14pt
-because each file reaches into tokens directly) cannot happen.
+types. A sidebar built from `WorkbenchViewPane` gets consistent
+heading sizes and pane framing by construction. Every sidebar and
+panel reads the same `WorkbenchTheme` tokens through the same
+widgets, so styling drift (one sidebar's pane title rendering 12pt,
+another's 14pt because each file reaches into tokens directly)
+cannot happen.
 
 **Why primitives, not style mixins**: VS Code's webview and
 tree-view APIs make the same choice — the hierarchy is a type,
@@ -165,25 +164,41 @@ primitives exist to prevent.
 | Widget | Purpose |
 |---|---|
 | `WorkbenchViewPane` | Top-level view pane in a sidebar or panel body. Title renders uppercase per §spec:chrome-typography-canon (VS Code pane-header canon), padded for pane framing |
-| `WorkbenchCard` | Bordered container; the atom of sidebar content |
-| `WorkbenchToggleCard` | Card with a leading toggle and expand/collapse |
-| `WorkbenchEmptyState` | Canonical empty-state with icon, title, optional action |
+| `WorkbenchViewWelcome` | Canonical empty-view content: stacked paragraphs and full-width buttons |
 
 **Observable behavior**: every sidebar and bottom panel renders
-with consistent section framing — section titles at the same
-size and weight, cards and toggle cards at the same border radius
-and border color. Layout tokens come from `WorkbenchLayoutConstants`; colors
+with consistent section framing — pane titles at the same size and
+weight, welcome content at the same paragraph and button treatment.
+Layout tokens come from `WorkbenchLayoutConstants`; colors
 and typography come from `WorkbenchTheme`.
 
 **The top-level primitive is `WorkbenchViewPane`** (the canonical "view
 pane" noun; renamed from the shell-invented `WorkbenchSection` per
 §spec:scope). §spec:view-stack builds the stacked view-container model
-around it. The other primitives — `WorkbenchCard`,
-`WorkbenchToggleCard`, `WorkbenchEmptyState` — are content
-stylings inside a view-pane body and keep their names.
-Hierarchical tree rows (a folder's disclosure triangle) are a distinct
-VS Code concept (`TreeItem`) the shell does not own; view bodies are
-host content (§spec:scope).
+around it. Hierarchical tree rows (a folder's disclosure triangle) are
+a distinct VS Code concept (`TreeItem`) the shell does not own; view
+bodies are host content (§spec:scope).
+
+**The vocabulary is canon-bounded: no card primitives.** VS Code has
+no card widget — its base widget set (`vs/base/browser/ui`) contains
+buttons, toggles, lists, trees, inputs, but nothing card-like, and
+view bodies canonically hold trees, welcome content, or webviews.
+`WorkbenchCard` and `WorkbenchToggleCard` therefore leave the public
+API, following the §spec:scope non-canon rule that removed
+`WorkbenchSubsection`: a shell-invented content styling trains hosts
+on vocabulary no VS Code user recognizes, and content styling inside
+a view body is the host's concern. Their removal is breaking; hosts
+that want a bordered group build one from their own design system.
+
+**Empty views render welcome content, not an icon hero.**
+`WorkbenchViewWelcome` is the port of VS Code's view-welcome surface
+(the `viewsWelcome` contribution): stacked text paragraphs and
+full-width buttons in a centered column, buttons capped at canon's
+maximum width. It replaces the former `WorkbenchEmptyState`
+(icon + title + subtitle hero), a layout with no canon counterpart —
+VS Code's empty views lead with prose and a command button, not an
+icon. The welcome noun and shape keep the shell recognizable to VS
+Code users, which is the package's naming contract (§spec:scope).
 
 ---
 
@@ -771,7 +786,7 @@ pane non-collapsible (or merged under `mergeSingleView`), exactly as a
 single-view container behaves. There is **no** rule forcing one view to stay
 visible — matching canon, hiding every view yields an empty container; the
 title row and its overflow persist so the user can re-show a view
-(§spec:structural-primitives `WorkbenchEmptyState` covers the empty body).
+(§spec:structural-primitives `WorkbenchViewWelcome` covers the empty body).
 
 **The Views submenu is shell-built; host extras reuse existing patterns.**
 Unlike the View *menu bar*, whose entry tree the host supplies
@@ -1077,7 +1092,7 @@ section.
 
 ## Chrome Widgets §spec:chrome-widgets
 
-*Status: complete*
+*Status: in progress*
 
 ### WorkbenchLayout §spec:workbench-layout
 
@@ -1188,17 +1203,21 @@ own the status-bar container, height, padding, and leading/
 trailing alignment. Applications populate items with domain data.
 
 `WorkbenchStatusBarProblemsItem` is the VS Code "Problems"
-indicator: three counts (error, warning, info) rendered with
-role-coloured icons and a single tap target that the host binds
-to open whatever bottom-panel tab holds the underlying
-diagnostics. Counts, colours, spacing, and typography all come
-from `WorkbenchTheme` — the host supplies only the three integers
-and the tap callback.
+indicator: severity counts rendered with role-coloured icons and
+a single tap target that the host binds to open whatever
+bottom-panel tab holds the underlying diagnostics. Counts,
+colours, spacing, and typography all come from `WorkbenchTheme` —
+the host supplies only the integers and the tap callback. Error
+and warning counts render unconditionally, including zero, so the
+indicator holds its position as counts change; the info count
+renders only when it is greater than zero. This is canon's exact
+rule (the markers status contribution appends info "only if any"),
+so an idle workbench reads `⊗ 0 ⚠ 0` with no info glyph.
 
 **Why a distinct primitive rather than three
 `WorkbenchStatusBarItem`s**: a composite Row of three items would
 work, but every host would duplicate the count-to-visibility
-logic (hide zero counts, style the dominant severity, share one
+logic (always-on error/warning, info only when present, share one
 tap target). Packaging the composite in the shell makes the
 right behaviour free and matches VS Code's own implementation,
 where the Problems indicator is a single registered status-bar
@@ -2283,7 +2302,7 @@ workbench CSS:
 
 **`sectionTitle` adopts pane-header semantics.** The token's role —
 top-level grouping inside a sidebar or panel body, per
-`WorkbenchViewPane` and `WorkbenchEmptyState` (§spec:structural-primitives) — maps onto VS
+`WorkbenchViewPane` (§spec:structural-primitives) — maps onto VS
 Code's pane header (`.pane-header`, `11 / bold / uppercase`).
 `WorkbenchViewPane.title` renders uppercase in the shell regardless
 of input casing, parallel to the §spec:tabbed-panel tab-label canon.
@@ -2539,7 +2558,7 @@ default and records the rationale:
 | `panelDefaultHeight` | 200 | VS Code persists last user height | Tall enough to show a useful number of log lines without dominating the editor area |
 | `panelMaxHeight` | 400 | VS Code allows dynamic max bounded by editor area | Static cap keeps the shell from re-implementing VS Code's layout-service min/max negotiation; consumers that need taller panels override at the layout call site |
 | `sidebarMaxWidth` | 600 | VS Code caps at ~75% of window width dynamically | Same reasoning as `panelMaxHeight` |
-| Spacing scale (`spacingXxs` … `spacingXl`) | 2 / 4 / 6 / 8 / 12 / 16 / 24 | VS Code uses ad-hoc paddings throughout; no shared scale | Package-internal consistency so primitives (`WorkbenchViewPane`, `WorkbenchCard`) compose without hardcoded paddings at call sites |
+| Spacing scale (`spacingXxs` … `spacingXl`) | 2 / 4 / 6 / 8 / 12 / 16 / 24 | VS Code uses ad-hoc paddings throughout; no shared scale | Package-internal consistency so primitives (`WorkbenchViewPane`, `WorkbenchViewWelcome`) compose without hardcoded paddings at call sites |
 | Icon sizes (`iconXs`, `iconSm`, `iconMd`, `iconLg`, `iconXl`, `iconXxl`, `iconActivityBar`) | 12 / 14 / 16 / 18 / 20 / 32 / 24 | VS Code uses 16 for most codicons (`codiconFontSize` in `baseSizes.ts`), 12 for compact (`codiconFontSize.compact`) | Provides a scale around VS Code's 16 default for surfaces (close affordances, status indicators) where a single fixed icon size doesn't fit |
 | `notificationProgressBarHeight` | 4 | not surfaced within search scope of VS Code source | Matches the visible progress bar height VS Code renders |
 
