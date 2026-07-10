@@ -1570,9 +1570,8 @@ Map<String, WorkbenchViewDescriptor> _explorerViews(
       id: 'outline',
       title: 'Outline',
       initiallyExpanded: false,
-      bodyBuilder: (_) => const _SidebarBodyPlaceholder(
-        text: 'WorkbenchViewPane\nWorkbenchCard',
-      ),
+      bodyBuilder: (_) =>
+          const _SidebarBodyPlaceholder(text: 'WorkbenchViewPane'),
     ),
     'timeline': WorkbenchViewDescriptor(
       id: 'timeline',

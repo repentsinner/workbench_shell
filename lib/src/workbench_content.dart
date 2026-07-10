@@ -9,19 +9,10 @@ import 'workbench_theme.dart';
 /// Structural primitives for sidebars and bottom panels.
 ///
 /// `workbench_shell` deliberately scopes this surface to structural
-/// grouping (sections, cards, toggle cards, empty states).
+/// grouping (sections, empty states).
 /// Form controls — text fields, dropdowns, toggles, action buttons —
 /// live in the host application as application helpers. See SPEC
 /// §spec:form-controls-excluded for rationale and the re-promotion gate.
-
-/// Resolve a content-primitive border side from the theme's nullable
-/// [WorkbenchTheme.borderColor]. When the theme suppresses the border,
-/// fall through to [BorderSide.none] so the content primitive draws
-/// without a visible edge. Callers that need to skip the wrapping
-/// decoration entirely should branch on `theme.borderColor == null`.
-BorderSide _contentBorderSide(WorkbenchTheme theme) => theme.borderColor == null
-    ? BorderSide.none
-    : BorderSide(color: theme.borderColor!);
 
 /// Top-level grouping inside a sidebar or panel. Renders [title]
 /// uppercased — the shell owns the transform so consumers cannot
@@ -443,94 +434,6 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
           else
             widget.child,
       ],
-    );
-  }
-}
-
-/// Bordered container for an inline list item or grouped fields.
-/// No implicit heading.
-class WorkbenchCard extends StatelessWidget {
-  final Widget child;
-  final EdgeInsetsGeometry padding;
-
-  const WorkbenchCard({
-    super.key,
-    required this.child,
-    this.padding = const EdgeInsets.all(WorkbenchLayoutConstants.spacingMd),
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = context.workbenchTheme;
-    return Container(
-      width: double.infinity,
-      padding: padding,
-      decoration: BoxDecoration(
-        border: Border.fromBorderSide(_contentBorderSide(theme)),
-        borderRadius: WorkbenchLayoutConstants.containerRadius,
-      ),
-      child: child,
-    );
-  }
-}
-
-/// Bordered card whose header row contains a leading toggle and a
-/// settings-style label title. When [enabled] is false, [child] is dimmed
-/// and input is suppressed, but layout does not reflow. The toggle
-/// itself remains interactive so callers can re-enable.
-class WorkbenchToggleCard extends StatelessWidget {
-  final String title;
-  final bool enabled;
-  final ValueChanged<bool>? onChanged;
-  final Widget child;
-  final EdgeInsetsGeometry padding;
-
-  const WorkbenchToggleCard({
-    super.key,
-    required this.title,
-    required this.enabled,
-    required this.onChanged,
-    required this.child,
-    this.padding = const EdgeInsets.all(WorkbenchLayoutConstants.spacingMd),
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = context.workbenchTheme;
-    return Container(
-      width: double.infinity,
-      padding: padding,
-      decoration: BoxDecoration(
-        border: Border.fromBorderSide(_contentBorderSide(theme)),
-        borderRadius: WorkbenchLayoutConstants.containerRadius,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              SizedBox(
-                width: WorkbenchLayoutConstants.switchWidth,
-                height: WorkbenchLayoutConstants.switchHeight,
-                child: FittedBox(
-                  child: Switch(
-                    value: enabled,
-                    onChanged: onChanged,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                ),
-              ),
-              const SizedBox(width: WorkbenchLayoutConstants.spacingSm),
-              Expanded(child: Text(title, style: theme.labelText)),
-            ],
-          ),
-          const SizedBox(height: WorkbenchLayoutConstants.spacingSm),
-          IgnorePointer(
-            ignoring: !enabled,
-            child: Opacity(opacity: enabled ? 1.0 : 0.4, child: child),
-          ),
-        ],
-      ),
     );
   }
 }

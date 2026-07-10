@@ -131,12 +131,6 @@ class WorkbenchLayoutConstants {
   /// Active-indicator border width on activity bar icons.
   static const double activityBarIndicatorWidth = 2.0;
 
-  /// Switch container width (scaled to compact Material size).
-  static const double switchWidth = 28.0;
-
-  /// Switch container height (scaled to compact Material size).
-  static const double switchHeight = 16.0;
-
   // ==================== BORDER RADIUS ====================
 
   /// 4px — standard container border radius.

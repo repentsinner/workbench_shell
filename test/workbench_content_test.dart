@@ -834,28 +834,6 @@ void main() {
     });
   });
 
-  group('WorkbenchCard', () {
-    testWidgets('renders bordered container around child', (tester) async {
-      await tester.pumpWidget(
-        wrapWithTheme(const WorkbenchCard(child: Text('card-body'))),
-      );
-      expect(find.text('card-body'), findsOneWidget);
-      final container = tester.widget<Container>(
-        find
-            .ancestor(
-              of: find.text('card-body'),
-              matching: find.byType(Container),
-            )
-            .first,
-      );
-      final decoration = container.decoration as BoxDecoration;
-      expect(
-        (decoration.border as Border).top.color,
-        testWorkbenchTheme.borderColor,
-      );
-    });
-  });
-
   group('WorkbenchEmptyState', () {
     testWidgets('renders icon, title, subtitle, and action', (tester) async {
       await tester.pumpWidget(
