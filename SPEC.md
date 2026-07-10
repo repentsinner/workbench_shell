@@ -1610,7 +1610,7 @@ warrant one.
 
 ## Workbench Layout Customization §spec:layout-customization
 
-*Status: in progress*
+*Status: complete*
 
 §spec:workbench-layout composes a fixed arrangement: activity bar and
 primary side bar on the left, bottom panel under the editor, status bar
