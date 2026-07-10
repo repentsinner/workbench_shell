@@ -125,9 +125,11 @@ class WorkbenchStatusBarAction extends StatelessWidget {
 /// from [WorkbenchTheme] — the shell owns the visual contract so
 /// every host renders a consistent indicator.
 ///
-/// Matching VS Code, all three counts render unconditionally
-/// (including zeros). The indicator is always visible so its
-/// position does not shift as task counts change.
+/// Matching VS Code, the error and warning counts render
+/// unconditionally (including zero) so the indicator holds its
+/// position; the info count renders only when greater than zero —
+/// VS Code's markers status contribution appends info "only if any"
+/// (SPEC §spec:status-bar).
 class WorkbenchStatusBarProblemsItem extends StatelessWidget {
   final int errorCount;
   final int warningCount;
@@ -135,7 +137,8 @@ class WorkbenchStatusBarProblemsItem extends StatelessWidget {
   final VoidCallback onTap;
 
   /// Optional tooltip override. Defaults to
-  /// `"E errors, W warnings, I info"`.
+  /// `"E errors, W warnings"`, with `", I info"` appended only when
+  /// [infoCount] is greater than zero.
   final String? tooltip;
 
   const WorkbenchStatusBarProblemsItem({
@@ -162,15 +165,17 @@ class WorkbenchStatusBarProblemsItem extends StatelessWidget {
             icon: Symbols.warning_rounded,
             label: '$warningCount',
           ),
-          const SizedBox(width: WorkbenchLayoutConstants.spacingSm),
-          _StatusBarLabel(icon: Symbols.info_rounded, label: '$infoCount'),
+          if (infoCount > 0) ...[
+            const SizedBox(width: WorkbenchLayoutConstants.spacingSm),
+            _StatusBarLabel(icon: Symbols.info_rounded, label: '$infoCount'),
+          ],
         ],
       ),
     );
+    final infoSuffix = infoCount > 0 ? ', $infoCount info' : '';
     return Tooltip(
       message:
-          tooltip ??
-          '$errorCount errors, $warningCount warnings, $infoCount info',
+          tooltip ?? '$errorCount errors, $warningCount warnings$infoSuffix',
       child: InkWell(onTap: onTap, child: child),
     );
   }

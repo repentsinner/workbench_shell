@@ -9,19 +9,10 @@ import 'workbench_theme.dart';
 /// Structural primitives for sidebars and bottom panels.
 ///
 /// `workbench_shell` deliberately scopes this surface to structural
-/// grouping (sections, cards, toggle cards, empty states).
+/// grouping (sections, welcome content).
 /// Form controls — text fields, dropdowns, toggles, action buttons —
 /// live in the host application as application helpers. See SPEC
 /// §spec:form-controls-excluded for rationale and the re-promotion gate.
-
-/// Resolve a content-primitive border side from the theme's nullable
-/// [WorkbenchTheme.borderColor]. When the theme suppresses the border,
-/// fall through to [BorderSide.none] so the content primitive draws
-/// without a visible edge. Callers that need to skip the wrapping
-/// decoration entirely should branch on `theme.borderColor == null`.
-BorderSide _contentBorderSide(WorkbenchTheme theme) => theme.borderColor == null
-    ? BorderSide.none
-    : BorderSide(color: theme.borderColor!);
 
 /// Top-level grouping inside a sidebar or panel. Renders [title]
 /// uppercased — the shell owns the transform so consumers cannot
@@ -447,139 +438,55 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
   }
 }
 
-/// Bordered container for an inline list item or grouped fields.
-/// No implicit heading.
-class WorkbenchCard extends StatelessWidget {
-  final Widget child;
-  final EdgeInsetsGeometry padding;
+/// Canonical empty-view content — the port of VS Code's view-welcome
+/// surface (the `viewsWelcome` contribution): stacked paragraphs and
+/// full-width buttons in a column, buttons capped at
+/// [WorkbenchLayoutConstants.viewWelcomeButtonMaxWidth] and centered.
+/// Replaces the former icon-hero empty state, which had no canon
+/// counterpart (§spec:structural-primitives).
+class WorkbenchViewWelcome extends StatelessWidget {
+  final List<String> paragraphs;
 
-  const WorkbenchCard({
+  /// Host-supplied buttons (§spec:form-controls-excluded keeps the
+  /// control itself in the host); the shell owns the full-width,
+  /// max-width-capped placement.
+  final List<Widget> buttons;
+
+  const WorkbenchViewWelcome({
     super.key,
-    required this.child,
-    this.padding = const EdgeInsets.all(WorkbenchLayoutConstants.spacingMd),
+    required this.paragraphs,
+    this.buttons = const [],
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
-    return Container(
-      width: double.infinity,
-      padding: padding,
-      decoration: BoxDecoration(
-        border: Border.fromBorderSide(_contentBorderSide(theme)),
-        borderRadius: WorkbenchLayoutConstants.containerRadius,
-      ),
-      child: child,
-    );
-  }
-}
-
-/// Bordered card whose header row contains a leading toggle and a
-/// settings-style label title. When [enabled] is false, [child] is dimmed
-/// and input is suppressed, but layout does not reflow. The toggle
-/// itself remains interactive so callers can re-enable.
-class WorkbenchToggleCard extends StatelessWidget {
-  final String title;
-  final bool enabled;
-  final ValueChanged<bool>? onChanged;
-  final Widget child;
-  final EdgeInsetsGeometry padding;
-
-  const WorkbenchToggleCard({
-    super.key,
-    required this.title,
-    required this.enabled,
-    required this.onChanged,
-    required this.child,
-    this.padding = const EdgeInsets.all(WorkbenchLayoutConstants.spacingMd),
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = context.workbenchTheme;
-    return Container(
-      width: double.infinity,
-      padding: padding,
-      decoration: BoxDecoration(
-        border: Border.fromBorderSide(_contentBorderSide(theme)),
-        borderRadius: WorkbenchLayoutConstants.containerRadius,
-      ),
+    return Padding(
+      padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingLg),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              SizedBox(
-                width: WorkbenchLayoutConstants.switchWidth,
-                height: WorkbenchLayoutConstants.switchHeight,
-                child: FittedBox(
-                  child: Switch(
-                    value: enabled,
-                    onChanged: onChanged,
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                ),
-              ),
-              const SizedBox(width: WorkbenchLayoutConstants.spacingSm),
-              Expanded(child: Text(title, style: theme.labelText)),
-            ],
-          ),
-          const SizedBox(height: WorkbenchLayoutConstants.spacingSm),
-          IgnorePointer(
-            ignoring: !enabled,
-            child: Opacity(opacity: enabled ? 1.0 : 0.4, child: child),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Centered icon + title + subtitle + optional action.
-class WorkbenchEmptyState extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-  final Widget? action;
-
-  const WorkbenchEmptyState({
-    super.key,
-    required this.icon,
-    required this.title,
-    this.subtitle,
-    this.action,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = context.workbenchTheme;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingLg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: WorkbenchLayoutConstants.iconXxl,
-              color: theme.descriptionForeground,
-            ),
-            const SizedBox(height: WorkbenchLayoutConstants.spacingMd),
-            Text(title, style: theme.sectionTitle, textAlign: TextAlign.center),
-            if (subtitle != null) ...[
-              const SizedBox(height: WorkbenchLayoutConstants.spacingXs),
-              Text(
-                subtitle!,
-                style: theme.helperStyle,
-                textAlign: TextAlign.center,
-              ),
-            ],
-            if (action != null) ...[
-              const SizedBox(height: WorkbenchLayoutConstants.spacingMd),
-              action!,
-            ],
+          // Paragraphs are full-width, default-aligned text — VS Code renders
+          // viewsWelcome content as stacked <p> elements, not centered text.
+          for (final (i, paragraph) in paragraphs.indexed) ...[
+            if (i > 0) const SizedBox(height: WorkbenchLayoutConstants.spacingSm),
+            Text(paragraph, style: theme.bodyText),
           ],
-        ),
+          // Each button stretches full width but caps at the canon 300px and
+          // centers when the pane is wider (VS Code's welcome-view button).
+          for (final button in buttons) ...[
+            const SizedBox(height: WorkbenchLayoutConstants.spacingMd),
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: WorkbenchLayoutConstants.viewWelcomeButtonMaxWidth,
+                ),
+                child: SizedBox(width: double.infinity, child: button),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

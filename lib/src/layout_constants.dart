@@ -83,9 +83,6 @@ class WorkbenchLayoutConstants {
   /// 24px — activity bar icons, primary actions.
   static const double iconXl = 24.0;
 
-  /// 32px — large decorative/placeholder icons.
-  static const double iconXxl = 32.0;
-
   // ==================== SHELL CHROME GEOMETRY ====================
 
   /// Activity bar icon optical size (30px for Material Symbols at
@@ -131,12 +128,6 @@ class WorkbenchLayoutConstants {
   /// Active-indicator border width on activity bar icons.
   static const double activityBarIndicatorWidth = 2.0;
 
-  /// Switch container width (scaled to compact Material size).
-  static const double switchWidth = 28.0;
-
-  /// Switch container height (scaled to compact Material size).
-  static const double switchHeight = 16.0;
-
   // ==================== BORDER RADIUS ====================
 
   /// 4px — standard container border radius.
@@ -172,6 +163,12 @@ class WorkbenchLayoutConstants {
   /// ~14px on each side; height is governed by [buttonHeight], so the
   /// vertical component is zero.
   static const EdgeInsets buttonPadding = EdgeInsets.symmetric(horizontal: 14);
+
+  /// 300px — welcome-view button width cap (§spec:structural-primitives).
+  /// VS Code's `welcomeView.css` caps `.monaco-button` at `max-width: 300px`;
+  /// a welcome button stretches full width in a narrow pane and centers at
+  /// this cap in a wider one.
+  static const double viewWelcomeButtonMaxWidth = 300.0;
 
   // ==================== NOTIFICATION CENTER (§spec:notification-center) ====================
 

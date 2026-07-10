@@ -771,13 +771,39 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                     initialSecondarySideBarWidth: _secondarySideBarWidth,
                     onSecondarySideBarWidthChangeEnd: (w) =>
                         _secondarySideBarWidth = w,
-                    statusBar: const WorkbenchStatusBar(
-                      leading: [
-                        WorkbenchStatusBarItem(
-                          icon: Symbols.info_rounded,
-                          label: 'workbench_shell example',
-                        ),
-                      ],
+                    // Problems indicator (§spec:status-bar): the host
+                    // supplies the integers and the tap callback. Counts
+                    // here are demo-derived from active notifications, so
+                    // firing an info notification grows an info segment.
+                    statusBar: ListenableBuilder(
+                      listenable: _notificationService,
+                      builder: (context, _) {
+                        int countOf(NotificationSeverity severity) =>
+                            _notificationService.notifications
+                                .where((n) => n.severity == severity)
+                                .length;
+                        return WorkbenchStatusBar(
+                          leading: [
+                            const WorkbenchStatusBarItem(
+                              icon: Symbols.info_rounded,
+                              label: 'workbench_shell example',
+                            ),
+                            WorkbenchStatusBarProblemsItem(
+                              errorCount: countOf(NotificationSeverity.error),
+                              warningCount: countOf(
+                                NotificationSeverity.warning,
+                              ),
+                              infoCount: countOf(NotificationSeverity.info),
+                              onTap: () {
+                                if (!_panelVisible) {
+                                  setState(() => _panelVisible = true);
+                                }
+                                _focusPanelById?.call(ExamplePanel.problems);
+                              },
+                            ),
+                          ],
+                        );
+                      },
                     ),
                     // Controlled status-bar visibility
                     // (§spec:layout-customization): the host owns the flag and
@@ -826,12 +852,30 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
           // per-concern seed here (§spec:layout-state-persistence).
         );
       case 'search':
-        return const WorkbenchViewContainerSpec(
+        // The Search container dogfoods WorkbenchViewWelcome
+        // (§spec:structural-primitives): an empty view renders welcome
+        // content — stacked paragraphs plus a host-supplied button the shell
+        // caps and centers — modeled on VS Code's Search welcome.
+        return WorkbenchViewContainerSpec(
           views: [
             WorkbenchViewDescriptor(
               id: 'search-results',
               title: 'Results',
-              bodyBuilder: _searchResultsBody,
+              bodyBuilder: (_) => WorkbenchViewWelcome(
+                paragraphs: const [
+                  'You have not yet opened a folder.',
+                  'Search across files in your workspace.',
+                ],
+                buttons: [
+                  FilledButton(
+                    onPressed: () => _notificationService.show(
+                      severity: NotificationSeverity.info,
+                      message: 'Open Folder',
+                    ),
+                    child: const Text('Open Folder'),
+                  ),
+                ],
+              ),
             ),
           ],
         );
@@ -912,12 +956,6 @@ const _sidebarBodyPadding = EdgeInsets.fromLTRB(
   WorkbenchLayoutConstants.spacingLg,
   WorkbenchLayoutConstants.spacingLg,
 );
-
-/// "Results" pane body for the Search container.
-Widget _searchResultsBody(BuildContext context) =>
-    const _SidebarBodyPlaceholder(
-      text: 'Search sidebar — host-supplied content lands here.',
-    );
 
 /// "Button Tiers" pane body for the Buttons container.
 Widget _buttonTiersBody(BuildContext context) => const _ButtonsReviewSidebar();
@@ -1570,9 +1608,8 @@ Map<String, WorkbenchViewDescriptor> _explorerViews(
       id: 'outline',
       title: 'Outline',
       initiallyExpanded: false,
-      bodyBuilder: (_) => const _SidebarBodyPlaceholder(
-        text: 'WorkbenchViewPane\nWorkbenchCard',
-      ),
+      bodyBuilder: (_) =>
+          const _SidebarBodyPlaceholder(text: 'WorkbenchViewPane'),
     ),
     'timeline': WorkbenchViewDescriptor(
       id: 'timeline',

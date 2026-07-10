@@ -66,12 +66,13 @@ void main() {
     await tester.pumpAndSettle();
 
     // Search content lives in a named "Results" view pane (header
-    // uppercased per canon), not a raw merged body.
+    // uppercased per canon), not a raw merged body. Its body is welcome
+    // content — paragraphs plus a host-supplied button
+    // (§spec:structural-primitives).
     expect(find.text('RESULTS'), findsOneWidget);
-    expect(
-      find.text('Search sidebar — host-supplied content lands here.'),
-      findsOneWidget,
-    );
+    expect(find.text('You have not yet opened a folder.'), findsOneWidget);
+    expect(find.text('Search across files in your workspace.'), findsOneWidget);
+    expect(find.text('Open Folder'), findsOneWidget);
     // Explorer's collapsible panes are gone once Search is active.
     expect(find.text('WORKBENCH_SHELL'), findsNothing);
   });
@@ -211,6 +212,38 @@ void main() {
     await tester.tap(find.text('Info'));
     await tester.pump();
     expect(find.textContaining('Info notice'), findsOneWidget);
+  });
+
+  testWidgets('status bar problems item hides the info segment until the '
+      'host reports info diagnostics (§spec:status-bar)', (tester) async {
+    await tester.pumpWidget(const WorkbenchExampleApp());
+    await tester.pumpAndSettle();
+
+    Finder inProblemsItem(Finder matching) => find.descendant(
+      of: find.byType(WorkbenchStatusBarProblemsItem),
+      matching: matching,
+    );
+
+    // Idle: error 0 and warning 0 render unconditionally; no info glyph.
+    expect(inProblemsItem(find.byIcon(Symbols.error_rounded)), findsOneWidget);
+    expect(
+      inProblemsItem(find.byIcon(Symbols.warning_rounded)),
+      findsOneWidget,
+    );
+    expect(inProblemsItem(find.text('0')), findsNWidgets(2));
+    expect(inProblemsItem(find.byIcon(Symbols.info_rounded)), findsNothing);
+
+    // The host reports an info diagnostic (the demo derives counts from
+    // active notifications): the item grows an info segment.
+    await tester.tap(find.byIcon(Symbols.notifications_rounded));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Info'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Info'));
+    await tester.pump();
+
+    expect(inProblemsItem(find.byIcon(Symbols.info_rounded)), findsOneWidget);
+    expect(inProblemsItem(find.text('1')), findsOneWidget);
   });
 
   testWidgets(

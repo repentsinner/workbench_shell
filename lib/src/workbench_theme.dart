@@ -11,8 +11,8 @@ import 'theming/vscode_color_map.dart';
 ///
 /// Carries the tokens needed by the shell widgets (activity bar,
 /// sidebar container, resizers, status bar container) plus the
-/// content primitives ([WorkbenchViewPane], [WorkbenchCard], form
-/// controls, etc.) that sidebars and panels compose.
+/// content primitives ([WorkbenchViewPane], form controls, etc.)
+/// that sidebars and panels compose.
 ///
 /// Install as a [ThemeExtension] on the app's [ThemeData]. Shell
 /// widgets and primitives access it via [WorkbenchThemeExtension.of].
@@ -234,8 +234,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   final TextStyle bodyStyle;
   final TextStyle helperStyle;
 
-  /// Content-primitive border color (WorkbenchCard, form inputs,
-  /// action button outlines). Derived from [panelBorder], so follows
+  /// Content-primitive border color (form inputs, action button
+  /// outlines). Derived from [panelBorder], so follows
   /// its nullability: null when a theme explicitly suppresses panel
   /// borders. Consumers shall skip drawing or fall back to
   /// [Colors.transparent] when null.
