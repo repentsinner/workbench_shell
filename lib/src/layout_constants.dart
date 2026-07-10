@@ -83,9 +83,6 @@ class WorkbenchLayoutConstants {
   /// 24px — activity bar icons, primary actions.
   static const double iconXl = 24.0;
 
-  /// 32px — large decorative/placeholder icons.
-  static const double iconXxl = 32.0;
-
   // ==================== SHELL CHROME GEOMETRY ====================
 
   /// Activity bar icon optical size (30px for Material Symbols at

@@ -22,8 +22,7 @@ construction.
 - `WorkbenchShortcuts` — ships the Cmd/Ctrl+J bottom-panel toggle;
   hosts register additional shortcuts via `extraShortcuts` or a
   surrounding `Shortcuts` widget.
-- `WorkbenchViewPane`, `WorkbenchCard`, `WorkbenchToggleCard`,
-  `WorkbenchEmptyState` — structural primitives
+- `WorkbenchViewPane`, `WorkbenchViewWelcome` — structural primitives
   that encode the workbench's visual hierarchy.
 - `WorkbenchTheme` + `WorkbenchThemeController` — VS Code theme JSON
   loader, token map, and active theme state. Bundled themes: Dark/Light
