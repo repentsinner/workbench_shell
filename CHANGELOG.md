@@ -1,3 +1,15 @@
+# [0.28.0](https://github.com/repentsinner/workbench_shell/compare/v0.27.0...v0.28.0) (2026-07-10)
+
+
+### Bug Fixes
+
+* **example:** merge the single-view member and add a multi-pane member ([f3424ce](https://github.com/repentsinner/workbench_shell/commit/f3424ce3728d4e1e003cdeeb4d4d8318afcb7411))
+
+
+### Features
+
+* replace the secondary side bar's single container with membership tabs ([7359a36](https://github.com/repentsinner/workbench_shell/commit/7359a36bd7bbb491ab6422d48e5ff30ba4aeadd3))
+
 # [0.27.0](https://github.com/repentsinner/workbench_shell/compare/v0.26.0...v0.27.0) (2026-07-02)
 
 
