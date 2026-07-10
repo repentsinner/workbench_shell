@@ -881,9 +881,12 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
         // A secondary side bar member (§spec:secondary-sidebar). The activity
         // bar never lists it, so the spec-level title is its only label source
         // — without it the member's title-row tab renders blank
-        // (§spec:view-container-title).
+        // (§spec:view-container-title). Single-view members merge per canon:
+        // the tab names the container, the pane header hides, and the body
+        // fills — the tab and a pane header never repeat the same word.
         return const WorkbenchViewContainerSpec(
           title: 'Outline',
+          mergeSingleView: true,
           views: [
             WorkbenchViewDescriptor(
               id: 'secondary-outline',
@@ -893,16 +896,25 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
           ],
         );
       case 'notes':
-        // The secondary side bar's second member; switching tabs between it
-        // and Outline dogfoods per-member retention
-        // (§spec:view-container-state).
+        // The secondary side bar's second member. Two views make it the
+        // multi-pane dogfood for the secondary bar: switching tabs between it
+        // and Outline exercises per-member retention
+        // (§spec:view-container-state), and its panes exercise reorder, sash
+        // resize, and the `⋯` Views toggles inside the secondary. View names
+        // differ from the container title, as in canon (EXPLORER holds
+        // Folders/Outline/Timeline).
         return const WorkbenchViewContainerSpec(
           title: 'Notes',
           views: [
             WorkbenchViewDescriptor(
-              id: 'secondary-notes',
-              title: 'Notes',
-              bodyBuilder: _secondaryNotesBody,
+              id: 'secondary-drafts',
+              title: 'Drafts',
+              bodyBuilder: _secondaryDraftsBody,
+            ),
+            WorkbenchViewDescriptor(
+              id: 'secondary-scratchpad',
+              title: 'Scratchpad',
+              bodyBuilder: _secondaryScratchpadBody,
             ),
           ],
         );
@@ -973,10 +985,16 @@ Widget _secondaryOutlineBody(BuildContext context) =>
       text: 'Secondary side bar — titled by WorkbenchViewContainerSpec.title.',
     );
 
-/// "Notes" pane body for the secondary side bar container.
-Widget _secondaryNotesBody(BuildContext context) =>
+/// "Drafts" pane body for the secondary side bar's Notes container.
+Widget _secondaryDraftsBody(BuildContext context) =>
     const _SidebarBodyPlaceholder(
       text: 'A container the activity bar never lists names itself here.',
+    );
+
+/// "Scratchpad" pane body for the secondary side bar's Notes container.
+Widget _secondaryScratchpadBody(BuildContext context) =>
+    const _SidebarBodyPlaceholder(
+      text: 'Second pane — drag headers to reorder, drag the sash to resize.',
     );
 
 /// Notifications demo controller — holds the demo state (counter, progress
