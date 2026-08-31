@@ -18,7 +18,11 @@ This repo uses [Flywheel](https://github.com/point-source/flywheel) to orchestra
 
 **Auto-merge eligibility on `main`.** PRs whose title type is in `[chore, docs, style, test, ci, build, refactor]` get labeled `flywheel:auto-merge` and merge automatically once required checks pass. Any other type — `feat`, `fix`, `perf`, and every `!`-suffixed breaking variant — routes to human review and waits for an approval.
 
-**Required status checks.** Your PR must pass `quality` (Flutter analyze + package and example tests) and the governance lint before merging. Run them locally before pushing:
+**Required status checks.** Your PR must pass `quality` and the governance lint before merging.
+
+`quality` is an aggregate. The work runs as separate jobs — `analyze`, `test-package`, `test-example` — so a failure is attributable and the fast one reports early, but the ruleset names only the aggregate. A required check has to report on every run and a skipped job reports nothing, so naming the individual jobs would leave a PR pending forever whenever one legitimately skips. Adding a job means adding it to the aggregate's `needs`; the ruleset does not change.
+
+Run them locally before pushing:
 
 ```bash
 flutter analyze && flutter test && (cd example && flutter test)

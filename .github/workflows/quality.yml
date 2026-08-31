@@ -1,21 +1,26 @@
-# quality — PR + merge-queue compatible quality gate.
+# quality — everything this repository verifies, behind one required check.
 #
-# GitHub names a required status check after the JOB, not the workflow.
-# The job id `quality` is the check-run name to register in the branch
-# ruleset under "Required status checks".
+# GitHub names a check run after the JOB, so the job id `quality` below is
+# the context registered in the `Flywheel - review` ruleset. The work is
+# split into jobs so failures are attributable and the fast one reports
+# early; the ruleset sees only the aggregate.
+#
+# `needs:` cannot cross workflow files, so anything that should gate merges
+# lives here. Adding a job means adding it to the aggregate's `needs` — the
+# ruleset never changes.
 name: quality
 on:
   pull_request:
   merge_group: # required for merge-queue compatibility
+
 jobs:
-  quality:
+  analyze:
     runs-on: ubuntu-latest
     steps:
       # Classify the triggering commit/PR so Flywheel-emitted commits
       # (chore(release):, back-merge) skip the suite. A step-level `if:`
-      # that evaluates false still reports `success` to the required-
-      # status-checks rule, so the gate stays satisfied. Pinned to the
-      # same major as the main Flywheel action.
+      # that evaluates false still reports `success`, so the aggregate stays
+      # satisfied. Pinned to the same major as the main Flywheel action.
       - id: classify
         uses: point-source/flywheel/classify@v2
       - uses: actions/checkout@v6
@@ -30,12 +35,66 @@ jobs:
         run: |
           flutter pub get
           flutter analyze
+
+  test-package:
+    runs-on: ubuntu-latest
+    steps:
+      - id: classify
+        uses: point-source/flywheel/classify@v2
+      - uses: actions/checkout@v6
+        if: steps.classify.outputs.derived_release_commit != 'true'
+      - uses: subosito/flutter-action@v2
+        if: steps.classify.outputs.derived_release_commit != 'true'
+        with:
+          channel: stable
+          cache: true
       - name: Test (package)
         if: steps.classify.outputs.derived_release_commit != 'true'
-        run: flutter test
+        run: |
+          flutter pub get
+          flutter test
+
+  test-example:
+    runs-on: ubuntu-latest
+    steps:
+      - id: classify
+        uses: point-source/flywheel/classify@v2
+      - uses: actions/checkout@v6
+        if: steps.classify.outputs.derived_release_commit != 'true'
+      - uses: subosito/flutter-action@v2
+        if: steps.classify.outputs.derived_release_commit != 'true'
+        with:
+          channel: stable
+          cache: true
+      # workbench_shell is a path dependency, so this resolves from source
+      # and does not need the package's pub get to have run first.
       - name: Test (example)
         if: steps.classify.outputs.derived_release_commit != 'true'
         working-directory: example
         run: |
           flutter pub get
           flutter test
+
+  quality:
+    name: quality
+    if: always()
+    needs: [analyze, test-package, test-example]
+    runs-on: ubuntu-latest
+    steps:
+      # A required check has to report on every run, and a skipped job
+      # reports nothing — so the ruleset names this aggregate rather than
+      # the jobs above. Results arrive through env so the script stays
+      # quoting-safe.
+      - name: Check results
+        env:
+          ANALYZE: ${{ needs.analyze.result }}
+          TEST_PACKAGE: ${{ needs.test-package.result }}
+          TEST_EXAMPLE: ${{ needs.test-example.result }}
+        run: |
+          echo "analyze=$ANALYZE test-package=$TEST_PACKAGE test-example=$TEST_EXAMPLE"
+          for result in "$ANALYZE" "$TEST_PACKAGE" "$TEST_EXAMPLE"; do
+            case "$result" in
+              success|skipped) ;;
+              *) echo "::error::job result: $result"; exit 1 ;;
+            esac
+          done
