@@ -1940,7 +1940,7 @@ therefore impossible without breaking the dependency invariant.
   content; the shell draws no window buttons and the menu stays in
   the system bar (§spec:menu-bar), so nothing conflicts. This is
   the only platform where custom chrome is close to free.
-- *Windows* — the shell must draw its own min/max/close and handle
+- *Windows* — the shell has to draw its own min/max/close and handle
   `WM_NCHITTEST` for the Win11 snap-layouts hover. Reclaims the
   in-window `MenuBar` row that §spec:menu-bar lists as an accepted
   loss.
