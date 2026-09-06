@@ -19,6 +19,17 @@ header radius and hover tint in `lib/src/workbench_view_container.dart`
 and `lib/src/workbench_content.dart`, including the suppressed rule
 above the first pane in a stack (§spec:modern-ui-surfaces).
 
+### Workbench backdrop §road:workbench-backdrop
+
+Paint the ground behind the cards from VS Code's
+`titleBar.activeBackground` rather than reusing `editorBackground`,
+adding the token to `lib/src/workbench_theme.dart` and applying it in
+`lib/src/workbench_layout.dart` (§spec:modern-ui-surfaces). The card
+framing made this visible: the gutters it introduced expose a colour
+that previously rendered nowhere, and on a dark theme it resolves close
+enough to the editor card that the treatment reads as a hairline grid
+rather than as floating cards.
+
 ### Layout density seam §road:layout-density
 
 Expose layout density as a host-configurable property on
