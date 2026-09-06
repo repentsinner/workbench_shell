@@ -15,9 +15,7 @@ import 'notification_service.dart';
 /// `notificationsToasts.css` rounds the toast with the same
 /// `var(--vscode-cornerRadius-small)`. Named for the tier rather than for
 /// a role, because the cards it rounds are not controls.
-const BorderRadius _smallRadius = BorderRadius.all(
-  Radius.circular(WorkbenchLayoutConstants.cornerRadiusSmall),
-);
+const BorderRadius _smallRadius = WorkbenchLayoutConstants.controlsRadius;
 
 /// Overlay anchored to the bottom-right of the workbench that
 /// renders the stacked toast cards owned by [NotificationService].

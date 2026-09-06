@@ -12,12 +12,16 @@ now ships (§spec:modern-ui-surfaces). Every workstream in this section
 expresses its geometry through the shipped size ladders
 (§spec:design-size-ladders).
 
-### View pane header metrics §road:pane-header-metrics
+### Part title height §road:part-title-height
 
-Apply the treatment's pane header height, inset separator rules,
-header radius and hover tint in `lib/src/workbench_view_container.dart`
-and `lib/src/workbench_content.dart`, including the suppressed rule
-above the first pane in a stack (§spec:modern-ui-surfaces).
+Tighten the side bar heading and panel tab strip from the base
+`.part > .title` height to the treatment's, updating
+`sidebarHeadingHeight` and `panelTabStripHeight` in
+`lib/src/layout_constants.dart` and their row in
+§spec:layout-constants-canon's source table
+(§spec:modern-ui-surfaces). The canon table still cites the base value,
+so a version-pinned re-audit reads the constants as current and the
+drift stays invisible.
 
 ### Workbench backdrop §road:workbench-backdrop
 
@@ -38,9 +42,9 @@ it through `lib/src/workbench_layout.dart` and
 `lib/src/workbench_layout_state.dart` so it modulates the preceding
 workstreams' geometry, and demonstrate both densities in
 `example/lib/main.dart` (§spec:modern-ui-surfaces,
-§spec:layout-customization). The card framing, editor frame and
-activity bar rail it modulates have shipped; depends on
-§road:pane-header-metrics.
+§spec:layout-customization). Every workstream whose geometry it
+modulates — the card framing, the editor frame, the activity bar rail
+and the pane header metrics — has shipped.
 
 **Verify:** Run the example app beside VS Code at the same density.
 The side bars, panel and editor each read as a separate bordered card

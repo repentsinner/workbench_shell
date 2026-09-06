@@ -64,7 +64,7 @@ class WorkbenchViewPane extends StatefulWidget {
   /// constructor fixes it false; [WorkbenchViewPane.inContainer] sets it.
   final bool collapsible;
 
-  /// Whether the header paints its 1px top rule. The rule separates
+  /// Whether the header paints its inset top rule. The rule separates
   /// *adjacent* panes, so the first pane in a container omits it — VS Code
   /// draws no divider above the first pane (§spec:view-stack). Container-set:
   /// [WorkbenchViewContainer] passes false for the first view. The background
@@ -152,12 +152,24 @@ class WorkbenchViewPane extends StatefulWidget {
   State<WorkbenchViewPane> createState() => _WorkbenchViewPaneState();
 }
 
-/// Keys the focus-ring [DecoratedBox] that wraps every view-pane header
+/// Keys the focus-ring [DecoratedBox] drawn over every view-pane header
 /// (§spec:view-pane-focus). The ring reserves a constant 1px border — painted
 /// [WorkbenchTheme.focusBorder] while focused, transparent at rest — so
 /// gaining or losing focus never reflows the header.
 @visibleForTesting
 const Key viewPaneHeaderFocusRingKey = ValueKey('view-pane-header-focus-ring');
+
+/// Keys the [DecoratedBox] that paints a view-pane header's surface: the
+/// section-header band at rest, the hover tint while pointed at, rounded at the
+/// controls tier (§spec:modern-ui-surfaces).
+@visibleForTesting
+const Key viewPaneHeaderSurfaceKey = ValueKey('view-pane-header-surface');
+
+/// Keys the inset separator drawn at the top of a stacked pane's header
+/// (§spec:modern-ui-surfaces). Absent on the first pane in a stack and whenever
+/// the theme omits `sideBarSectionHeader.border`.
+@visibleForTesting
+const Key viewPaneHeaderRuleKey = ValueKey('view-pane-header-rule');
 
 class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
   late bool _expanded = widget.initiallyExpanded;
@@ -174,9 +186,9 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
       widget.headerFocusNode ??
       FocusNode(debugLabel: 'WorkbenchViewPane header');
 
-  // Reveal state for header actions (§spec:section-header-actions). Hover and
-  // focus are tracked independently; either reveals the actions while the
-  // pane is expanded.
+  // Hover and focus are tracked independently. Either reveals the header
+  // actions while the pane is expanded (§spec:section-header-actions); hover
+  // additionally tints the header surface (§spec:modern-ui-surfaces).
   bool _hovered = false;
   bool _focused = false;
 
@@ -252,30 +264,84 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
     return KeyEventResult.ignored;
   }
 
-  /// Wrap [header] in the section-header band + rule.
+  /// Wrap [header] in the Modern UI pane-header chrome
+  /// (§spec:modern-ui-surfaces).
   ///
-  /// A collapsible pane stacks in a [WorkbenchViewContainer], where its header
-  /// is the canonical [WorkbenchLayoutConstants.viewPaneHeaderHeight] band
-  /// (§spec:view-stack) — fixed even when the theme suppresses both tokens, so
-  /// a collapsed pane's height is deterministic and matches the stack's
-  /// measured natural height. A non-collapsible standalone pane keeps the
-  /// prior behavior: with both tokens null the header renders unwrapped at its
-  /// intrinsic row height; otherwise the fixed-height [Container] paints the
-  /// band (background token, null → no fill) and a 1px top rule (border token,
-  /// null → no rule), the rule absorbed within the canonical height.
+  /// The band occupies the canonical
+  /// [WorkbenchLayoutConstants.viewPaneHeaderHeight] whatever the theme sets,
+  /// so a collapsed pane's height is deterministic and matches the stack's
+  /// measured natural height. Inside it, upstream's `padding.css` insets the
+  /// header box from the pane edge by one spacing step, and `paneHeaders.css`
+  /// rounds that box at the controls tier, fills it with the section-header
+  /// band at rest (background token, null → no fill) and with
+  /// [WorkbenchTheme.listHoverBackground] while hovered.
+  ///
+  /// The separator that base VS Code draws as a full-width `border-top` becomes
+  /// a short rule inset one spacing step from each end of the header box and
+  /// drawn *within* the canonical height, so a header still measures that
+  /// height, not that height + 1. It is suppressed above the first pane in a
+  /// stack ([WorkbenchViewPane.showTopRule]) and whenever the border token is
+  /// null.
+  ///
+  /// The focus ring sits one [WorkbenchLayoutConstants.spacingSize20] inside
+  /// the header box: upstream negates that step as the focus outline's offset
+  /// so the ring's top stroke clears the separator instead of overprinting it.
   Widget _withHeaderChrome(WorkbenchTheme theme, Widget header) {
     final band = theme.sideBarSectionHeaderBackground;
     final rule = theme.sideBarSectionHeaderBorder;
-    if (band == null && rule == null && !widget.collapsible) return header;
-    return Container(
+    const inset = WorkbenchLayoutConstants.spacingSize40;
+    const ringOffset = WorkbenchLayoutConstants.spacingSize20;
+    return SizedBox(
       height: WorkbenchLayoutConstants.viewPaneHeaderHeight,
-      decoration: BoxDecoration(
-        color: band,
-        border: (rule == null || !widget.showTopRule)
-            ? null
-            : Border(top: BorderSide(color: rule)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: inset),
+        child: DecoratedBox(
+          key: viewPaneHeaderSurfaceKey,
+          decoration: BoxDecoration(
+            color: _hovered ? theme.listHoverBackground : band,
+            borderRadius: WorkbenchLayoutConstants.controlsRadius,
+          ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              header,
+              if (rule != null && widget.showTopRule)
+                Positioned(
+                  top: 0,
+                  left: inset,
+                  right: inset,
+                  height: WorkbenchLayoutConstants.strokeThickness,
+                  child: IgnorePointer(
+                    child: ColoredBox(key: viewPaneHeaderRuleKey, color: rule),
+                  ),
+                ),
+              // The ring paints over the header without taking layout, so
+              // gaining or losing focus never reflows it (§spec:view-pane-focus).
+              // A decorated box hit-tests its own shape, so it is made
+              // transparent to pointers — the header beneath it stays clickable.
+              Positioned(
+                left: ringOffset,
+                top: ringOffset,
+                right: ringOffset,
+                bottom: ringOffset,
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    key: viewPaneHeaderFocusRingKey,
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: _focused
+                            ? theme.focusBorder
+                            : Colors.transparent,
+                      ),
+                      borderRadius: WorkbenchLayoutConstants.controlsRadius,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-      child: header,
     );
   }
 
@@ -284,48 +350,56 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
     final theme = context.workbenchTheme;
     // Header order follows VS Code's pane header: twisty → title → metadata
     // (infoTooltip) → actions (rightmost). Metadata hugs the title;
-    // operations hug the right edge (§spec:section-header-actions).
-    final header = Row(
-      children: [
-        // The twisty space is always reserved so titles align whether or not
-        // the pane is collapsible — VS Code always renders the twisty
-        // container (viewPane.ts renderHeader). A non-collapsible pane shows
-        // no chevron but keeps the indent; the title never re-justifies.
-        if (widget.collapsible)
-          Icon(
-            _isExpanded
-                ? Symbols.expand_more_rounded
-                : Symbols.chevron_right_rounded,
-            size: WorkbenchLayoutConstants.iconMd,
-            color: theme.descriptionForeground,
-          )
-        else
-          const SizedBox(width: WorkbenchLayoutConstants.iconMd),
-        const SizedBox(width: WorkbenchLayoutConstants.spacingSize40),
-        Expanded(
-          child: Text(widget.title.toUpperCase(), style: theme.sectionTitle),
-        ),
-        if (widget.infoTooltip != null) ...[
-          const SizedBox(width: WorkbenchLayoutConstants.spacingSize80),
-          Tooltip(
-            message: widget.infoTooltip!,
-            child: Icon(
-              Symbols.info_rounded,
+    // operations hug the right edge (§spec:section-header-actions). Upstream's
+    // `padding.css` pads the header's leading edge by one spacing step and
+    // leaves the trailing edge flush, so the rightmost action sits against the
+    // header box (§spec:modern-ui-surfaces).
+    final header = Padding(
+      padding: const EdgeInsets.only(
+        left: WorkbenchLayoutConstants.spacingSize40,
+      ),
+      child: Row(
+        children: [
+          // The twisty space is always reserved so titles align whether or not
+          // the pane is collapsible — VS Code always renders the twisty
+          // container (viewPane.ts renderHeader). A non-collapsible pane shows
+          // no chevron but keeps the indent; the title never re-justifies.
+          if (widget.collapsible)
+            Icon(
+              _isExpanded
+                  ? Symbols.expand_more_rounded
+                  : Symbols.chevron_right_rounded,
               size: WorkbenchLayoutConstants.iconMd,
               color: theme.descriptionForeground,
-            ),
+            )
+          else
+            const SizedBox(width: WorkbenchLayoutConstants.iconMd),
+          const SizedBox(width: WorkbenchLayoutConstants.spacingSize40),
+          Expanded(
+            child: Text(widget.title.toUpperCase(), style: theme.sectionTitle),
           ),
+          if (widget.infoTooltip != null) ...[
+            const SizedBox(width: WorkbenchLayoutConstants.spacingSize80),
+            Tooltip(
+              message: widget.infoTooltip!,
+              child: Icon(
+                Symbols.info_rounded,
+                size: WorkbenchLayoutConstants.iconMd,
+                color: theme.descriptionForeground,
+              ),
+            ),
+          ],
+          // Actions render raw in the rightmost zone, only when visible. The
+          // shell applies no height clamp — the header row grows to the tallest
+          // action (§spec:section-header-actions). Action gestures handle their
+          // own taps, so activating one does not bubble to the header toggle
+          // (§spec:section-disclosure).
+          if (_actionsVisible) ...[
+            const SizedBox(width: WorkbenchLayoutConstants.spacingSize80),
+            ...widget.actions,
+          ],
         ],
-        // Actions render raw in the rightmost zone, only when visible. The
-        // shell applies no height clamp — the header row grows to the tallest
-        // action (§spec:section-header-actions). Action gestures handle their
-        // own taps, so activating one does not bubble to the header toggle
-        // (§spec:section-disclosure).
-        if (_actionsVisible) ...[
-          const SizedBox(width: WorkbenchLayoutConstants.spacingSize80),
-          ...widget.actions,
-        ],
-      ],
+      ),
     );
 
     // Click-to-focus surface (§spec:view-pane-focus). The InkWell paints the
@@ -334,9 +408,22 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
     // own focus (canRequestFocus: false); the outer [Focus] node is the single
     // focus stop, so the header is one tab stop, not two. Action taps inside
     // the header handle their own gestures and do not bubble here.
-    Widget headerSurface = InkWell(
+    //
+    // The splash clips to the header's own radius, and Material's hover
+    // highlight is suppressed: the hover tint is the treatment's
+    // `list.hoverBackground` fill on the header surface, not a second overlay
+    // stacked under it (§spec:modern-ui-surfaces).
+    // No ink: the hover tint is painted on the header surface itself, so an
+    // InkWell would run its highlight animation — allocating a feature on the
+    // workbench's Material and repainting it for 200ms — to draw nothing.
+    // VS Code paints no ripple on a pane header either.
+    Widget headerSurface = GestureDetector(
+      // The whole band toggles the pane, not just the glyphs in it. An InkWell
+      // is opaque by construction; a GestureDetector defers to its child, which
+      // would leave the gaps between title and actions dead — and TapRegion
+      // would read a click there as outside the header and drop its focus.
+      behavior: HitTestBehavior.opaque,
       onTap: _handleHeaderTap,
-      canRequestFocus: false,
       child: header,
     );
 
@@ -352,25 +439,14 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
       );
     }
 
-    // The focus ring (§spec:view-pane-focus): a constant 1px border that paints
-    // [WorkbenchTheme.focusBorder] while focused and is transparent at rest.
-    // Reserving the border either way keeps the header from reflowing as focus
-    // moves — VS Code paints a 1px focus outline on `.pane-header`.
-    headerSurface = DecoratedBox(
-      key: viewPaneHeaderFocusRingKey,
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: _focused ? theme.focusBorder : Colors.transparent,
-        ),
-      ),
-      child: headerSurface,
-    );
-
     // Every header is a single focus stop (§spec:view-pane-focus): focusable by
     // click and traversal, painting the ring and driving the per-pane keys. The
     // node also reports descendant focus (a focused action), so focusing the
     // header — by click or Tab — reveals its actions (§spec:section-header-actions).
     headerSurface = MouseRegion(
+      // The header is a click target and a bare GestureDetector supplies no
+      // cursor of its own.
+      cursor: SystemMouseCursors.click,
       onEnter: (_) {
         if (!_hovered) setState(() => _hovered = true);
       },

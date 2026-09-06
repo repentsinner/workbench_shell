@@ -105,12 +105,21 @@ class WorkbenchLayoutConstants {
   /// Sidebar heading row height.
   static const double sidebarHeadingHeight = 35.0;
 
-  /// View-pane header row height. VS Code `paneview.css` /
-  /// `splitview` `HEADER_SIZE = 22` — the band each stacked view pane
-  /// header occupies. The 1px top rule (§spec:view-stack) is absorbed
-  /// within this height (box-sizing border-box), so a header sits at
-  /// this height, not this height + 1.
-  static const double viewPaneHeaderHeight = 22.0;
+  /// View-pane header row height — the band each stacked view pane header
+  /// occupies. VS Code's Modern UI treatment raises the base
+  /// `paneview.ts` `DEFAULT_PANE_HEADER_SIZE = 22` to the spacing ramp's 28px
+  /// step:
+  /// [`paneHeaders.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/paneHeaders.css)
+  /// sets `--pane-header-size: var(--vscode-spacing-size280)` and keeps it in
+  /// sync with the layout code's `MODERN_UI_PANE_HEADER_SIZE`
+  /// (§spec:modern-ui-surfaces). The inset top rule is drawn inside this
+  /// height, so a header sits at this height, not this height + 1.
+  ///
+  /// Read at VS Code 1.138.0. The treatment ships behind an experiment, so
+  /// this value is the one most likely to be reverted upstream; the pin is
+  /// what makes such a reversal a diff rather than silent drift
+  /// (§spec:layout-constants-canon).
+  static const double viewPaneHeaderHeight = spacingSize280;
 
   /// View-pane minimum body height. The floor below which an expanded pane's
   /// apportioned body never shrinks (§spec:view-stack). VS Code's view pane
@@ -255,6 +264,17 @@ class WorkbenchLayoutConstants {
       (activityBarLane - 2 * strokeThickness) / 2;
 
   // ==================== BUTTONS ====================
+
+  /// The controls tier as a `BorderRadius`. Every all-corners surface on that
+  /// tier — pane headers, notification cards, the ink splash behind a header —
+  /// composes the same shape from [cornerRadiusSmall], so it is named once
+  /// here. The ladder itself stays scalar because upstream assigns tiers per
+  /// corner (§spec:design-size-ladders); this is the all-corners case that
+  /// every current call site actually wants, and `BorderRadius.circular` is
+  /// not a const constructor, so composing it inline allocates per rebuild.
+  static const BorderRadius controlsRadius = BorderRadius.all(
+    Radius.circular(cornerRadiusSmall),
+  );
 
   /// Button shape — applied to the app-level Material button themes
   /// (Filled/Text, §spec:chrome-material-theming). De-pills Material 3's

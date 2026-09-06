@@ -82,6 +82,11 @@ void main() {
         expect(WorkbenchLayoutConstants.notificationCardWidth, 450.0);
       });
 
+      test('viewPaneHeaderHeight matches paneHeaders.css --pane-header-size '
+          '(28px)', () {
+        expect(WorkbenchLayoutConstants.viewPaneHeaderHeight, 28.0);
+      });
+
       test('panelTabStripHeight matches part.css .part > .title (35px)', () {
         expect(WorkbenchLayoutConstants.panelTabStripHeight, 35.0);
       });
