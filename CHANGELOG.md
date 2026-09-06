@@ -1,3 +1,17 @@
+# [0.29.0](https://github.com/repentsinner/workbench_shell/compare/v0.28.0...v0.29.0) (2026-09-06)
+
+
+### Bug Fixes
+
+* **layout:** apply simplify-gate findings to the card treatment ([e02a4c6](https://github.com/repentsinner/workbench_shell/commit/e02a4c6445bee86f8b8fc386ff16be5649285ce1))
+
+
+### Features
+
+* frame the editor area with a Modern UI hairline border ([ab8342c](https://github.com/repentsinner/workbench_shell/commit/ab8342ce5162fe6af15ea4d920b892327ced2634))
+* frame the side bars and bottom panel as Modern UI cards ([560b8d8](https://github.com/repentsinner/workbench_shell/commit/560b8d88153f63a5d213f0483a4f0b9144df387b))
+* give the activity bar its Modern UI rail and filled item indicator ([6a193fd](https://github.com/repentsinner/workbench_shell/commit/6a193fdf6cf2c34177584b522cb6377e6ed652e6))
+
 # [0.28.0](https://github.com/repentsinner/workbench_shell/compare/v0.27.0...v0.28.0) (2026-07-10)
 
 

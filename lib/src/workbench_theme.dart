@@ -31,6 +31,47 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   final Color activityBarForeground;
   final Color activityBarInactiveForeground;
 
+  /// Fill behind the selected activity bar icon. VS Code
+  /// `modernActivityBarItem.activeBackground`, which defaults through
+  /// `modernTab.activeBackground` to `list.inactiveSelectionBackground`.
+  /// Under the Modern UI treatment the selected item is a filled rounded
+  /// background rather than a left-edge border (§spec:modern-ui-surfaces).
+  final Color activityBarItemActiveBackground;
+
+  /// Selected activity bar icon colour. VS Code
+  /// `modernActivityBarItem.activeForeground`, defaulting through
+  /// `modernTab.activeForeground` to `list.inactiveSelectionForeground` and
+  /// then `foreground`.
+  final Color activityBarItemActiveForeground;
+
+  /// Fill behind a hovered, unselected activity bar icon. VS Code
+  /// `modernActivityBarItem.hoverBackground`, defaulting through
+  /// `modernTab.hoverBackground` to `list.hoverBackground`.
+  final Color activityBarItemHoverBackground;
+
+  /// Hovered, unselected activity bar icon colour. VS Code
+  /// `modernActivityBarItem.hoverForeground`, defaulting through
+  /// `modernTab.hoverForeground` to `list.hoverForeground` and then
+  /// `foreground`.
+  final Color activityBarItemHoverForeground;
+
+  // ---- Framed container surfaces ("cards") ----
+
+  /// Fill of a framed workbench card. VS Code `surface.background`, whose
+  /// registry default is `sideBar.background` in dark and high-contrast
+  /// themes and `editor.background` in light ones. Carries the primary side
+  /// bar under the Modern UI treatment; the secondary side bar and the bottom
+  /// panel keep their own part backgrounds, as upstream's CSS overrides them
+  /// back (§spec:modern-ui-surfaces).
+  final Color surfaceBackground;
+
+  /// Hairline around a framed workbench card. VS Code `surface.border`,
+  /// registered as `foreground` at 10% composited over [surfaceBackground].
+  /// Every card in the treatment — side bars, bottom panel, editor and
+  /// activity bar rail — draws this one stroke; `editor.border` and
+  /// `modernActivityBar.border` both resolve to it upstream.
+  final Color surfaceBorder;
+
   // ---- Sidebar ----
   final Color sideBarBackground;
 
@@ -333,6 +374,12 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.activityBarBorder,
     required this.activityBarForeground,
     required this.activityBarInactiveForeground,
+    required this.activityBarItemActiveBackground,
+    required this.activityBarItemActiveForeground,
+    required this.activityBarItemHoverBackground,
+    required this.activityBarItemHoverForeground,
+    required this.surfaceBackground,
+    required this.surfaceBorder,
     required this.sideBarBackground,
     required this.sideBarBorder,
     required this.sideBarForeground,
@@ -534,6 +581,28 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       dl(const Color(0xFF2A2D2E), const Color(0xFFF0F0F0)),
     );
 
+    // Framed container surfaces ("cards", §spec:modern-ui-surfaces). VS Code
+    // registers surface.background as sideBar.background in dark and
+    // high-contrast themes and editor.background in light ones, and
+    // surface.border as `foreground` at 10% composited over it.
+    final surfaceBg = map.resolve(
+      'surface.background',
+      map.isDark ? sideBarBg : editorBg,
+    );
+    final surfaceBorder = map.resolve(
+      'surface.border',
+      Color.alphaBlend(fg.withValues(alpha: 0.1), surfaceBg),
+    );
+    // Activity bar item states. Upstream chains each key through the modern
+    // tab family to the list colours, so a theme that styles only its tabs
+    // still gets a coherent rail.
+    Color activityBarItemColor(
+      String key,
+      String tabKey,
+      String listKey,
+      Color fallback,
+    ) => map[key] ?? map[tabKey] ?? map[listKey] ?? fallback;
+
     // Chrome typography: chrome surfaces honour [chromeFontFamily]
     // (null → platform UI sans). The local helper carries the chrome
     // family so a single decision propagates across every chrome
@@ -582,6 +651,35 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
             .resolve('activityBar.foreground', const Color(0xFFFFFFFF))
             .withValues(alpha: 0.4),
       ),
+      // Filled rounded indicator behind the selected/hovered icon
+      // (§spec:modern-ui-surfaces).
+      activityBarItemActiveBackground: activityBarItemColor(
+        'modernActivityBarItem.activeBackground',
+        'modernTab.activeBackground',
+        'list.inactiveSelectionBackground',
+        dl(const Color(0xFF37373D), const Color(0xFFE4E6F1)),
+      ),
+      activityBarItemActiveForeground: activityBarItemColor(
+        'modernActivityBarItem.activeForeground',
+        'modernTab.activeForeground',
+        'list.inactiveSelectionForeground',
+        fg,
+      ),
+      activityBarItemHoverBackground: activityBarItemColor(
+        'modernActivityBarItem.hoverBackground',
+        'modernTab.hoverBackground',
+        'list.hoverBackground',
+        listHoverBg,
+      ),
+      activityBarItemHoverForeground: activityBarItemColor(
+        'modernActivityBarItem.hoverForeground',
+        'modernTab.hoverForeground',
+        'list.hoverForeground',
+        fg,
+      ),
+      // Framed container surfaces
+      surfaceBackground: surfaceBg,
+      surfaceBorder: surfaceBorder,
       // Sidebar
       sideBarBackground: sideBarBg,
       // Null by the same registry semantics as activityBar.border.
@@ -596,7 +694,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // sideBar.dropBackground to editorGroup.dropBackground; honor that
       // chain, falling back to the canonical dark default (#53595D @ 0.5)
       // so the overlay always renders.
-      sideBarDropBackground: map['sideBar.dropBackground'] ??
+      sideBarDropBackground:
+          map['sideBar.dropBackground'] ??
           map['editorGroup.dropBackground'] ??
           const Color(0x8053595D),
       // Editor
@@ -890,6 +989,12 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? activityBarBorder,
     Color? activityBarForeground,
     Color? activityBarInactiveForeground,
+    Color? activityBarItemActiveBackground,
+    Color? activityBarItemActiveForeground,
+    Color? activityBarItemHoverBackground,
+    Color? activityBarItemHoverForeground,
+    Color? surfaceBackground,
+    Color? surfaceBorder,
     Color? sideBarBackground,
     Color? sideBarBorder,
     Color? sideBarForeground,
@@ -1001,6 +1106,18 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           activityBarForeground ?? this.activityBarForeground,
       activityBarInactiveForeground:
           activityBarInactiveForeground ?? this.activityBarInactiveForeground,
+      activityBarItemActiveBackground:
+          activityBarItemActiveBackground ??
+          this.activityBarItemActiveBackground,
+      activityBarItemActiveForeground:
+          activityBarItemActiveForeground ??
+          this.activityBarItemActiveForeground,
+      activityBarItemHoverBackground:
+          activityBarItemHoverBackground ?? this.activityBarItemHoverBackground,
+      activityBarItemHoverForeground:
+          activityBarItemHoverForeground ?? this.activityBarItemHoverForeground,
+      surfaceBackground: surfaceBackground ?? this.surfaceBackground,
+      surfaceBorder: surfaceBorder ?? this.surfaceBorder,
       sideBarBackground: sideBarBackground ?? this.sideBarBackground,
       sideBarBorder: sideBarBorder ?? this.sideBarBorder,
       sideBarForeground: sideBarForeground ?? this.sideBarForeground,
@@ -1167,6 +1284,24 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         activityBarInactiveForeground,
         other.activityBarInactiveForeground,
       ),
+      activityBarItemActiveBackground: c(
+        activityBarItemActiveBackground,
+        other.activityBarItemActiveBackground,
+      ),
+      activityBarItemActiveForeground: c(
+        activityBarItemActiveForeground,
+        other.activityBarItemActiveForeground,
+      ),
+      activityBarItemHoverBackground: c(
+        activityBarItemHoverBackground,
+        other.activityBarItemHoverBackground,
+      ),
+      activityBarItemHoverForeground: c(
+        activityBarItemHoverForeground,
+        other.activityBarItemHoverForeground,
+      ),
+      surfaceBackground: c(surfaceBackground, other.surfaceBackground),
+      surfaceBorder: c(surfaceBorder, other.surfaceBorder),
       sideBarBackground: c(sideBarBackground, other.sideBarBackground),
       sideBarBorder: cn(sideBarBorder, other.sideBarBorder),
       sideBarForeground: c(sideBarForeground, other.sideBarForeground),
@@ -1381,6 +1516,16 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           activityBarForeground == other.activityBarForeground &&
           activityBarInactiveForeground ==
               other.activityBarInactiveForeground &&
+          activityBarItemActiveBackground ==
+              other.activityBarItemActiveBackground &&
+          activityBarItemActiveForeground ==
+              other.activityBarItemActiveForeground &&
+          activityBarItemHoverBackground ==
+              other.activityBarItemHoverBackground &&
+          activityBarItemHoverForeground ==
+              other.activityBarItemHoverForeground &&
+          surfaceBackground == other.surfaceBackground &&
+          surfaceBorder == other.surfaceBorder &&
           sideBarBackground == other.sideBarBackground &&
           sideBarBorder == other.sideBarBorder &&
           sideBarForeground == other.sideBarForeground &&
@@ -1494,6 +1639,12 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     activityBarBorder,
     activityBarForeground,
     activityBarInactiveForeground,
+    activityBarItemActiveBackground,
+    activityBarItemActiveForeground,
+    activityBarItemHoverBackground,
+    activityBarItemHoverForeground,
+    surfaceBackground,
+    surfaceBorder,
     sideBarBackground,
     sideBarBorder,
     sideBarForeground,

@@ -481,19 +481,138 @@ void main() {
     });
   });
 
-  group('WorkbenchTheme secondary button tokens (§spec:chrome-material-theming)', () {
-    test('fall back to neutral surfaces when button.secondary* omitted', () {
-      final theme = WorkbenchTheme.fromVscodeColorMap(
+  group('WorkbenchTheme Modern UI tokens (§spec:modern-ui-surfaces)', () {
+    test('surface.* fall back to the registry defaults when omitted', () {
+      final dark = WorkbenchTheme.fromVscodeColorMap(
         const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
       );
-      // VS Code registry: button.secondaryBackground defaults to
-      // list.hoverBackground; button.secondaryForeground to foreground.
-      expect(theme.buttonSecondaryBackground, theme.listHoverBackground);
-      expect(theme.buttonSecondaryForeground, theme.foreground);
+      // VS Code registry: surface.background is sideBar.background in dark
+      // themes and editor.background in light ones; surface.border is
+      // `foreground` at 10% composited over it.
+      expect(dark.surfaceBackground, dark.sideBarBackground);
+      expect(
+        dark.surfaceBorder,
+        Color.alphaBlend(
+          dark.foreground.withValues(alpha: 0.1),
+          dark.surfaceBackground,
+        ),
+      );
+
+      final light = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs', colors: {}),
+      );
+      expect(light.surfaceBackground, light.editorBackground);
     });
 
-    test('honour explicit button.secondary* tokens when present', () {
+    test('surface.* honour explicit tokens when present', () {
       final map = loader.parse('''
+        {
+          "name": "Surface Test",
+          "type": "vs-dark",
+          "colors": {
+            "surface.background": "#181818",
+            "surface.border": "#2B2B2B"
+          }
+        }
+        ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.surfaceBackground, const Color(0xFF181818));
+      expect(theme.surfaceBorder, const Color(0xFF2B2B2B));
+    });
+
+    test('activity bar item states chain through the modern tab family', () {
+      final base = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+      );
+      // Registry chain ends at list.inactiveSelectionBackground (#37373D
+      // dark) / list.hoverBackground, with foreground for both label colours.
+      expect(base.activityBarItemActiveBackground, const Color(0xFF37373D));
+      expect(base.activityBarItemActiveForeground, base.foreground);
+      expect(base.activityBarItemHoverBackground, base.listHoverBackground);
+      expect(base.activityBarItemHoverForeground, base.foreground);
+
+      // A theme that styles only its modern tabs still gets a coherent rail.
+      final tabbed = WorkbenchTheme.fromVscodeColorMap(
+        loader.parse('''
+        {
+          "name": "Tabbed",
+          "type": "vs-dark",
+          "colors": {
+            "modernTab.activeBackground": "#04395E",
+            "modernTab.hoverBackground": "#2A2D2E"
+          }
+        }
+        '''),
+      );
+      expect(tabbed.activityBarItemActiveBackground, const Color(0xFF04395E));
+      expect(tabbed.activityBarItemHoverBackground, const Color(0xFF2A2D2E));
+
+      // The dedicated keys win over the tab family.
+      final explicit = WorkbenchTheme.fromVscodeColorMap(
+        loader.parse('''
+        {
+          "name": "Explicit",
+          "type": "vs-dark",
+          "colors": {
+            "modernTab.activeBackground": "#04395E",
+            "modernActivityBarItem.activeBackground": "#0078D4",
+            "modernActivityBarItem.activeForeground": "#FFFFFF"
+          }
+        }
+        '''),
+      );
+      expect(explicit.activityBarItemActiveBackground, const Color(0xFF0078D4));
+      expect(explicit.activityBarItemActiveForeground, const Color(0xFFFFFFFF));
+    });
+
+    test('copyWith and lerp carry the Modern UI tokens', () {
+      final base = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+      );
+      expect(
+        base.copyWith(foreground: const Color(0xFFFF0000)).surfaceBorder,
+        base.surfaceBorder,
+      );
+      expect(
+        base.copyWith(surfaceBorder: const Color(0xFF00FF00)).surfaceBorder,
+        const Color(0xFF00FF00),
+      );
+
+      final other = base.copyWith(
+        surfaceBackground: const Color(0xFF000000),
+        activityBarItemActiveBackground: const Color(0xFF000000),
+      );
+      final mid = base.lerp(other, 0.5);
+      expect(
+        mid.surfaceBackground,
+        Color.lerp(base.surfaceBackground, other.surfaceBackground, 0.5),
+      );
+      expect(
+        mid.activityBarItemActiveBackground,
+        Color.lerp(
+          base.activityBarItemActiveBackground,
+          other.activityBarItemActiveBackground,
+          0.5,
+        ),
+      );
+    });
+  });
+
+  group(
+    'WorkbenchTheme secondary button tokens (§spec:chrome-material-theming)',
+    () {
+      test('fall back to neutral surfaces when button.secondary* omitted', () {
+        final theme = WorkbenchTheme.fromVscodeColorMap(
+          const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+        );
+        // VS Code registry: button.secondaryBackground defaults to
+        // list.hoverBackground; button.secondaryForeground to foreground.
+        expect(theme.buttonSecondaryBackground, theme.listHoverBackground);
+        expect(theme.buttonSecondaryForeground, theme.foreground);
+      });
+
+      test('honour explicit button.secondary* tokens when present', () {
+        final map = loader.parse('''
         {
           "name": "Secondary Test",
           "type": "vs-dark",
@@ -503,50 +622,53 @@ void main() {
           }
         }
         ''');
-      final theme = WorkbenchTheme.fromVscodeColorMap(map);
-      expect(theme.buttonSecondaryBackground, const Color(0xFF3A3D41));
-      expect(theme.buttonSecondaryForeground, const Color(0xFFCCCCCC));
-    });
+        final theme = WorkbenchTheme.fromVscodeColorMap(map);
+        expect(theme.buttonSecondaryBackground, const Color(0xFF3A3D41));
+        expect(theme.buttonSecondaryForeground, const Color(0xFFCCCCCC));
+      });
 
-    test('copyWith preserves secondary button tokens when unspecified', () {
-      final base = WorkbenchTheme.fromVscodeColorMap(
-        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
-      );
-      final modified = base.copyWith(foreground: const Color(0xFFFF0000));
-      expect(
-        modified.buttonSecondaryBackground,
-        equals(base.buttonSecondaryBackground),
-      );
-      expect(
-        modified.buttonSecondaryForeground,
-        equals(base.buttonSecondaryForeground),
-      );
-    });
+      test('copyWith preserves secondary button tokens when unspecified', () {
+        final base = WorkbenchTheme.fromVscodeColorMap(
+          const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+        );
+        final modified = base.copyWith(foreground: const Color(0xFFFF0000));
+        expect(
+          modified.buttonSecondaryBackground,
+          equals(base.buttonSecondaryBackground),
+        );
+        expect(
+          modified.buttonSecondaryForeground,
+          equals(base.buttonSecondaryForeground),
+        );
+      });
 
-    test('copyWith overrides secondary button tokens when specified', () {
-      final base = WorkbenchTheme.fromVscodeColorMap(
-        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
-      );
-      const bg = Color(0xFF112233);
-      const fg = Color(0xFF445566);
-      final modified = base.copyWith(
-        buttonSecondaryBackground: bg,
-        buttonSecondaryForeground: fg,
-      );
-      expect(modified.buttonSecondaryBackground, equals(bg));
-      expect(modified.buttonSecondaryForeground, equals(fg));
-    });
+      test('copyWith overrides secondary button tokens when specified', () {
+        final base = WorkbenchTheme.fromVscodeColorMap(
+          const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+        );
+        const bg = Color(0xFF112233);
+        const fg = Color(0xFF445566);
+        final modified = base.copyWith(
+          buttonSecondaryBackground: bg,
+          buttonSecondaryForeground: fg,
+        );
+        expect(modified.buttonSecondaryBackground, equals(bg));
+        expect(modified.buttonSecondaryForeground, equals(fg));
+      });
 
-    test('lerp interpolates secondary button colours', () {
-      final a = WorkbenchTheme.fromVscodeColorMap(
-        const VscodeColorMap(name: 'A', baseType: 'vs-dark', colors: {}),
-      ).copyWith(buttonSecondaryBackground: const Color(0xFF000000));
-      final b = a.copyWith(buttonSecondaryBackground: const Color(0xFFFFFFFF));
-      final mid = a.lerp(b, 0.5);
-      expect(mid.buttonSecondaryBackground, isNot(const Color(0xFF000000)));
-      expect(mid.buttonSecondaryBackground, isNot(const Color(0xFFFFFFFF)));
-    });
-  });
+      test('lerp interpolates secondary button colours', () {
+        final a = WorkbenchTheme.fromVscodeColorMap(
+          const VscodeColorMap(name: 'A', baseType: 'vs-dark', colors: {}),
+        ).copyWith(buttonSecondaryBackground: const Color(0xFF000000));
+        final b = a.copyWith(
+          buttonSecondaryBackground: const Color(0xFFFFFFFF),
+        );
+        final mid = a.lerp(b, 0.5);
+        expect(mid.buttonSecondaryBackground, isNot(const Color(0xFF000000)));
+        expect(mid.buttonSecondaryBackground, isNot(const Color(0xFFFFFFFF)));
+      });
+    },
+  );
 
   group('WorkbenchTheme.copyWith / lerp', () {
     final base = WorkbenchTheme.fromVscodeColorMap(
@@ -611,177 +733,183 @@ void main() {
     });
   });
 
-  group('WorkbenchTheme chrome typography canon (§spec:chrome-typography-canon)', () {
-    // Source-cited literals mirror VS Code's workbench CSS. Pin every
-    // chrome semantic token so a stray edit fails loudly — typography
-    // drift was the failure mode the canon exists to remove.
-    final theme = WorkbenchTheme.fromVscodeColorMap(
-      const VscodeColorMap(name: 'Canon', baseType: 'vs-dark', colors: {}),
-    );
-
-    test('sidebarOrPanelHeading is 11 / w400 (part.css .title-label h2)', () {
-      expect(theme.sidebarOrPanelHeading.fontSize, 11);
-      expect(theme.sidebarOrPanelHeading.fontWeight, FontWeight.w400);
-    });
-
-    test('sectionTitle is 11 / w700 (paneview.css .pane-header)', () {
-      expect(theme.sectionTitle.fontSize, 11);
-      expect(theme.sectionTitle.fontWeight, FontWeight.w700);
-    });
-
-    test('bodyText is 13 / w400 (part.css .part > .content)', () {
-      expect(theme.bodyText.fontSize, 13);
-      expect(theme.bodyText.fontWeight, FontWeight.w400);
-    });
-
-    test('labelText is 13 / w500 (settingsEditor2.css)', () {
-      expect(theme.labelText.fontSize, 13);
-      expect(theme.labelText.fontWeight, FontWeight.w500);
-    });
-
-    test('statusText is 12 / w400 (statusbarpart.css)', () {
-      expect(theme.statusText.fontSize, 12);
-      expect(theme.statusText.fontWeight, FontWeight.w400);
-    });
-
-    test('statusBarTextStyle is 12 / w400 (statusbarpart.css)', () {
-      expect(theme.statusBarTextStyle.fontSize, 12);
-      expect(theme.statusBarTextStyle.fontWeight, FontWeight.w400);
-    });
-
-    test('buttonTextStyle is 12 / w400 (button.css)', () {
-      expect(theme.buttonTextStyle.fontSize, 12);
-      expect(theme.buttonTextStyle.fontWeight, FontWeight.w400);
-    });
-
-    test('captionText is 12 / w400 (inherits body)', () {
-      expect(theme.captionText.fontSize, 12);
-      expect(theme.captionText.fontWeight, FontWeight.w400);
-    });
-
-    test('helperStyle is 12 / w400 (caption tier)', () {
-      expect(theme.helperStyle.fontSize, 12);
-      expect(theme.helperStyle.fontWeight, FontWeight.w400);
-    });
-
-    test('smallText is 11 / w600 (paneCompositeBar badge tier)', () {
-      expect(theme.smallText.fontSize, 11);
-      expect(theme.smallText.fontWeight, FontWeight.w600);
-    });
-
-    test('chromeFontFamily default null → resolves to platform UI sans', () {
-      // Family rule: chrome `fontFamily` defaults to null so Flutter
-      // resolves to the platform's default UI font, matching VS Code's
-      // `-apple-system` / `Segoe UI` / `system-ui` selectors.
-      expect(theme.sectionTitle.fontFamily, isNull);
-      expect(theme.bodyText.fontFamily, isNull);
-      expect(theme.labelText.fontFamily, isNull);
-      expect(theme.statusBarTextStyle.fontFamily, isNull);
-      expect(theme.buttonTextStyle.fontFamily, isNull);
-      expect(theme.helperStyle.fontFamily, isNull);
-      expect(theme.smallText.fontFamily, isNull);
-      expect(theme.sidebarOrPanelHeading.fontFamily, isNull);
-    });
-
-    test('chromeFontFamily override propagates uniformly', () {
-      final overridden = WorkbenchTheme.fromVscodeColorMap(
-        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
-        chromeFontFamily: 'Inter',
-      );
-      expect(overridden.sectionTitle.fontFamily, 'Inter');
-      expect(overridden.bodyText.fontFamily, 'Inter');
-      expect(overridden.labelText.fontFamily, 'Inter');
-      expect(overridden.statusBarTextStyle.fontFamily, 'Inter');
-      expect(overridden.buttonTextStyle.fontFamily, 'Inter');
-      expect(overridden.helperStyle.fontFamily, 'Inter');
-      expect(overridden.smallText.fontFamily, 'Inter');
-      expect(overridden.sidebarOrPanelHeading.fontFamily, 'Inter');
-    });
-  });
-
-  group('WorkbenchTheme editor-derived surfaces (§spec:editor-derived-surfaces)', () {
-    // editor.fontFamily / editor.fontSize defaults mirror VS Code's
-    // EDITOR_FONT_DEFAULTS per platform. Tests pin the host platform's
-    // primary family so a drift fails loudly.
-    test('macOS default editorFontFamily is Menlo (size 12)', () {
-      final original = debugDefaultTargetPlatformOverride;
-      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-      addTearDown(() => debugDefaultTargetPlatformOverride = original);
+  group(
+    'WorkbenchTheme chrome typography canon (§spec:chrome-typography-canon)',
+    () {
+      // Source-cited literals mirror VS Code's workbench CSS. Pin every
+      // chrome semantic token so a stray edit fails loudly — typography
+      // drift was the failure mode the canon exists to remove.
       final theme = WorkbenchTheme.fromVscodeColorMap(
-        const VscodeColorMap(name: 'Mac', baseType: 'vs-dark', colors: {}),
+        const VscodeColorMap(name: 'Canon', baseType: 'vs-dark', colors: {}),
       );
-      expect(theme.editorFontFamily, 'Menlo');
-      expect(theme.editorFontSize, 12);
-      expect(theme.editorStyle.fontFamily, 'Menlo');
-      expect(theme.editorStyle.fontSize, 12);
-    });
 
-    test('Windows default editorFontFamily is Consolas (size 14)', () {
-      final original = debugDefaultTargetPlatformOverride;
-      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-      addTearDown(() => debugDefaultTargetPlatformOverride = original);
-      final theme = WorkbenchTheme.fromVscodeColorMap(
-        const VscodeColorMap(name: 'Win', baseType: 'vs-dark', colors: {}),
-      );
-      expect(theme.editorFontFamily, 'Consolas');
-      expect(theme.editorFontSize, 14);
-      expect(theme.editorStyle.fontFamily, 'Consolas');
-      expect(theme.editorStyle.fontSize, 14);
-    });
+      test('sidebarOrPanelHeading is 11 / w400 (part.css .title-label h2)', () {
+        expect(theme.sidebarOrPanelHeading.fontSize, 11);
+        expect(theme.sidebarOrPanelHeading.fontWeight, FontWeight.w400);
+      });
 
-    test('Linux default editorFontFamily is "Droid Sans Mono" (size 14)', () {
-      final original = debugDefaultTargetPlatformOverride;
-      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
-      addTearDown(() => debugDefaultTargetPlatformOverride = original);
-      final theme = WorkbenchTheme.fromVscodeColorMap(
-        const VscodeColorMap(name: 'Linux', baseType: 'vs-dark', colors: {}),
-      );
-      expect(theme.editorFontFamily, 'Droid Sans Mono');
-      expect(theme.editorFontSize, 14);
-    });
+      test('sectionTitle is 11 / w700 (paneview.css .pane-header)', () {
+        expect(theme.sectionTitle.fontSize, 11);
+        expect(theme.sectionTitle.fontWeight, FontWeight.w700);
+      });
 
-    test('editorFontFamily override flows through editorStyle', () {
-      final theme = WorkbenchTheme.fromVscodeColorMap(
-        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
-        editorFontFamily: 'Inconsolata',
-      );
-      expect(theme.editorFontFamily, 'Inconsolata');
-      expect(theme.editorStyle.fontFamily, 'Inconsolata');
-    });
+      test('bodyText is 13 / w400 (part.css .part > .content)', () {
+        expect(theme.bodyText.fontSize, 13);
+        expect(theme.bodyText.fontWeight, FontWeight.w400);
+      });
 
-    test('editorFontSize override flows through editorStyle', () {
-      final theme = WorkbenchTheme.fromVscodeColorMap(
-        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
-        editorFontSize: 16,
-      );
-      expect(theme.editorFontSize, 16);
-      expect(theme.editorStyle.fontSize, 16);
-    });
+      test('labelText is 13 / w500 (settingsEditor2.css)', () {
+        expect(theme.labelText.fontSize, 13);
+        expect(theme.labelText.fontWeight, FontWeight.w500);
+      });
 
-    test('loglineMessage derives from editorStyle (same family)', () {
-      // §spec:editor-derived-surfaces: loglineMessage rebases on editorStyle.copyWith — the
-      // family resolution lives in one place so a host override flows
-      // through every editor-derived surface.
-      final theme = WorkbenchTheme.fromVscodeColorMap(
-        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
-        editorFontFamily: 'Inconsolata',
-      );
-      expect(theme.loglineMessage.fontFamily, theme.editorStyle.fontFamily);
-      expect(theme.loglineMessage.fontFamily, 'Inconsolata');
-    });
+      test('statusText is 12 / w400 (statusbarpart.css)', () {
+        expect(theme.statusText.fontSize, 12);
+        expect(theme.statusText.fontWeight, FontWeight.w400);
+      });
 
-    test('valueText derives from editorStyle (same family)', () {
-      // §spec:editor-derived-surfaces: valueText sits in the editor canon alongside log lines
-      // — DRO numerics inherit the editor family rather than a bespoke
-      // chrome one.
-      final theme = WorkbenchTheme.fromVscodeColorMap(
-        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
-        editorFontFamily: 'Inconsolata',
-      );
-      expect(theme.valueText.fontFamily, theme.editorStyle.fontFamily);
-      expect(theme.valueText.fontFamily, 'Inconsolata');
-    });
-  });
+      test('statusBarTextStyle is 12 / w400 (statusbarpart.css)', () {
+        expect(theme.statusBarTextStyle.fontSize, 12);
+        expect(theme.statusBarTextStyle.fontWeight, FontWeight.w400);
+      });
+
+      test('buttonTextStyle is 12 / w400 (button.css)', () {
+        expect(theme.buttonTextStyle.fontSize, 12);
+        expect(theme.buttonTextStyle.fontWeight, FontWeight.w400);
+      });
+
+      test('captionText is 12 / w400 (inherits body)', () {
+        expect(theme.captionText.fontSize, 12);
+        expect(theme.captionText.fontWeight, FontWeight.w400);
+      });
+
+      test('helperStyle is 12 / w400 (caption tier)', () {
+        expect(theme.helperStyle.fontSize, 12);
+        expect(theme.helperStyle.fontWeight, FontWeight.w400);
+      });
+
+      test('smallText is 11 / w600 (paneCompositeBar badge tier)', () {
+        expect(theme.smallText.fontSize, 11);
+        expect(theme.smallText.fontWeight, FontWeight.w600);
+      });
+
+      test('chromeFontFamily default null → resolves to platform UI sans', () {
+        // Family rule: chrome `fontFamily` defaults to null so Flutter
+        // resolves to the platform's default UI font, matching VS Code's
+        // `-apple-system` / `Segoe UI` / `system-ui` selectors.
+        expect(theme.sectionTitle.fontFamily, isNull);
+        expect(theme.bodyText.fontFamily, isNull);
+        expect(theme.labelText.fontFamily, isNull);
+        expect(theme.statusBarTextStyle.fontFamily, isNull);
+        expect(theme.buttonTextStyle.fontFamily, isNull);
+        expect(theme.helperStyle.fontFamily, isNull);
+        expect(theme.smallText.fontFamily, isNull);
+        expect(theme.sidebarOrPanelHeading.fontFamily, isNull);
+      });
+
+      test('chromeFontFamily override propagates uniformly', () {
+        final overridden = WorkbenchTheme.fromVscodeColorMap(
+          const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+          chromeFontFamily: 'Inter',
+        );
+        expect(overridden.sectionTitle.fontFamily, 'Inter');
+        expect(overridden.bodyText.fontFamily, 'Inter');
+        expect(overridden.labelText.fontFamily, 'Inter');
+        expect(overridden.statusBarTextStyle.fontFamily, 'Inter');
+        expect(overridden.buttonTextStyle.fontFamily, 'Inter');
+        expect(overridden.helperStyle.fontFamily, 'Inter');
+        expect(overridden.smallText.fontFamily, 'Inter');
+        expect(overridden.sidebarOrPanelHeading.fontFamily, 'Inter');
+      });
+    },
+  );
+
+  group(
+    'WorkbenchTheme editor-derived surfaces (§spec:editor-derived-surfaces)',
+    () {
+      // editor.fontFamily / editor.fontSize defaults mirror VS Code's
+      // EDITOR_FONT_DEFAULTS per platform. Tests pin the host platform's
+      // primary family so a drift fails loudly.
+      test('macOS default editorFontFamily is Menlo (size 12)', () {
+        final original = debugDefaultTargetPlatformOverride;
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        addTearDown(() => debugDefaultTargetPlatformOverride = original);
+        final theme = WorkbenchTheme.fromVscodeColorMap(
+          const VscodeColorMap(name: 'Mac', baseType: 'vs-dark', colors: {}),
+        );
+        expect(theme.editorFontFamily, 'Menlo');
+        expect(theme.editorFontSize, 12);
+        expect(theme.editorStyle.fontFamily, 'Menlo');
+        expect(theme.editorStyle.fontSize, 12);
+      });
+
+      test('Windows default editorFontFamily is Consolas (size 14)', () {
+        final original = debugDefaultTargetPlatformOverride;
+        debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+        addTearDown(() => debugDefaultTargetPlatformOverride = original);
+        final theme = WorkbenchTheme.fromVscodeColorMap(
+          const VscodeColorMap(name: 'Win', baseType: 'vs-dark', colors: {}),
+        );
+        expect(theme.editorFontFamily, 'Consolas');
+        expect(theme.editorFontSize, 14);
+        expect(theme.editorStyle.fontFamily, 'Consolas');
+        expect(theme.editorStyle.fontSize, 14);
+      });
+
+      test('Linux default editorFontFamily is "Droid Sans Mono" (size 14)', () {
+        final original = debugDefaultTargetPlatformOverride;
+        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+        addTearDown(() => debugDefaultTargetPlatformOverride = original);
+        final theme = WorkbenchTheme.fromVscodeColorMap(
+          const VscodeColorMap(name: 'Linux', baseType: 'vs-dark', colors: {}),
+        );
+        expect(theme.editorFontFamily, 'Droid Sans Mono');
+        expect(theme.editorFontSize, 14);
+      });
+
+      test('editorFontFamily override flows through editorStyle', () {
+        final theme = WorkbenchTheme.fromVscodeColorMap(
+          const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+          editorFontFamily: 'Inconsolata',
+        );
+        expect(theme.editorFontFamily, 'Inconsolata');
+        expect(theme.editorStyle.fontFamily, 'Inconsolata');
+      });
+
+      test('editorFontSize override flows through editorStyle', () {
+        final theme = WorkbenchTheme.fromVscodeColorMap(
+          const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+          editorFontSize: 16,
+        );
+        expect(theme.editorFontSize, 16);
+        expect(theme.editorStyle.fontSize, 16);
+      });
+
+      test('loglineMessage derives from editorStyle (same family)', () {
+        // §spec:editor-derived-surfaces: loglineMessage rebases on editorStyle.copyWith — the
+        // family resolution lives in one place so a host override flows
+        // through every editor-derived surface.
+        final theme = WorkbenchTheme.fromVscodeColorMap(
+          const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+          editorFontFamily: 'Inconsolata',
+        );
+        expect(theme.loglineMessage.fontFamily, theme.editorStyle.fontFamily);
+        expect(theme.loglineMessage.fontFamily, 'Inconsolata');
+      });
+
+      test('valueText derives from editorStyle (same family)', () {
+        // §spec:editor-derived-surfaces: valueText sits in the editor canon alongside log lines
+        // — DRO numerics inherit the editor family rather than a bespoke
+        // chrome one.
+        final theme = WorkbenchTheme.fromVscodeColorMap(
+          const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+          editorFontFamily: 'Inconsolata',
+        );
+        expect(theme.valueText.fontFamily, theme.editorStyle.fontFamily);
+        expect(theme.valueText.fontFamily, 'Inconsolata');
+      });
+    },
+  );
 
   group('WorkbenchTheme equality', () {
     const json = '''
@@ -799,16 +927,19 @@ void main() {
       ]
     }''';
 
-    test('two themes built from separate parses of the same JSON are equal', () {
-      // The host-rebuilds-each-frame path: independent parses produce
-      // distinct TokenTheme instances, so value equality must compare
-      // the token rules — not just object identity — for Flutter to
-      // elide ThemeExtension-driven rebuilds.
-      final a = WorkbenchTheme.fromVscodeColorMap(loader.parse(json));
-      final b = WorkbenchTheme.fromVscodeColorMap(loader.parse(json));
-      expect(a, equals(b));
-      expect(a.hashCode, equals(b.hashCode));
-    });
+    test(
+      'two themes built from separate parses of the same JSON are equal',
+      () {
+        // The host-rebuilds-each-frame path: independent parses produce
+        // distinct TokenTheme instances, so value equality must compare
+        // the token rules — not just object identity — for Flutter to
+        // elide ThemeExtension-driven rebuilds.
+        final a = WorkbenchTheme.fromVscodeColorMap(loader.parse(json));
+        final b = WorkbenchTheme.fromVscodeColorMap(loader.parse(json));
+        expect(a, equals(b));
+        expect(a.hashCode, equals(b.hashCode));
+      },
+    );
 
     test('copyWith with no changes preserves equality', () {
       final a = WorkbenchTheme.fromVscodeColorMap(loader.parse(json));

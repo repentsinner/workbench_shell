@@ -2762,24 +2762,21 @@ it meets the activity bar, a split button keeps its inner seam flat. A
 prebuilt all-corners value cannot express that, so the radius ladder
 exposes the upstream number and the call site composes the shape.
 
-The cost lands on the common case: every radius consumer today rounds
-all four corners, so each composes the same wrapper, and the per-corner
-need belongs to work §spec:modern-ui-surfaces has not started. Shipping
-an all-corners `BorderRadius` beside each scalar would remove that
+The cost lands on the common case: most radius consumers round all four
+corners and compose the same wrapper. The per-corner need is real —
+a floating card squares the two corners where it meets its neighbour
+flush (§spec:modern-ui-surfaces) — so the ladder stays scalar. Shipping
+an all-corners `BorderRadius` beside each scalar would remove the
 repetition without introducing a second vocabulary, since one is
 derivable from the other. It is not shipped because a convenience whose
 only consumer is the package itself is better added when a host asks
 for it than removed once published; the wrapper stays local to the file
 that repeats it (§spec:capability-boundary's bias against publishing
-surface ahead of demand). Revisit when the per-corner work lands and
-the ratio of all-corners to per-corner call sites is known rather
-than assumed.
+surface ahead of demand).
 
-`strokeThickness` ships with no call site: the borders it names
-currently take Flutter's own 1px default, and the surfaces that set it
-explicitly belong to §spec:modern-ui-surfaces. It is on the public API
-because it is an upstream registration this section adopts, not because
-a call site needs it yet.
+`strokeThickness` names the hairline the Modern UI cards draw
+(§spec:modern-ui-surfaces). Every other border in the package takes
+Flutter's own 1px default, which resolves to the same value.
 
 **Why constants, not theme tokens.** The registrations use
 `sizeForAllThemes`, which holds each size constant across every

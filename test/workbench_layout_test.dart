@@ -215,12 +215,16 @@ void main() {
       );
       expect(sash, findsOneWidget);
 
-      // The panel content is inset ~1px below the panel's top edge by the
-      // border; the sash must not start above that edge (which would overhang
-      // into the clipped region above the panel).
+      // The panel content is inset below the panel's own top edge by the
+      // card's gutter and stroke (§spec:modern-ui-surfaces); the sash sits on
+      // that gutter and must not start above the panel's top edge (which would
+      // overhang into the region the Stack clips).
+      const cardInset =
+          WorkbenchLayoutConstants.floatingCardGap +
+          WorkbenchLayoutConstants.strokeThickness;
       final panelContentTop = tester.getRect(find.byKey(panelKey)).top;
       final sashTop = tester.getRect(sash).top;
-      expect(sashTop, greaterThanOrEqualTo(panelContentTop - 2));
+      expect(sashTop, greaterThanOrEqualTo(panelContentTop - cardInset));
     });
 
     testWidgets('sidebar sash is transparent at rest (VS Code canon) — no '
@@ -245,16 +249,14 @@ void main() {
       expect(opaqueFill, findsNothing);
     });
 
-    testWidgets('bottom panel top border is not overdrawn by panel child', (
+    testWidgets('bottom panel card stroke is not overdrawn by panel child', (
       tester,
     ) async {
-      // Regression: a bare DecoratedBox paints its Border *behind*
-      // the child. When the bottom panel's own background widget
-      // (e.g. ColoredBox(panelBackground) inside WorkbenchTabbedPanel)
-      // fills the full rect, it overdraws the 1px border region and
-      // the border disappears. The layout must use a Container so
-      // Container-added padding insets the child by the border
-      // dimensions, keeping the border visible.
+      // Regression: a border painted *behind* the child disappears once the
+      // panel's own background widget (e.g. ColoredBox(panelBackground) inside
+      // WorkbenchTabbedPanel) fills the full rect. The card paints its stroke
+      // as a ring and insets the child past it, so the hairline survives
+      // (§spec:modern-ui-surfaces).
       const panelBgKey = ValueKey('panel-bg');
       await tester.pumpWidget(
         MaterialApp(
@@ -276,35 +278,43 @@ void main() {
       final panelBgFinder = find.byKey(panelBgKey);
       expect(panelBgFinder, findsOneWidget);
 
-      final borderedContainer = find.ancestor(
+      final strokeRing = find.ancestor(
         of: panelBgFinder,
         matching: find.byWidgetPredicate((w) {
-          if (w is! Container) return false;
+          if (w is! DecoratedBox) return false;
           final decoration = w.decoration;
           if (decoration is! BoxDecoration) return false;
+          if (decoration.borderRadius !=
+              BorderRadius.circular(
+                WorkbenchLayoutConstants.floatingCardRadius,
+              )) {
+            return false;
+          }
+          // The panel's stroke is a foreground-safe Border; the one card that
+          // cedes an edge fills the box instead. Either satisfies the
+          // guarantee this test exists for.
           final border = decoration.border;
-          return border is Border &&
-              border.top.color == _testTheme.panelBorder &&
-              border.top.width == 1.0;
+          return decoration.color == _testTheme.surfaceBorder ||
+              (border is Border &&
+                  border.top.color == _testTheme.surfaceBorder);
         }),
       );
       expect(
-        borderedContainer,
+        strokeRing,
         findsOneWidget,
         reason:
-            'panel border must be drawn via Container (not bare '
-            'DecoratedBox) so Container-added padding insets the '
-            'panel child past the border region',
+            'the panel card paints its hairline outside its child, so the '
+            'panel child cannot overdraw it',
       );
 
-      final borderRect = tester.getRect(borderedContainer);
+      final ringRect = tester.getRect(strokeRing);
       final panelRect = tester.getRect(panelBgFinder);
       expect(
-        panelRect.top - borderRect.top,
-        closeTo(1.0, 0.001),
+        panelRect.top - ringRect.top,
+        closeTo(WorkbenchLayoutConstants.strokeThickness, 0.001),
         reason:
-            'bottom panel child should be inset 1px from the bordered '
-            "container's top edge so the border remains visible",
+            'the panel child should be inset one stroke from the card ring '
+            'so the hairline remains visible',
       );
     });
   });
@@ -1271,8 +1281,18 @@ void main() {
       final editor = tester.getRect(find.text('Editor'));
       expect(editor.right, lessThan(sidebarHeading.left));
       expect(sidebarHeading.left, lessThan(ab.left));
-      // The activity bar (48px) sits flush against the window's right edge.
-      expect(ab.right, closeTo(layout.right, 3));
+      // The activity bar's 48px allocation reaches the window's right edge;
+      // inside it the rail card gives up the cluster's perimeter gutter, its
+      // stroke and the lane, and the icon column centres what is left
+      // (§spec:modern-ui-surfaces).
+      const railToWindow =
+          WorkbenchLayoutConstants.floatingCardGap +
+          WorkbenchLayoutConstants.strokeThickness +
+          WorkbenchLayoutConstants.activityBarIconInset +
+          (WorkbenchLayoutConstants.activityBarRailWidth -
+                  WorkbenchLayoutConstants.iconActivityBar) /
+              2;
+      expect(ab.right, closeTo(layout.right - railToWindow, 0.001));
 
       // The sash now grows the bar when dragged left (toward the editor).
       expect(_sash(tester, Axis.horizontal).growSign, -1);
@@ -2427,6 +2447,249 @@ void main() {
 
       expect(snapshots, isNotEmpty);
       expect(snapshots.last.hidden['explorer'], contains('outline'));
+    });
+  });
+
+  group('Modern UI surface treatment (§spec:modern-ui-surfaces)', () {
+    const gap = WorkbenchLayoutConstants.floatingCardGap;
+    const stroke = WorkbenchLayoutConstants.strokeThickness;
+
+    /// The `DecoratedBox` a card paints its hairline with, rounded at the card
+    /// tier. A card with a stroke on every edge draws a foreground [Border];
+    /// the one card that cedes an edge fills the box with `surface.border`
+    /// instead, because a non-uniform border cannot carry a corner radius.
+    /// Either way the observable property is the same — a `surface.border`
+    /// hairline at the card's edge.
+    Finder cardRing(Finder of) => find.ancestor(
+      of: of,
+      matching: find.byWidgetPredicate((w) {
+        if (w is! DecoratedBox) return false;
+        final decoration = w.decoration;
+        if (decoration is! BoxDecoration) return false;
+        if (decoration.color == _testTheme.surfaceBorder) return true;
+        final border = decoration.border;
+        return border is Border && border.top.color == _testTheme.surfaceBorder;
+      }),
+    );
+
+    /// The filled box an activity bar item paints behind its icon when
+    /// selected or hovered. Inactive items wrap no decoration at all.
+    Finder indicator(Color color) => find.byWidgetPredicate((w) {
+      if (w is! DecoratedBox) return false;
+      final decoration = w.decoration;
+      return decoration is BoxDecoration && decoration.color == color;
+    });
+
+    Finder fillOf(Finder card, Color color) => find.descendant(
+      of: card,
+      matching: find.byWidgetPredicate(
+        (w) => w is ColoredBox && w.color == color,
+      ),
+    );
+
+    testWidgets('the side bars, panel and editor each render as a bordered, '
+        'rounded card', (tester) async {
+      await tester.pumpWidget(
+        _buildApp(
+          secondaryViewContainerIds: const ['outline'],
+          secondarySideBarVisible: true,
+          onSecondarySideBarVisibilityChanged: (_) {},
+        ),
+      );
+
+      for (final label in ['EXPLORER', 'Panel', 'Editor']) {
+        final ring = cardRing(find.text(label));
+        expect(ring, findsOneWidget, reason: '$label card');
+        final decoration =
+            (tester.widget<DecoratedBox>(ring).decoration as BoxDecoration);
+        // Every corner that does not meet a neighbour flush rounds at the
+        // card tier; the editor and the panel meet none.
+        expect(
+          decoration.borderRadius,
+          isA<BorderRadius>().having(
+            (r) => r.topRight,
+            'topRight',
+            const Radius.circular(WorkbenchLayoutConstants.floatingCardRadius),
+          ),
+        );
+      }
+
+      // Visible gaps: the editor card is one gutter clear of the primary side
+      // bar's allocation on its left and of the secondary bar's card on its
+      // right.
+      final editor = tester.getRect(cardRing(find.text('Editor')));
+      final sidebar = tester.getRect(cardRing(find.text('EXPLORER')));
+      final panel = tester.getRect(cardRing(find.text('Panel')));
+      expect(editor.left - sidebar.right, closeTo(gap, 0.001));
+      expect(panel.top - editor.bottom, closeTo(gap, 0.001));
+    });
+
+    testWidgets('the primary side bar meets the activity bar as one surface — '
+        'one stroke, no gap', (tester) async {
+      await tester.pumpWidget(_buildApp());
+
+      final rail = cardRing(find.byIcon(Symbols.folder_rounded));
+      final bar = cardRing(find.text('EXPLORER'));
+      final railRect = tester.getRect(rail);
+      final barRect = tester.getRect(bar);
+
+      // No gap: the two cards share an edge.
+      expect(railRect.right, closeTo(barRect.left, 0.001));
+
+      // One stroke: the rail draws it, and the side bar's fill runs right up
+      // to its own card edge rather than adding a second hairline.
+      final railFill = fillOf(rail, _testTheme.activityBarBackground);
+      final barFill = fillOf(bar, _testTheme.surfaceBackground);
+      expect(
+        railRect.right - tester.getRect(railFill).right,
+        closeTo(stroke, 0.001),
+      );
+      expect(tester.getRect(barFill).left, closeTo(barRect.left, 0.001));
+    });
+
+    testWidgets('the rail keeps its icons optically centred', (tester) async {
+      await tester.pumpWidget(_buildApp());
+
+      final railRect = tester.getRect(
+        cardRing(find.byIcon(Symbols.folder_rounded)),
+      );
+      final icon = tester.getRect(find.byIcon(Symbols.folder_rounded));
+
+      // Equal margins either side of the icon column: the lane is halved after
+      // the card's two strokes come off it, which is what keeps the column
+      // centred in a card whose facing corners are square.
+      expect(
+        icon.left - railRect.left,
+        closeTo(railRect.right - icon.right, 0.001),
+      );
+    });
+
+    testWidgets('a standalone rail on the trailing edge keeps its full lane', (
+      tester,
+    ) async {
+      // Collapsed on the right the rail owns both gutters: the cluster
+      // perimeter on its trailing edge and the leading gap the missing side
+      // bar used to supply. Reserved on top of the allocation, not taken out
+      // of it — absorbed, both come off the lane and the icon column narrows.
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: WorkbenchLayout(
+            activityBarItems: _testItems,
+            editor: const Center(child: Text('Editor')),
+            containerBuilder: _sidebarSpec,
+            bottomPanel: const Center(child: Text('Panel')),
+            statusBar: const SizedBox(height: 22, child: Text('Status')),
+            initialSidebarPosition: WorkbenchSidebarPosition.right,
+            initialSidebarVisible: false,
+          ),
+        ),
+      );
+
+      final railRect = tester.getRect(
+        cardRing(find.byIcon(Symbols.folder_rounded)),
+      );
+
+      // The card is the allocation less its two gutters; the lane (both
+      // strokes plus the icon inset either side) comes off that, leaving the
+      // same icon column the rail has in every other state.
+      expect(
+        railRect.width - WorkbenchLayoutConstants.activityBarLane,
+        closeTo(WorkbenchLayoutConstants.activityBarRailWidth, 0.001),
+      );
+
+      final icon = tester.getRect(find.byIcon(Symbols.folder_rounded));
+      expect(
+        icon.left - railRect.left,
+        closeTo(railRect.right - icon.right, 0.001),
+      );
+    });
+
+    testWidgets('the editor frame consumes no extra layout space', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_buildApp(initialSidebarWidth: 300));
+
+      final layout = tester.getRect(find.byType(WorkbenchLayout));
+      const fixed =
+          WorkbenchLayoutConstants.activityBarWidth + 300; // rail + side bar
+
+      // The frame lives entirely inside the row's leftover width — the fixed
+      // parts still measure what they always did, so drag-resize arithmetic
+      // and the min/max floors keep measuring the same quantities.
+      final editor = tester.getRect(cardRing(find.text('Editor')));
+      expect(editor.left, greaterThanOrEqualTo(layout.left + fixed));
+      expect(editor.right, lessThanOrEqualTo(layout.right));
+
+      // The side bar's card spans its whole allocation horizontally: it cedes
+      // the rail seam on one side and leaves the editor to lead with the gap
+      // on the other.
+      final sidebar = tester.getRect(cardRing(find.text('EXPLORER')));
+      expect(sidebar.width, closeTo(300, 0.001));
+    });
+
+    testWidgets('selecting an activity bar item fills a rounded background', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_buildApp());
+
+      final active = indicator(_testTheme.activityBarItemActiveBackground);
+      expect(active, findsOneWidget);
+
+      // A filled box behind the icon, not an edge stroke: it is square, sized
+      // off the item height, and rounded at the controls tier.
+      final rect = tester.getRect(active);
+      expect(
+        rect.size,
+        const Size(
+          WorkbenchLayoutConstants.activityBarItemIndicatorSize,
+          WorkbenchLayoutConstants.activityBarItemIndicatorSize,
+        ),
+      );
+      final decoration =
+          tester.widget<DecoratedBox>(active).decoration as BoxDecoration;
+      expect(
+        decoration.borderRadius,
+        BorderRadius.circular(
+          WorkbenchLayoutConstants.activityBarItemIndicatorRadius,
+        ),
+      );
+
+      // It sits behind the selected icon and follows the selection.
+      expect(
+        rect.center,
+        tester.getRect(find.byIcon(Symbols.folder_rounded)).center,
+      );
+      await tester.tap(find.byIcon(Symbols.search_rounded));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .getRect(indicator(_testTheme.activityBarItemActiveBackground))
+            .center,
+        tester.getRect(find.byIcon(Symbols.search_rounded)).center,
+      );
+    });
+
+    testWidgets('hovering an unselected item fills the hover background', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_buildApp());
+
+      final hover = indicator(_testTheme.activityBarItemHoverBackground);
+      expect(hover, findsNothing);
+
+      final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await pointer.addPointer(
+        location: tester.getCenter(find.byIcon(Symbols.search_rounded)),
+      );
+      addTearDown(pointer.removePointer);
+      await tester.pumpAndSettle();
+
+      expect(hover, findsOneWidget);
+      expect(
+        tester.getRect(hover).center,
+        tester.getRect(find.byIcon(Symbols.search_rounded)).center,
+      );
     });
   });
 }
