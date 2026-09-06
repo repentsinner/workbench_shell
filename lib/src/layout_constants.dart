@@ -128,25 +128,60 @@ class WorkbenchLayoutConstants {
   /// Active-indicator border width on activity bar icons.
   static const double activityBarIndicatorWidth = 2.0;
 
-  // ==================== BORDER RADIUS ====================
+  // ==================== CORNER RADIUS LADDER ====================
+  //
+  // VS Code registers a six-tier corner-radius ladder in
+  // [`baseSizes.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/platform/theme/common/sizes/baseSizes.ts).
+  // [`roundedCorners.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/roundedCorners.css)
+  // records the doctrine for choosing among the tiers: pick by the role a
+  // surface plays, not by how large it looks (§spec:design-size-ladders).
+  //
+  //   - Controls tier ([cornerRadiusSmall]) — interactable controls: text
+  //     inputs, selects, list/tree rows, scrollbar sliders, buttons.
+  //   - Inner tier ([cornerRadiusMedium]) — non-control containers that sit
+  //     within the workbench.
+  //   - Outer tier ([cornerRadiusLarge]) — overlays floating above the
+  //     workbench: quick input, hovers, menus, dialogs.
+  //
+  // Upstream owns the values; the package owns only the tier assignment at
+  // each call site. The registrations hold constant across every shipped
+  // theme, so these stay constants rather than `WorkbenchTheme` tokens.
 
-  /// 4px — standard container border radius.
-  static const BorderRadius containerRadius = BorderRadius.all(
-    Radius.circular(4),
-  );
+  /// 2px — `cornerRadius.xSmall`. Very compact UI elements.
+  static const double cornerRadiusXSmall = 2.0;
 
-  /// 4px — button border radius. Sourced from VS Code's `button.css`
-  /// (`.monaco-text-button { border-radius: 4px; }`). Same scale as
-  /// [containerRadius] today; tokenized separately so a future visual
-  /// revision of button shape can diverge without touching every other
-  /// rounded surface (mirrors [containerRadius]/[notificationCardRadius]).
-  static const BorderRadius buttonRadius = BorderRadius.all(Radius.circular(4));
+  /// 4px — `cornerRadius.small`. The controls tier: compact, interactable
+  /// UI elements.
+  static const double cornerRadiusSmall = 4.0;
+
+  /// 6px — `cornerRadius.medium`. The inner tier: non-control containers
+  /// within the workbench.
+  static const double cornerRadiusMedium = 6.0;
+
+  /// 8px — `cornerRadius.large`. The outer tier: prominent surfaces and
+  /// overlays floating above the workbench.
+  static const double cornerRadiusLarge = 8.0;
+
+  /// 12px — `cornerRadius.xLarge`. Very prominent UI elements.
+  static const double cornerRadiusXLarge = 12.0;
+
+  /// 9999px — `cornerRadius.circle`. Fully rounded elements; the radius
+  /// clamps to half the shorter side, so a short badge reads as a dot.
+  static const double cornerRadiusCircle = 9999.0;
+
+  // ==================== STROKE THICKNESS ====================
+
+  /// 1px — `strokeThickness`. Base thickness for chrome borders and
+  /// outlines (§spec:design-size-ladders).
+  static const double strokeThickness = 1.0;
 
   /// Button shape — applied to the app-level Material button themes
-  /// (Filled/Text, §spec:chrome-material-theming). De-pills Material 3's default `StadiumBorder`
-  /// to match VS Code's rectangular-with-4px buttons.
+  /// (Filled/Text, §spec:chrome-material-theming). De-pills Material 3's
+  /// default `StadiumBorder` to match VS Code's rectangular buttons. A
+  /// button is an interactable control, so it takes the controls tier;
+  /// upstream's `button.css` renders `.monaco-text-button` at the same 4px.
   static const RoundedRectangleBorder buttonShape = RoundedRectangleBorder(
-    borderRadius: buttonRadius,
+    borderRadius: BorderRadius.all(Radius.circular(cornerRadiusSmall)),
   );
 
   /// 32px — button height. VS Code's `.monaco-button` is a compact
@@ -171,14 +206,6 @@ class WorkbenchLayoutConstants {
   static const double viewWelcomeButtonMaxWidth = 300.0;
 
   // ==================== NOTIFICATION CENTER (§spec:notification-center) ====================
-
-  /// 4px — notification card border radius. Same scale as
-  /// [containerRadius]; named separately so a future visual revision
-  /// of notification cards (rounder pill, square, etc.) can change
-  /// without touching every other card surface.
-  static const BorderRadius notificationCardRadius = BorderRadius.all(
-    Radius.circular(4),
-  );
 
   /// 450px — notification card width. VS Code `notificationsToasts.ts`
   /// `MAX_WIDTH = 450`. Wide enough to fit a couple of action buttons

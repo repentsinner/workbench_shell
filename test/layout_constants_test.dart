@@ -3,24 +3,29 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:workbench_shell/workbench_shell.dart';
 
 void main() {
-  group('WorkbenchLayoutConstants button shape', () {
-    test('buttonRadius is a 4px circular radius (VS Code button.css)', () {
-      expect(
-        WorkbenchLayoutConstants.buttonRadius,
-        const BorderRadius.all(Radius.circular(4)),
-      );
+  group('WorkbenchLayoutConstants corner radius ladder', () {
+    // VS Code registers the ladder in `baseSizes.ts`; these assertions pin
+    // each package name to the value upstream registers for it
+    // (SPEC §spec:design-size-ladders).
+    test('cornerRadius ladder matches baseSizes.ts registrations', () {
+      expect(WorkbenchLayoutConstants.cornerRadiusXSmall, 2.0);
+      expect(WorkbenchLayoutConstants.cornerRadiusSmall, 4.0);
+      expect(WorkbenchLayoutConstants.cornerRadiusMedium, 6.0);
+      expect(WorkbenchLayoutConstants.cornerRadiusLarge, 8.0);
+      expect(WorkbenchLayoutConstants.cornerRadiusXLarge, 12.0);
+      expect(WorkbenchLayoutConstants.cornerRadiusCircle, 9999.0);
     });
 
-    test('buttonShape is a RoundedRectangleBorder built from buttonRadius', () {
+    test('strokeThickness matches baseSizes.ts strokeThickness (1px)', () {
+      expect(WorkbenchLayoutConstants.strokeThickness, 1.0);
+    });
+
+    test('buttonShape rounds to the controls tier (cornerRadius.small)', () {
       expect(
         WorkbenchLayoutConstants.buttonShape,
         const RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(4)),
         ),
-      );
-      expect(
-        WorkbenchLayoutConstants.buttonShape.borderRadius,
-        WorkbenchLayoutConstants.buttonRadius,
       );
     });
   });

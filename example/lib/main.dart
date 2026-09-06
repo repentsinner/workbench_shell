@@ -1443,7 +1443,9 @@ class _ThemeDropdownField extends StatelessWidget {
         Container(
           decoration: BoxDecoration(
             color: theme.inputBackground,
-            borderRadius: WorkbenchLayoutConstants.containerRadius,
+            borderRadius: const BorderRadius.all(
+              Radius.circular(WorkbenchLayoutConstants.cornerRadiusSmall),
+            ),
             border: Border.all(color: theme.inputBorder),
           ),
           padding: const EdgeInsets.symmetric(
