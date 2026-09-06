@@ -35,7 +35,7 @@ import '../workbench_view_menu.dart';
 ///   [MenuAnchor] and [DropdownMenu] read the `menu.*` and `dropdown.*`
 ///   token families without per-widget wiring.
 ///
-/// All three are flat — elevation pinned to 0 across every state. The
+/// The button tiers are flat — elevation pinned to 0 across every state. The
 /// helper keeps [FilledButton]'s hover/pressed state-layer *overlay* (the
 /// color highlight) but drops its 1dp hover *elevation*: that elevation
 /// renders the button through a PhysicalShape, which paints a transparent
@@ -68,9 +68,10 @@ import '../workbench_view_menu.dart';
 /// A host obtains VS Code Material theming with one call instead of
 /// hand-wiring each widget theme. See SPEC §spec:chrome-material-theming.
 ///
-/// Extensible by design: button theming and shape are the first Material
-/// surfaces the chrome owns. Input decoration and other surfaces can be
-/// added here later without changing call sites.
+/// Extensible by design: the button family and the menu and select family
+/// are the Material surfaces the chrome owns today. Further surfaces join
+/// them here without changing call sites, each themed whole rather than in
+/// part (§spec:chrome-material-theming).
 ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
   // Drop any prior WorkbenchTheme, keep all other host extensions,
   // then install the supplied chrome theme.
