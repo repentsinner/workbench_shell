@@ -9,12 +9,12 @@ import '../workbench_theme.dart';
 import 'notification.dart';
 import 'notification_service.dart';
 
-/// Corner radius for every notification surface — card, summary card, action
-/// button and their ink wells. Notification toasts take the controls tier of
-/// the corner-radius ladder (§spec:design-size-ladders); VS Code's
-/// `notificationsToasts.css` rounds the toast with
+/// The corner-radius ladder's controls tier, as a `BorderRadius`. Every
+/// notification surface — card, summary card, action button and their ink
+/// wells — takes this tier (§spec:design-size-ladders); VS Code's
+/// `notificationsToasts.css` rounds the toast with the same
 /// `var(--vscode-cornerRadius-small)`.
-const BorderRadius _notificationCardRadius = BorderRadius.all(
+const BorderRadius _controlsRadius = BorderRadius.all(
   Radius.circular(WorkbenchLayoutConstants.cornerRadiusSmall),
 );
 
@@ -456,7 +456,7 @@ class _ClearAllControl extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onClear,
-          borderRadius: _notificationCardRadius,
+          borderRadius: _controlsRadius,
           child: Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: WorkbenchLayoutConstants.spacingSize80,
@@ -513,7 +513,7 @@ class _SummaryCard extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.notificationBackground,
-        borderRadius: _notificationCardRadius,
+        borderRadius: _controlsRadius,
         border: Border.all(color: theme.notificationBorder),
       ),
       child: Column(
@@ -524,7 +524,7 @@ class _SummaryCard extends StatelessWidget {
             color: Colors.transparent,
             child: InkWell(
               onTap: onTap,
-              borderRadius: _notificationCardRadius,
+              borderRadius: _controlsRadius,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: WorkbenchLayoutConstants.spacingSize120,
@@ -652,11 +652,11 @@ class _NotificationCard extends StatelessWidget {
         onEnter: (_) => onHoverChanged(true),
         onExit: (_) => onHoverChanged(false),
         child: ClipRRect(
-          borderRadius: _notificationCardRadius,
+          borderRadius: _controlsRadius,
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: theme.notificationBackground,
-              borderRadius: _notificationCardRadius,
+              borderRadius: _controlsRadius,
               border: Border.all(color: theme.notificationBorder),
             ),
             child: IntrinsicHeight(
@@ -797,7 +797,7 @@ class _CloseButton extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: _notificationCardRadius,
+        borderRadius: _controlsRadius,
         child: Padding(
           padding: const EdgeInsets.all(2),
           child: Icon(
@@ -826,10 +826,10 @@ class _ActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: theme.notificationActionBackground,
-      borderRadius: _notificationCardRadius,
+      borderRadius: _controlsRadius,
       child: InkWell(
         onTap: onInvoke,
-        borderRadius: _notificationCardRadius,
+        borderRadius: _controlsRadius,
         hoverColor: theme.notificationActionHoverBackground,
         child: Padding(
           padding: const EdgeInsets.symmetric(
