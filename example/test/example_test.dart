@@ -29,6 +29,26 @@ Material openSelectListPanel(WidgetTester tester) {
 }
 
 void main() {
+  testWidgets('every select is select-only, never a text entry', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const WorkbenchExampleApp());
+    await tester.pumpAndSettle();
+
+    // DropdownMenu wraps a TextField and defaults to editable on desktop,
+    // which would let a user type a value VS Code's select cannot accept.
+    final selects = find.byType(DropdownMenu<String>);
+    expect(selects, findsWidgets);
+    for (final element in selects.evaluate()) {
+      final menu = element.widget as DropdownMenu<String>;
+      expect(
+        menu.selectOnly,
+        isTrue,
+        reason: 'a workbench select is picked from, not typed into',
+      );
+    }
+  });
+
   testWidgets('example renders five canonical panels and Problems content', (
     tester,
   ) async {

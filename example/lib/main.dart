@@ -1501,13 +1501,15 @@ class _ThemeDropdownField extends StatelessWidget {
         // come from the global `canvasColor` — the reason the spec rejects
         // it as the select.
         //
-        // `requestFocusOnTap: false` keeps the trigger a select rather than
-        // a filter field: these slots pick from a fixed list of bundled
-        // themes, so there is nothing to type.
+        // `selectOnly` keeps the trigger a select rather than a filter
+        // field: these slots pick from a fixed list of bundled themes, so
+        // there is nothing to type. It reads the inner field read-only while
+        // leaving it focusable, so Enter still opens the menu —
+        // `requestFocusOnTap: false` would give up that keyboard path.
         DropdownMenu<String>(
           enabled: enabled,
           initialSelection: resolvedValue,
-          requestFocusOnTap: false,
+          selectOnly: true,
           expandedInsets: EdgeInsets.zero,
           onSelected: onChanged,
           dropdownMenuEntries: [
@@ -1585,6 +1587,9 @@ class _EditorLanguageSelect extends StatelessWidget {
           style: theme.bodyText.copyWith(color: theme.descriptionForeground),
         ),
         const DropdownMenu<String>(
+          // A select, not a combobox: `DropdownMenu` defaults to an editable
+          // text field on desktop, and VS Code's select is not typable.
+          selectOnly: true,
           initialSelection: 'Dart',
           dropdownMenuEntries: [
             DropdownMenuEntry(value: 'Dart', label: 'Dart'),
