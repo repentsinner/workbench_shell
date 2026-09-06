@@ -2570,21 +2570,29 @@ canonical" failure mode that §spec:capability-boundary exists to remove. The fi
 the same shape as §spec:chrome-typography-canon: source-cite each value; leave drift no
 place to hide.
 
+**Every row records the VS Code version its value was last read
+at.** A cited file path alone does not detect drift: `baseSizes.ts`
+grew a full corner-radius ladder while this table went on citing it
+for a single value, and nothing flagged the gap
+(§spec:design-size-ladders). A version column turns a re-audit into a
+diff against a known point instead of a re-derivation from scratch,
+and makes a stale row visible on inspection.
+
 **Canonical source table**:
 
-| Constant | Value | VS Code source |
-|---|---|---|
-| `activityBarWidth` | 48 | [`activitybarpart.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/activitybar/media/activitybarpart.css) — `width: 48px` |
-| `activityBarIndicatorWidth` | 2 | activity bar item left-border indicator (same file) |
-| `sidebarHeadingHeight` | 35 | [`part.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/media/part.css) — `.part > .title { height: 35px }` |
-| `panelTabStripHeight` | 35 | shared `.part > .title` (same file) |
-| `statusBarHeight` | 22 | [`statusbarpart.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/statusbar/media/statusbarpart.css) — `height: 22px`. Cross-confirmed by inline comment in `notificationsToasts.css`: `bottom: 25px; /* 22px status bar height + 3px */` |
-| `sidebarMinWidth` | 170 | [`sidebarPart.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/sidebar/sidebarPart.ts) — `readonly minimumWidth: number = 170` |
-| `panelMinHeight` | 77 | [`panelPart.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/panel/panelPart.ts) — `readonly minimumHeight: number = 77` |
-| `notificationCardWidth` | 450 | [`notificationsToasts.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/notifications/notificationsToasts.ts) — `private static readonly MAX_WIDTH = 450` |
-| `containerRadius` | 4 | [`baseSizes.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/platform/theme/common/sizes/baseSizes.ts) — `cornerRadius.small = 4px` |
-| `notificationCardRadius` | 4 | same as `containerRadius` (`cornerRadius.small`) |
-| `buttonRadius` | 4 | [`button.css`](https://github.com/microsoft/vscode/blob/main/src/vs/base/browser/ui/button/button.css) — `.monaco-text-button { border-radius: 4px; }` |
+| Constant | Value | VS Code source | Verified |
+|---|---|---|---|
+| `activityBarWidth` | 48 | [`activitybarPart.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/activitybar/activitybarPart.ts) — `static readonly ACTIVITYBAR_WIDTH = 48`, applied by [`activitybarpart.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/activitybar/media/activitybarpart.css) as `width: var(--activity-bar-width, 48px)` | 1.138.0 |
+| `activityBarIndicatorWidth` | 2 | activity bar item left-border indicator (same CSS file); cross-confirmed by [`activityBar.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/activityBar.css), whose override is commented "Drop the 2px left border indicator on the active item" | 1.138.0 |
+| `sidebarHeadingHeight` | 35 | [`part.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/media/part.css) — `.part > .title { height: 35px }` | 1.138.0 |
+| `panelTabStripHeight` | 35 | shared `.part > .title` (same file) | 1.138.0 |
+| `statusBarHeight` | 22 | [`statusbarpart.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/statusbar/media/statusbarpart.css) — `height: 22px`. Cross-confirmed by inline comment in `notificationsToasts.css`: `bottom: 25px; /* 22px status bar height + 3px */` | 1.138.0 |
+| `sidebarMinWidth` | 170 | [`sidebarPart.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/sidebar/sidebarPart.ts) — `readonly minimumWidth: number = 170` | 1.138.0 |
+| `panelMinHeight` | 77 | [`panelPart.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/panel/panelPart.ts) — `readonly minimumHeight: number = 77` | 1.138.0 |
+| `notificationCardWidth` | 450 | [`notificationsToasts.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/notifications/notificationsToasts.ts) — `private static readonly MAX_WIDTH = 450` | 1.138.0 |
+| `containerRadius` | 4 | [`baseSizes.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/platform/theme/common/sizes/baseSizes.ts) — `cornerRadius.small = 4px` | 1.138.0 |
+| `notificationCardRadius` | 4 | same as `containerRadius` (`cornerRadius.small`) | 1.138.0 |
+| `buttonRadius` | 4 | [`button.css`](https://github.com/microsoft/vscode/blob/main/src/vs/base/browser/ui/button/button.css) — `.monaco-text-button { border-radius: 4px; }` | 1.138.0 |
 
 **Constants without a VS Code peer.** Some
 `WorkbenchLayoutConstants` slots intentionally diverge because
@@ -2599,8 +2607,8 @@ default and records the rationale:
 | `panelDefaultHeight` | 200 | VS Code persists last user height | Tall enough to show a useful number of log lines without dominating the editor area |
 | `panelMaxHeight` | 400 | VS Code allows dynamic max bounded by editor area | Static cap keeps the shell from re-implementing VS Code's layout-service min/max negotiation; consumers that need taller panels override at the layout call site |
 | `sidebarMaxWidth` | 600 | VS Code caps at ~75% of window width dynamically | Same reasoning as `panelMaxHeight` |
-| Spacing scale (`spacingXxs` … `spacingXl`) | 2 / 4 / 6 / 8 / 12 / 16 / 24 | VS Code uses ad-hoc paddings throughout; no shared scale | Package-internal consistency so primitives (`WorkbenchViewPane`, `WorkbenchViewWelcome`) compose without hardcoded paddings at call sites |
-| Icon sizes (`iconXs`, `iconSm`, `iconMd`, `iconLg`, `iconXl`, `iconXxl`, `iconActivityBar`) | 12 / 14 / 16 / 18 / 20 / 32 / 24 | VS Code uses 16 for most codicons (`codiconFontSize` in `baseSizes.ts`), 12 for compact (`codiconFontSize.compact`) | Provides a scale around VS Code's 16 default for surfaces (close affordances, status indicators) where a single fixed icon size doesn't fit |
+| Spacing scale (`spacingXxs` … `spacingXl`) | 2 / 4 / 8 / 12 / 16 / 24 | superseded — VS Code now registers a shared spacing ramp | A peer exists as of 1.138.0 (`spacing.size20` … `spacing.size400`). The package-local t-shirt scale is retained only until §spec:design-size-ladders replaces it |
+| Icon sizes (`iconXs`, `iconSm`, `iconMd`, `iconLg`, `iconXl`, `iconActivityBar`, `iconStatusBar`) | 12 / 14 / 16 / 20 / 24 / 30 / 17 | VS Code uses 16 for most codicons (`codiconFontSize` in `baseSizes.ts`), 12 for compact (`codiconFontSize.compact`) | Provides a scale around VS Code's 16 default for surfaces (close affordances, status indicators) where a single fixed icon size doesn't fit |
 | `notificationProgressBarHeight` | 4 | not surfaced within search scope of VS Code source | Matches the visible progress bar height VS Code renders |
 
 **Panel tab strip: one container, not three constants.** VS Code
@@ -2668,6 +2676,206 @@ between two ownership boundaries.
   container (one shared constant, not three split constants).
 - The bundled example app renders at the same pixel measurements
   as VS Code for every chrome part with a canonical upstream value.
+
+### Design Size Ladders §spec:design-size-ladders
+
+*Status: not started*
+
+`WorkbenchLayoutConstants` names its radius and spacing values with a
+package-local t-shirt vocabulary — `containerRadius`, `spacingSm` —
+that exists nowhere in VS Code. VS Code registers named ladders for
+corner radius, stroke thickness and spacing in
+[`baseSizes.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/platform/theme/common/sizes/baseSizes.ts),
+and
+[`roundedCorners.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/roundedCorners.css)
+records the doctrine for choosing among the radius tiers — by the role
+a surface plays, not by how large it looks. The package adopts those
+ladders, their names, and that doctrine. Upstream owns the values.
+
+**Why the ladder, not the t-shirt names.** A vocabulary with no
+upstream analog is the drift §spec:capability-boundary exists to
+remove — the argument that retired the card primitives from the public
+API (§spec:structural-primitives). An adopter who reads a ladder name
+can look it up in VS Code's source and find both the value and the
+rule governing its use; `containerRadius` resolves to nothing outside
+this package, so the adopter learns a second vocabulary and maps it by
+hand. §req:success-criteria requires chrome "verifiable against a VS
+Code reference"; a name that cannot be looked up is not verifiable.
+
+**Why constants, not theme tokens.** The registrations hold each size
+constant across every shipped theme, so §spec:layout-constants's "no
+runtime resolution for never-changing values" rationale carries over.
+If VS Code introduces per-theme size overrides, these migrate to
+`WorkbenchTheme` as tokens.
+
+**Rejected — keeping the t-shirt names as aliases.** Retaining them
+alongside the ladder names would spare consumers a migration and cost
+nothing at runtime. It also leaves two names for one value on the
+public API, which is the condition that lets drift back in: a call
+site picks whichever name its author learned. The rename is breaking
+and total.
+
+**Rejected — adopting the radius ladder but keeping t-shirt
+spacing.** Both ladders come from one upstream registration under one
+rationale. Splitting them leaves the package half-canonical for no
+reason beyond call-site familiarity.
+
+**Tradeoffs accepted**.
+
+- *A breaking rename across the public API.* Consumers referencing the
+  t-shirt names shall move to the ladder names. The package is pre-1.0
+  and the substitution is mechanical.
+- *Numeric spacing names read less fluently at call sites.*
+  Traceability to upstream is the property §req:quality-attributes
+  ranks first; call-site fluency is not a stated requirement.
+
+**Observable behavior**.
+
+- Every radius and spacing value the package applies resolves to a
+  named step on the corresponding upstream ladder, and each radius
+  tier matches the role its surface plays.
+- Chrome borders render at the upstream stroke thickness rather than
+  at literals chosen per call site.
+- A reader comparing the package's geometry names against
+  `baseSizes.ts` finds the same names carrying the same values.
+
+---
+
+## Modern UI Surface Treatment §spec:modern-ui-surfaces
+
+*Status: not started*
+
+VS Code frames the side bars, bottom panel and editor as separate
+rounded cards — each with a hairline border and a gap between them —
+instead of the flush, square-edged parts the workbench rendered
+previously. The package renders square, gapless parts, so chrome built
+with it no longer resembles the editor its users are running.
+
+**This is a live rollout, not an opt-in preview.** The setting
+`workbench.experimental.modernUI` declares `default: false`, but its
+schema also carries `experiment: { mode: 'auto' }`, which the
+configuration registry documents as "the setting value is updated to
+the experiment value automatically." The default is a fallback the
+experimentation service overrides. Users on stable builds run the
+treatment without setting the key, which is how it reached this
+package's own developers. Reading the declared default alone would
+place the treatment in the future; it is in the present.
+
+**The package conforms to upstream's treatment rather than restating
+it.** The card margins, borders, radii, activity bar metrics and pane
+header dimensions are upstream's, read from
+[`floatingPanels.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/media/floatingPanels.css),
+[`editorBorder.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/editorBorder.css),
+[`paneHeaders.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/paneHeaders.css)
+and
+[`activitybarPart.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/activitybar/activitybarPart.ts),
+and expressed through §spec:design-size-ladders. What follows records
+only the decisions that are this package's to make.
+
+**The frame is drawn inside the allocation, not around it.** A part's
+border and margin consume space the layout already assigned to it,
+rather than being added outside. The alternative — insetting each part
+with an outer margin — reflows the grid and changes every part's
+usable size. Framing inside the allocation keeps drag-resize
+arithmetic (§spec:resize-geometry) and the min/max floors
+(§spec:layout-constants) measuring the same quantities as before.
+
+**The primary side bar and the activity bar read as one surface.**
+Where they meet, the side bar drops its gap, its facing corners and
+its facing border, and the activity bar draws the single seam.
+Upstream records why the rail rather than the side bar owns that
+stroke: drawn from the side bar, the rail's interior runs past its own
+transparent edge and the icon column loses its optical centre.
+
+**The activity bar's active-item indicator changes affordance.** The
+left-border indicator (§spec:layout-constants-canon) gives way to a
+filled background behind the icon, in its own theme keys. This is a
+change of affordance rather than of measurement, so it lands as a
+distinct visual state rather than a re-tuned constant, and the rail
+carries its own width under the treatment.
+
+**Density is a host-configurable property.** VS Code exposes a default
+and a compact density; compact closes the gaps between cards, squares
+their corners and tightens internal insets. The package exposes
+density through the controlled/uncontrolled pattern every other layout
+choice already uses (§spec:layout-customization): an `initial…` seed,
+or a value plus an `on…Changed` callback. The shell holds no
+persistence of its own (§spec:capability-boundary).
+
+**Why follow an experiment at all.** §req:quality-attributes ranks
+canon fidelity first and defines it against what VS Code renders, not
+against what its settings file declares. Tracking the shipped default
+while users see something else would satisfy the letter of the source
+and fail the requirement. The risk is that the experiment is dialed
+back; the mitigation is the version pinning
+§spec:layout-constants-canon now records, which makes a reversal
+visible as a diff rather than as silent drift.
+
+**Rejected — treating the treatment as deferred until the default
+flips.** This was the initial reading, and it rested on
+`default: false` alone. It fails on the evidence: the package's own
+developers run the cards on unmodified stable installations. A spec
+that defers work until a flag flips would leave the package diverging
+from its reference for the whole rollout.
+
+**Rejected — a package-local "modern" boolean covering all of it.**
+One flag would make the treatment atomic and easy to describe. It also
+bundles independently observable changes — card framing, activity bar
+affordance, pane header metrics — behind a single switch, so a
+consumer wanting canonical pane headers would have to adopt the card
+framing too. The changes are specified as separate observable
+behaviors and land as separate workstreams.
+
+**Rejected — choosing the card gap independently.** The gap looks like
+a free choice among nearby spacing steps. Upstream keeps the margin
+its layout code subtracts and the margin its CSS draws deliberately in
+sync, because a part's content is shrunk by exactly that amount. A
+locally chosen gap decouples the two and reintroduces the
+off-by-a-margin errors the upstream comment warns about.
+
+**Tradeoffs accepted**.
+
+- *Chrome geometry shifts for hosts that pinned offsets against
+  square, gapless parts.* Content areas narrow by the margin and
+  border their part now carries. The shifts match VS Code's observable
+  layout, which is the contract §req:success-criteria states.
+- *The package tracks a surface upstream is still moving.* Values are
+  version-pinned so a re-audit is a diff, and the treatment is
+  specified as separate behaviors so a partial upstream reversal does
+  not invalidate the whole section.
+
+**Scope boundary.** Two adjacent upstream changes are surveyed and
+excluded here, to be specified separately rather than absorbed:
+
+- *The font ramp.* `baseSizes.ts` registers `fontSize.heading1` …
+  `fontSize.label3` and deprecates `bodyFontSize` in their favor.
+  §spec:chrome-typography-canon pins typography to per-surface CSS
+  literals, which remain accurate; adopting the ramp is a renaming of
+  that canon, not a change to what renders.
+- *Part shadows.* `workbench.shadows` defaults to `true` and is not
+  experimental, and carries its own `--vscode-shadow-*` token family.
+  The Modern UI look suppresses part shadows for a flat surface while
+  preserving floating-overlay shadows. The package's shadow story is
+  unaudited against either.
+
+**Observable behavior**.
+
+- The primary side bar, secondary side bar and bottom panel each
+  render as a bordered, rounded card separated from its neighbours by
+  a visible gap.
+- The editor renders inside a hairline frame with the same radius, and
+  the frame consumes no additional layout space.
+- Where the primary side bar meets the activity bar, one hairline
+  separates them, no gap appears, and the activity bar's icons remain
+  optically centred.
+- Selecting an activity bar item fills a rounded background behind its
+  icon rather than drawing a left border.
+- A stacked view pane shows an inset rule above it; the first pane in
+  a stack shows none.
+- Setting density to compact removes the gaps and corner radii and the
+  parts meet edge-to-edge.
+- Side by side with VS Code at the same density, card margins, border
+  thickness, corner radii and pane header heights match to the pixel.
 
 ---
 
