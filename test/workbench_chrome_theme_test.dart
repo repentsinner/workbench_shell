@@ -9,6 +9,29 @@ import 'test_theme.dart';
 /// same style (§spec:chrome-material-theming).
 const double _menuElevation = 2;
 
+/// Pump a bare, unstyled [DropdownMenu] under the chrome composed from
+/// [base] and [chrome] — the host-side case the contract exists to cover.
+Future<void> pumpBareSelect(
+  WidgetTester tester,
+  ThemeData base,
+  WorkbenchTheme chrome,
+) {
+  return tester.pumpWidget(
+    MaterialApp(
+      theme: applyWorkbenchChrome(base, chrome),
+      home: const Scaffold(
+        body: DropdownMenu<String>(
+          initialSelection: 'One',
+          dropdownMenuEntries: [
+            DropdownMenuEntry(value: 'One', label: 'One'),
+            DropdownMenuEntry(value: 'Two', label: 'Two'),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
 void main() {
   group('applyWorkbenchChrome', () {
     final base = ThemeData.dark();
@@ -355,20 +378,7 @@ void main() {
       final chrome = WorkbenchTheme.fromVscodeColorMap(
         const VscodeColorMap(name: 'Light', baseType: 'vs', colors: {}),
       );
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: applyWorkbenchChrome(ThemeData.light(), chrome),
-          home: const Scaffold(
-            body: DropdownMenu<String>(
-              initialSelection: 'One',
-              dropdownMenuEntries: [
-                DropdownMenuEntry(value: 'One', label: 'One'),
-                DropdownMenuEntry(value: 'Two', label: 'Two'),
-              ],
-            ),
-          ),
-        ),
-      );
+      await pumpBareSelect(tester, ThemeData.light(), chrome);
       final field = tester.widget<TextField>(find.byType(TextField));
       expect(field.decoration?.fillColor, chrome.dropdownBackground);
 
@@ -463,20 +473,7 @@ void main() {
 
     testWidgets('a bare DropdownMenu paints the trigger fill and the '
         'list background from the dropdown family', (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: applyWorkbenchChrome(ThemeData.dark(), testWorkbenchTheme),
-          home: const Scaffold(
-            body: DropdownMenu<String>(
-              initialSelection: 'One',
-              dropdownMenuEntries: [
-                DropdownMenuEntry(value: 'One', label: 'One'),
-                DropdownMenuEntry(value: 'Two', label: 'Two'),
-              ],
-            ),
-          ),
-        ),
-      );
+      await pumpBareSelect(tester, ThemeData.dark(), testWorkbenchTheme);
 
       final field = tester.widget<TextField>(find.byType(TextField));
       expect(

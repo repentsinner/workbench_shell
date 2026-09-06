@@ -13,6 +13,21 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:workbench_shell/workbench_shell.dart';
 import 'package:workbench_shell_example/main.dart';
 
+/// The open select's list panel — the `Material` Flutter's `_MenuPanel`
+/// builds around the entries, carrying the fill resolved from
+/// `DropdownMenuThemeData.menuStyle`. Taken as the nearest `Material`
+/// ancestor of an entry row, which excludes the row's own `Material`.
+Material openSelectListPanel(WidgetTester tester) {
+  return tester
+      .widgetList<Material>(
+        find.ancestor(
+          of: find.widgetWithText(MenuItemButton, 'Markdown').last,
+          matching: find.byType(Material),
+        ),
+      )
+      .first;
+}
+
 void main() {
   testWidgets('example renders five canonical panels and Problems content', (
     tester,
@@ -321,14 +336,7 @@ void main() {
     // trigger fill in themes that omit the token.
     await tester.tap(select);
     await tester.pumpAndSettle();
-    final panel = tester
-        .widgetList<Material>(
-          find.ancestor(
-            of: find.widgetWithText(MenuItemButton, 'Markdown').last,
-            matching: find.byType(Material),
-          ),
-        )
-        .first;
+    final panel = openSelectListPanel(tester);
     expect(panel.color, chrome.dropdownListBackground);
   });
 
@@ -375,14 +383,7 @@ void main() {
 
     await tester.tap(find.byType(DropdownMenu<String>));
     await tester.pumpAndSettle();
-    final panel = tester
-        .widgetList<Material>(
-          find.ancestor(
-            of: find.widgetWithText(MenuItemButton, 'Markdown').last,
-            matching: find.byType(Material),
-          ),
-        )
-        .first;
+    final panel = openSelectListPanel(tester);
     expect(panel.color, chrome.dropdownListBackground);
   });
 
