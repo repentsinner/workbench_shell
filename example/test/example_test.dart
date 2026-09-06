@@ -579,7 +579,7 @@ void main() {
     expect(
       justifyLeft,
       closeTo(
-        WorkbenchLayoutConstants.floatingCardGap +
+        WorkbenchLayoutConstants.floatingCardPerimeter +
             WorkbenchLayoutConstants.strokeThickness,
         0.001,
       ),
@@ -593,6 +593,49 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(panelRect().left, closeTo(centerLeft, 2));
+  });
+
+  // Layout density (§spec:modern-ui-surfaces). The View menu's Density radio
+  // submenu dispatches SetLayoutDensityIntent per choice; the host sets the
+  // value and feeds the shell's controlled layoutDensity property, which
+  // reframes every card. Driving the intent proves the menu→action→host→shell
+  // wiring both ways.
+  testWidgets('Density intent closes the gaps between the workbench cards and '
+      'reopens them', (tester) async {
+    await tester.pumpWidget(const WorkbenchExampleApp());
+    await tester.pumpAndSettle();
+
+    // The panel card's own allocation is fixed, so closing the gap it leads
+    // with toward the editor above shows up as its content reaching further
+    // up — by the gap, plus the hairline that edge also cedes, since the editor
+    // above draws the seam once the two meet. Its bottom faces the status bar —
+    // the cluster perimeter — and so does not move at all.
+    Rect panel() => tester.getRect(find.byType(WorkbenchTabbedPanel));
+
+    final standard = panel();
+
+    final context = tester.element(find.byType(WorkbenchLayout));
+    Actions.invoke(
+      context,
+      const SetLayoutDensityIntent(WorkbenchLayoutDensity.compact),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      standard.top - panel().top,
+      closeTo(
+        WorkbenchLayoutConstants.floatingCardGap +
+            WorkbenchLayoutConstants.strokeThickness,
+        0.001,
+      ),
+    );
+    expect(panel().bottom, closeTo(standard.bottom, 0.001));
+
+    Actions.invoke(
+      context,
+      const SetLayoutDensityIntent(WorkbenchLayoutDensity.standard),
+    );
+    await tester.pumpAndSettle();
+    expect(panel().top, closeTo(standard.top, 0.001));
   });
 
   testWidgets('seeded WorkbenchLayoutState restores the Explorer arrangement '

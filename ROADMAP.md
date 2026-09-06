@@ -34,18 +34,6 @@ that previously rendered nowhere, and on a dark theme it resolves close
 enough to the editor card that the treatment reads as a hairline grid
 rather than as floating cards.
 
-### Layout density seam §road:layout-density
-
-Expose layout density as a host-configurable property on
-`WorkbenchLayout` following the controlled/uncontrolled pattern, wire
-it through `lib/src/workbench_layout.dart` and
-`lib/src/workbench_layout_state.dart` so it modulates the preceding
-workstreams' geometry, and demonstrate both densities in
-`example/lib/main.dart` (§spec:modern-ui-surfaces,
-§spec:layout-customization). Every workstream whose geometry it
-modulates — the card framing, the editor frame, the activity bar rail
-and the pane header metrics — has shipped.
-
 **Verify:** Run the example app beside VS Code at the same density.
 The side bars, panel and editor each read as a separate bordered card
 with a visible gap; one hairline separates the activity bar from the

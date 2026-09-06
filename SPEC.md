@@ -2895,6 +2895,24 @@ choice already uses (§spec:layout-customization): an `initial…` seed,
 or a value plus an `on…Changed` callback. The shell holds no
 persistence of its own (§spec:capability-boundary).
 
+**The gap between two cards and the gutter around the cluster are
+separate quantities.** They measure the same step at the default
+density and diverge at compact, where the gap closes and the gutter
+holds, so the workbench keeps its breathing room against window chrome
+however tightly its parts pack. Upstream resolves them through two
+functions for that reason. One constant covering both reads correct
+until the density moves, which is why each edge of a part instead names
+what it faces — window chrome, a card that follows, a card that leads,
+or a flush seam — and the gutter it reserves and the stroke it draws
+both follow from that name.
+
+**Compact splits each shared seam between its two parts.** With the gap
+closed, a hairline drawn from both sides reads two pixels wide. Each
+part draws its trailing edges and any edge facing window chrome, and
+leaves a leading edge it shares with a neighbour unstroked. This is the
+same rule that already gives the primary side bar and the activity bar
+their single seam, generalized to every pair the closed gap creates.
+
 **Why follow an experiment at all.** §req:quality-attributes ranks
 canon fidelity first and defines it against what VS Code renders, not
 against what its settings file declares. Tracking the shipped default
@@ -2966,6 +2984,16 @@ excluded here, to be specified separately rather than absorbed:
   panel tab strip; both still render at the base height. The change is
   part chrome rather than pane chrome, so it belongs with the parts
   rather than here.
+- *Restored corners on the compact cluster's perimeter.* Upstream
+  squares every card corner at compact and then paints the four corners
+  of the *cluster* back at the card radius, from a radial-gradient
+  background stack standing in for a border it can no longer draw. The
+  package squares them all. Each part already declares which of its edges
+  face window chrome, so the question "does this part own a corner of the
+  cluster" is answerable where the radius is chosen; what upstream adds on
+  top is a gradient stack standing in for a border, and the difference it
+  buys is four corners against window chrome. Excluded on that balance,
+  not for want of the information.
 
 **Observable behavior**.
 
@@ -2984,7 +3012,8 @@ excluded here, to be specified separately rather than absorbed:
 - A stacked view pane shows an inset rule above it; the first pane in
   a stack shows none.
 - Setting density to compact removes the gaps and corner radii and the
-  parts meet edge-to-edge.
+  parts meet edge-to-edge, one hairline between each pair rather than
+  two, inside an unchanged perimeter gutter.
 - Side by side with VS Code at the same density, card margins, border
   thickness, corner radii and pane header heights match to the pixel.
 

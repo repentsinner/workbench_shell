@@ -9,12 +9,14 @@ class WorkbenchLayoutConstants {
 
   // ==================== STRUCTURAL GEOMETRY ====================
 
-  /// Activity bar layout allocation. VS Code's `ActivitybarPart.minimumWidth`
-  /// is `baseWidth + floatingHorizontalGutter`, which under the Modern UI
-  /// treatment is [activityBarRailWidth] + [activityBarLane] +
-  /// [floatingCardGap] — the rail card plus the cluster's perimeter gutter
-  /// (§spec:modern-ui-surfaces). The rail frames itself inside this
-  /// allocation, so the row measures the same 48px it always did.
+  /// Activity bar layout allocation at the default density. VS Code's
+  /// `ActivitybarPart.minimumWidth` is `baseWidth + floatingHorizontalGutter`,
+  /// which under the Modern UI treatment is [activityBarRailWidth] +
+  /// [activityBarLane] + [floatingCardPerimeter] — the rail card plus the
+  /// cluster's perimeter gutter (§spec:modern-ui-surfaces). The rail frames
+  /// itself inside this allocation, so the row measures the same 48px it
+  /// always did. This is the default density's allocation, which is the value
+  /// upstream states; a narrower lane derives its own via [railWidthForLane].
   static const double activityBarWidth = 48.0;
 
   /// Sidebar default width.
@@ -208,19 +210,45 @@ class WorkbenchLayoutConstants {
   // the drag-resize arithmetic (§spec:resize-geometry) and the min/max floors
   // (§spec:layout-constants) keep measuring the quantities they always did.
 
-  /// Gap between two adjacent cards, and between the outermost card and the
-  /// window edge. VS Code `layoutService.ts` `FLOATING_PANEL_MARGIN = 4`,
-  /// published to CSS as `--modern-ui-floating-card-margin`
-  /// (`spacing.size40`); the cluster perimeter
-  /// (`--modern-ui-floating-card-outer-margin`) takes the same step at the
-  /// default density. Each card owns the gap on its leading edge, so a
-  /// trailing edge carries one only where no card follows it.
+  /// Gap between two adjacent cards at the default density. VS Code
+  /// `layoutService.ts` `FLOATING_PANEL_MARGIN = 4`, published to CSS as
+  /// `--modern-ui-floating-card-margin` (`spacing.size40`). Each card owns the
+  /// gap on its leading edge, so a trailing edge carries one only where no
+  /// card follows it.
+  ///
+  /// Distinct from [floatingCardPerimeter], which the two densities resolve
+  /// differently: this gap closes under compact, the perimeter does not.
   static const double floatingCardGap = spacingSize40;
 
-  /// Corner radius of a floating card. Both `floatingPanels.css` and
-  /// `editorBorder.css` round every card at `cornerRadius.large` — the outer
-  /// tier, since a card is a prominent surface rather than a control.
+  /// The same gap at the compact density: closed, so adjacent cards meet
+  /// edge-to-edge. VS Code `layoutService.ts`
+  /// `COMPACT_FLOATING_PANEL_MARGIN = 0`, published as
+  /// `--modern-ui-floating-card-margin` (`spacing.sizeNone`).
+  static const double compactFloatingCardGap = spacingNone;
+
+  /// Gutter a card reserves on an edge that faces window chrome rather than
+  /// another card — the cluster's perimeter. VS Code `layoutService.ts`
+  /// `getFloatingPanelOuterMargin` resolves `FLOATING_PANEL_MARGIN` at the
+  /// default density and `COMPACT_FLOATING_PANEL_OUTER_MARGIN = 4` at compact,
+  /// so the perimeter is density-invariant. `floatingPanels.css` states the
+  /// rule on `--modern-ui-floating-card-outer-margin`: the cluster perimeter
+  /// is the same in both densities, and only the gap *between* cards differs.
+  ///
+  /// Equal to [floatingCardGap] at the default density. The two are separate
+  /// constants because they measure different quantities and diverge under
+  /// compact, not because they differ today.
+  static const double floatingCardPerimeter = spacingSize40;
+
+  /// Corner radius of a floating card at the default density. Both
+  /// `floatingPanels.css` and `editorBorder.css` round every card at
+  /// `cornerRadius.large` — the outer tier, since a card is a prominent
+  /// surface rather than a control.
   static const double floatingCardRadius = cornerRadiusLarge;
+
+  /// The same radius at the compact density: squared, so the parts meet
+  /// edge-to-edge. `floatingPanels.css` sets `border-radius: 0` on every
+  /// compact card and `editorBorder.css` does the same for the editor frame.
+  static const double compactFloatingCardRadius = 0.0;
 
   /// Icon-column width inside the activity bar card. VS Code
   /// `activitybarPart.ts` `FLOATING_ACTIVITYBAR_WIDTH = 36`, published as
@@ -234,6 +262,11 @@ class WorkbenchLayoutConstants {
   /// whatever the gutter is.
   static const double activityBarLane = spacingSize80;
 
+  /// The same lane at the compact density. VS Code `activitybarPart.ts`
+  /// `FLOATING_COMPACT_LANE = 4`, published as `--modern-ui-activitybar-lane`
+  /// (`spacing.size40`) from the `.modern-ui-compact .part.activitybar` rule.
+  static const double compactActivityBarLane = spacingSize40;
+
   /// Height of one activity bar item. VS Code `activitybarPart.ts`
   /// `FLOATING_ACTION_HEIGHT = 36`.
   static const double activityBarItemHeight = 36.0;
@@ -243,6 +276,14 @@ class WorkbenchLayoutConstants {
   /// `--activity-bar-action-gap` (`spacing.size80`) so the stylesheet and the
   /// overflow computation cannot drift apart.
   static const double activityBarItemGap = spacingSize80;
+
+  /// The same item gap at the compact density. VS Code `activitybarPart.ts`
+  /// `FLOATING_COMPACT_ACTION_GAP = 4` (`spacing.size40`), tightening the
+  /// rail's rhythm to match the closed card gaps. The item *height* does not
+  /// change: `FLOATING_COMPACT_ACTIVITYBAR_WIDTH` and `COMPACT_ACTION_HEIGHT`
+  /// belong to the activity bar's own size setting (`_isCompact`), not to the
+  /// Modern UI density.
+  static const double compactActivityBarItemGap = spacingSize40;
 
   /// Side of the filled background behind an active or hovered activity bar
   /// icon. `activityBar.css` sizes it
@@ -256,12 +297,26 @@ class WorkbenchLayoutConstants {
   static const double activityBarItemIndicatorRadius = cornerRadiusSmall;
 
   /// Inset from the activity bar card's content box to the icon column, on
-  /// every side. `floatingPanels.css` centres the column with
-  /// `calc((var(--modern-ui-activitybar-lane) - 2px) / 2)` — the lane less
-  /// the card's two strokes, halved. Taking the strokes off before halving is
-  /// what keeps the icons optically centred instead of a pixel off.
+  /// every side, at the default density. `floatingPanels.css` centres the
+  /// column with `calc((var(--modern-ui-activitybar-lane) - 2px) / 2)` — the
+  /// lane less the card's two strokes, halved. Taking the strokes off before
+  /// halving is what keeps the icons optically centred instead of a pixel off.
+  /// A density that narrows the lane calls [iconInsetForLane] instead.
   static const double activityBarIconInset =
       (activityBarLane - 2 * strokeThickness) / 2;
+
+  /// [activityBarIconInset] for an arbitrary lane, so a density that narrows
+  /// the lane derives its inset from the same rule rather than restating it.
+  static double iconInsetForLane(double lane) =>
+      (lane - 2 * strokeThickness) / 2;
+
+  /// The rail's whole allocation for an arbitrary lane — the icon column, the
+  /// lane beside it, and the cluster's perimeter gutter (VS Code
+  /// `ActivitybarPart.minimumWidth`). At the default lane this resolves to
+  /// [activityBarWidth], which stays a literal because upstream states it as
+  /// one.
+  static double railWidthForLane(double lane) =>
+      activityBarRailWidth + lane + floatingCardPerimeter;
 
   // ==================== BUTTONS ====================
 
