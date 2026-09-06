@@ -7,6 +7,30 @@ import 'test_theme.dart';
 
 void main() {
   group('WorkbenchStatusBar', () {
+    testWidgets('draws no top border under the Modern UI treatment', (
+      tester,
+    ) async {
+      await tester.pumpWidget(wrapWithTheme(const WorkbenchStatusBar()));
+
+      // `floatingPanels.css` hides the classic `status-border-top` rule under
+      // the floating-panels treatment, so the bar meets the band above it
+      // without a hairline (§spec:modern-ui-surfaces).
+      final decoration =
+          tester
+                  .widget<Container>(
+                    find
+                        .ancestor(
+                          of: find.byType(Row),
+                          matching: find.byType(Container),
+                        )
+                        .first,
+                  )
+                  .decoration
+              as BoxDecoration;
+      expect(decoration.border, isNull);
+      expect(decoration.color, isNotNull);
+    });
+
     testWidgets('renders leading and trailing items with spacer between', (
       tester,
     ) async {
