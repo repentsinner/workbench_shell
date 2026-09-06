@@ -38,7 +38,13 @@ with `fvm` (or put `.fvm/flutter_sdk/bin` on your `PATH`).
 An unpinned `flutter` is not equivalent. The analyzer gains lints between
 releases, so a stale local SDK reports a clean tree for code that CI rejects —
 `invalid_export_of_internal_element` reached `main` that way. Bump the version
-in `.fvmrc` alone; nothing else records it.
+in `.fvmrc` alone; no other file in the repository records it.
+
+The pin covers `quality` — analyze and both test suites. It does not cover
+`publish-pubdev.yml`, which delegates to a reusable workflow that resolves its
+own SDK and exposes no input to override it. That job runs no analyzer, so it
+cannot produce the drift this pin exists to stop; the workflow documents the
+reasoning.
 
 **Open PRs only when ready to merge.** A branch is your private work-in-progress; a PR is a request to merge. Iterate on the branch beforehand; open the PR when the work is done. Once open and eligible, Flywheel auto-merges as soon as required checks pass.
 
