@@ -495,6 +495,12 @@ void main() {
       final panel = popupPanelOf(tester, 'Two');
       expect(panel.color, testWorkbenchTheme.dropdownListBackground);
       expect(panel.elevation, _menuElevation);
+      // The list's own hairline, painted into the panel's shape.
+      expect(
+        (panel.shape! as OutlinedBorder).side.color,
+        testWorkbenchTheme.dropdownBorder,
+      );
+      expect(panel.surfaceTintColor, Colors.transparent);
     });
 
     testWidgets('a bare MenuAnchor paints its panel from the menu family', (
