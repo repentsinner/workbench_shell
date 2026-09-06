@@ -785,6 +785,121 @@ void main() {
     });
   });
 
+  group('WorkbenchTheme dropdown tokens (§spec:chrome-material-theming)', () {
+    // Upstream registry, source-verified against
+    // src/vs/platform/theme/common/colors/inputColors.ts:
+    //   dropdown.background     → #3C3C3C dark / white light
+    //   dropdown.foreground     → #F0F0F0 dark / foreground light
+    //   dropdown.border         → dropdown.background dark / #CECECE light
+    //   dropdown.listBackground → null dark and light
+    // and against src/vs/base/browser/ui/selectBox/selectBoxCustom.ts, which
+    // paints the open list with
+    // `asCssValueWithDefault(selectListBackground, background)` — so the list
+    // falls back to the trigger fill, never to a Material surface.
+    test('fall back to their upstream defaults in a dark theme', () {
+      final theme = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+      );
+      expect(theme.dropdownBackground, const Color(0xFF3C3C3C));
+      expect(theme.dropdownForeground, const Color(0xFFF0F0F0));
+      expect(theme.dropdownBorder, theme.dropdownBackground);
+      expect(theme.dropdownListBackground, theme.dropdownBackground);
+    });
+
+    test('fall back to their upstream defaults in a light theme', () {
+      final theme = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs', colors: {}),
+      );
+      expect(theme.dropdownBackground, const Color(0xFFFFFFFF));
+      expect(theme.dropdownForeground, theme.foreground);
+      expect(theme.dropdownBorder, const Color(0xFFCECECE));
+      expect(theme.dropdownListBackground, theme.dropdownBackground);
+    });
+
+    test('the list falls back to the trigger fill a theme does set', () {
+      // The #30 defect: a theme that colours only `dropdown.background`
+      // still gets a themed list, because upstream defaults the list token
+      // to the trigger fill rather than leaving it unresolved.
+      final map = loader.parse('''
+        {
+          "name": "Trigger Only",
+          "type": "vs-dark",
+          "colors": {"dropdown.background": "#101112"}
+        }
+        ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.dropdownListBackground, const Color(0xFF101112));
+      expect(theme.dropdownBorder, const Color(0xFF101112));
+    });
+
+    test('honour explicit dropdown.* tokens when present', () {
+      final map = loader.parse('''
+        {
+          "name": "Dropdown Test",
+          "type": "vs-dark",
+          "colors": {
+            "dropdown.background": "#101112",
+            "dropdown.foreground": "#131415",
+            "dropdown.border": "#161718",
+            "dropdown.listBackground": "#191A1B"
+          }
+        }
+        ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.dropdownBackground, const Color(0xFF101112));
+      expect(theme.dropdownForeground, const Color(0xFF131415));
+      expect(theme.dropdownBorder, const Color(0xFF161718));
+      expect(theme.dropdownListBackground, const Color(0xFF191A1B));
+    });
+
+    test('copyWith preserves dropdown tokens when unspecified', () {
+      final base = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+      );
+      final modified = base.copyWith(foreground: const Color(0xFFFF0000));
+      expect(modified.dropdownForeground, equals(base.dropdownForeground));
+      expect(modified.dropdownBorder, equals(base.dropdownBorder));
+      expect(
+        modified.dropdownListBackground,
+        equals(base.dropdownListBackground),
+      );
+    });
+
+    test('lerp interpolates dropdown colours', () {
+      final a = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'A', baseType: 'vs-dark', colors: {}),
+      ).copyWith(dropdownListBackground: const Color(0xFF000000));
+      final b = a.copyWith(dropdownListBackground: const Color(0xFFFFFFFF));
+      final mid = a.lerp(b, 0.5);
+      expect(
+        mid.dropdownListBackground,
+        isNot(equals(const Color(0xFF000000))),
+      );
+      expect(
+        mid.dropdownListBackground,
+        isNot(equals(const Color(0xFFFFFFFF))),
+      );
+    });
+
+    test('a differing dropdown token breaks equality', () {
+      final a = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'A', baseType: 'vs-dark', colors: {}),
+      );
+      expect(
+        a.copyWith(dropdownListBackground: const Color(0xFF123456)),
+        isNot(equals(a)),
+      );
+      expect(
+        a.copyWith(dropdownForeground: const Color(0xFF123456)),
+        isNot(equals(a)),
+      );
+      expect(
+        a.copyWith(dropdownBorder: const Color(0xFF123456)),
+        isNot(equals(a)),
+      );
+    });
+  });
+
   group('WorkbenchTheme.copyWith / lerp', () {
     final base = WorkbenchTheme.fromVscodeColorMap(
       const VscodeColorMap(name: 'Dark', baseType: 'vs-dark', colors: {}),
