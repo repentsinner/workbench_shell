@@ -36,13 +36,6 @@ background across `lib/src/workbench_layout.dart`,
 including the shared seam where the rail meets the primary side bar
 (§spec:modern-ui-surfaces). Depends on §road:part-card-framing.
 
-### View pane header metrics §road:pane-header-metrics
-
-Apply the treatment's pane header height, inset separator rules,
-header radius and hover tint in `lib/src/workbench_view_container.dart`
-and `lib/src/workbench_content.dart`, including the suppressed rule
-above the first pane in a stack (§spec:modern-ui-surfaces).
-
 ### Layout density seam §road:layout-density
 
 Expose layout density as a host-configurable property on
@@ -52,8 +45,7 @@ it through `lib/src/workbench_layout.dart` and
 workstreams' geometry, and demonstrate both densities in
 `example/lib/main.dart` (§spec:modern-ui-surfaces,
 §spec:layout-customization). Depends on §road:part-card-framing,
-§road:editor-frame, §road:activity-bar-modern and
-§road:pane-header-metrics.
+§road:editor-frame and §road:activity-bar-modern.
 
 **Verify:** Run the example app beside VS Code at the same density.
 The side bars, panel and editor each read as a separate bordered card

@@ -2837,7 +2837,7 @@ records why so a later reader can tell a decision from an oversight:
 
 ## Modern UI Surface Treatment §spec:modern-ui-surfaces
 
-*Status: not started*
+*Status: in progress*
 
 VS Code frames the side bars, bottom panel and editor as separate
 rounded cards — each with a hairline border and a gap between them —
