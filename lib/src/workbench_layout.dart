@@ -25,146 +25,282 @@ enum WorkbenchSidebarPosition { left, right }
 /// by *where the panel sits in the widget tree*, not a layout solver.
 enum WorkbenchPanelAlignment { center, justify, left, right }
 
+/// How tightly the workbench packs its Modern UI cards
+/// (§spec:modern-ui-surfaces). VS Code's `window.density.layout` names its two
+/// values `default` and `compact`; `default` is a Dart reserved word, so the
+/// first is [standard]. Compact closes the gap *between* cards, squares their
+/// corners and tightens the activity bar's internal rhythm. The gutter around
+/// the cluster's *perimeter* is the same either way, so the workbench keeps its
+/// breathing room against window chrome whichever density is set.
+///
+/// Each value carries the metrics it resolves, so a call site reads the
+/// quantity it means rather than re-deriving one from a density check. Values
+/// are read at VS Code 1.138.0 and pinned in [WorkbenchLayoutConstants].
+enum WorkbenchLayoutDensity {
+  /// VS Code's `default`: cards float a gap apart with rounded corners.
+  standard(
+    cardGap: WorkbenchLayoutConstants.floatingCardGap,
+    cardRadius: WorkbenchLayoutConstants.floatingCardRadius,
+    activityBarLane: WorkbenchLayoutConstants.activityBarLane,
+    activityBarItemGap: WorkbenchLayoutConstants.activityBarItemGap,
+  ),
+
+  /// VS Code's `compact`: the cards join into one cluster, square-cornered and
+  /// edge-to-edge, inside the same perimeter gutter.
+  compact(
+    cardGap: WorkbenchLayoutConstants.compactFloatingCardGap,
+    cardRadius: WorkbenchLayoutConstants.compactFloatingCardRadius,
+    activityBarLane: WorkbenchLayoutConstants.compactActivityBarLane,
+    activityBarItemGap: WorkbenchLayoutConstants.compactActivityBarItemGap,
+  );
+
+  const WorkbenchLayoutDensity({
+    required this.cardGap,
+    required this.cardRadius,
+    required this.activityBarLane,
+    required this.activityBarItemGap,
+  });
+
+  /// Gap a card reserves on a leading edge that faces another card. Zero at
+  /// [compact], where the two meet edge-to-edge.
+  final double cardGap;
+
+  /// Corner radius of a card. Zero at [compact].
+  final double cardRadius;
+
+  /// Space inside the activity bar card beside its icon column.
+  final double activityBarLane;
+
+  /// Vertical gap between two adjacent activity bar items.
+  final double activityBarItemGap;
+
+  /// Gutter a card reserves on an edge facing window chrome rather than
+  /// another card. Density-invariant: upstream's `getFloatingPanelOuterMargin`
+  /// resolves the same step in both densities, and only [cardGap] differs.
+  double get cardPerimeter => WorkbenchLayoutConstants.floatingCardPerimeter;
+
+  /// Whether adjacent cards abut, so one neighbour draws each shared seam
+  /// rather than both. At [standard] every card stands clear and draws its own
+  /// full ring.
+  bool get cardsAbut => cardGap == 0;
+
+  /// Inset from the activity bar card's content box to the icon column, on
+  /// every side: this density's lane less the card's two strokes, halved.
+  double get activityBarIconInset =>
+      (activityBarLane - 2 * WorkbenchLayoutConstants.strokeThickness) / 2;
+
+  /// The rail's whole layout allocation — the icon column, the lane beside it,
+  /// and the cluster's perimeter gutter (VS Code
+  /// `ActivitybarPart.minimumWidth`). The icon column keeps its own width in
+  /// both densities; only the lane narrows.
+  double get activityBarWidth =>
+      WorkbenchLayoutConstants.activityBarRailWidth +
+      activityBarLane +
+      cardPerimeter;
+}
+
 /// Horizontal edge of a floating card (§spec:modern-ui-surfaces). Only the
 /// left and right edges ever meet another card flush in this layout.
 enum _CardEdge { left, right }
 
+/// What one edge of a floating card faces (§spec:modern-ui-surfaces). The
+/// gutter the edge reserves and the stroke it draws both follow from this, so
+/// the two cannot drift apart — the failure upstream's split between
+/// `getFloatingPanelMargin` and `getFloatingPanelOuterMargin` exists to
+/// prevent, and which is invisible at the default density where both resolve
+/// the same step.
+enum _CardEdgeKind {
+  /// Window chrome. Reserves the density-invariant perimeter gutter and always
+  /// draws the cluster's outer stroke.
+  perimeter,
+
+  /// A card that follows this one. Under the leading-margin convention this
+  /// card reserves the gap, which compact closes; the follower then draws the
+  /// shared seam.
+  gap,
+
+  /// A card that leads with its own gap. Reserves nothing, but the two are
+  /// still a gap apart, so this edge keeps its corners rounded.
+  led,
+
+  /// A shared seam with no gap in either density. Reserves nothing and squares
+  /// the two corners it touches, so the pair reads as one surface.
+  seam,
+}
+
+/// The four edges of a card, each named by what it faces.
+typedef _CardEdges = ({
+  _CardEdgeKind left,
+  _CardEdgeKind top,
+  _CardEdgeKind right,
+  _CardEdgeKind bottom,
+});
+
 /// A workbench part framed as a Modern UI floating card
-/// (§spec:modern-ui-surfaces): a hairline border, [WorkbenchLayoutConstants.floatingCardRadius]
-/// corners and a fill, all drawn *inside* [gutter], which is itself consumed
-/// from the space the layout already assigned to the part. Nothing is added
-/// outside, so the grid keeps measuring the same quantities
-/// (§spec:resize-geometry, §spec:layout-constants).
+/// (§spec:modern-ui-surfaces): a hairline border, rounded corners and a fill,
+/// all drawn *inside* the gutter, which is itself consumed from the space the
+/// layout already assigned to the part. Nothing is added outside, so the grid
+/// keeps measuring the same quantities (§spec:resize-geometry,
+/// §spec:layout-constants).
 ///
-/// [flushEdge] names an edge where the card meets its neighbour with no gap:
-/// those two corners square. [cedesSeam] additionally drops that edge's
-/// stroke, for the card whose neighbour draws the shared hairline — the
-/// primary side bar, which leaves the seam to the activity bar rail.
+/// [edges] names what each side faces, and the card derives both its gutter and
+/// its strokes from that one declaration. A [_CardEdgeKind.seam] edge squares
+/// its two corners so the pair reads as one surface. [cedesSeam] additionally
+/// drops that edge's stroke, for the card whose neighbour draws the shared
+/// hairline — the primary side bar, which leaves the seam to the activity bar
+/// rail.
 ///
-/// A card with a stroke on every edge paints it as a foreground [Border], so
-/// the fill is drawn once and the stroke lands in front of the child rather
-/// than behind it. The one card that cedes an edge ([cedesSeam]) cannot: a
-/// non-uniform [Border] with a corner radius is not paintable in Flutter, so
-/// that card alone falls back to a painted ring — an outer box filled with
-/// [borderColor] and an inner box inset by one stroke.
+/// [density] resolves every measurement. At [WorkbenchLayoutDensity.compact]
+/// the cards abut, so a seam drawn by both neighbours would read two pixels
+/// wide: each card then draws its trailing edges and the cluster's perimeter
+/// only, which is the rule upstream's compact background stack encodes.
 class _FloatingCard extends StatelessWidget {
-  final EdgeInsets gutter;
+  final _CardEdges edges;
+  final WorkbenchLayoutDensity density;
   final Color background;
   final Color borderColor;
-  final _CardEdge? flushEdge;
   final bool cedesSeam;
   final Widget child;
 
   const _FloatingCard({
-    required this.gutter,
+    required this.edges,
+    required this.density,
     required this.background,
     required this.borderColor,
     required this.child,
-    this.flushEdge,
     this.cedesSeam = false,
   });
 
   static const _stroke = WorkbenchLayoutConstants.strokeThickness;
-  static const _radius = WorkbenchLayoutConstants.floatingCardRadius;
 
-  static const _outerSquare = BorderRadius.all(Radius.circular(_radius));
-  static const _innerSquare = BorderRadius.all(
-    Radius.circular(_radius - _stroke),
-  );
-  static const _outerFlushLeft = BorderRadius.only(
-    topRight: Radius.circular(_radius),
-    bottomRight: Radius.circular(_radius),
-  );
-  static const _innerFlushLeft = BorderRadius.only(
-    topRight: Radius.circular(_radius - _stroke),
-    bottomRight: Radius.circular(_radius - _stroke),
-  );
-  static const _outerFlushRight = BorderRadius.only(
-    topLeft: Radius.circular(_radius),
-    bottomLeft: Radius.circular(_radius),
-  );
-  static const _innerFlushRight = BorderRadius.only(
-    topLeft: Radius.circular(_radius - _stroke),
-    bottomLeft: Radius.circular(_radius - _stroke),
-  );
-
-  static const _insetAll = EdgeInsets.all(_stroke);
-  static const _insetCededLeft = EdgeInsets.fromLTRB(
-    0,
-    _stroke,
-    _stroke,
-    _stroke,
-  );
-  static const _insetCededRight = EdgeInsets.fromLTRB(
-    _stroke,
-    _stroke,
-    0,
-    _stroke,
-  );
-
-  BorderRadius get _outerRadius => switch (flushEdge) {
-    _CardEdge.left => _outerFlushLeft,
-    _CardEdge.right => _outerFlushRight,
-    null => _outerSquare,
+  /// The horizontal edge this card shares flush with a neighbour, if any.
+  _CardEdge? get _seamEdge => switch (edges) {
+    (left: _CardEdgeKind.seam, top: _, right: _, bottom: _) => _CardEdge.left,
+    (left: _, top: _, right: _CardEdgeKind.seam, bottom: _) => _CardEdge.right,
+    _ => null,
   };
 
-  BorderRadius get _innerRadius => switch (flushEdge) {
-    _CardEdge.left => _innerFlushLeft,
-    _CardEdge.right => _innerFlushRight,
-    null => _innerSquare,
+  double _gutterFor(_CardEdgeKind kind) => switch (kind) {
+    _CardEdgeKind.perimeter => density.cardPerimeter,
+    _CardEdgeKind.gap => density.cardGap,
+    _CardEdgeKind.led || _CardEdgeKind.seam => 0.0,
   };
+
+  EdgeInsets get _gutter => EdgeInsets.fromLTRB(
+    _gutterFor(edges.left),
+    _gutterFor(edges.top),
+    _gutterFor(edges.right),
+    _gutterFor(edges.bottom),
+  );
+
+  /// Whether one edge draws a stroke. Cards that stand clear of their
+  /// neighbours each draw a full ring; cards that abut split the seams, so a
+  /// leading edge draws only where it faces window chrome and the trailing
+  /// edges carry the rest. Either way the ceded seam draws nothing — its
+  /// neighbour owns that hairline.
+  bool _strokes(
+    _CardEdgeKind kind, {
+    required bool leading,
+    bool ceded = false,
+  }) {
+    if (ceded) return false;
+    if (!density.cardsAbut) return true;
+    return !leading || kind == _CardEdgeKind.perimeter;
+  }
+
+  BorderSide _side(bool strokes) => strokes
+      // The width is stated even though it currently equals Flutter's default,
+      // so the stroke tracks `strokeThickness` if upstream moves it rather
+      // than silently keeping 1px.
+      // ignore: avoid_redundant_argument_values
+      ? BorderSide(color: borderColor, width: _stroke)
+      : BorderSide.none;
+
+  Border get _border {
+    // Only a horizontal edge is ever ceded — it is the shared seam a
+    // neighbouring card draws instead.
+    final ceded = cedesSeam ? _seamEdge : null;
+    return Border(
+      left: _side(
+        _strokes(edges.left, leading: true, ceded: ceded == _CardEdge.left),
+      ),
+      top: _side(_strokes(edges.top, leading: true)),
+      right: _side(
+        _strokes(edges.right, leading: false, ceded: ceded == _CardEdge.right),
+      ),
+      bottom: _side(_strokes(edges.bottom, leading: false)),
+    );
+  }
+
+  BorderRadius get _outerRadius {
+    if (density.cardRadius == 0) return BorderRadius.zero;
+    final corner = Radius.circular(density.cardRadius);
+    return switch (_seamEdge) {
+      _CardEdge.left => BorderRadius.only(
+        topRight: corner,
+        bottomRight: corner,
+      ),
+      _CardEdge.right => BorderRadius.only(topLeft: corner, bottomLeft: corner),
+      null => BorderRadius.all(corner),
+    };
+  }
+
+  /// The face's radius: the outer radius less the stroke it sits inside, so
+  /// the fill follows the ring's curve instead of poking through it.
+  static BorderRadius _faceRadius(BorderRadius outer) {
+    Radius shrink(Radius r) => r == Radius.zero
+        ? Radius.zero
+        : Radius.circular((r.x - _stroke).clamp(0.0, double.infinity));
+    return BorderRadius.only(
+      topLeft: shrink(outer.topLeft),
+      topRight: shrink(outer.topRight),
+      bottomLeft: shrink(outer.bottomLeft),
+      bottomRight: shrink(outer.bottomRight),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final ceded = cedesSeam ? flushEdge : null;
+    final border = _border;
+    final radius = _outerRadius;
+    final face = Padding(
+      padding: EdgeInsets.fromLTRB(
+        border.left.width,
+        border.top.width,
+        border.right.width,
+        border.bottom.width,
+      ),
+      child: ClipRRect(
+        borderRadius: _faceRadius(radius),
+        child: ColoredBox(color: background, child: child),
+      ),
+    );
 
-    // The ceded-seam card drops one edge's stroke, which a Border cannot
-    // express alongside a corner radius. It alone pays a second fill: the
-    // outer box is the ring, the inner ColoredBox the card face.
-    if (ceded != null) {
+    // A non-uniform Border cannot be painted under a corner radius in Flutter,
+    // so the one card that cedes an edge while its corners are still round
+    // falls back to a painted ring: an outer box filled with the border colour,
+    // with the face inset clear of it. That card alone pays a second full fill.
+    // Compact squares the corners, so there the Border states the ceded edges
+    // directly and every card keeps the single-fill path.
+    if (!border.isUniform && radius != BorderRadius.zero) {
       return Padding(
-        padding: gutter,
+        padding: _gutter,
         child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: borderColor,
-            borderRadius: _outerRadius,
-          ),
-          child: Padding(
-            padding: ceded == _CardEdge.left
-                ? _insetCededLeft
-                : _insetCededRight,
-            child: ClipRRect(
-              borderRadius: _innerRadius,
-              child: ColoredBox(color: background, child: child),
-            ),
-          ),
+          decoration: BoxDecoration(color: borderColor, borderRadius: radius),
+          child: face,
         ),
       );
     }
 
     return Padding(
-      padding: gutter,
+      padding: _gutter,
       child: DecoratedBox(
-        decoration: BoxDecoration(
-          // Border only, no fill: the band is all this box needs to paint, and
-          // the face below is inset clear of it. Filling here and repainting
-          // the interior would cost a second full-card fill — on the editor,
-          // most of the window.
-          //
-          // The width is stated even though it currently equals Flutter's
-          // default, so the stroke tracks `strokeThickness` if upstream moves
-          // it rather than silently keeping 1px.
-          // ignore: avoid_redundant_argument_values
-          border: Border.all(color: borderColor, width: _stroke),
-          borderRadius: _outerRadius,
-        ),
-        child: Padding(
-          padding: _insetAll,
-          child: ClipRRect(
-            borderRadius: _innerRadius,
-            child: ColoredBox(color: background, child: child),
-          ),
-        ),
+        // Border only, no fill: the band is all this box needs to paint, and
+        // the face below is inset clear of it. Filling here and repainting the
+        // interior would cost a second full-card fill — on the editor, most of
+        // the window.
+        decoration: BoxDecoration(border: border, borderRadius: radius),
+        child: face,
       ),
     );
   }
@@ -361,6 +497,25 @@ class WorkbenchLayout extends StatefulWidget {
   /// the shell raises no change of its own today.
   final ValueChanged<WorkbenchPanelAlignment>? onPanelAlignmentChanged;
 
+  /// Initial layout density. Used only in uncontrolled mode (when
+  /// [layoutDensity] is null); ignored otherwise. Defaults to
+  /// [WorkbenchLayoutDensity.standard], VS Code's `default`.
+  final WorkbenchLayoutDensity initialLayoutDensity;
+
+  /// Externally controlled layout density (§spec:modern-ui-surfaces). When
+  /// non-null, the shell frames every part at this density — the gap between
+  /// cards, their corner radii and the activity bar's internal rhythm — and
+  /// delegates changes to [onLayoutDensityChanged]; the host owns the state.
+  /// When null, the shell tracks the density internally (uncontrolled), seeded
+  /// from [initialLayoutDensity]. The gutter around the cluster's perimeter is
+  /// the same at either density.
+  final WorkbenchLayoutDensity? layoutDensity;
+
+  /// Called when the layout density changes. Required when [layoutDensity] is
+  /// non-null. See [onZenModeChanged] for why the callback exists even though
+  /// the shell raises no change of its own today.
+  final ValueChanged<WorkbenchLayoutDensity>? onLayoutDensityChanged;
+
   /// Ordered membership of the secondary side bar (§spec:secondary-sidebar).
   /// Each id resolves through [containerBuilder]; the bar's title row renders
   /// one compact text-label tab per member — labeled by the spec's `title`
@@ -474,6 +629,9 @@ class WorkbenchLayout extends StatefulWidget {
     this.initialPanelAlignment = WorkbenchPanelAlignment.center,
     this.panelAlignment,
     this.onPanelAlignmentChanged,
+    this.initialLayoutDensity = WorkbenchLayoutDensity.standard,
+    this.layoutDensity,
+    this.onLayoutDensityChanged,
     this.secondaryViewContainerIds = const [],
     this.initialSecondaryActiveViewContainerId,
     this.secondaryActiveViewContainerId,
@@ -514,6 +672,10 @@ class WorkbenchLayout extends StatefulWidget {
        assert(
          panelAlignment == null || onPanelAlignmentChanged != null,
          'onPanelAlignmentChanged is required when panelAlignment is provided',
+       ),
+       assert(
+         layoutDensity == null || onLayoutDensityChanged != null,
+         'onLayoutDensityChanged is required when layoutDensity is provided',
        ),
        assert(
          secondaryActiveViewContainerId == null ||
@@ -786,11 +948,19 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   WorkbenchPanelAlignment get _panelAlignment =>
       widget.panelAlignment ?? _internalPanelAlignment;
 
+  // Layout density follows the same controlled/uncontrolled seam: a controlled
+  // value wins, else the internal value seeded from the initial one. The shell
+  // raises no change of its own today (the host drives it from a menu item).
+  late WorkbenchLayoutDensity _internalLayoutDensity;
+  WorkbenchLayoutDensity get _layoutDensity =>
+      widget.layoutDensity ?? _internalLayoutDensity;
+
   @override
   void initState() {
     super.initState();
     _internalSidebarPosition = widget.initialSidebarPosition;
     _internalPanelAlignment = widget.initialPanelAlignment;
+    _internalLayoutDensity = widget.initialLayoutDensity;
     _internalActiveViewContainerId =
         widget.initialViewContainerId ??
         (widget.activityBarItems.isNotEmpty
@@ -956,27 +1126,28 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       WorkbenchPanelAlignment.right => (true, false),
     };
 
-    // Modern UI card gutters (§spec:modern-ui-surfaces). Two quantities, not
-    // one: [gap] is what a card leads with toward the card that follows it, and
-    // [perimeter] is what the cluster leaves against window chrome. They
-    // measure the same step, so each site takes the one it means rather than
-    // whichever is nearer. The primary side bar and the activity bar meet
-    // flush, so neither puts a gap on their shared seam. Every gutter is
-    // consumed from the part's own allocation — nothing here reflows the grid.
-    const gap = WorkbenchLayoutConstants.floatingCardGap;
-    const perimeter = WorkbenchLayoutConstants.floatingCardPerimeter;
+    // Modern UI card edges (§spec:modern-ui-surfaces). Each card declares what
+    // its four sides face and derives its gutter and strokes from that: the
+    // gap it leads with toward the next card, the cluster's perimeter gutter
+    // against window chrome, or nothing where the neighbour leads or the two
+    // meet flush. Naming the edge rather than the number is what lets the
+    // density resolve the two apart — they measure the same 4px at the default
+    // density and diverge under compact. Every gutter is consumed from the
+    // part's own allocation, so nothing here reflows the grid.
+    final density = _layoutDensity;
 
     // Whether a visible card sits either side of the editor, and so supplies
-    // the gap from its own leading edge. Without one, that side of the editor
-    // faces the window and takes the perimeter gutter instead.
+    // the gap from its own leading edge.
     final trailingCard = onRight || _secondarySideBarVisible;
     final leadingCard = !onRight || _secondarySideBarVisible;
 
-    // A bar group running full height meets the status bar and takes the
-    // perimeter gutter; one that stops at the panel's top leaves the gap to
-    // the panel's own leading margin.
-    double groupBottomGutter(bool inside) =>
-        inside && widget.showBottomPanel ? 0.0 : perimeter;
+    // A bar group running full height meets the status bar — window chrome, so
+    // the cluster perimeter; one that stops at the panel's top faces a panel
+    // that leads with its own gap.
+    _CardEdgeKind groupBottomEdge(bool inside) =>
+        inside && widget.showBottomPanel
+        ? _CardEdgeKind.led
+        : _CardEdgeKind.perimeter;
 
     final primaryInside = onRight ? rightInside : leftInside;
     final secondaryInside = onRight ? leftInside : rightInside;
@@ -990,25 +1161,23 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       onViewContainerSelected: _setActiveViewContainer,
       position: _sidebarPosition,
       theme: theme,
+      density: density,
       // With the side bar collapsed there is no card to connect to, so the
       // rail closes up as a standalone card — every corner rounded, and on the
       // right it supplies the gap the missing side bar used to lead with.
-      gutter: onRight
-          ? EdgeInsets.fromLTRB(
-              _sidebarVisible ? 0 : gap,
-              perimeter,
-              perimeter,
-              groupBottomGutter(rightInside),
+      edges: onRight
+          ? (
+              left: _sidebarVisible ? _CardEdgeKind.seam : _CardEdgeKind.gap,
+              top: _CardEdgeKind.perimeter,
+              right: _CardEdgeKind.perimeter,
+              bottom: groupBottomEdge(rightInside),
             )
-          : EdgeInsets.fromLTRB(
-              perimeter,
-              perimeter,
-              0,
-              groupBottomGutter(leftInside),
+          : (
+              left: _CardEdgeKind.perimeter,
+              top: _CardEdgeKind.perimeter,
+              right: _sidebarVisible ? _CardEdgeKind.seam : _CardEdgeKind.led,
+              bottom: groupBottomEdge(leftInside),
             ),
-      flushEdge: !_sidebarVisible
-          ? null
-          : (onRight ? _CardEdge.left : _CardEdge.right),
     );
 
     // Primary side bar (collapsible), on the activity bar's edge.
@@ -1022,17 +1191,18 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       onWidth: (next) => setState(() => _sidebarWidth = next),
       onChangeEnd: widget.onSidebarWidthChangeEnd,
       theme: theme,
+      density: density,
       // Flush against the rail: no gap on the facing edge, square facing
       // corners, and the stroke ceded to the rail, which draws the single
-      // seam (§spec:modern-ui-surfaces).
-      gutter: EdgeInsets.fromLTRB(
-        onRight ? gap : 0,
-        perimeter,
-        0,
-        groupBottomGutter(primaryInside),
+      // seam (§spec:modern-ui-surfaces). The editor is on the other side and
+      // leads with its own gap, except on the right where this bar follows it.
+      edges: (
+        left: onRight ? _CardEdgeKind.gap : _CardEdgeKind.seam,
+        top: _CardEdgeKind.perimeter,
+        right: onRight ? _CardEdgeKind.seam : _CardEdgeKind.led,
+        bottom: groupBottomEdge(primaryInside),
       ),
       background: theme.surfaceBackground,
-      flushEdge: onRight ? _CardEdge.right : _CardEdge.left,
       cedesSeam: true,
     );
 
@@ -1055,14 +1225,16 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       onWidth: (next) => setState(() => _secondarySideBarWidth = next),
       onChangeEnd: widget.onSecondarySideBarWidthChangeEnd,
       theme: theme,
+      density: density,
       // No rail beside it, so the card is rounded all round. Upstream keys
       // the auxiliary bar's fill to `sideBar.background` rather than the
-      // shared `surface.background` (`floatingPanels.css`).
-      gutter: EdgeInsets.fromLTRB(
-        onRight ? perimeter : gap,
-        perimeter,
-        onRight ? 0 : perimeter,
-        groupBottomGutter(secondaryInside),
+      // shared `surface.background` (`floatingPanels.css`). It takes the
+      // window edge on its outer side and leads with the gap on the editor's.
+      edges: (
+        left: onRight ? _CardEdgeKind.perimeter : _CardEdgeKind.gap,
+        top: _CardEdgeKind.perimeter,
+        right: onRight ? _CardEdgeKind.led : _CardEdgeKind.perimeter,
+        bottom: groupBottomEdge(secondaryInside),
       ),
       background: theme.sideBarBackground,
       tabIds: widget.secondaryViewContainerIds,
@@ -1076,11 +1248,14 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     // follows (§spec:modern-ui-surfaces).
     final editorArea = Expanded(
       child: _FloatingCard(
-        gutter: EdgeInsets.fromLTRB(
-          leadingCard ? gap : perimeter,
-          perimeter,
-          trailingCard ? 0 : perimeter,
-          widget.showBottomPanel ? 0 : perimeter,
+        density: density,
+        edges: (
+          left: leadingCard ? _CardEdgeKind.gap : _CardEdgeKind.perimeter,
+          top: _CardEdgeKind.perimeter,
+          right: trailingCard ? _CardEdgeKind.led : _CardEdgeKind.perimeter,
+          bottom: widget.showBottomPanel
+              ? _CardEdgeKind.led
+              : _CardEdgeKind.perimeter,
         ),
         background: theme.editorBackground,
         borderColor: theme.surfaceBorder,
@@ -1108,14 +1283,19 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
               // background widget cannot overdraw the hairline
               // (§spec:modern-ui-surfaces).
               child: _FloatingCard(
-                // A bar group lifted into the band sits above the panel
-                // rather than beside it, so that side of the panel faces the
-                // window and takes the perimeter gutter instead of a gap.
-                gutter: EdgeInsets.fromLTRB(
-                  !leftInside && leadingCard ? gap : perimeter,
-                  gap,
-                  !rightInside && trailingCard ? 0 : perimeter,
-                  perimeter,
+                density: density,
+                // A bar group lifted into the band sits above the panel rather
+                // than beside it, so that side of the panel faces the window
+                // and takes the perimeter gutter instead of an inter-card gap.
+                edges: (
+                  left: !leftInside && leadingCard
+                      ? _CardEdgeKind.gap
+                      : _CardEdgeKind.perimeter,
+                  top: _CardEdgeKind.gap,
+                  right: !rightInside && trailingCard
+                      ? _CardEdgeKind.led
+                      : _CardEdgeKind.perimeter,
+                  bottom: _CardEdgeKind.perimeter,
                 ),
                 background: theme.panelBackground,
                 borderColor: theme.surfaceBorder,
@@ -1220,9 +1400,9 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     required ValueChanged<double> onWidth,
     required ValueChanged<double>? onChangeEnd,
     required WorkbenchTheme theme,
-    required EdgeInsets gutter,
+    required WorkbenchLayoutDensity density,
+    required _CardEdges edges,
     required Color background,
-    _CardEdge? flushEdge,
     bool cedesSeam = false,
     List<String>? tabIds,
     ValueChanged<String>? onTabSelected,
@@ -1237,9 +1417,9 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
           children: [
             _Sidebar(
               width: width,
-              gutter: gutter,
+              density: density,
+              edges: edges,
               background: background,
-              flushEdge: flushEdge,
               cedesSeam: cedesSeam,
               activeLabel: _activeLabelFor(activeId),
               activeContainerId: activeId,
@@ -1449,18 +1629,18 @@ class _ActivityBar extends StatelessWidget {
   final WorkbenchSidebarPosition position;
   final WorkbenchTheme theme;
 
-  /// Card framing taken from the rail's own
-  /// [WorkbenchLayoutConstants.activityBarWidth] allocation
-  /// (§spec:modern-ui-surfaces).
-  final EdgeInsets gutter;
+  /// Card framing taken from the rail's own allocation
+  /// (§spec:modern-ui-surfaces). A [_CardEdgeKind.seam] side is where the rail
+  /// meets the primary side bar flush: the rail keeps its stroke there — that
+  /// is the seam the side bar gives up — and only squares the two corners.
+  /// Upstream records why the rail rather than the side bar owns the stroke:
+  /// drawn from the side bar, the rail's interior runs past its own transparent
+  /// edge and the icon column loses its optical centre.
+  final _CardEdges edges;
 
-  /// Edge where the rail meets the primary side bar flush. The rail keeps its
-  /// stroke on all four sides — that facing one is the seam the side bar gives
-  /// up — and only squares the two corners there. Upstream records why the
-  /// rail rather than the side bar owns the stroke: drawn from the side bar,
-  /// the rail's interior runs past its own transparent edge and the icon
-  /// column loses its optical centre.
-  final _CardEdge? flushEdge;
+  /// Resolves the rail's lane, item gap and whole allocation. Compact tightens
+  /// the lane and the rhythm; the icon column keeps its own width.
+  final WorkbenchLayoutDensity density;
 
   const _ActivityBar({
     super.key,
@@ -1471,8 +1651,8 @@ class _ActivityBar extends StatelessWidget {
     required this.onViewContainerSelected,
     required this.position,
     required this.theme,
-    required this.gutter,
-    required this.flushEdge,
+    required this.edges,
+    required this.density,
   });
 
   @override
@@ -1482,25 +1662,26 @@ class _ActivityBar extends StatelessWidget {
     // so the canonical `activityBar.border` single seam no longer applies.
     // The icon column sits inside the card's lane, inset equally on every side
     // so the items stay optically centred (§spec:modern-ui-surfaces).
-    const inset = WorkbenchLayoutConstants.activityBarIconInset;
+    final inset = density.activityBarIconInset;
     // Standing alone on the trailing edge, the rail supplies the leading gap
     // the missing side bar used to lead with. That gap is reserved on top of
     // the allocation rather than taken out of it: absorbed, it would come off
     // the lane and narrow the icon column, which is the defect upstream
-    // reserves the width to prevent (`needsFloatingLeadingGap`).
+    // reserves the width to prevent (`needsFloatingLeadingGap`). Compact keeps
+    // its cards joined, so the gap — and the width reserved for it — is zero.
     final reservesLeadingGap =
         position == WorkbenchSidebarPosition.right && !sidebarVisible;
     return SizedBox(
       width:
-          WorkbenchLayoutConstants.activityBarWidth +
-          (reservesLeadingGap ? WorkbenchLayoutConstants.floatingCardGap : 0.0),
+          density.activityBarWidth +
+          (reservesLeadingGap ? density.cardGap : 0.0),
       child: _FloatingCard(
-        gutter: gutter,
+        edges: edges,
+        density: density,
         background: theme.activityBarBackground,
         borderColor: theme.surfaceBorder,
-        flushEdge: flushEdge,
         child: Padding(
-          padding: const EdgeInsets.all(inset),
+          padding: EdgeInsets.all(inset),
           child: Column(
             children: [
               Expanded(child: Column(children: _iconColumn(mainItems))),
@@ -1518,9 +1699,7 @@ class _ActivityBar extends StatelessWidget {
     final widgets = <Widget>[];
     for (final item in items) {
       if (widgets.isNotEmpty) {
-        widgets.add(
-          const SizedBox(height: WorkbenchLayoutConstants.activityBarItemGap),
-        );
+        widgets.add(SizedBox(height: density.activityBarItemGap));
       }
       widgets.add(_buildIcon(item));
     }
@@ -1640,9 +1819,9 @@ class _Sidebar extends StatelessWidget {
 
   /// Card framing taken from this bar's own [width] allocation
   /// (§spec:modern-ui-surfaces).
-  final EdgeInsets gutter;
+  final _CardEdges edges;
+  final WorkbenchLayoutDensity density;
   final Color background;
-  final _CardEdge? flushEdge;
   final bool cedesSeam;
 
   final String activeLabel;
@@ -1692,9 +1871,9 @@ class _Sidebar extends StatelessWidget {
 
   const _Sidebar({
     required this.width,
-    required this.gutter,
+    required this.edges,
+    required this.density,
     required this.background,
-    required this.flushEdge,
     required this.cedesSeam,
     required this.activeLabel,
     required this.activeContainerId,
@@ -1720,10 +1899,10 @@ class _Sidebar extends StatelessWidget {
     return SizedBox(
       width: width,
       child: _FloatingCard(
-        gutter: gutter,
+        edges: edges,
+        density: density,
         background: background,
         borderColor: theme.surfaceBorder,
-        flushEdge: flushEdge,
         cedesSeam: cedesSeam,
         child: Column(
           children: [

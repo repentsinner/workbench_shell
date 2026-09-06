@@ -69,6 +69,9 @@ Widget _buildApp({
   ValueChanged<bool>? onSecondarySideBarVisibilityChanged,
   double? initialSecondarySideBarWidth,
   ValueChanged<double>? onSecondarySideBarWidthChangeEnd,
+  WorkbenchLayoutDensity initialLayoutDensity = WorkbenchLayoutDensity.standard,
+  WorkbenchLayoutDensity? layoutDensity,
+  ValueChanged<WorkbenchLayoutDensity>? onLayoutDensityChanged,
   WorkbenchTheme? theme,
 }) {
   return MaterialApp(
@@ -96,6 +99,9 @@ Widget _buildApp({
       onSecondarySideBarVisibilityChanged: onSecondarySideBarVisibilityChanged,
       initialSecondarySideBarWidth: initialSecondarySideBarWidth,
       onSecondarySideBarWidthChangeEnd: onSecondarySideBarWidthChangeEnd,
+      initialLayoutDensity: initialLayoutDensity,
+      layoutDensity: layoutDensity,
+      onLayoutDensityChanged: onLayoutDensityChanged,
     ),
   );
 }
@@ -2483,8 +2489,10 @@ void main() {
 
     /// The `DecoratedBox` a card paints its hairline with, rounded at the card
     /// tier. A card with a stroke on every edge draws a foreground [Border];
-    /// the one card that cedes an edge fills the box with `surface.border`
-    /// instead, because a non-uniform border cannot carry a corner radius.
+    /// the one card that cedes an edge under a corner radius fills the box
+    /// with `surface.border` instead, because a non-uniform border cannot
+    /// carry a radius. Compact squares the corners, so there a card states its
+    /// ceded edges on the `Border` directly and any side may be [BorderSide.none].
     /// Either way the observable property is the same — a `surface.border`
     /// hairline at the card's edge.
     Finder cardRing(Finder of) => find.ancestor(
@@ -2495,7 +2503,10 @@ void main() {
         if (decoration is! BoxDecoration) return false;
         if (decoration.color == _testTheme.surfaceBorder) return true;
         final border = decoration.border;
-        return border is Border && border.top.color == _testTheme.surfaceBorder;
+        if (border is! Border) return false;
+        return [border.left, border.top, border.right, border.bottom].any(
+          (side) => side.width > 0 && side.color == _testTheme.surfaceBorder,
+        );
       }),
     );
 
@@ -2717,6 +2728,243 @@ void main() {
         tester.getRect(hover).center,
         tester.getRect(find.byIcon(Symbols.search_rounded)).center,
       );
+    });
+
+    group('layout density', () {
+      const perimeter = WorkbenchLayoutConstants.floatingCardPerimeter;
+      const statusBarHeight = 22.0;
+
+      /// Every part on screen at once, so a density change is measurable on
+      /// each seam and each perimeter edge in one pump.
+      /// Controlled, so a second pump in the same test re-renders at the new
+      /// density rather than reusing the element seeded by the first.
+      Widget densityApp(WorkbenchLayoutDensity density) => _buildApp(
+        layoutDensity: density,
+        onLayoutDensityChanged: (_) {},
+        secondaryViewContainerIds: const ['outline'],
+        secondarySideBarVisible: true,
+        onSecondarySideBarVisibilityChanged: (_) {},
+      );
+
+      Rect cardOf(WidgetTester tester, String label) =>
+          tester.getRect(cardRing(find.text(label)));
+
+      testWidgets('compact closes the gaps so the parts meet edge-to-edge', (
+        tester,
+      ) async {
+        for (final (density, expected) in [
+          (WorkbenchLayoutDensity.standard, gap),
+          (WorkbenchLayoutDensity.compact, 0.0),
+        ]) {
+          await tester.pumpWidget(densityApp(density));
+          await tester.pumpAndSettle();
+
+          final editor = cardOf(tester, 'Editor');
+          final sidebar = cardOf(tester, 'EXPLORER');
+          final secondary = cardOf(tester, 'Sidebar: outline');
+          final panel = cardOf(tester, 'Panel');
+
+          expect(
+            editor.left - sidebar.right,
+            closeTo(expected, 0.001),
+            reason: '$density: side bar to editor',
+          );
+          expect(
+            secondary.left - editor.right,
+            closeTo(expected, 0.001),
+            reason: '$density: editor to secondary side bar',
+          );
+          expect(
+            panel.top - editor.bottom,
+            closeTo(expected, 0.001),
+            reason: '$density: editor to panel',
+          );
+        }
+      });
+
+      testWidgets('compact squares the card corners', (tester) async {
+        await tester.pumpWidget(densityApp(WorkbenchLayoutDensity.compact));
+        await tester.pumpAndSettle();
+
+        for (final label in [
+          'EXPLORER',
+          'Sidebar: outline',
+          'Panel',
+          'Editor',
+        ]) {
+          final ring = cardRing(find.text(label));
+          final decoration =
+              tester.widget<DecoratedBox>(ring).decoration as BoxDecoration;
+          expect(
+            decoration.borderRadius,
+            BorderRadius.zero,
+            reason: '$label card',
+          );
+        }
+      });
+
+      testWidgets('the cluster perimeter gutter survives compact', (
+        tester,
+      ) async {
+        // Upstream resolves the perimeter through getFloatingPanelOuterMargin,
+        // whose compact branch is COMPACT_FLOATING_PANEL_OUTER_MARGIN = 4 — the
+        // same step as the default density. Only the gap *between* cards
+        // closes, so the cluster keeps breathing room against window chrome.
+        for (final density in WorkbenchLayoutDensity.values) {
+          await tester.pumpWidget(densityApp(density));
+          await tester.pumpAndSettle();
+
+          final layout = tester.getRect(find.byType(WorkbenchLayout));
+          final rail = tester.getRect(
+            cardRing(find.byIcon(Symbols.folder_rounded)),
+          );
+          final secondary = cardOf(tester, 'Sidebar: outline');
+          final panel = cardOf(tester, 'Panel');
+
+          expect(
+            rail.left - layout.left,
+            closeTo(perimeter, 0.001),
+            reason: '$density: rail against the window edge',
+          );
+          expect(
+            rail.top - layout.top,
+            closeTo(perimeter, 0.001),
+            reason: '$density: rail against the top edge',
+          );
+          expect(
+            layout.right - secondary.right,
+            closeTo(perimeter, 0.001),
+            reason: '$density: secondary bar against the window edge',
+          );
+          expect(
+            layout.bottom - statusBarHeight - panel.bottom,
+            closeTo(perimeter, 0.001),
+            reason: '$density: panel against the status bar',
+          );
+        }
+      });
+
+      testWidgets('compact draws one hairline per seam, not two', (
+        tester,
+      ) async {
+        // Upstream's compact cards paint their trailing edges always and their
+        // leading edges only on the cluster perimeter, so two abutting cards
+        // show a single stroke. The editor's fill records it: inset by a
+        // stroke where the card draws one, flush to the card edge where the
+        // neighbour owns the seam.
+        await tester.pumpWidget(densityApp(WorkbenchLayoutDensity.compact));
+        await tester.pumpAndSettle();
+
+        final editor = cardOf(tester, 'Editor');
+        final fill = tester.getRect(
+          fillOf(cardRing(find.text('Editor')), _testTheme.editorBackground),
+        );
+
+        // Left: the primary side bar draws the seam, so the editor cedes it.
+        expect(fill.left, closeTo(editor.left, 0.001));
+        // Top: window chrome, so the editor draws the perimeter stroke.
+        expect(fill.top - editor.top, closeTo(stroke, 0.001));
+        // Right and bottom: each card draws its own trailing edges.
+        expect(editor.right - fill.right, closeTo(stroke, 0.001));
+        expect(editor.bottom - fill.bottom, closeTo(stroke, 0.001));
+      });
+
+      testWidgets('the rail keeps its icons optically centred in both '
+          'densities', (tester) async {
+        for (final (density, allocation) in [
+          (
+            WorkbenchLayoutDensity.standard,
+            WorkbenchLayoutConstants.activityBarWidth,
+          ),
+          (WorkbenchLayoutDensity.compact, 44.0),
+        ]) {
+          await tester.pumpWidget(densityApp(density));
+          await tester.pumpAndSettle();
+
+          final layout = tester.getRect(find.byType(WorkbenchLayout));
+          final rail = tester.getRect(
+            cardRing(find.byIcon(Symbols.folder_rounded)),
+          );
+          final icon = tester.getRect(find.byIcon(Symbols.folder_rounded));
+
+          // Equal margins either side of the icon column: each density halves
+          // its own lane after the card's two strokes come off it.
+          expect(
+            icon.left - rail.left,
+            closeTo(rail.right - icon.right, 0.001),
+            reason: '$density: icon column centred',
+          );
+          // The lane narrows, so the allocation does — the icon column itself
+          // keeps its own width in both densities.
+          expect(
+            cardOf(tester, 'EXPLORER').left - layout.left,
+            closeTo(allocation, 0.001),
+            reason: '$density: rail allocation',
+          );
+        }
+      });
+
+      testWidgets('uncontrolled: the shell tracks the seeded density', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          _buildApp(initialLayoutDensity: WorkbenchLayoutDensity.compact),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          cardOf(tester, 'Editor').left - cardOf(tester, 'EXPLORER').right,
+          closeTo(0, 0.001),
+        );
+      });
+
+      testWidgets('controlled: the host drives layoutDensity', (tester) async {
+        var density = WorkbenchLayoutDensity.standard;
+        late StateSetter setOuter;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+            home: StatefulBuilder(
+              builder: (context, setState) {
+                setOuter = setState;
+                return WorkbenchLayout(
+                  activityBarItems: _testItems,
+                  editor: const Center(child: Text('Editor')),
+                  containerBuilder: _sidebarSpec,
+                  bottomPanel: const Center(child: Text('Panel')),
+                  statusBar: const SizedBox(height: 22, child: Text('Status')),
+                  layoutDensity: density,
+                  onLayoutDensityChanged: (next) =>
+                      setState(() => density = next),
+                );
+              },
+            ),
+          ),
+        );
+
+        double seam() =>
+            cardOf(tester, 'Editor').left - cardOf(tester, 'EXPLORER').right;
+        expect(seam(), closeTo(gap, 0.001));
+
+        setOuter(() => density = WorkbenchLayoutDensity.compact);
+        await tester.pumpAndSettle();
+        expect(seam(), closeTo(0, 0.001));
+      });
+
+      testWidgets('asserts onLayoutDensityChanged is required in controlled '
+          'mode', (tester) async {
+        expect(
+          () => WorkbenchLayout(
+            activityBarItems: _testItems,
+            editor: const SizedBox(),
+            containerBuilder: _sidebarSpec,
+            bottomPanel: const SizedBox(),
+            statusBar: const SizedBox(),
+            layoutDensity: WorkbenchLayoutDensity.compact,
+          ),
+          throwsAssertionError,
+        );
+      });
     });
   });
 }

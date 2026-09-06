@@ -124,19 +124,14 @@ void main() {
     test('the rail allocation is the card plus its perimeter gutter', () {
       // ActivitybarPart.minimumWidth = baseWidth + floatingHorizontalGutter,
       // i.e. 36 + (8 lane + 4 outer gutter) = 48. The gutter is the cluster
-      // perimeter, not the gap between cards.
+      // perimeter, not the inter-card gap — the two are equal here and
+      // diverge under compact.
       expect(
         WorkbenchLayoutConstants.activityBarWidth,
         WorkbenchLayoutConstants.activityBarRailWidth +
             WorkbenchLayoutConstants.activityBarLane +
             WorkbenchLayoutConstants.floatingCardPerimeter,
       );
-    });
-
-    test('the perimeter gutter is its own quantity', () {
-      // layoutService.ts getFloatingPanelOuterMargin — the same step as
-      // FLOATING_PANEL_MARGIN, measuring a different thing.
-      expect(WorkbenchLayoutConstants.floatingCardPerimeter, 4.0);
     });
 
     test('the item indicator is the item box less 4px, on the small tier', () {
@@ -150,6 +145,66 @@ void main() {
       // floatingPanels.css: calc((lane - 2px) / 2) — the lane less the card's
       // two strokes, halved.
       expect(WorkbenchLayoutConstants.activityBarIconInset, 3.0);
+    });
+  });
+
+  group('WorkbenchLayoutDensity (§spec:modern-ui-surfaces)', () {
+    // Pins what each density resolves, read at VS Code 1.138.0. The two
+    // quantities that look alike at the default density — the gap between
+    // cards and the cluster's perimeter gutter — are what compact separates.
+    test('the inter-card gap closes under compact', () {
+      // layoutService.ts FLOATING_PANEL_MARGIN = 4 /
+      // COMPACT_FLOATING_PANEL_MARGIN = 0, via getFloatingPanelMargin.
+      expect(WorkbenchLayoutConstants.compactFloatingCardGap, 0.0);
+      expect(WorkbenchLayoutDensity.standard.cardGap, 4.0);
+      expect(WorkbenchLayoutDensity.compact.cardGap, 0.0);
+    });
+
+    test('the cluster perimeter gutter is density-invariant', () {
+      // layoutService.ts getFloatingPanelOuterMargin resolves
+      // FLOATING_PANEL_MARGIN = 4 or COMPACT_FLOATING_PANEL_OUTER_MARGIN = 4.
+      expect(WorkbenchLayoutConstants.floatingCardPerimeter, 4.0);
+      for (final density in WorkbenchLayoutDensity.values) {
+        expect(density.cardPerimeter, 4.0, reason: '$density perimeter');
+      }
+    });
+
+    test('compact squares the card corners', () {
+      // floatingPanels.css / editorBorder.css: border-radius: 0.
+      expect(WorkbenchLayoutConstants.compactFloatingCardRadius, 0.0);
+      expect(WorkbenchLayoutDensity.standard.cardRadius, 8.0);
+      expect(WorkbenchLayoutDensity.compact.cardRadius, 0.0);
+    });
+
+    test('compact tightens the rail lane and item gap', () {
+      // activitybarPart.ts FLOATING_LANE = 8 / FLOATING_COMPACT_LANE = 4 and
+      // FLOATING_ACTION_GAP = 8 / FLOATING_COMPACT_ACTION_GAP = 4.
+      expect(WorkbenchLayoutDensity.standard.activityBarLane, 8.0);
+      expect(WorkbenchLayoutDensity.compact.activityBarLane, 4.0);
+      expect(WorkbenchLayoutDensity.standard.activityBarItemGap, 8.0);
+      expect(WorkbenchLayoutDensity.compact.activityBarItemGap, 4.0);
+    });
+
+    test('the rail icon column keeps its own width in both densities', () {
+      // activitybarPart.ts baseWidth branches on the activity bar's *size*
+      // setting, not on the density, so FLOATING_ACTIVITYBAR_WIDTH = 36 holds
+      // either way. The allocation narrows only because the lane does:
+      // 36 + 8 + 4 = 48 becomes 36 + 4 + 4 = 44.
+      expect(
+        WorkbenchLayoutDensity.standard.activityBarWidth,
+        WorkbenchLayoutConstants.activityBarWidth,
+      );
+      expect(WorkbenchLayoutDensity.compact.activityBarWidth, 44.0);
+    });
+
+    test('each density halves its own lane to inset the icon column', () {
+      // floatingPanels.css: calc((lane - 2px) / 2), the lane less the card's
+      // two strokes.
+      expect(
+        WorkbenchLayoutDensity.standard.activityBarIconInset,
+        WorkbenchLayoutConstants.activityBarIconInset,
+      );
+      expect(WorkbenchLayoutDensity.compact.activityBarIconInset, 1.0);
     });
   });
 }
