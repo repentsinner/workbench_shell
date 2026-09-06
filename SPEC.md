@@ -2470,7 +2470,7 @@ are generic in shape; only the family / size choice is host-tunable.
 
 ### Chrome Material Theming Contract §spec:chrome-material-theming
 
-*Status: in progress*
+*Status: complete*
 
 `applyWorkbenchChrome` composes VS Code styling onto a host's
 `ThemeData` so the standard Material widgets a host places inherit chrome
