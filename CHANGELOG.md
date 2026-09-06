@@ -1,3 +1,11 @@
+## [0.33.3](https://github.com/repentsinner/workbench_shell/compare/v0.33.2...v0.33.3) (2026-09-06)
+
+
+### Bug Fixes
+
+* **chrome:** drop the status bar's top hairline ([f8d556d](https://github.com/repentsinner/workbench_shell/commit/f8d556d4958cfbc19964a7d59dae3bd90abfae47))
+* **layout:** take the editor's height from the band, not its contents ([425c7a3](https://github.com/repentsinner/workbench_shell/commit/425c7a3936716ead954cc6028a1b3f6311d68c1a))
+
 ## [0.33.2](https://github.com/repentsinner/workbench_shell/compare/v0.33.1...v0.33.2) (2026-09-06)
 
 
