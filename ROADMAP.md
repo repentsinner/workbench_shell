@@ -12,30 +12,6 @@ now ships (§spec:modern-ui-surfaces). Every workstream in this section
 expresses its geometry through the shipped size ladders
 (§spec:design-size-ladders).
 
-### Part card framing §road:part-card-framing
-
-Render the primary side bar, secondary side bar and bottom panel as
-bordered, rounded, gapped cards in `lib/src/workbench_layout.dart`,
-adding the surface border and background tokens they need to
-`lib/src/workbench_theme.dart` (§spec:modern-ui-surfaces).
-
-### Editor frame §road:editor-frame
-
-Frame the editor area with a hairline border and radius drawn inside
-its existing layout allocation in `lib/src/workbench_layout.dart`,
-leaving drag-resize arithmetic and the min/max floors measuring
-unchanged quantities (§spec:modern-ui-surfaces). Depends on
-§road:part-card-framing.
-
-### Activity bar rail and indicator §road:activity-bar-modern
-
-Give the activity bar its treatment-specific rail width and replace
-the active item's left-border indicator with a filled rounded
-background across `lib/src/workbench_layout.dart`,
-`lib/src/activity_bar_item.dart` and `lib/src/workbench_theme.dart`,
-including the shared seam where the rail meets the primary side bar
-(§spec:modern-ui-surfaces). Depends on §road:part-card-framing.
-
 ### View pane header metrics §road:pane-header-metrics
 
 Apply the treatment's pane header height, inset separator rules,
@@ -51,8 +27,8 @@ it through `lib/src/workbench_layout.dart` and
 `lib/src/workbench_layout_state.dart` so it modulates the preceding
 workstreams' geometry, and demonstrate both densities in
 `example/lib/main.dart` (§spec:modern-ui-surfaces,
-§spec:layout-customization). Depends on §road:part-card-framing,
-§road:editor-frame, §road:activity-bar-modern and
+§spec:layout-customization). The card framing, editor frame and
+activity bar rail it modulates have shipped; depends on
 §road:pane-header-metrics.
 
 **Verify:** Run the example app beside VS Code at the same density.
