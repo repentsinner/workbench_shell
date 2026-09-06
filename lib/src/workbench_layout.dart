@@ -956,23 +956,27 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       WorkbenchPanelAlignment.right => (true, false),
     };
 
-    // Modern UI card gutters (§spec:modern-ui-surfaces). Each card owns the
-    // gap on its leading edge, so a trailing edge carries one only where no
-    // card follows it, and the cluster perimeter takes the same step. The
-    // primary side bar and the activity bar meet flush, so neither puts a gap
-    // on their shared seam. Every gutter is consumed from the part's own
-    // allocation — nothing here reflows the grid.
+    // Modern UI card gutters (§spec:modern-ui-surfaces). Two quantities, not
+    // one: [gap] is what a card leads with toward the card that follows it, and
+    // [perimeter] is what the cluster leaves against window chrome. They
+    // measure the same step, so each site takes the one it means rather than
+    // whichever is nearer. The primary side bar and the activity bar meet
+    // flush, so neither puts a gap on their shared seam. Every gutter is
+    // consumed from the part's own allocation — nothing here reflows the grid.
     const gap = WorkbenchLayoutConstants.floatingCardGap;
+    const perimeter = WorkbenchLayoutConstants.floatingCardPerimeter;
 
-    // Whether a visible card follows the editor to its right, and so supplies
-    // the gap from its own leading edge.
+    // Whether a visible card sits either side of the editor, and so supplies
+    // the gap from its own leading edge. Without one, that side of the editor
+    // faces the window and takes the perimeter gutter instead.
     final trailingCard = onRight || _secondarySideBarVisible;
+    final leadingCard = !onRight || _secondarySideBarVisible;
 
     // A bar group running full height meets the status bar and takes the
     // perimeter gutter; one that stops at the panel's top leaves the gap to
     // the panel's own leading margin.
     double groupBottomGutter(bool inside) =>
-        inside && widget.showBottomPanel ? 0.0 : gap;
+        inside && widget.showBottomPanel ? 0.0 : perimeter;
 
     final primaryInside = onRight ? rightInside : leftInside;
     final secondaryInside = onRight ? leftInside : rightInside;
@@ -992,11 +996,16 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       gutter: onRight
           ? EdgeInsets.fromLTRB(
               _sidebarVisible ? 0 : gap,
-              gap,
-              gap,
+              perimeter,
+              perimeter,
               groupBottomGutter(rightInside),
             )
-          : EdgeInsets.fromLTRB(gap, gap, 0, groupBottomGutter(leftInside)),
+          : EdgeInsets.fromLTRB(
+              perimeter,
+              perimeter,
+              0,
+              groupBottomGutter(leftInside),
+            ),
       flushEdge: !_sidebarVisible
           ? null
           : (onRight ? _CardEdge.left : _CardEdge.right),
@@ -1018,7 +1027,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       // seam (§spec:modern-ui-surfaces).
       gutter: EdgeInsets.fromLTRB(
         onRight ? gap : 0,
-        gap,
+        perimeter,
         0,
         groupBottomGutter(primaryInside),
       ),
@@ -1050,9 +1059,9 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       // the auxiliary bar's fill to `sideBar.background` rather than the
       // shared `surface.background` (`floatingPanels.css`).
       gutter: EdgeInsets.fromLTRB(
-        gap,
-        gap,
-        onRight ? 0 : gap,
+        onRight ? perimeter : gap,
+        perimeter,
+        onRight ? 0 : perimeter,
         groupBottomGutter(secondaryInside),
       ),
       background: theme.sideBarBackground,
@@ -1068,10 +1077,10 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     final editorArea = Expanded(
       child: _FloatingCard(
         gutter: EdgeInsets.fromLTRB(
-          gap,
-          gap,
-          trailingCard ? 0 : gap,
-          widget.showBottomPanel ? 0 : gap,
+          leadingCard ? gap : perimeter,
+          perimeter,
+          trailingCard ? 0 : perimeter,
+          widget.showBottomPanel ? 0 : perimeter,
         ),
         background: theme.editorBackground,
         borderColor: theme.surfaceBorder,
@@ -1099,11 +1108,14 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
               // background widget cannot overdraw the hairline
               // (§spec:modern-ui-surfaces).
               child: _FloatingCard(
+                // A bar group lifted into the band sits above the panel
+                // rather than beside it, so that side of the panel faces the
+                // window and takes the perimeter gutter instead of a gap.
                 gutter: EdgeInsets.fromLTRB(
+                  !leftInside && leadingCard ? gap : perimeter,
                   gap,
-                  gap,
-                  !rightInside && trailingCard ? 0 : gap,
-                  gap,
+                  !rightInside && trailingCard ? 0 : perimeter,
+                  perimeter,
                 ),
                 background: theme.panelBackground,
                 borderColor: theme.surfaceBorder,

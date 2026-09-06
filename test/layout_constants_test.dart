@@ -123,13 +123,20 @@ void main() {
 
     test('the rail allocation is the card plus its perimeter gutter', () {
       // ActivitybarPart.minimumWidth = baseWidth + floatingHorizontalGutter,
-      // i.e. 36 + (8 lane + 4 outer gutter) = 48.
+      // i.e. 36 + (8 lane + 4 outer gutter) = 48. The gutter is the cluster
+      // perimeter, not the gap between cards.
       expect(
         WorkbenchLayoutConstants.activityBarWidth,
         WorkbenchLayoutConstants.activityBarRailWidth +
             WorkbenchLayoutConstants.activityBarLane +
-            WorkbenchLayoutConstants.floatingCardGap,
+            WorkbenchLayoutConstants.floatingCardPerimeter,
       );
+    });
+
+    test('the perimeter gutter is its own quantity', () {
+      // layoutService.ts getFloatingPanelOuterMargin — the same step as
+      // FLOATING_PANEL_MARGIN, measuring a different thing.
+      expect(WorkbenchLayoutConstants.floatingCardPerimeter, 4.0);
     });
 
     test('the item indicator is the item box less 4px, on the small tier', () {

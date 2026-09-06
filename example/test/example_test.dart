@@ -579,7 +579,7 @@ void main() {
     expect(
       justifyLeft,
       closeTo(
-        WorkbenchLayoutConstants.floatingCardGap +
+        WorkbenchLayoutConstants.floatingCardPerimeter +
             WorkbenchLayoutConstants.strokeThickness,
         0.001,
       ),

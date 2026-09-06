@@ -1287,7 +1287,7 @@ void main() {
       // stroke and the lane, and the icon column centres what is left
       // (§spec:modern-ui-surfaces).
       const railToWindow =
-          WorkbenchLayoutConstants.floatingCardGap +
+          WorkbenchLayoutConstants.floatingCardPerimeter +
           WorkbenchLayoutConstants.strokeThickness +
           WorkbenchLayoutConstants.activityBarIconInset +
           (WorkbenchLayoutConstants.activityBarRailWidth -

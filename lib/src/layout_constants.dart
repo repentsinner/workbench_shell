@@ -12,7 +12,7 @@ class WorkbenchLayoutConstants {
   /// Activity bar layout allocation. VS Code's `ActivitybarPart.minimumWidth`
   /// is `baseWidth + floatingHorizontalGutter`, which under the Modern UI
   /// treatment is [activityBarRailWidth] + [activityBarLane] +
-  /// [floatingCardGap] — the rail card plus the cluster's perimeter gutter
+  /// [floatingCardPerimeter] — the rail card plus the cluster's perimeter gutter
   /// (§spec:modern-ui-surfaces). The rail frames itself inside this
   /// allocation, so the row measures the same 48px it always did.
   static const double activityBarWidth = 48.0;
@@ -208,14 +208,24 @@ class WorkbenchLayoutConstants {
   // the drag-resize arithmetic (§spec:resize-geometry) and the min/max floors
   // (§spec:layout-constants) keep measuring the quantities they always did.
 
-  /// Gap between two adjacent cards, and between the outermost card and the
-  /// window edge. VS Code `layoutService.ts` `FLOATING_PANEL_MARGIN = 4`,
-  /// published to CSS as `--modern-ui-floating-card-margin`
-  /// (`spacing.size40`); the cluster perimeter
-  /// (`--modern-ui-floating-card-outer-margin`) takes the same step at the
-  /// default density. Each card owns the gap on its leading edge, so a
-  /// trailing edge carries one only where no card follows it.
+  /// Gap between two adjacent cards. VS Code `layoutService.ts`
+  /// `FLOATING_PANEL_MARGIN = 4`, published to CSS as
+  /// `--modern-ui-floating-card-margin` (`spacing.size40`). Each card owns the
+  /// gap on its leading edge, so a trailing edge carries one only where no card
+  /// follows it.
+  ///
+  /// Distinct from [floatingCardPerimeter] even though the two measure the same
+  /// step: they are different quantities, and upstream resolves them through
+  /// separate functions for that reason.
   static const double floatingCardGap = spacingSize40;
+
+  /// Gutter a card reserves on an edge that faces window chrome rather than
+  /// another card — the cluster's perimeter. VS Code `layoutService.ts`
+  /// `getFloatingPanelOuterMargin`, published to CSS as
+  /// `--modern-ui-floating-card-outer-margin`, whose comment records the rule:
+  /// the cluster perimeter is the same in both densities, and only the gap
+  /// *between* cards differs.
+  static const double floatingCardPerimeter = spacingSize40;
 
   /// Corner radius of a floating card. Both `floatingPanels.css` and
   /// `editorBorder.css` round every card at `cornerRadius.large` — the outer
