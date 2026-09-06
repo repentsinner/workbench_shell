@@ -33,6 +33,40 @@ Future<void> pumpBareSelect(
 }
 
 void main() {
+  group('menu row metrics (§spec:chrome-material-theming)', () {
+    testWidgets('a popup menu row renders at the canon row height', (
+      tester,
+    ) async {
+      await pumpBareSelect(tester, ThemeData.dark(), testWorkbenchTheme);
+      await tester.tap(find.byType(DropdownMenu<String>));
+      await tester.pumpAndSettle();
+
+      // VS Code sizes `.action-menu-item` at 24px; Material's MenuItemButton
+      // defaults far taller.
+      final row = tester.getSize(
+        find.widgetWithText(MenuItemButton, 'Two').first,
+      );
+      expect(row.height, WorkbenchLayoutConstants.menuRowHeight);
+    });
+
+    testWidgets('the panel insets its rows from its own edge', (tester) async {
+      await pumpBareSelect(tester, ThemeData.dark(), testWorkbenchTheme);
+      final style = Theme.of(
+        tester.element(find.byType(DropdownMenu<String>)),
+      ).dropdownMenuTheme.menuStyle!;
+      // VS Code gives each row `margin: 0 4px` and the panel `padding: 4px 0`,
+      // so a row's rounded fill stops short of the panel edge and the end rows
+      // clear its corners.
+      expect(
+        style.padding!.resolve({}),
+        const EdgeInsets.symmetric(
+          horizontal: WorkbenchLayoutConstants.menuRowInset,
+          vertical: WorkbenchLayoutConstants.menuPanelVerticalPadding,
+        ),
+      );
+    });
+  });
+
   group('applyWorkbenchChrome', () {
     final base = ThemeData.dark();
     final result = applyWorkbenchChrome(base, testWorkbenchTheme);
