@@ -2782,6 +2782,39 @@ void main() {
         }
       });
 
+      testWidgets('the rail keeps the shared seam in both side bar positions', (
+        tester,
+      ) async {
+        // The seam names its owner explicitly — the rail draws it, the side bar
+        // cedes it. Deriving ownership from which side leads instead loses the
+        // hairline entirely on the right, where the rail holds the leading
+        // edge, and compact is where that surfaces.
+        for (final position in WorkbenchSidebarPosition.values) {
+          await tester.pumpWidget(
+            _buildApp(
+              layoutDensity: WorkbenchLayoutDensity.compact,
+              onLayoutDensityChanged: (_) {},
+              sidebarPosition: position,
+              onSidebarPositionChanged: (_) {},
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          final rail = tester.widget<DecoratedBox>(
+            cardRing(find.byIcon(Symbols.folder_rounded)),
+          );
+          final border = (rail.decoration as BoxDecoration).border! as Border;
+          final facing = position == WorkbenchSidebarPosition.right
+              ? border.left
+              : border.right;
+          expect(
+            facing.color,
+            _testTheme.surfaceBorder,
+            reason: '$position: rail draws the seam it owns',
+          );
+        }
+      });
+
       testWidgets('compact squares the card corners', (tester) async {
         await tester.pumpWidget(densityApp(WorkbenchLayoutDensity.compact));
         await tester.pumpAndSettle();

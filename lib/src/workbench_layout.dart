@@ -207,6 +207,11 @@ class _FloatingCard extends StatelessWidget {
     bool ceded = false,
   }) {
     if (ceded) return false;
+    // A seam names its owner explicitly — the card that did not cede it draws
+    // it — so ownership does not also depend on which side leads. Leaving it
+    // to the leading rule loses the hairline entirely whenever the owner holds
+    // the leading side, as the rail does with the side bar on the right.
+    if (kind == _CardEdgeKind.seam) return true;
     if (!density.cardsAbut) return true;
     return !leading || kind == _CardEdgeKind.perimeter;
   }
