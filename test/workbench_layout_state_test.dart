@@ -45,10 +45,7 @@ void main() {
       // jsonEncode throws if any value is not a JSON primitive — this is the
       // Set-safety guard: hidden must serialize as a list.
       final encoded = jsonEncode(state.toJson());
-      expect(
-        encoded.contains('"hidden":{"explorer":["open-editors"]}'),
-        isTrue,
-      );
+      expect(encoded.contains('"hidden":{"explorer":["open-editors"]}'), isTrue);
 
       final decoded = WorkbenchLayoutState.fromJson(
         jsonDecode(encoded) as Map<String, dynamic>,
@@ -68,21 +65,18 @@ void main() {
       expect(decoded.hidden['explorer'], {'a', 'b'});
     });
 
-    test(
-      'tolerant: absent concerns default empty, unknown concerns ignored',
-      () {
-        final decoded = WorkbenchLayoutState.fromJson({
-          'order': {
-            'explorer': ['a'],
-          },
-          'somethingNewerShellsAdded': 42,
-        });
-        expect(decoded.order['explorer'], ['a']);
-        expect(decoded.sizes, isEmpty);
-        expect(decoded.expanded, isEmpty);
-        expect(decoded.hidden, isEmpty);
-      },
-    );
+    test('tolerant: absent concerns default empty, unknown concerns ignored', () {
+      final decoded = WorkbenchLayoutState.fromJson({
+        'order': {
+          'explorer': ['a'],
+        },
+        'somethingNewerShellsAdded': 42,
+      });
+      expect(decoded.order['explorer'], ['a']);
+      expect(decoded.sizes, isEmpty);
+      expect(decoded.expanded, isEmpty);
+      expect(decoded.hidden, isEmpty);
+    });
 
     test('tolerant: malformed entries are dropped, not thrown', () {
       final decoded = WorkbenchLayoutState.fromJson({

@@ -351,9 +351,7 @@ void main() {
         rebuild(() => current = [current[1], current[2]]);
         await tester.pump();
 
-        final controller = tester
-            .widget<TabBar>(find.byType(TabBar))
-            .controller!;
+        final controller = tester.widget<TabBar>(find.byType(TabBar)).controller!;
         expect(controller.index, 0);
         expect(find.text('content-b'), findsOneWidget);
         expect(activeIds.last, 'b');

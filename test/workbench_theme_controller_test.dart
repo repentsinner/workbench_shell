@@ -303,26 +303,23 @@ void main() {
       expect(dispatcher.onPlatformBrightnessChanged, same(original));
     });
 
-    test(
-      'a surviving controller still reacts after another is disposed',
-      () async {
-        final binding = TestWidgetsFlutterBinding.ensureInitialized();
-        final dispatcher = binding.platformDispatcher;
-        dispatcher.platformBrightnessTestValue = Brightness.light;
-        addTearDown(dispatcher.clearPlatformBrightnessTestValue);
+    test('a surviving controller still reacts after another is disposed', () async {
+      final binding = TestWidgetsFlutterBinding.ensureInitialized();
+      final dispatcher = binding.platformDispatcher;
+      dispatcher.platformBrightnessTestValue = Brightness.light;
+      addTearDown(dispatcher.clearPlatformBrightnessTestValue);
 
-        final a = WorkbenchThemeController(initialTheme: _placeholderTheme());
-        addTearDown(a.dispose);
-        final b = WorkbenchThemeController(initialTheme: _placeholderTheme());
-        b.dispose();
-        await a.pendingResolution;
+      final a = WorkbenchThemeController(initialTheme: _placeholderTheme());
+      addTearDown(a.dispose);
+      final b = WorkbenchThemeController(initialTheme: _placeholderTheme());
+      b.dispose();
+      await a.pendingResolution;
 
-        dispatcher.platformBrightnessTestValue = Brightness.dark;
-        dispatcher.onPlatformBrightnessChanged?.call();
-        await a.pendingResolution;
+      dispatcher.platformBrightnessTestValue = Brightness.dark;
+      dispatcher.onPlatformBrightnessChanged?.call();
+      await a.pendingResolution;
 
-        expect(a.brightness, Brightness.dark);
-      },
-    );
+      expect(a.brightness, Brightness.dark);
+    });
   });
 }

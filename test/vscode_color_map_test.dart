@@ -206,9 +206,7 @@ void main() {
     });
 
     test('non-object colors is treated as empty', () {
-      final map = loader.parse(
-        '{"name": "X", "type": "vs-dark", "colors": []}',
-      );
+      final map = loader.parse('{"name": "X", "type": "vs-dark", "colors": []}');
       expect(map['editor.background'], isNull);
     });
 
@@ -234,7 +232,9 @@ void main() {
     });
 
     test('non-string type field falls through to inference', () {
-      final map = loader.parse('{"name": "My Light", "type": 3, "colors": {}}');
+      final map = loader.parse(
+        '{"name": "My Light", "type": 3, "colors": {}}',
+      );
       expect(map.baseType, 'vs');
     });
 

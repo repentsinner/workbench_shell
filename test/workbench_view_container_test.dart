@@ -159,81 +159,79 @@ void main() {
       expect(find.byIcon(Symbols.expand_more_rounded), findsNWidgets(2));
     });
 
-    testWidgets(
-      'collapsing a pane hides its body; collapsed pane is header-height',
-      (tester) async {
-        await tester.pumpWidget(
-          wrapWithChromeTheme(
-            SizedBox(
-              height: 600,
-              child: WorkbenchViewContainer(
-                views: [
-                  WorkbenchViewDescriptor(
-                    id: 'a',
-                    title: 'Alpha',
-                    bodyBuilder: (_) => const Text('body-a'),
-                  ),
-                  WorkbenchViewDescriptor(
-                    id: 'b',
-                    title: 'Beta',
-                    bodyBuilder: (_) => const Text('body-b'),
-                  ),
-                ],
-              ),
+    testWidgets('collapsing a pane hides its body; collapsed pane is header-height', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithChromeTheme(
+          SizedBox(
+            height: 600,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'a',
+                  title: 'Alpha',
+                  bodyBuilder: (_) => const Text('body-a'),
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'b',
+                  title: 'Beta',
+                  bodyBuilder: (_) => const Text('body-b'),
+                ),
+              ],
             ),
           ),
-        );
+        ),
+      );
 
-        expect(find.text('body-a'), findsOneWidget);
-        expect(find.text('body-b'), findsOneWidget);
+      expect(find.text('body-a'), findsOneWidget);
+      expect(find.text('body-b'), findsOneWidget);
 
-        // Collapse Alpha by tapping its header.
-        await tester.tap(find.text('ALPHA'));
-        await tester.pumpAndSettle();
+      // Collapse Alpha by tapping its header.
+      await tester.tap(find.text('ALPHA'));
+      await tester.pumpAndSettle();
 
-        // Alpha's body is gone; Beta's stays.
-        expect(find.text('body-a'), findsNothing);
-        expect(find.text('body-b'), findsOneWidget);
+      // Alpha's body is gone; Beta's stays.
+      expect(find.text('body-a'), findsNothing);
+      expect(find.text('body-b'), findsOneWidget);
 
-        // The collapsed Alpha pane occupies only its header height. Measure the
-        // pane wrapper by key.
-        final paneRect = tester.getRect(
-          find.byKey(const ValueKey('workbench-view-pane-a')),
-        );
-        expect(
-          paneRect.height,
-          closeTo(WorkbenchLayoutConstants.viewPaneHeaderHeight, 0.5),
-        );
-      },
-    );
+      // The collapsed Alpha pane occupies only its header height. Measure the
+      // pane wrapper by key.
+      final paneRect = tester.getRect(
+        find.byKey(const ValueKey('workbench-view-pane-a')),
+      );
+      expect(
+        paneRect.height,
+        closeTo(WorkbenchLayoutConstants.viewPaneHeaderHeight, 0.5),
+      );
+    });
 
-    testWidgets(
-      'single view, mergeSingleView false: non-collapsible, no chevron',
-      (tester) async {
-        await tester.pumpWidget(
-          wrapWithTheme(
-            SizedBox(
-              height: 400,
-              child: WorkbenchViewContainer(
-                views: [
-                  WorkbenchViewDescriptor(
-                    id: 'solo',
-                    title: 'Solo',
-                    bodyBuilder: (_) => const Text('body-solo'),
-                  ),
-                ],
-              ),
+    testWidgets('single view, mergeSingleView false: non-collapsible, no chevron', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          SizedBox(
+            height: 400,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'solo',
+                  title: 'Solo',
+                  bodyBuilder: (_) => const Text('body-solo'),
+                ),
+              ],
             ),
           ),
-        );
+        ),
+      );
 
-        // Header visible, body shown, no chevron.
-        expect(find.text('SOLO'), findsOneWidget);
-        expect(find.text('body-solo'), findsOneWidget);
-        expect(find.byIcon(Symbols.expand_more_rounded), findsNothing);
-        expect(find.byIcon(Symbols.chevron_right_rounded), findsNothing);
-      },
-    );
+      // Header visible, body shown, no chevron.
+      expect(find.text('SOLO'), findsOneWidget);
+      expect(find.text('body-solo'), findsOneWidget);
+      expect(find.byIcon(Symbols.expand_more_rounded), findsNothing);
+      expect(find.byIcon(Symbols.chevron_right_rounded), findsNothing);
+    });
 
     testWidgets('single view, mergeSingleView true: merged, no pane header', (
       tester,
@@ -398,9 +396,7 @@ void main() {
     });
 
     testWidgets('a pane whose content exceeds its share scrolls internally; '
-        'siblings stay fixed and the container does not scroll', (
-      tester,
-    ) async {
+        'siblings stay fixed and the container does not scroll', (tester) async {
       const containerHeight = 400.0;
       await tester.pumpWidget(
         wrapWithTheme(
@@ -508,8 +504,7 @@ void main() {
 
       // The stack still fills the container height exactly (no whole-stack
       // scroll, no gap).
-      final total =
-          paneRect(tester, 'a').height +
+      final total = paneRect(tester, 'a').height +
           paneRect(tester, 'b').height +
           paneRect(tester, 'c').height;
       expect(total, closeTo(containerHeight, 1.0));
@@ -813,7 +808,10 @@ void main() {
 
       // Two expanded panes: the second pane carries a sash (the first never
       // does — no expanded pane precedes it).
-      expect(find.byKey(const ValueKey('workbench-view-sash-a')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('workbench-view-sash-a')),
+        findsNothing,
+      );
       expect(
         find.byKey(const ValueKey('workbench-view-sash-b')),
         findsOneWidget,
@@ -823,7 +821,10 @@ void main() {
       // (Alpha) is gone, so there is no body boundary to drag.
       await tester.tap(find.text('ALPHA'));
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('workbench-view-sash-b')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('workbench-view-sash-b')),
+        findsNothing,
+      );
     });
 
     testWidgets('collapsing a pane after an uneven resize fills the height '
@@ -877,11 +878,13 @@ void main() {
       await tester.pumpAndSettle();
 
       // Gamma now occupies only its header height.
-      expect(paneRect(tester, 'c').height, closeTo(header, 0.5));
+      expect(
+        paneRect(tester, 'c').height,
+        closeTo(header, 0.5),
+      );
 
       // No dead space: the laid-out stack exactly fills the container height.
-      final total =
-          paneRect(tester, 'a').height +
+      final total = paneRect(tester, 'a').height +
           paneRect(tester, 'b').height +
           paneRect(tester, 'c').height;
       expect(total, closeTo(containerHeight, 1.0));
@@ -949,50 +952,48 @@ void main() {
       expect(paneRect(tester, 'b').height - header, closeTo(bBodyBefore, 1.5));
 
       // The stack still fills the container exactly.
-      final total =
-          paneRect(tester, 'a').height +
+      final total = paneRect(tester, 'a').height +
           paneRect(tester, 'b').height +
           paneRect(tester, 'c').height;
       expect(total, closeTo(containerHeight, 1.0));
     });
 
-    testWidgets(
-      'initialSizes seeds the apportionment (§spec:resize-geometry)',
-      (tester) async {
-        const header = WorkbenchLayoutConstants.viewPaneHeaderHeight;
-        const containerHeight = 600.0;
-        // An uneven seed: A twice B. Weights are proportional, so the bodies
-        // divide the pool 2:1 regardless of the absolute seed values.
-        final seed = {'a': 200.0, 'b': 100.0};
-        await tester.pumpWidget(
-          wrapWithTheme(
-            SizedBox(
-              height: containerHeight,
-              child: WorkbenchViewContainer(
-                initialSizes: seed,
-                views: const [
-                  WorkbenchViewDescriptor(
-                    id: 'a',
-                    title: 'Alpha',
-                    bodyBuilder: _shortBody,
-                  ),
-                  WorkbenchViewDescriptor(
-                    id: 'b',
-                    title: 'Beta',
-                    bodyBuilder: _shortBody,
-                  ),
-                ],
-              ),
+    testWidgets('initialSizes seeds the apportionment (§spec:resize-geometry)', (
+      tester,
+    ) async {
+      const header = WorkbenchLayoutConstants.viewPaneHeaderHeight;
+      const containerHeight = 600.0;
+      // An uneven seed: A twice B. Weights are proportional, so the bodies
+      // divide the pool 2:1 regardless of the absolute seed values.
+      final seed = {'a': 200.0, 'b': 100.0};
+      await tester.pumpWidget(
+        wrapWithTheme(
+          SizedBox(
+            height: containerHeight,
+            child: WorkbenchViewContainer(
+              initialSizes: seed,
+              views: const [
+                WorkbenchViewDescriptor(
+                  id: 'a',
+                  title: 'Alpha',
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'b',
+                  title: 'Beta',
+                  bodyBuilder: _shortBody,
+                ),
+              ],
             ),
           ),
-        );
+        ),
+      );
 
-        final aBody = paneRect(tester, 'a').height - header;
-        final bBody = paneRect(tester, 'b').height - header;
-        // The seeded 2:1 weight drives the on-screen apportionment.
-        expect(aBody, closeTo(2 * bBody, 2.0));
-      },
-    );
+      final aBody = paneRect(tester, 'a').height - header;
+      final bBody = paneRect(tester, 'b').height - header;
+      // The seeded 2:1 weight drives the on-screen apportionment.
+      expect(aBody, closeTo(2 * bBody, 2.0));
+    });
 
     testWidgets('a sash drag resizes live and commits the final map once on '
         'release (§spec:resize-geometry)', (tester) async {
@@ -1110,21 +1111,9 @@ void main() {
     testWidgets('dragging a pane header reorders the shell-owned stack and '
         'reports the move', (tester) async {
       const views = <WorkbenchViewDescriptor>[
-        WorkbenchViewDescriptor(
-          id: 'a',
-          title: 'Alpha',
-          bodyBuilder: _shortBody,
-        ),
-        WorkbenchViewDescriptor(
-          id: 'b',
-          title: 'Beta',
-          bodyBuilder: _shortBody,
-        ),
-        WorkbenchViewDescriptor(
-          id: 'c',
-          title: 'Gamma',
-          bodyBuilder: _shortBody,
-        ),
+        WorkbenchViewDescriptor(id: 'a', title: 'Alpha', bodyBuilder: _shortBody),
+        WorkbenchViewDescriptor(id: 'b', title: 'Beta', bodyBuilder: _shortBody),
+        WorkbenchViewDescriptor(id: 'c', title: 'Gamma', bodyBuilder: _shortBody),
       ];
       (int, int)? reported;
 
@@ -1137,8 +1126,7 @@ void main() {
             height: 600,
             child: WorkbenchViewContainer(
               views: views,
-              onReorder: (oldIndex, newIndex) =>
-                  reported = (oldIndex, newIndex),
+              onReorder: (oldIndex, newIndex) => reported = (oldIndex, newIndex),
             ),
           ),
         ),
@@ -1224,64 +1212,63 @@ void main() {
       );
     });
 
-    testWidgets(
-      'a drop indicator overlay shows the target slot during a drag',
-      (tester) async {
-        await tester.pumpWidget(
-          wrapWithChromeTheme(
-            const SizedBox(
-              height: 600,
-              child: WorkbenchViewContainer(
-                views: [
-                  WorkbenchViewDescriptor(
-                    id: 'a',
-                    title: 'Alpha',
-                    bodyBuilder: _shortBody,
-                  ),
-                  WorkbenchViewDescriptor(
-                    id: 'b',
-                    title: 'Beta',
-                    bodyBuilder: _shortBody,
-                  ),
-                ],
-                onReorder: _noopReorder,
-              ),
+    testWidgets('a drop indicator overlay shows the target slot during a drag', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithChromeTheme(
+          const SizedBox(
+            height: 600,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'a',
+                  title: 'Alpha',
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'b',
+                  title: 'Beta',
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+              onReorder: _noopReorder,
             ),
           ),
-        );
+        ),
+      );
 
-        // No drop indicator before a drag begins.
-        expect(
-          find.byKey(const ValueKey('workbench-view-drop-indicator')),
-          findsNothing,
-        );
+      // No drop indicator before a drag begins.
+      expect(
+        find.byKey(const ValueKey('workbench-view-drop-indicator')),
+        findsNothing,
+      );
 
-        // Start dragging Alpha's header and move over Beta.
-        final alphaHeader = tester.getCenter(find.text('ALPHA'));
-        final betaCenter = tester.getCenter(
-          find.byKey(const ValueKey('workbench-view-pane-b')),
-        );
-        final gesture = await tester.startGesture(alphaHeader);
-        await tester.pump(const Duration(milliseconds: 200));
-        await gesture.moveTo(Offset(betaCenter.dx, betaCenter.dy + 8));
-        await tester.pump();
+      // Start dragging Alpha's header and move over Beta.
+      final alphaHeader = tester.getCenter(find.text('ALPHA'));
+      final betaCenter = tester.getCenter(
+        find.byKey(const ValueKey('workbench-view-pane-b')),
+      );
+      final gesture = await tester.startGesture(alphaHeader);
+      await tester.pump(const Duration(milliseconds: 200));
+      await gesture.moveTo(Offset(betaCenter.dx, betaCenter.dy + 8));
+      await tester.pump();
 
-        // The drop indicator overlay is shown over the hovered target slot.
-        expect(
-          find.byKey(const ValueKey('workbench-view-drop-indicator')),
-          findsOneWidget,
-        );
+      // The drop indicator overlay is shown over the hovered target slot.
+      expect(
+        find.byKey(const ValueKey('workbench-view-drop-indicator')),
+        findsOneWidget,
+      );
 
-        await gesture.up();
-        await tester.pumpAndSettle();
+      await gesture.up();
+      await tester.pumpAndSettle();
 
-        // It vanishes once the drag ends.
-        expect(
-          find.byKey(const ValueKey('workbench-view-drop-indicator')),
-          findsNothing,
-        );
-      },
-    );
+      // It vanishes once the drag ends.
+      expect(
+        find.byKey(const ValueKey('workbench-view-drop-indicator')),
+        findsNothing,
+      );
+    });
 
     testWidgets('a single-view container is not reorderable (no drop handle)', (
       tester,
@@ -1381,48 +1368,47 @@ void main() {
       );
     });
 
-    testWidgets(
-      'controlled descriptor reports next value, does not self-toggle',
-      (tester) async {
-        bool? reported;
-        Widget build(bool expanded) => wrapWithTheme(
-          SizedBox(
-            height: 600,
-            child: WorkbenchViewContainer(
-              views: [
-                WorkbenchViewDescriptor(
-                  id: 'a',
-                  title: 'Alpha',
-                  expanded: expanded,
-                  onExpandedChanged: (value) => reported = value,
-                  bodyBuilder: (_) => const Text('body-a'),
-                ),
-                WorkbenchViewDescriptor(
-                  id: 'b',
-                  title: 'Beta',
-                  bodyBuilder: (_) => const Text('body-b'),
-                ),
-              ],
-            ),
+    testWidgets('controlled descriptor reports next value, does not self-toggle', (
+      tester,
+    ) async {
+      bool? reported;
+      Widget build(bool expanded) => wrapWithTheme(
+        SizedBox(
+          height: 600,
+          child: WorkbenchViewContainer(
+            views: [
+              WorkbenchViewDescriptor(
+                id: 'a',
+                title: 'Alpha',
+                expanded: expanded,
+                onExpandedChanged: (value) => reported = value,
+                bodyBuilder: (_) => const Text('body-a'),
+              ),
+              WorkbenchViewDescriptor(
+                id: 'b',
+                title: 'Beta',
+                bodyBuilder: (_) => const Text('body-b'),
+              ),
+            ],
           ),
-        );
+        ),
+      );
 
-        await tester.pumpWidget(build(true));
-        expect(find.text('body-a'), findsOneWidget);
+      await tester.pumpWidget(build(true));
+      expect(find.text('body-a'), findsOneWidget);
 
-        // Tapping reports the requested next state but does not self-toggle:
-        // the host drives the controlled descriptor's value.
-        await tester.tap(find.text('ALPHA'));
-        await tester.pumpAndSettle();
-        expect(reported, isFalse);
-        expect(find.text('body-a'), findsOneWidget);
+      // Tapping reports the requested next state but does not self-toggle:
+      // the host drives the controlled descriptor's value.
+      await tester.tap(find.text('ALPHA'));
+      await tester.pumpAndSettle();
+      expect(reported, isFalse);
+      expect(find.text('body-a'), findsOneWidget);
 
-        // Host pushes the collapsed value → body hides.
-        await tester.pumpWidget(build(false));
-        await tester.pumpAndSettle();
-        expect(find.text('body-a'), findsNothing);
-      },
-    );
+      // Host pushes the collapsed value → body hides.
+      await tester.pumpWidget(build(false));
+      await tester.pumpAndSettle();
+      expect(find.text('body-a'), findsNothing);
+    });
   });
 
   group('WorkbenchViewContainer header focus traversal (§spec:view-pane-focus)', () {
@@ -1705,15 +1691,12 @@ void main() {
       // Landed on the second header, not Alpha's body field.
       expect(isFocused(tester, 'b'), isTrue);
       expect(
-        tester
-            .widget<EditableText>(
-              find.descendant(
-                of: find.byKey(const ValueKey('field-a')),
-                matching: find.byType(EditableText),
-              ),
-            )
-            .focusNode
-            .hasFocus,
+        tester.widget<EditableText>(
+          find.descendant(
+            of: find.byKey(const ValueKey('field-a')),
+            matching: find.byType(EditableText),
+          ),
+        ).focusNode.hasFocus,
         isFalse,
       );
     });
@@ -1941,24 +1924,21 @@ void main() {
       expect(copy.bodyBuilder, same(body));
     });
 
-    test(
-      'WorkbenchViewDescriptor.copyWith overrides only the named fields',
-      () {
-        final base = WorkbenchViewDescriptor(
-          id: 'v',
-          title: 'View',
-          bodyBuilder: body,
-        );
-        final copy = base.copyWith(title: 'Renamed', visible: false);
+    test('WorkbenchViewDescriptor.copyWith overrides only the named fields', () {
+      final base = WorkbenchViewDescriptor(
+        id: 'v',
+        title: 'View',
+        bodyBuilder: body,
+      );
+      final copy = base.copyWith(title: 'Renamed', visible: false);
 
-        expect(copy.title, 'Renamed');
-        expect(copy.visible, isFalse);
-        // Untouched fields carry over.
-        expect(copy.id, 'v');
-        expect(copy.canHide, isTrue);
-        expect(copy.bodyBuilder, same(body));
-      },
-    );
+      expect(copy.title, 'Renamed');
+      expect(copy.visible, isFalse);
+      // Untouched fields carry over.
+      expect(copy.id, 'v');
+      expect(copy.canHide, isTrue);
+      expect(copy.bodyBuilder, same(body));
+    });
 
     test('WorkbenchViewContainerSpec.copyWith seeds sizing onto a base without '
         'reconstructing its other fields', () {
