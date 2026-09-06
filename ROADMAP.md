@@ -71,4 +71,4 @@ omits it — the default in dark and light — the list takes the trigger
 fill, never Material's surface. Switch themes and confirm both follow.
 Confirm the package exports no select widget — `grep` the public API
 for `WorkbenchSelect` and expect no match
-(§spec:form-controls-excluded).
+(§spec:form-controls-not-owned).
