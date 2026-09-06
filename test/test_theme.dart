@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:workbench_shell/workbench_shell.dart';
 
 /// Shared test [WorkbenchTheme] fixture.
@@ -15,5 +16,21 @@ Widget wrapWithTheme(Widget child) {
   return MaterialApp(
     theme: ThemeData.dark().copyWith(extensions: [testWorkbenchTheme]),
     home: Scaffold(body: child),
+  );
+}
+
+/// The open popup's panel — the `Material` Flutter's `_MenuPanel` builds
+/// around the menu's children, carrying the fill and hairline resolved from
+/// `MenuThemeData`. Located as the nearest `Material` *ancestor* of the row
+/// labelled [rowLabel], which excludes the `Material` the row's own
+/// `MenuItemButton` builds beneath itself.
+Material popupPanelOf(WidgetTester tester, String rowLabel) {
+  return tester.widget<Material>(
+    find
+        .ancestor(
+          of: find.widgetWithText(MenuItemButton, rowLabel),
+          matching: find.byType(Material),
+        )
+        .first,
   );
 }

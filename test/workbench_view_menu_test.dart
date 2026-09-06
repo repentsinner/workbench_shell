@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -553,7 +554,7 @@ void main() {
   });
 
   group('WorkbenchMenuBar styling (in-window)', () {
-    Widget buildHarness(WorkbenchTheme theme) {
+    Widget buildHarness(WorkbenchTheme theme, {bool withSeparator = false}) {
       return MaterialApp(
         theme: ThemeData.dark().copyWith(extensions: [theme]),
         home: Scaffold(
@@ -566,15 +567,22 @@ void main() {
                 onInvoke: (_) => null,
               ),
             },
-            child: const WorkbenchMenuBar(
+            child: WorkbenchMenuBar(
               useNativeMenuBar: false,
               entries: [
-                WorkbenchViewMenuTab(
+                const WorkbenchViewMenuTab(
                   intent: _FocusTestTabIntent('mdi'),
                   label: 'MDI',
                 ),
+                if (withSeparator) ...const [
+                  WorkbenchMenuSeparator(),
+                  WorkbenchViewMenuTab(
+                    intent: _FocusTestTabIntent('tasks'),
+                    label: 'Tasks',
+                  ),
+                ],
               ],
-              child: SizedBox(width: 400, height: 200),
+              child: const SizedBox(width: 400, height: 200),
             ),
           ),
         ),
@@ -632,26 +640,173 @@ void main() {
       );
     });
 
-    testWidgets('menu button foreground resolves to menuBarForeground', (
+    testWidgets('strip button foreground resolves to menuBarForeground', (
       tester,
     ) async {
       final theme = testWorkbenchTheme.copyWith(
         menuBarForeground: const Color(0xFFC0FFEE),
+        menuForeground: const Color(0xFF010203),
       );
       await tester.pumpWidget(buildHarness(theme));
       await tester.pumpAndSettle();
 
-      // Both the top-level `SubmenuButton` and every `MenuItemButton`
-      // resolve their styling through `MenuButtonTheme`. Read the
-      // installed override from the nearest element inside the bar.
-      final view = find.descendant(
-        of: find.byType(MenuBar),
-        matching: find.text('View'),
+      // `MenuButtonTheme` carries the popup's `menu.*` row styling, so the
+      // strip's top-level `SubmenuButton` carries its `menubar.*` styling on
+      // the widget, which takes precedence over the ambient theme.
+      final button = tester.widget<SubmenuButton>(
+        find.descendant(
+          of: find.byType(MenuBar),
+          matching: find.byType(SubmenuButton),
+        ),
       );
-      expect(view, findsOneWidget);
-      final themeData = MenuButtonTheme.of(tester.element(view));
-      final resolvedColor = themeData.style!.foregroundColor!.resolve(const {});
+      final resolvedColor = button.style!.foregroundColor!.resolve(const {});
       expect(resolvedColor, const Color(0xFFC0FFEE));
+    });
+
+    testWidgets('popup panel takes menu.background, not panelBackground', (
+      tester,
+    ) async {
+      final theme = testWorkbenchTheme.copyWith(
+        menuBackground: const Color(0xFF1F1F1F),
+        menuBorder: const Color(0xFF454545),
+        panelBackground: const Color(0xFF181818),
+      );
+      await tester.pumpWidget(buildHarness(theme));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('View'));
+      await tester.pumpAndSettle();
+
+      final panel = popupPanelOf(tester, 'MDI');
+      expect(panel.color, const Color(0xFF1F1F1F));
+      expect(
+        (panel.shape! as OutlinedBorder).side.color,
+        const Color(0xFF454545),
+      );
+    });
+
+    testWidgets('popup panel draws no hairline when menu.border is absent', (
+      tester,
+    ) async {
+      // VS Code registers `menu.border` as null outside high contrast, and
+      // §spec:vscode-theme-format says a null token paints nothing.
+      final theme = testWorkbenchTheme.copyWith(
+        menuBackground: const Color(0xFF1F1F1F),
+      );
+      expect(theme.menuBorder, isNull);
+      await tester.pumpWidget(buildHarness(theme));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('View'));
+      await tester.pumpAndSettle();
+
+      final panel = popupPanelOf(tester, 'MDI');
+      expect((panel.shape! as OutlinedBorder).side, BorderSide.none);
+    });
+
+    testWidgets('popup row takes menu.foreground and the menu selection pair', (
+      tester,
+    ) async {
+      final theme = testWorkbenchTheme.copyWith(
+        menuForeground: const Color(0xFFBFBFBF),
+        menuSelectionBackground: const Color(0xFF0078D4),
+        menuSelectionForeground: const Color(0xFFFFFFFF),
+        menuBarForeground: const Color(0xFFC0FFEE),
+        menuBarHoverBackground: const Color(0xFFDEAD00),
+      );
+      await tester.pumpWidget(buildHarness(theme));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('View'));
+      await tester.pumpAndSettle();
+
+      final row = find.widgetWithText(MenuItemButton, 'MDI');
+      expect(row, findsOneWidget);
+      final rowStyle = MenuButtonTheme.of(tester.element(row)).style!;
+      expect(rowStyle.foregroundColor!.resolve(const {}), const Color(0xFFBFBFBF));
+      expect(
+        rowStyle.backgroundColor!.resolve(const {}),
+        Colors.transparent,
+        reason: 'a row at rest shows the panel fill through it',
+      );
+      const highlighted = {WidgetState.hovered};
+      expect(
+        rowStyle.backgroundColor!.resolve(highlighted),
+        const Color(0xFF0078D4),
+      );
+      expect(
+        rowStyle.foregroundColor!.resolve(highlighted),
+        const Color(0xFFFFFFFF),
+      );
+      // The strip's tokens are set to sentinels above: a popup row shall not
+      // reach for them, which is the regression this workstream removes.
+      expect(
+        rowStyle.foregroundColor!.resolve(const {}),
+        isNot(const Color(0xFFC0FFEE)),
+        reason: 'the popup row reads menu.foreground, not menubar.foreground',
+      );
+      expect(
+        rowStyle.overlayColor!.resolve(highlighted),
+        isNot(const Color(0xFFDEAD00)),
+        reason: 'the popup row shall not paint the strip hover overlay',
+      );
+    });
+
+    testWidgets('hovering a popup row paints menu.selectionBackground', (
+      tester,
+    ) async {
+      final theme = testWorkbenchTheme.copyWith(
+        menuBackground: const Color(0xFF1F1F1F),
+        menuSelectionBackground: const Color(0xFF0078D4),
+      );
+      await tester.pumpWidget(buildHarness(theme));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('View'));
+      await tester.pumpAndSettle();
+
+      // The `Material` a `MenuItemButton` builds beneath itself carries the
+      // resolved row fill, so this asserts the painted colour, not the style.
+      Material rowFill() => tester.widget<Material>(
+        find
+            .descendant(
+              of: find.widgetWithText(MenuItemButton, 'MDI'),
+              matching: find.byType(Material),
+            )
+            .first,
+      );
+      expect(rowFill().color, Colors.transparent);
+
+      final pointer = await tester.createGesture(
+        kind: PointerDeviceKind.mouse,
+      );
+      addTearDown(pointer.removePointer);
+      await pointer.addPointer(location: Offset.zero);
+      await pointer.moveTo(tester.getCenter(find.text('MDI')));
+      await tester.pumpAndSettle();
+
+      expect(rowFill().color, const Color(0xFF0078D4));
+    });
+
+    testWidgets('popup separator takes menu.separatorBackground', (
+      tester,
+    ) async {
+      final theme = testWorkbenchTheme.copyWith(
+        menuSeparatorBackground: const Color(0xFF2A2B2C),
+        menuBarBorder: const Color(0xFF445566),
+      );
+      await tester.pumpWidget(buildHarness(theme, withSeparator: true));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('View'));
+      await tester.pumpAndSettle();
+
+      final divider = find.byType(Divider);
+      expect(divider, findsOneWidget);
+      expect(
+        DividerTheme.of(tester.element(divider)).color,
+        const Color(0xFF2A2B2C),
+      );
     });
   });
 

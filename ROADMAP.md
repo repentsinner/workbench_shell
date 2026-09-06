@@ -59,24 +59,6 @@ still collapses at the documented floor.
 Bring popup menus and host selects under the chrome theming contract
 (§spec:chrome-material-theming).
 
-### Popup menu tokens §road:menu-surface-tokens
-
-Add VS Code's seven `menu.*` colors — `menu.background`,
-`menu.foreground`, `menu.border`, `menu.selectionBackground`,
-`menu.selectionForeground`, `menu.selectionBorder` and
-`menu.separatorBackground` — to `lib/src/workbench_theme.dart`, and
-repoint `workbenchMenuThemeData` in `lib/src/workbench_view_menu.dart`
-at them so the View menu and the view-container title overflow popup
-stop painting their panel with `panelBackground` and their rows with
-`menuBar*` (§spec:chrome-material-theming). The `menuBar*` tokens stay
-where they belong: the strip itself.
-
-**Verify:** Open the View menu and a view-container `⋯` popup in the
-example app under a theme whose `menu.background` differs from
-`panel.background` (Dark Modern qualifies). Both popups take the menu
-fill, not the panel fill, and a highlighted row takes
-`menu.selectionBackground`.
-
 ### Dropdown chrome theming §road:dropdown-chrome-theming
 
 Add the three missing `dropdown.*` colors — `dropdown.foreground`,
@@ -86,8 +68,7 @@ Add the three missing `dropdown.*` colors — `dropdown.foreground`,
 with `dropdownMenuTheme`, `menuTheme` and `menuButtonTheme` so a host's
 stock `DropdownMenu` and `MenuAnchor` inherit chrome without per-widget
 wiring (§spec:chrome-material-theming). Demonstrate a bare
-`DropdownMenu` in `example/lib/main.dart`. Depends on
-§road:menu-surface-tokens. Closes #30.
+`DropdownMenu` in `example/lib/main.dart`. Closes #30.
 
 **Verify:** Drop an unstyled `DropdownMenu` into the example app's
 editor area. Its trigger reads `dropdown.background` flat at the
