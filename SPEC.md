@@ -1555,6 +1555,12 @@ those in their own UI packages, themed against `WorkbenchTheme`
 so theme switching still works but not exposed as reusable
 primitives.
 
+The exclusion bars a shell-owned widget, not shell-controlled styling.
+A host's own dropdown, text field and toggle render under
+§spec:chrome-material-theming, which themes the Material widgets that
+draw them; a request for a themed select is a coverage question for
+that contract, not a re-promotion request against this one.
+
 **The seam is stock-widget duplication, not widget ownership.** The
 exclusion holds because every control VS Code uses has had a stock
 Flutter equivalent the chrome themes in place
@@ -2480,7 +2486,7 @@ the shell publishes no reusable widget. This contract themes the host's
 *own* Material widgets; it adds no primitive. No widget is exposed, yet
 no host widget escapes chrome control.
 
-**Currently owned surface: the button family.** The chrome themes the
+**Owned surface: the button family.** The chrome themes the
 full Material button family at a shared flat, compact VS Code sizing
 (§spec:layout-constants-canon: elevation 0, 4px shape, compact height, shrink-wrapped tap
 target):
@@ -2497,6 +2503,57 @@ target):
 The set is extensible: input decoration and other Material surfaces can
 join the contract without changing call sites. Each addition obeys
 parity — it themes the whole widget, not a subset of its states.
+
+**Owned surface: the menu and select family.** The chrome themes the
+Material widgets that draw a popup menu and a select, at the same flat
+compact sizing:
+
+- `MenuAnchor` / `SubmenuButton` / `MenuItemButton` — panel fill
+  `menu.background`, label `menu.foreground`, hairline `menu.border`,
+  highlighted row `menu.selectionBackground` /
+  `menu.selectionForeground`, separator `menu.separatorBackground`.
+- `DropdownMenu` — trigger fill `dropdown.background`, label
+  `dropdown.foreground`, hairline `dropdown.border`; its open list takes
+  `dropdown.listBackground`.
+
+**Four dropdown tokens, not one.** VS Code registers
+`dropdown.background`, `dropdown.listBackground`, `dropdown.foreground`
+and `dropdown.border` separately, giving the trigger and the open list
+distinct fills. A chrome that maps only `dropdown.background` themes the
+trigger and leaves the popup at Material's default surface — the visible
+half of the defect. The chrome carries all four.
+
+**Popup menus read `menu.*`, not a workbench part token.** VS Code
+registers a seven-token family for popup menu chrome, distinct from the
+`menubar.*` strip that opens it. The shell's own popups — the View menu
+and the view-container title overflow (§spec:view-container-title) —
+read `menu.*` for their panel, rows and separators, and `menubar.*` only
+for the strip. Painting a popup with a workbench part background makes
+the menu read as a piece of chrome rather than as a menu, and drifts
+apart from upstream whenever a theme colors its parts and its menus
+differently.
+
+**Material 3 menu widgets, not `DropdownButton`.** `DropdownButton` is
+the Material 2 select. It carries no theme of its own, and its popup
+fill resolves from the global `ThemeData.canvasColor` — a value shared
+with unrelated surfaces, so the chrome cannot point it at
+`dropdown.listBackground` without leaking that fill across the host's
+whole app. `DropdownMenu` (`DropdownMenuThemeData`) and `MenuAnchor`
+(`MenuThemeData`, `MenuButtonThemeData`) are the Material 3
+replacements, they resolve cleanly from `ThemeData`, and `MenuAnchor` is
+already the shell's own popup mechanism (§spec:menu-model). One themed
+menu surface serves the shell's menus and a host's selects alike.
+
+**Why the chrome themes a select rather than owning one.** A
+`WorkbenchSelect` primitive would duplicate a control Flutter ships,
+which §spec:form-controls-excluded excludes on exactly that ground. A
+Material-styled trigger and elevated popup standing against flat chrome
+is a coverage gap in this contract, not a missing primitive. Upstream
+draws the same line: VS Code's `SelectBox` lives in the workbench's
+internal widget library (`vs/base/browser/ui`), which no extension
+imports; extension surfaces receive the registered `dropdown.*` tokens
+as CSS variables and draw their own control. Tokens cross the boundary;
+widgets do not.
 
 **Why `IconButton` maps `icon.foreground`, not `foreground` or
 `descriptionForeground`.** VS Code colors workbench icon buttons (toolbar
@@ -2524,6 +2581,13 @@ with a `toolbar.hoverBackground` background, not a foreground shift.
 - A bare `IconButton` resolves its foreground from `iconForeground`
   (← VS Code `icon.foreground`), never from the base
   `ColorScheme.onSurfaceVariant` the chrome leaves unset.
+- A bare `DropdownMenu` resolves its trigger fill from
+  `dropdown.background` and its open list from
+  `dropdown.listBackground`, never from a `ColorScheme` role the
+  chrome leaves unset.
+- The shell's own popup menus and a host's `DropdownMenu` popup render
+  at the same flat elevation, border treatment and row height, each
+  from its own token family.
 
 ## Layout Constants §spec:layout-constants
 
