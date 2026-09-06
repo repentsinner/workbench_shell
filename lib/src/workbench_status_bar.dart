@@ -29,12 +29,15 @@ class WorkbenchStatusBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
+    // No top hairline: `floatingPanels.css` hides the classic
+    // `status-border-top` rule under the floating-panels treatment, so the bar
+    // meets the band above it on its own fill (§spec:modern-ui-surfaces).
+    // `statusBar.border` stays on [WorkbenchTheme] — it is a registered token a
+    // host may read, and base VS Code still draws it — but nothing paints it
+    // while the package renders the Modern UI treatment.
     return Container(
       height: WorkbenchLayoutConstants.statusBarHeight,
-      decoration: BoxDecoration(
-        color: theme.statusBarBackground,
-        border: Border(top: BorderSide(color: theme.statusBarBorder)),
-      ),
+      decoration: BoxDecoration(color: theme.statusBarBackground),
       child: Row(children: [...leading, const Spacer(), ...trailing]),
     );
   }
