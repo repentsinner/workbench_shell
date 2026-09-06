@@ -2590,9 +2590,9 @@ and makes a stale row visible on inspection.
 | `sidebarMinWidth` | 170 | [`sidebarPart.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/sidebar/sidebarPart.ts) — `readonly minimumWidth: number = 170` | 1.138.0 |
 | `panelMinHeight` | 77 | [`panelPart.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/panel/panelPart.ts) — `readonly minimumHeight: number = 77` | 1.138.0 |
 | `notificationCardWidth` | 450 | [`notificationsToasts.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/notifications/notificationsToasts.ts) — `private static readonly MAX_WIDTH = 450` | 1.138.0 |
-| `containerRadius` | 4 | [`baseSizes.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/platform/theme/common/sizes/baseSizes.ts) — `cornerRadius.small = 4px` | 1.138.0 |
-| `notificationCardRadius` | 4 | same as `containerRadius` (`cornerRadius.small`) | 1.138.0 |
-| `buttonRadius` | 4 | [`button.css`](https://github.com/microsoft/vscode/blob/main/src/vs/base/browser/ui/button/button.css) — `.monaco-text-button { border-radius: 4px; }` | 1.138.0 |
+| Corner radius ladder (`cornerRadiusXSmall` … `cornerRadiusCircle`) | 2 / 4 / 6 / 8 / 12 / 9999 | [`baseSizes.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/platform/theme/common/sizes/baseSizes.ts) — `cornerRadius.xSmall` … `cornerRadius.circle`; tier doctrine in [`roundedCorners.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/roundedCorners.css) | 1.138.0 |
+| `strokeThickness` | 1 | same file — `strokeThickness` | 1.138.0 |
+| Spacing ramp (`spacingNone`, `spacingSize20` … `spacingSize400`) | 0 / 2 … 40 | same file — `spacing.sizeNone`, `spacing.size20` … `spacing.size400` | 1.138.0 |
 
 **Constants without a VS Code peer.** Some
 `WorkbenchLayoutConstants` slots intentionally diverge because
@@ -2607,7 +2607,6 @@ default and records the rationale:
 | `panelDefaultHeight` | 200 | VS Code persists last user height | Tall enough to show a useful number of log lines without dominating the editor area |
 | `panelMaxHeight` | 400 | VS Code allows dynamic max bounded by editor area | Static cap keeps the shell from re-implementing VS Code's layout-service min/max negotiation; consumers that need taller panels override at the layout call site |
 | `sidebarMaxWidth` | 600 | VS Code caps at ~75% of window width dynamically | Same reasoning as `panelMaxHeight` |
-| Spacing scale (`spacingXxs` … `spacingXl`) | 2 / 4 / 8 / 12 / 16 / 24 | superseded — VS Code now registers a shared spacing ramp | A peer exists as of 1.138.0 (`spacing.size20` … `spacing.size400`). The package-local t-shirt scale is retained only until §spec:design-size-ladders replaces it |
 | Icon sizes (`iconXs`, `iconSm`, `iconMd`, `iconLg`, `iconXl`, `iconActivityBar`, `iconStatusBar`) | 12 / 14 / 16 / 20 / 24 / 30 / 17 | VS Code uses 16 for most codicons (`codiconFontSize` in `baseSizes.ts`), 12 for compact (`codiconFontSize.compact`) | Provides a scale around VS Code's 16 default for surfaces (close affordances, status indicators) where a single fixed icon size doesn't fit |
 | `notificationProgressBarHeight` | 4 | not surfaced within search scope of VS Code source | Matches the visible progress bar height VS Code renders |
 
@@ -2621,18 +2620,9 @@ was a workbench_shell invention that approximated 35px while
 exposing "three constants for one dimension" on the public API;
 it is removed.
 
-**Container radius: keep as constant, document the upstream.**
-`containerRadius` already matches VS Code's
-`cornerRadius.small = 4`. VS Code resolves it through a CSS
-custom property (`var(--vscode-cornerRadius-small)`) registered
-via `baseSizes.ts` — theoretically theme-overridable, but every
-shipped VS Code theme uses the same value (the registration uses
-`sizeForAllThemes(4, 'px')`, which the registration helper
-enforces as constant across themes). The package keeps the value
-as a constant; §spec:layout-constants's "no runtime resolution for never-changing
-values" rationale stands. If a future VS Code release introduces
-per-theme overrides, the constant migrates to `WorkbenchTheme`
-as a token.
+**Radius, stroke and spacing come from the ladders.** Those three
+families are not audited row by row here; §spec:design-size-ladders
+owns their names, their values and the rule for picking among them.
 
 **Rejected — keeping the existing values for "visual comfort".**
 Earlier defenses of the 25 / 200 / 100 / 360 deltas argued each
@@ -2679,34 +2669,41 @@ between two ownership boundaries.
 
 ### Design Size Ladders §spec:design-size-ladders
 
-*Status: not started*
+*Status: complete*
 
-`WorkbenchLayoutConstants` names its radius and spacing values with a
-package-local t-shirt vocabulary — `containerRadius`, `spacingSm` —
-that exists nowhere in VS Code. VS Code registers named ladders for
-corner radius, stroke thickness and spacing in
-[`baseSizes.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/platform/theme/common/sizes/baseSizes.ts),
-and
+`WorkbenchLayoutConstants` names its radius, stroke and spacing values
+after the ladders VS Code registers in
+[`baseSizes.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/platform/theme/common/sizes/baseSizes.ts).
 [`roundedCorners.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/roundedCorners.css)
 records the doctrine for choosing among the radius tiers — by the role
 a surface plays, not by how large it looks. The package adopts those
-ladders, their names, and that doctrine. Upstream owns the values.
+ladders, their names, and that doctrine. Upstream owns the values; the
+package owns only the tier a call site picks. The ladders ship whole,
+so a call site reaching for a gap or a radius finds a registered step
+instead of writing a literal.
 
 **Why the ladder, not the t-shirt names.** A vocabulary with no
 upstream analog is the drift §spec:capability-boundary exists to
 remove — the argument that retired the card primitives from the public
 API (§spec:structural-primitives). An adopter who reads a ladder name
 can look it up in VS Code's source and find both the value and the
-rule governing its use; `containerRadius` resolves to nothing outside
-this package, so the adopter learns a second vocabulary and maps it by
-hand. §req:success-criteria requires chrome "verifiable against a VS
-Code reference"; a name that cannot be looked up is not verifiable.
+rule governing its use; the retired `containerRadius` resolved to
+nothing outside this package, so the adopter learned a second
+vocabulary and mapped it by hand. §req:success-criteria requires
+chrome "verifiable against a VS Code reference"; a name that cannot be
+looked up is not verifiable.
 
-**Why constants, not theme tokens.** The registrations hold each size
-constant across every shipped theme, so §spec:layout-constants's "no
-runtime resolution for never-changing values" rationale carries over.
-If VS Code introduces per-theme size overrides, these migrate to
-`WorkbenchTheme` as tokens.
+**Why scalars, not prebuilt `BorderRadius` values.** `roundedCorners.css`
+applies a tier per corner — a side bar drops its facing corners where
+it meets the activity bar, a split button keeps its inner seam flat. A
+prebuilt all-corners value cannot express that, so the radius ladder
+exposes the upstream number and the call site composes the shape.
+
+**Why constants, not theme tokens.** The registrations use
+`sizeForAllThemes`, which holds each size constant across every
+shipped theme, so §spec:layout-constants's "no runtime resolution for
+never-changing values" rationale carries over. If VS Code introduces
+per-theme size overrides, these migrate to `WorkbenchTheme` as tokens.
 
 **Rejected — keeping the t-shirt names as aliases.** Retaining them
 alongside the ladder names would spare consumers a migration and cost
@@ -2728,6 +2725,11 @@ reason beyond call-site familiarity.
 - *Numeric spacing names read less fluently at call sites.*
   Traceability to upstream is the property §req:quality-attributes
   ranks first; call-site fluency is not a stated requirement.
+
+**Not covered by a ladder.** The icon scale (`iconXs` … `iconXl`) keeps
+its t-shirt names: VS Code registers two codicon sizes, not a ladder,
+so there is nothing upstream to adopt. §spec:layout-constants-canon
+records the rationale for that scale.
 
 **Observable behavior**.
 
