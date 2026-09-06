@@ -24,11 +24,16 @@ Widget wrapWithTheme(Widget child) {
 /// `MenuThemeData`. Located as the nearest `Material` *ancestor* of the row
 /// labelled [rowLabel], which excludes the `Material` the row's own
 /// `MenuItemButton` builds beneath itself.
+///
+/// Matches the *last* row carrying the label: `DropdownMenu` keeps an
+/// offstage copy of its rows in the anchor's own subtree to measure the
+/// menu's preferred width, and that copy sits above the open panel's row in
+/// the element tree.
 Material popupPanelOf(WidgetTester tester, String rowLabel) {
   return tester.widget<Material>(
     find
         .ancestor(
-          of: find.widgetWithText(MenuItemButton, rowLabel),
+          of: find.widgetWithText(MenuItemButton, rowLabel).last,
           matching: find.byType(Material),
         )
         .first,

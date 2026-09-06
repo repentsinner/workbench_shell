@@ -404,19 +404,25 @@ List<Widget> buildMaterialMenuChildren(
 ThemeData workbenchMenuThemeData(BuildContext context) {
   final workbench = context.workbenchTheme;
   return Theme.of(context).copyWith(
-    menuBarTheme: MenuBarThemeData(
-      style: MenuStyle(
-        backgroundColor: WidgetStatePropertyAll(workbench.menuBarBackground),
-        elevation: const WidgetStatePropertyAll(0),
-        shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
-        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-      ),
-    ),
+    menuBarTheme: MenuBarThemeData(style: workbenchMenuBarStyle(workbench)),
     menuButtonTheme: MenuButtonThemeData(
       style: workbenchMenuButtonStyle(workbench),
     ),
     menuTheme: MenuThemeData(style: workbenchMenuPanelStyle(workbench)),
     dividerTheme: DividerThemeData(color: workbench.menuSeparatorBackground),
+  );
+}
+
+/// Strip styling for a menu bar, from the `menubar.*` family
+/// (§spec:chrome-material-theming): the bar's own flat, square, unpadded
+/// panel. Context-free for the same reason as [workbenchMenuButtonStyle].
+@internal
+MenuStyle workbenchMenuBarStyle(WorkbenchTheme workbench) {
+  return MenuStyle(
+    backgroundColor: WidgetStatePropertyAll(workbench.menuBarBackground),
+    elevation: const WidgetStatePropertyAll(0),
+    shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
+    padding: const WidgetStatePropertyAll(EdgeInsets.zero),
   );
 }
 
@@ -545,8 +551,7 @@ class _EnableAwareMenuEntryState extends State<_EnableAwareMenuEntry> {
   @override
   void didUpdateWidget(_EnableAwareMenuEntry oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.entry.intent.runtimeType !=
-            widget.entry.intent.runtimeType ||
+    if (oldWidget.entry.intent.runtimeType != widget.entry.intent.runtimeType ||
         oldWidget.dispatchContext != widget.dispatchContext) {
       _updateActionSubscription();
     }
