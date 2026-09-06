@@ -94,4 +94,50 @@ void main() {
       });
     },
   );
+
+  group('WorkbenchLayoutConstants Modern UI surface treatment', () {
+    // Pins the values VS Code 1.138.0 uses for the floating-card treatment
+    // (SPEC §spec:modern-ui-surfaces). Each constant's doc comment cites the
+    // upstream registration it came from.
+    test('floatingCardGap matches layoutService.ts FLOATING_PANEL_MARGIN', () {
+      expect(WorkbenchLayoutConstants.floatingCardGap, 4.0);
+    });
+
+    test('floatingCardRadius takes the cornerRadius.large tier', () {
+      expect(WorkbenchLayoutConstants.floatingCardRadius, 8.0);
+    });
+
+    test('activity bar rail metrics match activitybarPart.ts', () {
+      // FLOATING_ACTIVITYBAR_WIDTH / FLOATING_LANE / FLOATING_ACTION_HEIGHT /
+      // FLOATING_ACTION_GAP.
+      expect(WorkbenchLayoutConstants.activityBarRailWidth, 36.0);
+      expect(WorkbenchLayoutConstants.activityBarLane, 8.0);
+      expect(WorkbenchLayoutConstants.activityBarItemHeight, 36.0);
+      expect(WorkbenchLayoutConstants.activityBarItemGap, 8.0);
+    });
+
+    test('the rail allocation is the card plus its perimeter gutter', () {
+      // ActivitybarPart.minimumWidth = baseWidth + floatingHorizontalGutter,
+      // i.e. 36 + (8 lane + 4 outer gutter) = 48.
+      expect(
+        WorkbenchLayoutConstants.activityBarWidth,
+        WorkbenchLayoutConstants.activityBarRailWidth +
+            WorkbenchLayoutConstants.activityBarLane +
+            WorkbenchLayoutConstants.floatingCardGap,
+      );
+    });
+
+    test('the item indicator is the item box less 4px, on the small tier', () {
+      // activityBar.css sizes it calc(action-height - 4px), rounded at
+      // cornerRadius.small.
+      expect(WorkbenchLayoutConstants.activityBarItemIndicatorSize, 32.0);
+      expect(WorkbenchLayoutConstants.activityBarItemIndicatorRadius, 4.0);
+    });
+
+    test('the icon column inset centres it in the card content box', () {
+      // floatingPanels.css: calc((lane - 2px) / 2) — the lane less the card's
+      // two strokes, halved.
+      expect(WorkbenchLayoutConstants.activityBarIconInset, 3.0);
+    });
+  });
 }
