@@ -139,7 +139,30 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   final Color inputForeground;
   final Color inputBorder;
   final Color inputPlaceholderForeground;
+
+  /// Select trigger fill. VS Code `dropdown.background` (`#3C3C3C` dark /
+  /// white light). Drives the §spec:chrome-material-theming
+  /// `DropdownMenu` trigger, and the `menu.*` family's own fallbacks.
   final Color dropdownBackground;
+
+  /// Select label. VS Code `dropdown.foreground`, whose registry default
+  /// is `#F0F0F0` in dark themes and [foreground] in light ones.
+  final Color dropdownForeground;
+
+  /// Select hairline. VS Code `dropdown.border`, whose registry default
+  /// chains to `dropdown.background` in dark themes and is `#CECECE` in
+  /// light ones — so a dark theme that omits it draws a hairline the
+  /// same colour as the fill, exactly as upstream does.
+  final Color dropdownBorder;
+
+  /// Open-list fill. VS Code `dropdown.listBackground`, registered null
+  /// outside high contrast: upstream paints the list with
+  /// `asCssValueWithDefault(selectListBackground, background)`, so this
+  /// resolves through [dropdownBackground] rather than through a Material
+  /// surface. A theme that sets the token gets the colour it asked for;
+  /// one that omits it gets the trigger fill.
+  final Color dropdownListBackground;
+
   final Color buttonBackground;
   final Color buttonForeground;
   final Color buttonHoverBackground;
@@ -445,6 +468,9 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.inputBorder,
     required this.inputPlaceholderForeground,
     required this.dropdownBackground,
+    required this.dropdownForeground,
+    required this.dropdownBorder,
+    required this.dropdownListBackground,
     required this.buttonBackground,
     required this.buttonForeground,
     required this.buttonHoverBackground,
@@ -635,6 +661,13 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       'dropdown.background',
       dl(const Color(0xFF3C3C3C), const Color(0xFFFFFFFF)),
     );
+    // inputColors.ts: dropdown.foreground is #F0F0F0 dark / `foreground`
+    // light. Shared with menu.foreground, whose registry default chains
+    // here.
+    final dropdownFg = map.resolve(
+      'dropdown.foreground',
+      dl(const Color(0xFFF0F0F0), fg),
+    );
     final listActiveSelectionBg = map.resolve(
       'list.activeSelectionBackground',
       dl(const Color(0xFF04395E), const Color(0xFF0060C0)),
@@ -808,7 +841,23 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         'input.placeholderForeground',
         secondaryFg,
       ),
+      // Select family (§spec:chrome-material-theming). inputColors.ts:
+      // dropdown.border chains to dropdown.background in dark themes and
+      // is #CECECE in light ones; dropdown.listBackground registers null
+      // outside high contrast and selectBoxCustom.ts paints the open list
+      // with `asCssValueWithDefault(selectListBackground, background)`, so
+      // it resolves through the trigger fill rather than a Material
+      // surface.
       dropdownBackground: dropdownBg,
+      dropdownForeground: dropdownFg,
+      dropdownBorder: map.resolve(
+        'dropdown.border',
+        dl(dropdownBg, const Color(0xFFCECECE)),
+      ),
+      dropdownListBackground: map.resolve(
+        'dropdown.listBackground',
+        dropdownBg,
+      ),
       buttonBackground: map.resolve(
         'button.background',
         dl(const Color(0xFF0E639C), const Color(0xFF007ACC)),
@@ -893,13 +942,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // panel and the highlighted row draw no outline unless the theme
       // sets them.
       menuBackground: map.resolve('menu.background', dropdownBg),
-      menuForeground: map.resolve(
-        'menu.foreground',
-        map.resolve(
-          'dropdown.foreground',
-          dl(const Color(0xFFF0F0F0), fg),
-        ),
-      ),
+      menuForeground: map.resolve('menu.foreground', dropdownFg),
       menuBorder: map['menu.border'],
       menuSelectionBackground: map.resolve(
         'menu.selectionBackground',
@@ -907,10 +950,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       ),
       menuSelectionForeground: map.resolve(
         'menu.selectionForeground',
-        map.resolve(
-          'list.activeSelectionForeground',
-          const Color(0xFFFFFFFF),
-        ),
+        map.resolve('list.activeSelectionForeground', const Color(0xFFFFFFFF)),
       ),
       menuSelectionBorder: map['menu.selectionBorder'],
       menuSeparatorBackground: map.resolve(
@@ -1103,6 +1143,9 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? inputBorder,
     Color? inputPlaceholderForeground,
     Color? dropdownBackground,
+    Color? dropdownForeground,
+    Color? dropdownBorder,
+    Color? dropdownListBackground,
     Color? buttonBackground,
     Color? buttonForeground,
     Color? buttonHoverBackground,
@@ -1241,6 +1284,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       inputPlaceholderForeground:
           inputPlaceholderForeground ?? this.inputPlaceholderForeground,
       dropdownBackground: dropdownBackground ?? this.dropdownBackground,
+      dropdownForeground: dropdownForeground ?? this.dropdownForeground,
+      dropdownBorder: dropdownBorder ?? this.dropdownBorder,
+      dropdownListBackground:
+          dropdownListBackground ?? this.dropdownListBackground,
       buttonBackground: buttonBackground ?? this.buttonBackground,
       buttonForeground: buttonForeground ?? this.buttonForeground,
       buttonHoverBackground:
@@ -1451,6 +1498,12 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         other.inputPlaceholderForeground,
       ),
       dropdownBackground: c(dropdownBackground, other.dropdownBackground),
+      dropdownForeground: c(dropdownForeground, other.dropdownForeground),
+      dropdownBorder: c(dropdownBorder, other.dropdownBorder),
+      dropdownListBackground: c(
+        dropdownListBackground,
+        other.dropdownListBackground,
+      ),
       buttonBackground: c(buttonBackground, other.buttonBackground),
       buttonForeground: c(buttonForeground, other.buttonForeground),
       buttonHoverBackground: c(
@@ -1668,6 +1721,9 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           inputBorder == other.inputBorder &&
           inputPlaceholderForeground == other.inputPlaceholderForeground &&
           dropdownBackground == other.dropdownBackground &&
+          dropdownForeground == other.dropdownForeground &&
+          dropdownBorder == other.dropdownBorder &&
+          dropdownListBackground == other.dropdownListBackground &&
           buttonBackground == other.buttonBackground &&
           buttonForeground == other.buttonForeground &&
           buttonHoverBackground == other.buttonHoverBackground &&
@@ -1793,6 +1849,9 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     inputBorder,
     inputPlaceholderForeground,
     dropdownBackground,
+    dropdownForeground,
+    dropdownBorder,
+    dropdownListBackground,
     buttonBackground,
     buttonForeground,
     buttonHoverBackground,

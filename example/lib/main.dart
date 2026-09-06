@@ -1474,9 +1474,6 @@ class _ThemeDropdownField extends StatelessWidget {
     final descriptionColor = enabled
         ? theme.descriptionForeground
         : theme.descriptionForeground.withValues(alpha: 0.55);
-    final itemColor = enabled
-        ? theme.foreground
-        : theme.foreground.withValues(alpha: 0.55);
     // Defensive: if the supplied value isn't in the entry list (a
     // stored preference for a theme that's no longer bundled), pass
     // null to the dropdown so it doesn't assert. The user can pick a
@@ -1497,41 +1494,29 @@ class _ThemeDropdownField extends StatelessWidget {
           style: theme.bodyStyle.copyWith(color: descriptionColor),
         ),
         const SizedBox(height: WorkbenchLayoutConstants.spacingSize80),
-        Container(
-          decoration: BoxDecoration(
-            color: theme.inputBackground,
-            borderRadius: const BorderRadius.all(
-              Radius.circular(WorkbenchLayoutConstants.cornerRadiusSmall),
-            ),
-            border: Border.all(color: theme.inputBorder),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: WorkbenchLayoutConstants.spacingSize80,
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: resolvedValue,
-              isExpanded: true,
-              isDense: true,
-              dropdownColor: theme.dropdownBackground,
-              style: theme.bodyStyle.copyWith(color: itemColor),
-              iconEnabledColor: theme.descriptionForeground,
-              iconDisabledColor: theme.descriptionForeground.withValues(
-                alpha: 0.5,
+        // A bare [DropdownMenu]: no fill, hairline, height or popup colour
+        // wired here. `applyWorkbenchChrome` paints all of it from the
+        // `dropdown.*` family (§spec:chrome-material-theming). It replaces a
+        // hand-wired Material 2 `DropdownButton`, whose popup fill can only
+        // come from the global `canvasColor` — the reason the spec rejects
+        // it as the select.
+        //
+        // `requestFocusOnTap: false` keeps the trigger a select rather than
+        // a filter field: these slots pick from a fixed list of bundled
+        // themes, so there is nothing to type.
+        DropdownMenu<String>(
+          enabled: enabled,
+          initialSelection: resolvedValue,
+          requestFocusOnTap: false,
+          expandedInsets: EdgeInsets.zero,
+          onSelected: onChanged,
+          dropdownMenuEntries: [
+            for (final entry in entries)
+              DropdownMenuEntry<String>(
+                value: entry.filename,
+                label: entry.label,
               ),
-              items: [
-                for (final entry in entries)
-                  DropdownMenuItem<String>(
-                    value: entry.filename,
-                    child: Text(
-                      entry.label,
-                      style: theme.bodyStyle.copyWith(color: theme.foreground),
-                    ),
-                  ),
-              ],
-              onChanged: enabled ? onChanged : null,
-            ),
-          ),
+          ],
         ),
       ],
     );
@@ -1554,10 +1539,61 @@ class _EditorPlaceholder extends StatelessWidget {
     // editor height on any window.
     return SingleChildScrollView(
       padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingSize240),
-      child: Text(
-        _editorLoremText,
-        style: theme.editorStyle.copyWith(height: 1.6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _EditorLanguageSelect(),
+          const SizedBox(height: WorkbenchLayoutConstants.spacingSize240),
+          Text(
+            _editorLoremText,
+            style: theme.editorStyle.copyWith(height: 1.6),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+/// A bare, unstyled [DropdownMenu] standing in the editor area — the
+/// select half of the chrome review surface (§spec:chrome-material-theming),
+/// as the button tiers in the Settings sidebar are the button half.
+///
+/// Nothing here sets a colour, a height or a shape. `applyWorkbenchChrome`
+/// fills the trigger from `dropdown.background`, labels it
+/// `dropdown.foreground`, draws its hairline from `dropdown.border`, and
+/// paints the open list from `dropdown.listBackground`. Switch themes from
+/// the Settings sidebar to see both halves follow: Dark Modern and Monokai
+/// set a list background distinct from the trigger fill, while Dark+, Light+
+/// and the Solarized pair omit the token and the list takes the trigger fill
+/// rather than a Material surface.
+class _EditorLanguageSelect extends StatelessWidget {
+  const _EditorLanguageSelect();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.workbenchTheme;
+    // Wraps rather than rows: the editor narrows under Centered Layout and
+    // on a small window, and a demo control should reflow rather than
+    // overflow.
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: WorkbenchLayoutConstants.spacingSize120,
+      runSpacing: WorkbenchLayoutConstants.spacingSize80,
+      children: [
+        Text(
+          'Language mode',
+          style: theme.bodyText.copyWith(color: theme.descriptionForeground),
+        ),
+        const DropdownMenu<String>(
+          initialSelection: 'Dart',
+          dropdownMenuEntries: [
+            DropdownMenuEntry(value: 'Dart', label: 'Dart'),
+            DropdownMenuEntry(value: 'JSON', label: 'JSON'),
+            DropdownMenuEntry(value: 'Markdown', label: 'Markdown'),
+            DropdownMenuEntry(value: 'Plain Text', label: 'Plain Text'),
+          ],
+        ),
+      ],
     );
   }
 }

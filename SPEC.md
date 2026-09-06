@@ -2470,7 +2470,7 @@ are generic in shape; only the family / size choice is host-tunable.
 
 ### Chrome Material Theming Contract §spec:chrome-material-theming
 
-*Status: in progress*
+*Status: complete*
 
 `applyWorkbenchChrome` composes VS Code styling onto a host's
 `ThemeData` so the standard Material widgets a host places inherit chrome
@@ -2525,10 +2525,14 @@ parity — it themes the whole widget, not a subset of its states.
 Material widgets that draw a popup menu and a select, at the same flat
 compact sizing:
 
-- `MenuAnchor` / `SubmenuButton` / `MenuItemButton` — panel fill
-  `menu.background`, label `menu.foreground`, hairline `menu.border`,
-  highlighted row `menu.selectionBackground` /
-  `menu.selectionForeground`, separator `menu.separatorBackground`.
+- `MenuAnchor` / `SubmenuButton` / `MenuItemButton` / `MenuBar` — panel
+  fill `menu.background`, label `menu.foreground`, hairline
+  `menu.border`, highlighted row `menu.selectionBackground` /
+  `menu.selectionForeground`, separator `menu.separatorBackground`. A
+  host's own `MenuBar` strip reads `menubar.*`, as the shell's does:
+  Flutter routes a strip's top-level `SubmenuButton`s through the same
+  `MenuButtonTheme` that carries popup-row styling, so the strip is
+  inside the family whether or not the chrome addresses it.
 - `DropdownMenu` — trigger fill `dropdown.background`, label
   `dropdown.foreground`, hairline `dropdown.border`; its open list takes
   `dropdown.listBackground`, falling back to the trigger fill.
@@ -2545,6 +2549,29 @@ fill. The chrome carries all four and resolves the list token through
 asked for and a theme that omits it gets the trigger fill rather than
 Material's default surface. Mapping `dropdown.background` alone leaves
 the popup unthemed under every theme.
+
+**Where the family ends.** Parity is scoped per family, so the boundary
+needs stating. Three things sit outside it.
+
+A menu separator is a plain `Divider`, and Flutter offers no
+menu-scoped divider theme, so the family's separator token is reachable
+only through `ThemeData.dividerTheme` — which every `Divider` under the
+chrome then reads, in a menu or not. The chrome accepts that reach: a
+host that composes the chrome onto its `ThemeData` is asking for its
+Material widgets to read as VS Code, and an unthemed separator resolves
+`outlineVariant`, a role the chrome overrides nothing of.
+
+A `CheckboxMenuButton` or `RadioMenuButton` row is themed like any
+other menu item, but the check or radio mark it draws belongs to the
+toggle family, which is not an owned surface. Its unselected outline
+therefore still resolves `ColorScheme.onSurfaceVariant`. Owning it
+would mean theming every `Checkbox` and `Radio` in the host's app —
+`CheckboxThemeData` has no menu scope — which is a wider claim than
+this contract makes.
+
+`PopupMenuButton` is unthemed for the reason `DropdownButton` is: both
+are Material 2, and the contract commits to the Material 3 menu
+widgets. A host that wants a themed popup menu uses `MenuAnchor`.
 
 **Popup menus read `menu.*`, not a workbench part token.** VS Code
 registers a seven-token family for popup menu chrome, distinct from the

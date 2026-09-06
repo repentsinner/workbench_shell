@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../layout_constants.dart';
 import '../workbench_theme.dart';
+import '../workbench_view_menu.dart';
 
 /// Compose the workbench chrome's Material theming onto a host's
 /// [base] [ThemeData].
@@ -29,8 +30,12 @@ import '../workbench_theme.dart';
 /// - an [IconButtonThemeData] for bare [IconButton]s, glyph color from
 ///   the `iconForeground` token (VS Code `icon.foreground`) at the same
 ///   flat compact sizing (§spec:chrome-material-theming).
+/// - the menu and select family — [MenuThemeData], [MenuButtonThemeData],
+///   [MenuBarThemeData] and [DropdownMenuThemeData] — so a host's stock
+///   [MenuAnchor] and [DropdownMenu] read the `menu.*` and `dropdown.*`
+///   token families without per-widget wiring.
 ///
-/// All three are flat — elevation pinned to 0 across every state. The
+/// The button tiers are flat — elevation pinned to 0 across every state. The
 /// helper keeps [FilledButton]'s hover/pressed state-layer *overlay* (the
 /// color highlight) but drops its 1dp hover *elevation*: that elevation
 /// renders the button through a PhysicalShape, which paints a transparent
@@ -63,9 +68,10 @@ import '../workbench_theme.dart';
 /// A host obtains VS Code Material theming with one call instead of
 /// hand-wiring each widget theme. See SPEC §spec:chrome-material-theming.
 ///
-/// Extensible by design: button theming and shape are the first Material
-/// surfaces the chrome owns. Input decoration and other surfaces can be
-/// added here later without changing call sites.
+/// Extensible by design: the button family and the menu and select family
+/// are the Material surfaces the chrome owns today. Further surfaces join
+/// them here without changing call sites, each themed whole rather than in
+/// part (§spec:chrome-material-theming).
 ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
   // Drop any prior WorkbenchTheme, keep all other host extensions,
   // then install the supplied chrome theme.
@@ -79,6 +85,27 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
   const buttonShape = WorkbenchLayoutConstants.buttonShape;
   const buttonMinSize = Size(0, WorkbenchLayoutConstants.buttonHeight);
   const buttonPadding = WorkbenchLayoutConstants.buttonPadding;
+
+  // The popup panel the shell's own menus paint (§spec:menu-model). The
+  // select's open list derives from it below, so both popup surfaces share
+  // one elevation, shape and surface tint and differ only in the token
+  // family they fill from.
+  final menuPanelStyle = workbenchMenuPanelStyle(chrome);
+
+  // Select trigger hairline. `dropdown.border` chains to
+  // `dropdown.background` in dark themes, so an unstyled dark theme draws
+  // a hairline the colour of the fill — invisible, exactly as upstream
+  // renders it. VS Code draws no distinct focus border on the select
+  // trigger (`selectBox.css` styles only radius and cursor; the focus ring
+  // lives on the open list's rows), so every state takes one side.
+  //
+  // The corner radius is the controls tier VS Code gives the select
+  // (`selectBox.css`: `--vscode-cornerRadius-small`), which
+  // [OutlineInputBorder] already defaults to; a test pins the two together
+  // so a change to the tier cannot drift this border away from it.
+  final dropdownBorder = OutlineInputBorder(
+    borderSide: BorderSide(color: chrome.dropdownBorder),
+  );
 
   return base.copyWith(
     extensions: extensions,
@@ -200,5 +227,96 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
     ),
+    // Popup menu panel and rows, from the `menu.*` family. These are the
+    // same builders the shell's own popups use through
+    // `workbenchMenuThemeData`, so a host's bare [MenuAnchor] and the View
+    // menu render identically. Both paths intentionally drive one pair of
+    // builders: `workbenchMenuThemeData` themes the shell's own subtree
+    // whether or not the host called this helper, and this helper reaches
+    // the host's own menus, which that subtree never wraps.
+    menuTheme: MenuThemeData(style: menuPanelStyle),
+    menuButtonTheme: MenuButtonThemeData(
+      style: workbenchMenuButtonStyle(chrome),
+    ),
+    // A host's own bare [MenuBar] strip. Flutter exposes no
+    // `SubmenuButtonTheme`: a menu bar's top-level [SubmenuButton]s resolve
+    // through [MenuButtonTheme], the same theme that carries popup-row
+    // styling, so installing rows globally already lands `menu.*` on the
+    // strip's buttons. Leaving the strip's own panel at Material's surface
+    // would then be exactly the partial coverage the parity invariant
+    // forbids (§spec:chrome-material-theming), so the chrome paints it from
+    // the `menubar.*` family it belongs to. The shell's own strip goes one
+    // better and overrides its buttons with a widget-level style, which a
+    // host can do too; a theme alone cannot separate the two roles.
+    menuBarTheme: MenuBarThemeData(style: workbenchMenuBarStyle(chrome)),
+    // The separator a menu draws between groups. Flutter's menus take a
+    // plain [Divider] as a child and offer no menu-scoped divider theme,
+    // so the menu family's separator token can only be reached globally.
+    // Left unset, every divider under the chrome — inside a menu or not —
+    // resolves `outlineVariant`, a role the chrome overrides nothing of.
+    // The shell's own popups already paint `menu.separatorBackground`
+    // through `workbenchMenuThemeData`; this gives a host's menus the same
+    // hairline (§spec:chrome-material-theming).
+    dividerTheme: DividerThemeData(color: chrome.menuSeparatorBackground),
+    // Select (§spec:chrome-material-theming). The trigger is a text field:
+    // its fill, hairline and height come from a decoration theme scoped to
+    // [DropdownMenu] rather than from `ThemeData.inputDecorationTheme`,
+    // which would repaint every text field in the host app with the select
+    // family.
+    dropdownMenuTheme: DropdownMenuThemeData(
+      textStyle: chrome.helperStyle.copyWith(color: chrome.dropdownForeground),
+      // A disabled select dims its label the way a disabled segment does,
+      // rather than reading `onSurface` — a role the chrome leaves unset.
+      disabledColor: chrome.descriptionForeground,
+      inputDecorationTheme: InputDecorationThemeData(
+        filled: true,
+        fillColor: chrome.dropdownBackground,
+        // Flat: no Material hover or focus tint over the VS Code fill.
+        hoverColor: Colors.transparent,
+        focusColor: Colors.transparent,
+        isDense: true,
+        constraints: const BoxConstraints(
+          minHeight: WorkbenchLayoutConstants.buttonHeight,
+        ),
+        contentPadding: buttonPadding,
+        // The trailing chevron sits in Material's 48px icon slot, inside a
+        // 4px pad [DropdownMenu] adds of its own — together taller than
+        // every other chrome control, and the tallest thing in the field,
+        // so it alone sets the trigger's height. Pin the slot to the
+        // chrome's button box in both directions: the maximum is what
+        // brings the trigger down to [WorkbenchLayoutConstants.buttonHeight],
+        // and the chevron centres in it at its natural size.
+        prefixIconConstraints: _dropdownIconSlot,
+        suffixIconConstraints: _dropdownIconSlot,
+        border: dropdownBorder,
+        enabledBorder: dropdownBorder,
+        focusedBorder: dropdownBorder,
+        disabledBorder: dropdownBorder,
+        hintStyle: chrome.helperStyle.copyWith(
+          color: chrome.descriptionForeground,
+        ),
+        labelStyle: chrome.helperStyle.copyWith(
+          color: chrome.dropdownForeground,
+        ),
+      ),
+      // The open list. `dropdown.listBackground` registers null outside
+      // high contrast and upstream paints the list with that token
+      // defaulted to the trigger fill, so the token already resolves
+      // through `dropdown.background` — the list never falls through to
+      // Material's surface. Rows come from the [MenuButtonTheme] above, so
+      // the select's list and a popup menu share one row height.
+      menuStyle: menuPanelStyle.copyWith(
+        backgroundColor: WidgetStatePropertyAll(chrome.dropdownListBackground),
+        side: WidgetStatePropertyAll(BorderSide(color: chrome.dropdownBorder)),
+      ),
+    ),
   );
 }
+
+/// The icon slot a [DropdownMenu]'s leading and trailing glyphs sit in —
+/// the chrome's button box rather than Material's 48px touch target.
+const BoxConstraints _dropdownIconSlot = BoxConstraints(
+  minWidth: WorkbenchLayoutConstants.buttonHeight,
+  minHeight: WorkbenchLayoutConstants.buttonHeight,
+  maxHeight: WorkbenchLayoutConstants.buttonHeight,
+);
