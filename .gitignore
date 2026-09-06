@@ -1,6 +1,7 @@
 # Generated Dart/Flutter artifacts. None of these are source; all are
-# reproduced by `pub get`, `build_runner`, or `dart doc`. Patterns without
-# a leading slash match at any depth, so they also cover example/.
+# reproduced by `pub get`, `build_runner`, `dart doc`, or `pod install`.
+# Patterns without a leading slash match at any depth, so they also cover
+# example/.
 
 # Tool and build caches.
 .dart_tool/
@@ -12,6 +13,13 @@ build/
 # lockfile gives false confidence and has no effect on consumers.
 # See https://dart.dev/tools/pub/private-files#pubspeclock.
 /pubspec.lock
+
+# CocoaPods lockfile — the pubspec.lock argument again. The example's pods
+# derive from this package's own dependencies, and `pod install` rebuilds
+# them on every darwin build, so pinning records nothing a consumer
+# resolves against. flutter/packages ignores it; the Flutter template does
+# not. Covers example/ios and example/macos.
+Podfile.lock
 
 # OS and editor noise.
 .DS_Store
