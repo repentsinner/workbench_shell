@@ -1,3 +1,10 @@
+## [0.33.4](https://github.com/repentsinner/workbench_shell/compare/v0.33.3...v0.33.4) (2026-09-06)
+
+
+### Bug Fixes
+
+* **example:** make every select select-only, not a text entry ([2a2af15](https://github.com/repentsinner/workbench_shell/commit/2a2af1550f427956489ec6164f247b88cf5e3564))
+
 ## [0.33.3](https://github.com/repentsinner/workbench_shell/compare/v0.33.2...v0.33.3) (2026-09-06)
 
 
