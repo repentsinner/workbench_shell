@@ -46,25 +46,29 @@ class WorkbenchLayoutConstants {
   /// margins/hairlines are suppressed (VS Code's `centeredLayoutAutoResize`).
   static const double centeredLayoutMinEditorWidth = 400.0;
 
-  // ==================== SPACING SCALE ====================
+  // ==================== SPACING RAMP ====================
+  //
+  // VS Code registers a fixed spacing ramp for padding, margins and gaps in
+  // [`baseSizes.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/platform/theme/common/sizes/baseSizes.ts)
+  // (§spec:design-size-ladders). Each numeric token encodes its value in
+  // tenths of a pixel, so `spacingSize160` is 16px. Upstream owns the
+  // values; a gap the package needs picks the nearest registered step
+  // rather than inventing a literal.
 
-  /// 2px — hairline gaps (e.g. between axis label and value).
-  static const double spacingXxs = 2.0;
-
-  /// 4px — tight gaps (e.g. icon-to-text in status bar items).
-  static const double spacingXs = 4.0;
-
-  /// 8px — standard small gap (e.g. between buttons in a row).
-  static const double spacingSm = 8.0;
-
-  /// 12px — medium gap (e.g. section heading to content).
-  static const double spacingMd = 12.0;
-
-  /// 16px — standard section gap (e.g. between sidebar sections).
-  static const double spacingLg = 16.0;
-
-  /// 24px — large section gap (e.g. between major sidebar sections).
-  static const double spacingXl = 24.0;
+  static const double spacingNone = 0.0;
+  static const double spacingSize20 = 2.0;
+  static const double spacingSize40 = 4.0;
+  static const double spacingSize60 = 6.0;
+  static const double spacingSize80 = 8.0;
+  static const double spacingSize100 = 10.0;
+  static const double spacingSize120 = 12.0;
+  static const double spacingSize160 = 16.0;
+  static const double spacingSize200 = 20.0;
+  static const double spacingSize240 = 24.0;
+  static const double spacingSize280 = 28.0;
+  static const double spacingSize320 = 32.0;
+  static const double spacingSize360 = 36.0;
+  static const double spacingSize400 = 40.0;
 
   // ==================== ICON SIZES ====================
 
@@ -128,25 +132,62 @@ class WorkbenchLayoutConstants {
   /// Active-indicator border width on activity bar icons.
   static const double activityBarIndicatorWidth = 2.0;
 
-  // ==================== BORDER RADIUS ====================
+  // ==================== CORNER RADIUS LADDER ====================
+  //
+  // VS Code registers a six-tier corner-radius ladder in
+  // [`baseSizes.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/platform/theme/common/sizes/baseSizes.ts).
+  // [`roundedCorners.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/roundedCorners.css)
+  // records the doctrine for choosing among the tiers: pick by the role a
+  // surface plays, not by how large it looks (§spec:design-size-ladders).
+  //
+  //   - Controls tier ([cornerRadiusSmall]) — interactable controls: text
+  //     inputs, selects, list/tree rows, scrollbar sliders, buttons.
+  //   - Inner tier ([cornerRadiusMedium]) — non-control containers that sit
+  //     within the workbench.
+  //   - Outer tier ([cornerRadiusLarge]) — overlays floating above the
+  //     workbench: quick input, hovers, menus, dialogs.
+  //
+  // Upstream owns the values; the package owns only the tier assignment at
+  // each call site. The registrations hold constant across every shipped
+  // theme, so these stay constants rather than `WorkbenchTheme` tokens.
 
-  /// 4px — standard container border radius.
-  static const BorderRadius containerRadius = BorderRadius.all(
-    Radius.circular(4),
-  );
+  /// 2px — `cornerRadius.xSmall`. Very compact UI elements.
+  static const double cornerRadiusXSmall = 2.0;
 
-  /// 4px — button border radius. Sourced from VS Code's `button.css`
-  /// (`.monaco-text-button { border-radius: 4px; }`). Same scale as
-  /// [containerRadius] today; tokenized separately so a future visual
-  /// revision of button shape can diverge without touching every other
-  /// rounded surface (mirrors [containerRadius]/[notificationCardRadius]).
-  static const BorderRadius buttonRadius = BorderRadius.all(Radius.circular(4));
+  /// 4px — `cornerRadius.small`. The controls tier: compact, interactable
+  /// UI elements.
+  static const double cornerRadiusSmall = 4.0;
+
+  /// 6px — `cornerRadius.medium`. The inner tier: non-control containers
+  /// within the workbench.
+  static const double cornerRadiusMedium = 6.0;
+
+  /// 8px — `cornerRadius.large`. The outer tier: prominent surfaces and
+  /// overlays floating above the workbench.
+  static const double cornerRadiusLarge = 8.0;
+
+  /// 12px — `cornerRadius.xLarge`. Very prominent UI elements.
+  static const double cornerRadiusXLarge = 12.0;
+
+  /// 9999px — `cornerRadius.circle`. Fully rounded elements; the radius
+  /// clamps to half the shorter side, so a short badge reads as a dot.
+  static const double cornerRadiusCircle = 9999.0;
+
+  // ==================== STROKE THICKNESS ====================
+
+  /// 1px — `strokeThickness`. Base thickness for chrome borders and
+  /// outlines (§spec:design-size-ladders).
+  static const double strokeThickness = 1.0;
+
+  // ==================== BUTTONS ====================
 
   /// Button shape — applied to the app-level Material button themes
-  /// (Filled/Text, §spec:chrome-material-theming). De-pills Material 3's default `StadiumBorder`
-  /// to match VS Code's rectangular-with-4px buttons.
+  /// (Filled/Text, §spec:chrome-material-theming). De-pills Material 3's
+  /// default `StadiumBorder` to match VS Code's rectangular buttons. A
+  /// button is an interactable control, so it takes the controls tier;
+  /// upstream's `button.css` renders `.monaco-text-button` at the same 4px.
   static const RoundedRectangleBorder buttonShape = RoundedRectangleBorder(
-    borderRadius: buttonRadius,
+    borderRadius: BorderRadius.all(Radius.circular(cornerRadiusSmall)),
   );
 
   /// 32px — button height. VS Code's `.monaco-button` is a compact
@@ -172,27 +213,20 @@ class WorkbenchLayoutConstants {
 
   // ==================== NOTIFICATION CENTER (§spec:notification-center) ====================
 
-  /// 4px — notification card border radius. Same scale as
-  /// [containerRadius]; named separately so a future visual revision
-  /// of notification cards (rounder pill, square, etc.) can change
-  /// without touching every other card surface.
-  static const BorderRadius notificationCardRadius = BorderRadius.all(
-    Radius.circular(4),
-  );
-
   /// 450px — notification card width. VS Code `notificationsToasts.ts`
   /// `MAX_WIDTH = 450`. Wide enough to fit a couple of action buttons
   /// on one row; matches VS Code's observable toast layout.
   static const double notificationCardWidth = 450.0;
 
-  /// 16px — gap between the notification stack and the workbench
-  /// edge (bottom and right). Aligns with [spacingLg] so the stack
-  /// sits on the same grid as sidebar content.
-  static const double notificationStackInset = 16.0;
+  /// Gap between the notification stack and the workbench edge (bottom
+  /// and right). Takes the ramp's 16px step so the stack sits on the same
+  /// grid as sidebar content.
+  static const double notificationStackInset = spacingSize160;
 
-  /// 8px — vertical gap between cards in the stack. One step below
-  /// [spacingMd] so cards feel grouped rather than separated.
-  static const double notificationStackGap = 8.0;
+  /// Vertical gap between cards in the stack. Tighter than
+  /// [notificationStackInset] so the cards read as one group rather than
+  /// as separate overlays.
+  static const double notificationStackGap = spacingSize80;
 
   /// 5 — visible card budget. When more cards exist, the oldest
   /// non-persistent ones collapse into a "+N more" summary card

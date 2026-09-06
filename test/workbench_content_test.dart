@@ -117,24 +117,21 @@ void main() {
       },
     );
 
-    testWidgets(
-      'public constructor takes no host collapsible flag — pane is '
-      'non-collapsible (§spec:section-disclosure)',
-      (tester) async {
-        // The default public constructor renders the standalone primitive:
-        // body always shown, no chevron. Collapsibility is container-derived
-        // (§spec:view-stack), never a host param. A `collapsible:` argument to
-        // this constructor would not compile — analyze guards the absence.
-        await tester.pumpWidget(
-          wrapWithTheme(
-            const WorkbenchViewPane(title: 'Hello', child: Text('body')),
-          ),
-        );
-        expect(find.text('body'), findsOneWidget);
-        expect(find.byIcon(Symbols.expand_more_rounded), findsNothing);
-        expect(find.byIcon(Symbols.chevron_right_rounded), findsNothing);
-      },
-    );
+    testWidgets('public constructor takes no host collapsible flag — pane is '
+        'non-collapsible (§spec:section-disclosure)', (tester) async {
+      // The default public constructor renders the standalone primitive:
+      // body always shown, no chevron. Collapsibility is container-derived
+      // (§spec:view-stack), never a host param. A `collapsible:` argument to
+      // this constructor would not compile — analyze guards the absence.
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const WorkbenchViewPane(title: 'Hello', child: Text('body')),
+        ),
+      );
+      expect(find.text('body'), findsOneWidget);
+      expect(find.byIcon(Symbols.expand_more_rounded), findsNothing);
+      expect(find.byIcon(Symbols.chevron_right_rounded), findsNothing);
+    });
 
     testWidgets('collapsible pane shows a leading chevron', (tester) async {
       await tester.pumpWidget(
@@ -320,21 +317,22 @@ void main() {
       expect(ringBorder(tester).top.width, 1.0);
     });
 
-    testWidgets('a click focuses a non-collapsible header and paints the ring', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        wrapWithTheme(
-          const WorkbenchViewPane(title: 'Hello', child: Text('body')),
-        ),
-      );
-      expect(ringColor(tester), Colors.transparent);
+    testWidgets(
+      'a click focuses a non-collapsible header and paints the ring',
+      (tester) async {
+        await tester.pumpWidget(
+          wrapWithTheme(
+            const WorkbenchViewPane(title: 'Hello', child: Text('body')),
+          ),
+        );
+        expect(ringColor(tester), Colors.transparent);
 
-      await tester.tap(find.text('HELLO'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('HELLO'));
+        await tester.pumpAndSettle();
 
-      expect(ringColor(tester), testWorkbenchTheme.focusBorder);
-    });
+        expect(ringColor(tester), testWorkbenchTheme.focusBorder);
+      },
+    );
 
     testWidgets('clicking a collapsible header focuses and toggles', (
       tester,
@@ -434,30 +432,31 @@ void main() {
       expect(find.text('body'), findsOneWidget);
     });
 
-    testWidgets('per-pane keys are no-ops on a focused non-collapsible header', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        wrapWithTheme(
-          const WorkbenchViewPane(title: 'Hello', child: Text('body')),
-        ),
-      );
-      await tester.tap(find.text('HELLO'));
-      await tester.pumpAndSettle();
-      expect(ringColor(tester), testWorkbenchTheme.focusBorder);
-
-      // None of these touch the always-shown body — and none throw.
-      for (final key in [
-        LogicalKeyboardKey.arrowLeft,
-        LogicalKeyboardKey.arrowRight,
-        LogicalKeyboardKey.enter,
-        LogicalKeyboardKey.space,
-      ]) {
-        await tester.sendKeyEvent(key);
+    testWidgets(
+      'per-pane keys are no-ops on a focused non-collapsible header',
+      (tester) async {
+        await tester.pumpWidget(
+          wrapWithTheme(
+            const WorkbenchViewPane(title: 'Hello', child: Text('body')),
+          ),
+        );
+        await tester.tap(find.text('HELLO'));
         await tester.pumpAndSettle();
-        expect(find.text('body'), findsOneWidget);
-      }
-    });
+        expect(ringColor(tester), testWorkbenchTheme.focusBorder);
+
+        // None of these touch the always-shown body — and none throw.
+        for (final key in [
+          LogicalKeyboardKey.arrowLeft,
+          LogicalKeyboardKey.arrowRight,
+          LogicalKeyboardKey.enter,
+          LogicalKeyboardKey.space,
+        ]) {
+          await tester.sendKeyEvent(key);
+          await tester.pumpAndSettle();
+          expect(find.text('body'), findsOneWidget);
+        }
+      },
+    );
 
     testWidgets('the ring uses theme.focusBorder specifically', (tester) async {
       await tester.pumpWidget(
@@ -520,7 +519,9 @@ void main() {
       expect(find.byKey(actionKey), findsNothing);
     });
 
-    testWidgets('actions appear on header hover while expanded', (tester) async {
+    testWidgets('actions appear on header hover while expanded', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         wrapWithTheme(
           WorkbenchViewPane(
@@ -653,9 +654,9 @@ void main() {
           ),
         ),
       );
-      final twistyX = tester.getCenter(
-        find.byIcon(Symbols.expand_more_rounded),
-      ).dx;
+      final twistyX = tester
+          .getCenter(find.byIcon(Symbols.expand_more_rounded))
+          .dx;
       final titleX = tester.getCenter(find.text('HELLO')).dx;
       final infoX = tester.getCenter(find.byIcon(Symbols.info_rounded)).dx;
       final actionX = tester.getCenter(find.byKey(actionKey)).dx;
@@ -795,10 +796,9 @@ void main() {
       // pane-header height, the 1px rule absorbed within it — not
       // height + 1.
       final size = tester.getSize(
-        find.ancestor(
-          of: find.text('HELLO'),
-          matching: find.byType(Container),
-        ).first,
+        find
+            .ancestor(of: find.text('HELLO'), matching: find.byType(Container))
+            .first,
       );
       expect(size.height, WorkbenchLayoutConstants.viewPaneHeaderHeight);
     });
@@ -906,7 +906,7 @@ void main() {
       // Full available width = pane width minus the outer padding.
       expect(
         tester.getSize(find.byKey(buttonKey)).width,
-        paneWidth - 2 * WorkbenchLayoutConstants.spacingLg,
+        paneWidth - 2 * WorkbenchLayoutConstants.spacingSize160,
       );
     });
   });

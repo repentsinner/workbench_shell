@@ -5,38 +5,12 @@ documented gap between the current implementation and SPEC.md.
 Workstreams are sized to fit one agent session; rationale and
 design decisions live in the cited spec sections, not here.
 
-## Design Size Ladders §road:design-size-ladders
-
-Replace the package-local geometry vocabulary with VS Code's
-registered ladders (§spec:design-size-ladders).
-
-### Corner radius and stroke ladders §road:radius-stroke-ladders
-
-Replace `containerRadius`, `buttonRadius` and `notificationCardRadius`
-in `lib/src/layout_constants.dart` with the upstream corner-radius
-ladder plus a stroke-thickness constant, assign each existing radius
-call site the tier matching its surface role, and migrate consumers in
-`lib/src/` and `example/lib/` (§spec:design-size-ladders).
-
-### Spacing ramp §road:spacing-ramp
-
-Replace the `spacingXxs`…`spacingXl` scale in
-`lib/src/layout_constants.dart` with the upstream spacing ramp and
-migrate every call site in `lib/src/` and `example/lib/`
-(§spec:design-size-ladders). Depends on §road:radius-stroke-ladders.
-
-**Verify:** Build the example app. Chrome renders unchanged — this is
-a renaming, not a restyling — and no `WorkbenchLayoutConstants` member
-carries a t-shirt name. Grep the public API for `containerRadius` and
-`spacing[XSML]` and confirm no matches. Compare the surviving names
-against VS Code's `baseSizes.ts` registrations and confirm each name
-carries the same value upstream does.
-
 ## Modern UI Surface Treatment §road:modern-ui-surfaces
 
 Render the workbench parts as the bordered, rounded cards VS Code
 now ships (§spec:modern-ui-surfaces). Every workstream in this section
-depends on §road:design-size-ladders.
+expresses its geometry through the shipped size ladders
+(§spec:design-size-ladders).
 
 ### Part card framing §road:part-card-framing
 

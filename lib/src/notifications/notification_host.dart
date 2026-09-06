@@ -9,6 +9,16 @@ import '../workbench_theme.dart';
 import 'notification.dart';
 import 'notification_service.dart';
 
+/// The corner-radius ladder's 4px tier, as a `BorderRadius`. Every
+/// notification surface — card, summary card, action button and their ink
+/// wells — takes this tier (§spec:design-size-ladders); VS Code's
+/// `notificationsToasts.css` rounds the toast with the same
+/// `var(--vscode-cornerRadius-small)`. Named for the tier rather than for
+/// a role, because the cards it rounds are not controls.
+const BorderRadius _smallRadius = BorderRadius.all(
+  Radius.circular(WorkbenchLayoutConstants.cornerRadiusSmall),
+);
+
 /// Overlay anchored to the bottom-right of the workbench that
 /// renders the stacked toast cards owned by [NotificationService].
 ///
@@ -447,11 +457,11 @@ class _ClearAllControl extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onClear,
-          borderRadius: WorkbenchLayoutConstants.notificationCardRadius,
+          borderRadius: _smallRadius,
           child: Padding(
             padding: const EdgeInsets.symmetric(
-              horizontal: WorkbenchLayoutConstants.spacingSm,
-              vertical: WorkbenchLayoutConstants.spacingXs,
+              horizontal: WorkbenchLayoutConstants.spacingSize80,
+              vertical: WorkbenchLayoutConstants.spacingSize40,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -461,7 +471,7 @@ class _ClearAllControl extends StatelessWidget {
                   size: WorkbenchLayoutConstants.iconSm,
                   color: theme.notificationCloseForeground,
                 ),
-                const SizedBox(width: WorkbenchLayoutConstants.spacingXs),
+                const SizedBox(width: WorkbenchLayoutConstants.spacingSize40),
                 Text(
                   'Clear All',
                   style: theme.captionText.copyWith(
@@ -504,7 +514,7 @@ class _SummaryCard extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.notificationBackground,
-        borderRadius: WorkbenchLayoutConstants.notificationCardRadius,
+        borderRadius: _smallRadius,
         border: Border.all(color: theme.notificationBorder),
       ),
       child: Column(
@@ -515,11 +525,11 @@ class _SummaryCard extends StatelessWidget {
             color: Colors.transparent,
             child: InkWell(
               onTap: onTap,
-              borderRadius: WorkbenchLayoutConstants.notificationCardRadius,
+              borderRadius: _smallRadius,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: WorkbenchLayoutConstants.spacingMd,
-                  vertical: WorkbenchLayoutConstants.spacingSm,
+                  horizontal: WorkbenchLayoutConstants.spacingSize120,
+                  vertical: WorkbenchLayoutConstants.spacingSize80,
                 ),
                 child: Row(
                   children: [
@@ -528,7 +538,9 @@ class _SummaryCard extends StatelessWidget {
                       size: WorkbenchLayoutConstants.iconMd,
                       color: theme.notificationCloseForeground,
                     ),
-                    const SizedBox(width: WorkbenchLayoutConstants.spacingSm),
+                    const SizedBox(
+                      width: WorkbenchLayoutConstants.spacingSize80,
+                    ),
                     Expanded(
                       child: Text(
                         '+$hiddenCount more',
@@ -547,8 +559,8 @@ class _SummaryCard extends StatelessWidget {
               constraints: const BoxConstraints(maxHeight: 240),
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: WorkbenchLayoutConstants.spacingSm,
-                  vertical: WorkbenchLayoutConstants.spacingSm,
+                  horizontal: WorkbenchLayoutConstants.spacingSize80,
+                  vertical: WorkbenchLayoutConstants.spacingSize80,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -643,11 +655,11 @@ class _NotificationCard extends StatelessWidget {
         onEnter: (_) => onHoverChanged(true),
         onExit: (_) => onHoverChanged(false),
         child: ClipRRect(
-          borderRadius: WorkbenchLayoutConstants.notificationCardRadius,
+          borderRadius: _smallRadius,
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: theme.notificationBackground,
-              borderRadius: WorkbenchLayoutConstants.notificationCardRadius,
+              borderRadius: _smallRadius,
               border: Border.all(color: theme.notificationBorder),
             ),
             child: IntrinsicHeight(
@@ -661,10 +673,10 @@ class _NotificationCard extends StatelessWidget {
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(
-                        WorkbenchLayoutConstants.spacingMd,
-                        WorkbenchLayoutConstants.spacingSm,
-                        WorkbenchLayoutConstants.spacingSm,
-                        WorkbenchLayoutConstants.spacingSm,
+                        WorkbenchLayoutConstants.spacingSize120,
+                        WorkbenchLayoutConstants.spacingSize80,
+                        WorkbenchLayoutConstants.spacingSize80,
+                        WorkbenchLayoutConstants.spacingSize80,
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -679,7 +691,7 @@ class _NotificationCard extends StatelessWidget {
                                 size: WorkbenchLayoutConstants.iconMd,
                               ),
                               const SizedBox(
-                                width: WorkbenchLayoutConstants.spacingSm,
+                                width: WorkbenchLayoutConstants.spacingSize80,
                               ),
                               Expanded(
                                 child: Padding(
@@ -697,7 +709,7 @@ class _NotificationCard extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(
-                                width: WorkbenchLayoutConstants.spacingSm,
+                                width: WorkbenchLayoutConstants.spacingSize80,
                               ),
                               _CloseButton(
                                 color: theme.notificationCloseForeground,
@@ -708,7 +720,7 @@ class _NotificationCard extends StatelessWidget {
                           if (notification.severity ==
                               NotificationSeverity.progress) ...[
                             const SizedBox(
-                              height: WorkbenchLayoutConstants.spacingSm,
+                              height: WorkbenchLayoutConstants.spacingSize80,
                             ),
                             _ProgressIndicatorRow(
                               value: notification.progress,
@@ -716,7 +728,7 @@ class _NotificationCard extends StatelessWidget {
                             ),
                             if (onCancelProgress != null) ...[
                               const SizedBox(
-                                height: WorkbenchLayoutConstants.spacingSm,
+                                height: WorkbenchLayoutConstants.spacingSize80,
                               ),
                               Align(
                                 alignment: Alignment.centerRight,
@@ -737,13 +749,14 @@ class _NotificationCard extends StatelessWidget {
                           ],
                           if (notification.actions.isNotEmpty) ...[
                             const SizedBox(
-                              height: WorkbenchLayoutConstants.spacingSm,
+                              height: WorkbenchLayoutConstants.spacingSize80,
                             ),
                             Align(
                               alignment: Alignment.centerRight,
                               child: Wrap(
-                                spacing: WorkbenchLayoutConstants.spacingSm,
-                                runSpacing: WorkbenchLayoutConstants.spacingXs,
+                                spacing: WorkbenchLayoutConstants.spacingSize80,
+                                runSpacing:
+                                    WorkbenchLayoutConstants.spacingSize40,
                                 children: [
                                   for (final action in notification.actions)
                                     _ActionButton(
@@ -788,9 +801,9 @@ class _CloseButton extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: WorkbenchLayoutConstants.notificationCardRadius,
+        borderRadius: _smallRadius,
         child: Padding(
-          padding: const EdgeInsets.all(2),
+          padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingSize20),
           child: Icon(
             Symbols.close_rounded,
             size: WorkbenchLayoutConstants.iconSm,
@@ -817,15 +830,15 @@ class _ActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: theme.notificationActionBackground,
-      borderRadius: WorkbenchLayoutConstants.notificationCardRadius,
+      borderRadius: _smallRadius,
       child: InkWell(
         onTap: onInvoke,
-        borderRadius: WorkbenchLayoutConstants.notificationCardRadius,
+        borderRadius: _smallRadius,
         hoverColor: theme.notificationActionHoverBackground,
         child: Padding(
           padding: const EdgeInsets.symmetric(
-            horizontal: WorkbenchLayoutConstants.spacingMd,
-            vertical: WorkbenchLayoutConstants.spacingXs,
+            horizontal: WorkbenchLayoutConstants.spacingSize120,
+            vertical: WorkbenchLayoutConstants.spacingSize40,
           ),
           child: Text(
             action.label,

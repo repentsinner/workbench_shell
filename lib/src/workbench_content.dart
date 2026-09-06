@@ -301,12 +301,12 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
           )
         else
           const SizedBox(width: WorkbenchLayoutConstants.iconMd),
-        const SizedBox(width: WorkbenchLayoutConstants.spacingXs),
+        const SizedBox(width: WorkbenchLayoutConstants.spacingSize40),
         Expanded(
           child: Text(widget.title.toUpperCase(), style: theme.sectionTitle),
         ),
         if (widget.infoTooltip != null) ...[
-          const SizedBox(width: WorkbenchLayoutConstants.spacingSm),
+          const SizedBox(width: WorkbenchLayoutConstants.spacingSize80),
           Tooltip(
             message: widget.infoTooltip!,
             child: Icon(
@@ -322,7 +322,7 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
         // own taps, so activating one does not bubble to the header toggle
         // (§spec:section-disclosure).
         if (_actionsVisible) ...[
-          const SizedBox(width: WorkbenchLayoutConstants.spacingSm),
+          const SizedBox(width: WorkbenchLayoutConstants.spacingSize80),
           ...widget.actions,
         ],
       ],
@@ -428,9 +428,7 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
           // the per-pane scroll boundary. A standalone pane renders the body
           // raw and grows to its content.
           if (widget.boundedBody)
-            Expanded(
-              child: SingleChildScrollView(child: widget.child),
-            )
+            Expanded(child: SingleChildScrollView(child: widget.child))
           else
             widget.child,
       ],
@@ -462,7 +460,7 @@ class WorkbenchViewWelcome extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
     return Padding(
-      padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingLg),
+      padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingSize160),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -470,13 +468,14 @@ class WorkbenchViewWelcome extends StatelessWidget {
           // Paragraphs are full-width, default-aligned text — VS Code renders
           // viewsWelcome content as stacked <p> elements, not centered text.
           for (final (i, paragraph) in paragraphs.indexed) ...[
-            if (i > 0) const SizedBox(height: WorkbenchLayoutConstants.spacingSm),
+            if (i > 0)
+              const SizedBox(height: WorkbenchLayoutConstants.spacingSize80),
             Text(paragraph, style: theme.bodyText),
           ],
           // Each button stretches full width but caps at the canon 300px and
           // centers when the pane is wider (VS Code's welcome-view button).
           for (final button in buttons) ...[
-            const SizedBox(height: WorkbenchLayoutConstants.spacingMd),
+            const SizedBox(height: WorkbenchLayoutConstants.spacingSize120),
             Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(

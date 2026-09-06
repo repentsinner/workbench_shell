@@ -970,10 +970,10 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
 /// Shared inset for example view-pane bodies — tight under the header per
 /// canon (§spec:view-stack makes the body flush; the host owns this padding).
 const _sidebarBodyPadding = EdgeInsets.fromLTRB(
-  WorkbenchLayoutConstants.spacingLg,
-  WorkbenchLayoutConstants.spacingSm,
-  WorkbenchLayoutConstants.spacingLg,
-  WorkbenchLayoutConstants.spacingLg,
+  WorkbenchLayoutConstants.spacingSize160,
+  WorkbenchLayoutConstants.spacingSize80,
+  WorkbenchLayoutConstants.spacingSize160,
+  WorkbenchLayoutConstants.spacingSize160,
 );
 
 /// "Button Tiers" pane body for the Buttons container.
@@ -1114,7 +1114,7 @@ class _NotificationTriggers extends StatelessWidget {
             'Hover or backgrounding the window pauses the timer.',
             style: theme.bodyText.copyWith(color: theme.descriptionForeground),
           ),
-          const SizedBox(height: WorkbenchLayoutConstants.spacingLg),
+          const SizedBox(height: WorkbenchLayoutConstants.spacingSize160),
           _DemoButton(
             label: 'Info',
             onTap: () =>
@@ -1134,7 +1134,7 @@ class _NotificationTriggers extends StatelessWidget {
             label: 'Error',
             onTap: () => controller._show(NotificationSeverity.error, 'Failed'),
           ),
-          const SizedBox(height: WorkbenchLayoutConstants.spacingLg),
+          const SizedBox(height: WorkbenchLayoutConstants.spacingSize160),
           _DemoButton(
             label: 'Burst: 3 info (stack)',
             onTap: () => controller._showBurst(3, NotificationSeverity.info),
@@ -1147,12 +1147,12 @@ class _NotificationTriggers extends StatelessWidget {
             label: 'Mix: warning + 5 info',
             onTap: controller._showOverflowMix,
           ),
-          const SizedBox(height: WorkbenchLayoutConstants.spacingLg),
+          const SizedBox(height: WorkbenchLayoutConstants.spacingSize160),
           _DemoButton(
             label: 'With action button',
             onTap: controller._showWithAction,
           ),
-          const SizedBox(height: WorkbenchLayoutConstants.spacingLg),
+          const SizedBox(height: WorkbenchLayoutConstants.spacingSize160),
           _DemoButton(label: 'Clear all', onTap: controller.service.clear),
         ],
       ),
@@ -1205,7 +1205,7 @@ class _DemoButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(
-        vertical: WorkbenchLayoutConstants.spacingXxs,
+        vertical: WorkbenchLayoutConstants.spacingSize20,
       ),
       child: FilledButton.tonal(onPressed: onTap, child: Text(label)),
     );
@@ -1288,7 +1288,7 @@ class _ColorThemeSettings extends StatelessWidget {
                   }
                 },
               ),
-              const SizedBox(height: WorkbenchLayoutConstants.spacingXl),
+              const SizedBox(height: WorkbenchLayoutConstants.spacingSize240),
               _ThemeDropdownField(
                 label: 'Preferred dark color theme',
                 description:
@@ -1303,7 +1303,7 @@ class _ColorThemeSettings extends StatelessWidget {
                   }
                 },
               ),
-              const SizedBox(height: WorkbenchLayoutConstants.spacingXl),
+              const SizedBox(height: WorkbenchLayoutConstants.spacingSize240),
               _ThemeDropdownField(
                 label: 'Preferred light color theme',
                 description:
@@ -1344,7 +1344,7 @@ class _AutoDetectToggle extends StatelessWidget {
       onTap: () => onChanged(!isOn),
       child: Padding(
         padding: const EdgeInsets.symmetric(
-          vertical: WorkbenchLayoutConstants.spacingSm,
+          vertical: WorkbenchLayoutConstants.spacingSize80,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1357,7 +1357,7 @@ class _AutoDetectToggle extends StatelessWidget {
                   ? theme.tabBarIndicatorColor
                   : theme.descriptionForeground,
             ),
-            const SizedBox(width: WorkbenchLayoutConstants.spacingSm),
+            const SizedBox(width: WorkbenchLayoutConstants.spacingSize80),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1369,7 +1369,9 @@ class _AutoDetectToggle extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: WorkbenchLayoutConstants.spacingXxs),
+                  const SizedBox(
+                    height: WorkbenchLayoutConstants.spacingSize20,
+                  ),
                   Text(
                     'Automatically select a color theme based on the '
                     'system color mode.',
@@ -1434,20 +1436,22 @@ class _ThemeDropdownField extends StatelessWidget {
         // `labelText` tier (13 / w500), not the pane-header tier
         // that `sectionTitle` reserves for sidebar/panel grouping.
         Text(label, style: theme.labelText.copyWith(color: labelColor)),
-        const SizedBox(height: WorkbenchLayoutConstants.spacingXxs),
+        const SizedBox(height: WorkbenchLayoutConstants.spacingSize20),
         Text(
           description,
           style: theme.bodyStyle.copyWith(color: descriptionColor),
         ),
-        const SizedBox(height: WorkbenchLayoutConstants.spacingSm),
+        const SizedBox(height: WorkbenchLayoutConstants.spacingSize80),
         Container(
           decoration: BoxDecoration(
             color: theme.inputBackground,
-            borderRadius: WorkbenchLayoutConstants.containerRadius,
+            borderRadius: const BorderRadius.all(
+              Radius.circular(WorkbenchLayoutConstants.cornerRadiusSmall),
+            ),
             border: Border.all(color: theme.inputBorder),
           ),
           padding: const EdgeInsets.symmetric(
-            horizontal: WorkbenchLayoutConstants.spacingSm,
+            horizontal: WorkbenchLayoutConstants.spacingSize80,
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
@@ -1494,7 +1498,7 @@ class _EditorPlaceholder extends StatelessWidget {
     // comfort the feature exists for. Scrolls vertically so the body fills the
     // editor height on any window.
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingXl),
+      padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingSize240),
       child: Text(
         _editorLoremText,
         style: theme.editorStyle.copyWith(height: 1.6),
@@ -1539,10 +1543,10 @@ class _SidebarBodyPlaceholder extends StatelessWidget {
     // padding, so the example keeps it tight.
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        WorkbenchLayoutConstants.spacingLg,
-        WorkbenchLayoutConstants.spacingXs,
-        WorkbenchLayoutConstants.spacingLg,
-        WorkbenchLayoutConstants.spacingMd,
+        WorkbenchLayoutConstants.spacingSize160,
+        WorkbenchLayoutConstants.spacingSize40,
+        WorkbenchLayoutConstants.spacingSize160,
+        WorkbenchLayoutConstants.spacingSize120,
       ),
       child: Text(text, style: theme.bodyStyle),
     );
@@ -1692,11 +1696,11 @@ class _ButtonsReviewSidebar extends StatelessWidget {
             'rectangle, not Material 3\'s pill — none casts an at-rest shadow.',
             style: theme.bodyText.copyWith(color: theme.descriptionForeground),
           ),
-          const SizedBox(height: WorkbenchLayoutConstants.spacingLg),
+          const SizedBox(height: WorkbenchLayoutConstants.spacingSize160),
           FilledButton(onPressed: () {}, child: const Text('Primary')),
-          const SizedBox(height: WorkbenchLayoutConstants.spacingSm),
+          const SizedBox(height: WorkbenchLayoutConstants.spacingSize80),
           FilledButton.tonal(onPressed: () {}, child: const Text('Secondary')),
-          const SizedBox(height: WorkbenchLayoutConstants.spacingSm),
+          const SizedBox(height: WorkbenchLayoutConstants.spacingSize80),
           TextButton(onPressed: () {}, child: const Text('Text / link')),
         ],
       ),
@@ -1712,7 +1716,7 @@ class _PanelBodyPlaceholder extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
     return Padding(
-      padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingLg),
+      padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingSize160),
       child: Text(
         '${panel.label} tab — host-supplied content lands here.',
         style: theme.bodyStyle,
@@ -1770,7 +1774,7 @@ class _OutputCounterBodyState extends State<_OutputCounterBody> {
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
     return Padding(
-      padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingLg),
+      padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingSize160),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1778,7 +1782,7 @@ class _OutputCounterBodyState extends State<_OutputCounterBody> {
             'Output tab — increments once per second while focused.',
             style: theme.bodyStyle,
           ),
-          const SizedBox(height: WorkbenchLayoutConstants.spacingMd),
+          const SizedBox(height: WorkbenchLayoutConstants.spacingSize120),
           Text(
             // Value readout — `valueText` is the §spec:editor-derived-surfaces editor-derived
             // numeric tier (tabular monospace at editor size). Earlier

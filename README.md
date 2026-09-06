@@ -34,7 +34,8 @@ construction.
   — stacked toast cards anchored bottom-right, with progress and
   auto-dismiss.
 - `WorkbenchLayoutConstants` — fixed geometry (activity bar width,
-  sidebar widths, status bar height, spacing scale, icon sizes).
+  sidebar widths, status bar height, VS Code's corner-radius and
+  spacing ladders, icon sizes).
 
 ## Install
 

@@ -1449,7 +1449,7 @@ class _Sidebar extends StatelessWidget {
     return Container(
       height: WorkbenchLayoutConstants.sidebarHeadingHeight,
       padding: const EdgeInsets.symmetric(
-        horizontal: WorkbenchLayoutConstants.spacingLg,
+        horizontal: WorkbenchLayoutConstants.spacingSize160,
       ),
       child: Row(
         children: [
@@ -1606,7 +1606,7 @@ class _SecondaryBarTabState extends State<_SecondaryBarTab> {
         onTap: widget.onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(
-            horizontal: WorkbenchLayoutConstants.spacingSm,
+            horizontal: WorkbenchLayoutConstants.spacingSize80,
           ),
           // The underline sits at the bottom of the stretched title row.
           decoration: BoxDecoration(
