@@ -41,22 +41,6 @@ Widget _actionsHarness({
   );
 }
 
-/// The open popup's panel — the `Material` Flutter's `_MenuPanel` builds
-/// around the menu's children, carrying the fill and hairline resolved from
-/// `MenuThemeData`. Located as the nearest `Material` *ancestor* of the row
-/// labelled [rowLabel], which excludes the `Material` the row's own
-/// `MenuItemButton` builds beneath itself.
-Material _popupPanelOf(WidgetTester tester, String rowLabel) {
-  return tester.widget<Material>(
-    find
-        .ancestor(
-          of: find.widgetWithText(MenuItemButton, rowLabel),
-          matching: find.byType(Material),
-        )
-        .first,
-  );
-}
-
 void main() {
   // Force the non-macOS in-window path so widget tests exercise the
   // Material MenuBar instead of PlatformMenuBar (which attaches to the
@@ -693,7 +677,7 @@ void main() {
       await tester.tap(find.text('View'));
       await tester.pumpAndSettle();
 
-      final panel = _popupPanelOf(tester, 'MDI');
+      final panel = popupPanelOf(tester, 'MDI');
       expect(panel.color, const Color(0xFF1F1F1F));
       expect(
         (panel.shape! as OutlinedBorder).side.color,
@@ -716,7 +700,7 @@ void main() {
       await tester.tap(find.text('View'));
       await tester.pumpAndSettle();
 
-      final panel = _popupPanelOf(tester, 'MDI');
+      final panel = popupPanelOf(tester, 'MDI');
       expect((panel.shape! as OutlinedBorder).side, BorderSide.none);
     });
 
@@ -753,6 +737,18 @@ void main() {
       expect(
         rowStyle.foregroundColor!.resolve(highlighted),
         const Color(0xFFFFFFFF),
+      );
+      // The strip's tokens are set to sentinels above: a popup row shall not
+      // reach for them, which is the regression this workstream removes.
+      expect(
+        rowStyle.foregroundColor!.resolve(const {}),
+        isNot(const Color(0xFFC0FFEE)),
+        reason: 'the popup row reads menu.foreground, not menubar.foreground',
+      );
+      expect(
+        rowStyle.overlayColor!.resolve(highlighted),
+        isNot(const Color(0xFFDEAD00)),
+        reason: 'the popup row shall not paint the strip hover overlay',
       );
     });
 

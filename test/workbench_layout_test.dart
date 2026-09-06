@@ -2182,14 +2182,7 @@ void main() {
       await tester.tap(find.byIcon(Symbols.more_horiz));
       await tester.pumpAndSettle();
 
-      final panel = tester.widget<Material>(
-        find
-            .ancestor(
-              of: find.widgetWithText(MenuItemButton, 'Extra Action'),
-              matching: find.byType(Material),
-            )
-            .first,
-      );
+      final panel = popupPanelOf(tester, 'Extra Action');
       expect(panel.color, const Color(0xFF1F1F1F));
       expect(
         (panel.shape! as OutlinedBorder).side.color,

@@ -403,11 +403,6 @@ List<Widget> buildMaterialMenuChildren(
 /// (§spec:view-container-title) so both surfaces render identically.
 ThemeData workbenchMenuThemeData(BuildContext context) {
   final workbench = context.workbenchTheme;
-  final foreground = workbench.menuForeground;
-  final selectionForeground = workbench.menuSelectionForeground;
-  final selectionBorder = workbench.menuSelectionBorder;
-  final menuBorder = workbench.menuBorder;
-  final labelStyle = workbench.helperStyle.copyWith(color: foreground);
   return Theme.of(context).copyWith(
     menuBarTheme: MenuBarThemeData(
       style: MenuStyle(
@@ -418,51 +413,71 @@ ThemeData workbenchMenuThemeData(BuildContext context) {
       ),
     ),
     menuButtonTheme: MenuButtonThemeData(
-      style: ButtonStyle(
-        // The highlighted row paints a real fill rather than an ink
-        // overlay, so a translucent `menu.selectionBackground` (2026 Dark)
-        // composites over the panel the way it does upstream.
-        backgroundColor: WidgetStateProperty.resolveWith(
-          (states) => _isRowHighlighted(states)
-              ? workbench.menuSelectionBackground
-              : Colors.transparent,
-        ),
-        foregroundColor: WidgetStateProperty.resolveWith(
-          (states) =>
-              _isRowHighlighted(states) ? selectionForeground : foreground,
-        ),
-        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-        textStyle: WidgetStatePropertyAll(labelStyle),
-        iconColor: WidgetStateProperty.resolveWith(
-          (states) =>
-              _isRowHighlighted(states) ? selectionForeground : foreground,
-        ),
-        // VS Code registers `menu.selectionBorder` as null outside high
-        // contrast; the highlighted row then draws no outline.
-        side: selectionBorder == null
-            ? null
-            : WidgetStateProperty.resolveWith(
-                (states) => _isRowHighlighted(states)
-                    ? BorderSide(color: selectionBorder)
-                    : BorderSide.none,
-              ),
-        shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
-      ),
+      style: workbenchMenuButtonStyle(workbench),
     ),
-    menuTheme: MenuThemeData(
-      style: MenuStyle(
-        backgroundColor: WidgetStatePropertyAll(workbench.menuBackground),
-        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
-        elevation: const WidgetStatePropertyAll(2),
-        // `menu.border` is null outside high contrast — leave the side
-        // unset so the panel keeps the shape's own `BorderSide.none`.
-        side: menuBorder == null
-            ? null
-            : WidgetStatePropertyAll(BorderSide(color: menuBorder)),
-        shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
-      ),
-    ),
+    menuTheme: MenuThemeData(style: workbenchMenuPanelStyle(workbench)),
     dividerTheme: DividerThemeData(color: workbench.menuSeparatorBackground),
+  );
+}
+
+/// Row styling for a popup menu, from the `menu.*` family
+/// (§spec:chrome-material-theming). Takes a [WorkbenchTheme] rather than a
+/// [BuildContext] so both menu surfaces share one definition: the shell's own
+/// popups through [workbenchMenuThemeData], and a host's `MenuAnchor` through
+/// `applyWorkbenchChrome`, which composes onto a [ThemeData] and has no
+/// context to read.
+@internal
+ButtonStyle workbenchMenuButtonStyle(WorkbenchTheme workbench) {
+  final foreground = workbench.menuForeground;
+  final selectionForeground = workbench.menuSelectionForeground;
+  final selectionBackground = workbench.menuSelectionBackground;
+  final selectionBorder = workbench.menuSelectionBorder;
+  // One resolver serves the label and the icon — the same colour either way.
+  final rowForeground = WidgetStateProperty.resolveWith<Color>(
+    (states) => _isRowHighlighted(states) ? selectionForeground : foreground,
+  );
+  return ButtonStyle(
+    // The highlighted row paints a real fill rather than an ink overlay, so
+    // a translucent `menu.selectionBackground` (2026 Dark) composites over
+    // the panel the way it does upstream.
+    backgroundColor: WidgetStateProperty.resolveWith(
+      (states) =>
+          _isRowHighlighted(states) ? selectionBackground : Colors.transparent,
+    ),
+    foregroundColor: rowForeground,
+    overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+    textStyle: WidgetStatePropertyAll(
+      workbench.helperStyle.copyWith(color: foreground),
+    ),
+    iconColor: rowForeground,
+    // VS Code registers `menu.selectionBorder` as null outside high
+    // contrast; the highlighted row then draws no outline.
+    side: selectionBorder == null
+        ? null
+        : WidgetStateProperty.resolveWith(
+            (states) => _isRowHighlighted(states)
+                ? BorderSide(color: selectionBorder)
+                : BorderSide.none,
+          ),
+    shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
+  );
+}
+
+/// Panel styling for a popup menu, from the `menu.*` family. Shares its
+/// context-free shape with [workbenchMenuButtonStyle] for the same reason.
+@internal
+MenuStyle workbenchMenuPanelStyle(WorkbenchTheme workbench) {
+  final menuBorder = workbench.menuBorder;
+  return MenuStyle(
+    backgroundColor: WidgetStatePropertyAll(workbench.menuBackground),
+    surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+    elevation: const WidgetStatePropertyAll(2),
+    // `menu.border` is null outside high contrast — leave the side unset so
+    // the panel keeps the shape's own `BorderSide.none`.
+    side: menuBorder == null
+        ? null
+        : WidgetStatePropertyAll(BorderSide(color: menuBorder)),
+    shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
   );
 }
 
