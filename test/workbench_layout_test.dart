@@ -50,6 +50,7 @@ WorkbenchViewContainerSpec _sidebarSpec(String id) {
 }
 
 Widget _buildApp({
+  Widget? editor,
   List<ActivityBarItem>? items,
   bool showBottomPanel = true,
   Widget? statusBar,
@@ -78,7 +79,7 @@ Widget _buildApp({
     theme: ThemeData.dark().copyWith(extensions: [theme ?? _testTheme]),
     home: WorkbenchLayout(
       activityBarItems: items ?? _testItems,
-      editor: const Center(child: Text('Editor')),
+      editor: editor ?? const Center(child: Text('Editor')),
       containerBuilder: containerBuilder ?? _sidebarSpec,
       bottomPanel: const Center(child: Text('Panel')),
       statusBar: statusBar ?? const SizedBox(height: 22, child: Text('Status')),
@@ -2664,6 +2665,75 @@ void main() {
       // on the other.
       final sidebar = tester.getRect(cardRing(find.text('EXPLORER')));
       expect(sidebar.width, closeTo(300, 0.001));
+    });
+
+    testWidgets('the editor frame fills its vertical allocation', (
+      tester,
+    ) async {
+      // No bottom panel: the editor and the side bar span the same band, from
+      // the top perimeter gutter down to the status bar.
+      await tester.pumpWidget(
+        _buildApp(initialSidebarWidth: 300, showBottomPanel: false),
+      );
+
+      final editor = tester.getRect(cardRing(find.text('Editor')));
+      final sidebar = tester.getRect(cardRing(find.text('EXPLORER')));
+      expect(editor.top, closeTo(sidebar.top, 0.001));
+      expect(editor.bottom, closeTo(sidebar.bottom, 0.001));
+    });
+
+    testWidgets('the editor stretches host content that would shrink-wrap', (
+      tester,
+    ) async {
+      // A host editor that sizes to its content under a loose constraint —
+      // a scroll view is the common case. The editor area's height comes from
+      // the layout, so the content is stretched to it rather than the area
+      // collapsing onto the content and centring it.
+      await tester.pumpWidget(
+        _buildApp(
+          initialSidebarWidth: 300,
+          showBottomPanel: false,
+          editor: SingleChildScrollView(
+            child: Column(
+              children: List<Widget>.generate(
+                3,
+                (i) => SizedBox(height: 20, child: Text('line $i')),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Compare against the allocation, not the content: card and content
+      // shrink together, so measuring one against the other passes either way.
+      final card = tester.getRect(cardRing(find.text('line 0')));
+      final sidebar = tester.getRect(cardRing(find.text('EXPLORER')));
+      expect(
+        card.top,
+        closeTo(sidebar.top, 0.001),
+        reason: 'the editor area takes its height from the layout',
+      );
+      expect(card.bottom, closeTo(sidebar.bottom, 0.001));
+    });
+
+    testWidgets('the editor frame meets the panel it sits above', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildApp(initialSidebarWidth: 300, initialPanelHeight: 200),
+      );
+
+      final editor = tester.getRect(cardRing(find.text('Editor')));
+      final panel = tester.getRect(cardRing(find.text('Panel')));
+      final sidebar = tester.getRect(cardRing(find.text('EXPLORER')));
+
+      // The editor starts at the same top as the side bar and runs down to
+      // the panel, leaving only the inter-card gap between them.
+      expect(editor.top, closeTo(sidebar.top, 0.001));
+      expect(
+        panel.top - editor.bottom,
+        closeTo(WorkbenchLayoutConstants.floatingCardGap, 0.001),
+      );
     });
 
     testWidgets('selecting an activity bar item fills a rounded background', (

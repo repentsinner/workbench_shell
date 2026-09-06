@@ -1375,6 +1375,13 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
         children: [
           Expanded(
             child: Row(
+              // The parts take their height from the band, not from whatever
+              // the host puts inside them. Left to Flutter's default the row
+              // centres its children on the cross axis, so an editor whose
+              // content shrink-wraps under a loose constraint — a scroll view,
+              // the common case — collapses the card onto its content and
+              // floats it mid-band (§spec:modern-ui-surfaces).
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (leftInside) ...leftGroup,
                 editorArea,
