@@ -58,18 +58,24 @@ typography, spacing, and theming.
 - Keyboard bindings (`WorkbenchShortcuts`) aligned with VS Code
   defaults.
 - Structural primitives: `WorkbenchViewPane`, `WorkbenchViewWelcome`.
-- Theming: `WorkbenchTheme` (chrome tokens),
-  `WorkbenchThemeController` (theme switching, VS Code JSON
-  loader, `TokenTheme` for syntax highlighting), `TokenTheme`,
-  `WorkbenchLayoutConstants` (fixed geometry).
+- Theming, as a layer over two surfaces: the chrome this package
+  renders, and the stock Material 3 widgets a host places inside it
+  (§spec:chrome-material-theming). `WorkbenchTheme` (chrome tokens),
+  `WorkbenchThemeController` (theme switching, VS Code JSON loader),
+  `TokenTheme` (syntax highlighting), and `applyWorkbenchChrome`, which
+  composes the tokens onto a host's `ThemeData`.
+- Geometry: `WorkbenchLayoutConstants` (the fixed size ladders,
+  §spec:design-size-ladders).
 - Notification Center (§spec:notification-center): `NotificationService`,
   `NotificationHost` overlay, and `NotificationProgressController`
   for long-running tasks.
 
 **Out of scope**
 
-- Form controls (text fields, dropdowns, toggles, action
-  buttons). See §spec:form-controls-excluded for the re-promotion gate.
+- *Owning* form-control widgets — text fields, dropdowns, toggles,
+  action buttons. The host supplies the widget and the shell themes it;
+  only ownership is excluded, and only while Material 3 ships an
+  equivalent (§spec:form-controls-not-owned).
 - Host-specific domain types, BLoCs, or state management.
 - Editor widgets (text editing, syntax-highlighted viewers).
   Consumers supply their own editor content inside
@@ -816,7 +822,7 @@ shell chrome.
 and the Views toggles are shell-owned canonical chrome — the shell renders
 and drives them, like the disclosure twisty (§spec:section-disclosure), and
 reuses the menu surface it already owns (§spec:menu-model). No control
-Flutter ships is duplicated, so §spec:form-controls-excluded is not engaged.
+Flutter ships is duplicated, so §spec:form-controls-not-owned is not engaged.
 
 **The overflow button is persistent, not hover-gated.** Pane-header actions
 hide until the header is hovered or focused (§spec:section-header-actions)
@@ -885,7 +891,7 @@ host-supplied widgets within a shell-owned header row; it does not
 reimplement a control Flutter ships. The shell owns header layout the
 same way `WorkbenchTabbedPanel` owns its close button (§spec:tabbed-panel).
 The host supplies the action widgets and themes them against
-`WorkbenchTheme`, so §spec:form-controls-excluded is not engaged — no
+`WorkbenchTheme`, so §spec:form-controls-not-owned is not engaged — no
 control is duplicated.
 
 **Visibility is one contractual rule, not two**: actions appear when the
@@ -908,13 +914,13 @@ title's.
 row grows to the tallest action. Clamping action height to the
 pane-header canon (§spec:layout-constants) would impose geometry on
 host-owned controls — the shell owns *placement and visibility*, not
-control *sizing* (§spec:form-controls-excluded). A host wanting VS Code
+control *sizing* (§spec:form-controls-not-owned). A host wanting VS Code
 action density supplies compact widgets; a stock `IconButton` yields a
 taller row.
 
 **Why `List<Widget>`, not a typed action descriptor**: a typed descriptor
 would require the shell to define an action-button control, which
-§spec:form-controls-excluded keeps in the host. `List<Widget>` lets the
+§spec:form-controls-not-owned keeps in the host. `List<Widget>` lets the
 host pass any themed control while the shell owns placement and
 visibility.
 
@@ -1547,21 +1553,22 @@ path adopts it with no model change.
 
 ---
 
-## Form Controls Are Excluded §spec:form-controls-excluded
+## Form Controls Are Themed, Not Owned §spec:form-controls-not-owned
 
 *Status: complete*
 
-`workbench_shell` does **not** own form controls — text fields,
-dropdowns, toggles, action buttons. Consuming applications keep
-those in their own UI packages, themed against `WorkbenchTheme`
-so theme switching still works but not exposed as reusable
-primitives.
+`workbench_shell` themes form controls; it does not own them. A host
+places a stock Material 3 text field, dropdown or toggle, and the
+chrome paints it from the active theme
+(§spec:chrome-material-theming). The package exposes no control widget
+of its own.
 
-The exclusion bars a shell-owned widget, not shell-controlled styling.
-A host's own dropdown, text field and toggle render under
-§spec:chrome-material-theming, which themes the Material widgets that
-draw them; a request for a themed select is a coverage question for
-that contract, not a re-promotion request against this one.
+Both halves of that sentence carry weight. A request for a
+VS Code-styled select is a coverage question against the theming
+contract — which tokens it maps, which `ThemeData` entries it sets —
+never a request for a `WorkbenchSelect`. Reading this section as
+"dropdowns are out of scope" inverts it: the dropdown is in scope to
+*theme*, out of scope to *build*.
 
 **The seam is stock-widget duplication, not widget ownership.** The
 exclusion holds because every control VS Code uses has had a stock
@@ -2472,6 +2479,14 @@ Material surface the chrome composes onto is brought fully under chrome
 control; none falls back to a `ColorScheme` role or base `ThemeData`
 value the chrome leaves unset.
 
+**One token set, two surfaces.** The same `WorkbenchTheme` paints the
+parts this package renders — activity bar, view panes, tabs, status
+bar, popups — and, through this contract, the stock Material 3 widgets
+a host places beside them. A theme switch therefore moves the whole
+window at once, and a host widget outside the contract reads as
+foreign rather than merely unstyled. Theming is a layer over both
+surfaces (§spec:scope), not a service the chrome offers to one of them.
+
 **Why parity, not a curated subset.** A host that drops a stock Material
 widget into the chrome expects it to read as VS Code chrome, the way its
 themed siblings do. A surface the chrome covers only partially inherits
@@ -2483,7 +2498,7 @@ therefore all-or-nothing per surface: if the chrome themes a widget
 family, it themes every member, and no member reads from a role the
 chrome leaves unset.
 
-**Why this is not a §spec:form-controls-excluded violation.** §spec:form-controls-excluded excludes Material *primitives* —
+**Why this is not a §spec:form-controls-not-owned violation.** §spec:form-controls-not-owned excludes Material *primitives* —
 the shell publishes no reusable widget. This contract themes the host's
 *own* Material widgets; it adds no primitive. No widget is exposed, yet
 no host widget escapes chrome control.
@@ -2554,7 +2569,7 @@ menu surface serves the shell's menus and a host's selects alike.
 
 **Why the chrome themes a select rather than owning one.** A
 `WorkbenchSelect` primitive would duplicate a control Flutter ships,
-which §spec:form-controls-excluded excludes on exactly that ground. A
+which §spec:form-controls-not-owned excludes on exactly that ground. A
 Material-styled trigger and elevated popup standing against flat chrome
 is a coverage gap in this contract, not a missing primitive. Upstream
 draws the same line: VS Code's `SelectBox` lives in the workbench's
