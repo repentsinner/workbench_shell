@@ -682,13 +682,16 @@ void main() {
     });
   });
 
-  group('WorkbenchViewPane header chrome', () {
-    // §spec:view-stack: each pane header paints a section-header
-    // background band and a 1px top rule from the nullable
-    // sideBarSectionHeader.background / sideBarSectionHeader.border
-    // tokens. Null tokens suppress each paint independently.
+  group('WorkbenchViewPane header chrome (§spec:modern-ui-surfaces)', () {
+    // VS Code's Modern UI pane-header treatment. `paneHeaders.css` replaces the
+    // full-width header border with a short inset rule, rounds the header at
+    // the controls tier and tints it with `list.hoverBackground` on hover;
+    // `padding.css` insets the header box from the pane edge. The band and rule
+    // colors still come from the nullable sideBarSectionHeader.background /
+    // sideBarSectionHeader.border tokens, each suppressed when null.
     const band = Color(0xFF181818);
     const rule = Color(0xFF2B2B2B);
+    const inset = WorkbenchLayoutConstants.spacingSize40;
 
     WorkbenchTheme themeWith({Color? background, Color? border}) {
       final colors = <String, Color>{};
@@ -708,23 +711,14 @@ void main() {
       );
     }
 
-    // The header band Container is the Container ancestor of the title
-    // text that carries a BoxDecoration (the only decorated Container in
-    // a WorkbenchViewPane header).
-    BoxDecoration? headerDecoration(WidgetTester tester) {
-      final containers = tester
-          .widgetList<Container>(
-            find.ancestor(
-              of: find.text('HELLO'),
-              matching: find.byType(Container),
-            ),
-          )
-          .where((c) => c.decoration is BoxDecoration);
-      if (containers.isEmpty) return null;
-      return containers.first.decoration as BoxDecoration;
+    Finder surface() => find.byKey(viewPaneHeaderSurfaceKey);
+
+    BoxDecoration surfaceDecoration(WidgetTester tester) {
+      return tester.widget<DecoratedBox>(surface().first).decoration
+          as BoxDecoration;
     }
 
-    testWidgets('paints the background band and 1px top rule from tokens', (
+    testWidgets('rounds the header at the controls tier and paints the band', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -733,12 +727,97 @@ void main() {
           const WorkbenchViewPane(title: 'Hello', child: Text('body')),
         ),
       );
-      final decoration = headerDecoration(tester);
-      expect(decoration, isNotNull);
-      expect(decoration!.color, band);
-      final topSide = (decoration.border as Border).top;
-      expect(topSide.color, rule);
-      expect(topSide.width, 1.0);
+      final decoration = surfaceDecoration(tester);
+      expect(decoration.color, band);
+      expect(
+        decoration.borderRadius,
+        BorderRadius.circular(WorkbenchLayoutConstants.cornerRadiusSmall),
+      );
+      // The separator is no longer a full-width border on the header box.
+      expect(decoration.border, isNull);
+    });
+
+    testWidgets('draws the separator as a short inset rule at the header top', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWith(
+          themeWith(background: band, border: rule),
+          const SizedBox(
+            width: 300,
+            child: WorkbenchViewPane(title: 'Hello', child: Text('body')),
+          ),
+        ),
+      );
+      final ruleFinder = find.byKey(viewPaneHeaderRuleKey);
+      expect(ruleFinder, findsOneWidget);
+      expect(tester.widget<ColoredBox>(ruleFinder).color, rule);
+
+      final ruleRect = tester.getRect(ruleFinder);
+      final headerRect = tester.getRect(surface().first);
+      expect(ruleRect.height, WorkbenchLayoutConstants.strokeThickness);
+      expect(ruleRect.top, closeTo(headerRect.top, 0.5));
+      // Inset from both ends of the header box rather than spanning it.
+      expect(ruleRect.left - headerRect.left, closeTo(inset, 0.5));
+      expect(headerRect.right - ruleRect.right, closeTo(inset, 0.5));
+    });
+
+    testWidgets('insets the header box from the pane edge', (tester) async {
+      await tester.pumpWidget(
+        wrapWith(
+          themeWith(background: band, border: rule),
+          const SizedBox(
+            width: 300,
+            child: WorkbenchViewPane(title: 'Hello', child: Text('body')),
+          ),
+        ),
+      );
+      final paneRect = tester.getRect(find.byType(WorkbenchViewPane));
+      final headerRect = tester.getRect(surface().first);
+      expect(headerRect.left - paneRect.left, closeTo(inset, 0.5));
+      expect(paneRect.right - headerRect.right, closeTo(inset, 0.5));
+    });
+
+    testWidgets('the first pane in a stack draws no rule', (tester) async {
+      await tester.pumpWidget(
+        wrapWith(
+          themeWith(background: band, border: rule),
+          const WorkbenchViewPane.inContainer(
+            title: 'Hello',
+            collapsible: true,
+            showTopRule: false,
+            child: Text('body'),
+          ),
+        ),
+      );
+      expect(find.byKey(viewPaneHeaderRuleKey), findsNothing);
+      // The band still paints — only the separator is suppressed.
+      expect(surfaceDecoration(tester).color, band);
+    });
+
+    testWidgets('tints the header on hover with list.hoverBackground', (
+      tester,
+    ) async {
+      final theme = themeWith(background: band, border: rule);
+      await tester.pumpWidget(
+        wrapWith(
+          theme,
+          const WorkbenchViewPane(title: 'Hello', child: Text('body')),
+        ),
+      );
+      expect(surfaceDecoration(tester).color, band);
+
+      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await gesture.addPointer(location: Offset.zero);
+      addTearDown(gesture.removePointer);
+      await gesture.moveTo(tester.getCenter(find.text('HELLO')));
+      await tester.pumpAndSettle();
+
+      expect(surfaceDecoration(tester).color, theme.listHoverBackground);
+
+      await gesture.moveTo(Offset.zero);
+      await tester.pumpAndSettle();
+      expect(surfaceDecoration(tester).color, band);
     });
 
     testWidgets('body sits flush under the header (no top inset)', (
@@ -750,14 +829,11 @@ void main() {
           const WorkbenchViewPane(title: 'Hello', child: Text('BODY')),
         ),
       );
-      // The only decorated Container in a bare pane is the header band.
-      final header = find.byWidgetPredicate(
-        (w) => w is Container && w.decoration is BoxDecoration,
-      );
-      expect(header, findsOneWidget);
       // VS Code's `.pane-body` has no top inset: the body's top is flush with
-      // the header's bottom (§spec:view-stack), not a spacing gap below it.
-      final headerBottom = tester.getBottomLeft(header).dy;
+      // the header band's bottom (§spec:view-stack), not a gap below it.
+      final headerBottom =
+          tester.getRect(find.byType(WorkbenchViewPane)).top +
+          WorkbenchLayoutConstants.viewPaneHeaderHeight;
       final bodyTop = tester.getTopLeft(find.text('BODY')).dy;
       expect(bodyTop - headerBottom, closeTo(0, 0.5));
     });
@@ -792,15 +868,12 @@ void main() {
           const WorkbenchViewPane(title: 'Hello', child: Text('body')),
         ),
       );
-      // Box-sizing border-box: the header occupies exactly the canonical
-      // pane-header height, the 1px rule absorbed within it — not
-      // height + 1.
-      final size = tester.getSize(
-        find
-            .ancestor(of: find.text('HELLO'), matching: find.byType(Container))
-            .first,
+      // The header occupies exactly the canonical pane-header height, the
+      // inset rule drawn within it — not height + 1.
+      expect(
+        tester.getSize(surface().first).height,
+        WorkbenchLayoutConstants.viewPaneHeaderHeight,
       );
-      expect(size.height, WorkbenchLayoutConstants.viewPaneHeaderHeight);
     });
 
     testWidgets('suppresses the band when background token is null', (
@@ -812,12 +885,11 @@ void main() {
           const WorkbenchViewPane(title: 'Hello', child: Text('body')),
         ),
       );
-      final decoration = headerDecoration(tester);
-      expect(decoration?.color, isNull);
-      expect((decoration!.border as Border).top.color, rule);
+      expect(surfaceDecoration(tester).color, isNull);
+      expect(find.byKey(viewPaneHeaderRuleKey), findsOneWidget);
     });
 
-    testWidgets('suppresses both paints when both tokens are null', (
+    testWidgets('keeps the canonical height when both tokens are null', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -826,11 +898,37 @@ void main() {
           const WorkbenchViewPane(title: 'Hello', child: Text('body')),
         ),
       );
-      // Neither paint appears — no decorated header Container.
-      expect(headerDecoration(tester), isNull);
-      // Header still renders its title and body as before.
+      // Neither token paints — but the header height is the treatment's, not
+      // the row's intrinsic height, so a stack measures the same either way.
+      expect(surfaceDecoration(tester).color, isNull);
+      expect(find.byKey(viewPaneHeaderRuleKey), findsNothing);
+      expect(
+        tester.getSize(surface().first).height,
+        WorkbenchLayoutConstants.viewPaneHeaderHeight,
+      );
       expect(find.text('HELLO'), findsOneWidget);
       expect(find.text('body'), findsOneWidget);
+    });
+
+    testWidgets('the focus ring clears the inset rule', (tester) async {
+      await tester.pumpWidget(
+        wrapWith(
+          themeWith(background: band, border: rule),
+          const WorkbenchViewPane(title: 'Hello', child: Text('body')),
+        ),
+      );
+      await tester.tap(find.text('HELLO'));
+      await tester.pumpAndSettle();
+
+      // Upstream negates the smallest spacing step as the focus outline's
+      // offset so the ring's top stroke clears the separator above it.
+      final ringRect = tester.getRect(find.byKey(viewPaneHeaderFocusRingKey));
+      final headerRect = tester.getRect(surface().first);
+      const offset = WorkbenchLayoutConstants.spacingSize20;
+      expect(ringRect.left - headerRect.left, closeTo(offset, 0.5));
+      expect(ringRect.top - headerRect.top, closeTo(offset, 0.5));
+      expect(headerRect.right - ringRect.right, closeTo(offset, 0.5));
+      expect(headerRect.bottom - ringRect.bottom, closeTo(offset, 0.5));
     });
   });
 

@@ -263,9 +263,10 @@ class WorkbenchViewContainerSpec {
 ///
 /// **Fixed-height splitview** (§spec:view-stack): panes stack at
 /// [WorkbenchLayoutConstants.viewPaneHeaderHeight] with no inter-pane gap —
-/// the header band and 1px top rule already on each pane provide the
-/// separation. The container apportions its available height among the
-/// **expanded** panes rather than letting each grow to its content: each
+/// the header band and the inset rule already on each pane provide the
+/// separation (§spec:modern-ui-surfaces). The container apportions its
+/// available height among the **expanded** panes rather than letting each
+/// grow to its content: each
 /// expanded pane is header + an apportioned body, distributed evenly (the
 /// sash-resize foundation will weight it), never below
 /// [WorkbenchLayoutConstants.viewPaneMinBodyHeight]. A collapsed pane occupies

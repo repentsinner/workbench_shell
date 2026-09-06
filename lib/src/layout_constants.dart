@@ -100,12 +100,15 @@ class WorkbenchLayoutConstants {
   /// Sidebar heading row height.
   static const double sidebarHeadingHeight = 35.0;
 
-  /// View-pane header row height. VS Code `paneview.css` /
-  /// `splitview` `HEADER_SIZE = 22` — the band each stacked view pane
-  /// header occupies. The 1px top rule (§spec:view-stack) is absorbed
-  /// within this height (box-sizing border-box), so a header sits at
-  /// this height, not this height + 1.
-  static const double viewPaneHeaderHeight = 22.0;
+  /// View-pane header row height — the band each stacked view pane header
+  /// occupies. VS Code's Modern UI treatment raises the base
+  /// `splitview` `HEADER_SIZE = 22` to the spacing ramp's 28px step:
+  /// [`paneHeaders.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/paneHeaders.css)
+  /// sets `--pane-header-size: var(--vscode-spacing-size280)` and keeps it in
+  /// sync with the layout code's `MODERN_UI_PANE_HEADER_SIZE`
+  /// (§spec:modern-ui-surfaces). The inset top rule is drawn inside this
+  /// height, so a header sits at this height, not this height + 1.
+  static const double viewPaneHeaderHeight = spacingSize280;
 
   /// View-pane minimum body height. The floor below which an expanded pane's
   /// apportioned body never shrinks (§spec:view-stack). VS Code's view pane

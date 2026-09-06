@@ -8,11 +8,11 @@ import 'package:workbench_shell/workbench_shell.dart';
 import 'test_theme.dart';
 
 /// The bundled default themes set both section-header tokens (§spec:view-stack),
-/// so each pane header paints its fixed-height band. The shared fixture builds
-/// from an empty color map where both resolve null, suppressing the band and
-/// letting the header shrink to its intrinsic row height. Tests that assert the
-/// canonical collapsed-pane height install a theme with the tokens set, mirroring
-/// the bundled-theme reality.
+/// so each pane header paints its band and inset rule. The shared fixture builds
+/// from an empty color map where both resolve null, suppressing both paints —
+/// the header keeps its canonical height either way. Tests that assert the band
+/// or the rule install a theme with the tokens set, mirroring the bundled-theme
+/// reality.
 Widget wrapWithChromeTheme(Widget child) {
   final theme = testWorkbenchTheme.copyWith(
     sideBarSectionHeaderBackground: const Color(0xFF252526),
@@ -98,28 +98,36 @@ void main() {
         ),
       );
 
-      BoxDecoration decoFor(String title) {
+      BoxDecoration surfaceFor(String title) {
         return tester
-                .widgetList<Container>(
-                  find.ancestor(
-                    of: find.text(title),
-                    matching: find.byType(Container),
-                  ),
+                .widget<DecoratedBox>(
+                  find
+                      .ancestor(
+                        of: find.text(title),
+                        matching: find.byKey(viewPaneHeaderSurfaceKey),
+                      )
+                      .first,
                 )
-                .firstWhere((c) => c.decoration is BoxDecoration)
-                .decoration!
+                .decoration
             as BoxDecoration;
       }
 
-      final first = decoFor('ALPHA');
-      final second = decoFor('BETA');
       // Both keep the section-header background band.
-      expect(first.color, const Color(0xFF252526));
-      expect(second.color, const Color(0xFF252526));
-      // No divider above the first pane: the first header has no top rule.
-      expect(first.border, isNull);
-      // Adjacent panes are separated: later headers draw the 1px top rule.
-      expect((second.border! as Border).top.color, const Color(0xFF3C3C3C));
+      expect(surfaceFor('ALPHA').color, const Color(0xFF252526));
+      expect(surfaceFor('BETA').color, const Color(0xFF252526));
+
+      // Exactly one inset rule, and it belongs to the second pane: no divider
+      // above the first pane in the stack (§spec:modern-ui-surfaces).
+      final rules = find.byKey(viewPaneHeaderRuleKey);
+      expect(rules, findsOneWidget);
+      expect(tester.widget<ColoredBox>(rules).color, const Color(0xFF3C3C3C));
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('workbench-view-pane-b')),
+          matching: rules,
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('2+ views: every pane collapsible, header shows chevron', (
