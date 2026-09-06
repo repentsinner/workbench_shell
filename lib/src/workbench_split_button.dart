@@ -10,7 +10,42 @@ import 'workbench_view_menu.dart';
 const double _separatorInset = WorkbenchLayoutConstants.spacingSize40;
 
 /// Width of the pipe itself (`.monaco-button-dropdown-separator > div`).
-const double _separatorWidth = 1;
+const double _separatorWidth = WorkbenchLayoutConstants.strokeThickness;
+
+/// Shape of each half. Canon rounds only the control's outer corners —
+/// the primary its left pair, the disclosure its right — so the two read as
+/// one control (`button.css`: `border-radius: 4px 0 0 4px` / `0 4px 4px 0`).
+/// Hoisted as constants: the halves rebuild on every menu toggle, and these
+/// carry no runtime input.
+const WidgetStatePropertyAll<OutlinedBorder> _primaryShape =
+    WidgetStatePropertyAll(
+      RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(WorkbenchLayoutConstants.cornerRadiusSmall),
+          bottomLeft: Radius.circular(
+            WorkbenchLayoutConstants.cornerRadiusSmall,
+          ),
+        ),
+      ),
+    );
+
+const WidgetStatePropertyAll<OutlinedBorder> _disclosureShape =
+    WidgetStatePropertyAll(
+      RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topRight: Radius.circular(WorkbenchLayoutConstants.cornerRadiusSmall),
+          bottomRight: Radius.circular(
+            WorkbenchLayoutConstants.cornerRadiusSmall,
+          ),
+        ),
+      ),
+    );
+
+const WidgetStatePropertyAll<EdgeInsetsGeometry> _primaryPadding =
+    WidgetStatePropertyAll(WorkbenchLayoutConstants.buttonPadding);
+
+const WidgetStatePropertyAll<EdgeInsetsGeometry> _disclosurePaddingProperty =
+    WidgetStatePropertyAll(_disclosurePadding);
 
 /// Horizontal padding of the disclosure half
 /// (`.monaco-dropdown-button { padding: 0 4px }`).
@@ -113,6 +148,9 @@ class _WorkbenchSplitButtonState extends State<WorkbenchSplitButton> {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: WorkbenchLayoutConstants.controlsRadius,
+          // Width is left to Flutter's default, which equals
+          // [WorkbenchLayoutConstants.strokeThickness]; stating it trips
+          // `avoid_redundant_argument_values`.
           border: Border.all(color: outline),
         ),
         child: LayoutBuilder(
@@ -168,13 +206,8 @@ class _WorkbenchSplitButtonState extends State<WorkbenchSplitButton> {
         hoverFill: hoverFill,
         foreground: foreground,
         // Rounds its left corners only; the disclosure rounds the right.
-        radius: const BorderRadius.only(
-          topLeft: Radius.circular(WorkbenchLayoutConstants.cornerRadiusSmall),
-          bottomLeft: Radius.circular(
-            WorkbenchLayoutConstants.cornerRadiusSmall,
-          ),
-        ),
-        padding: WorkbenchLayoutConstants.buttonPadding,
+        shape: _primaryShape,
+        padding: _primaryPadding,
       ),
       onPressed: widget.onPressed,
       child: Text(widget.label),
@@ -230,15 +263,8 @@ class _WorkbenchSplitButtonState extends State<WorkbenchSplitButton> {
                 fill: fill,
                 hoverFill: hoverFill,
                 foreground: foreground,
-                radius: const BorderRadius.only(
-                  topRight: Radius.circular(
-                    WorkbenchLayoutConstants.cornerRadiusSmall,
-                  ),
-                  bottomRight: Radius.circular(
-                    WorkbenchLayoutConstants.cornerRadiusSmall,
-                  ),
-                ),
-                padding: _disclosurePadding,
+                shape: _disclosureShape,
+                padding: _disclosurePaddingProperty,
               ),
               onPressed: enabled
                   ? () => controller.isOpen
@@ -271,8 +297,8 @@ class _WorkbenchSplitButtonState extends State<WorkbenchSplitButton> {
     required Color fill,
     required Color hoverFill,
     required Color foreground,
-    required BorderRadius radius,
-    required EdgeInsets padding,
+    required WidgetStatePropertyAll<OutlinedBorder> shape,
+    required WidgetStatePropertyAll<EdgeInsetsGeometry> padding,
   }) {
     return ButtonStyle(
       backgroundColor: WidgetStateProperty.resolveWith(
@@ -287,10 +313,8 @@ class _WorkbenchSplitButtonState extends State<WorkbenchSplitButton> {
       shadowColor: const WidgetStatePropertyAll(Colors.transparent),
       surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
       side: const WidgetStatePropertyAll(BorderSide.none),
-      shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(borderRadius: radius),
-      ),
-      padding: WidgetStatePropertyAll(padding),
+      shape: shape,
+      padding: padding,
       textStyle: WidgetStatePropertyAll(theme.buttonTextStyle),
       // The control fixes its own height; a Material minimum would fight the
       // row it is stretched into.

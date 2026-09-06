@@ -283,29 +283,42 @@ void main() {
   });
 
   group('WorkbenchSplitButton tiers (§spec:split-button)', () {
-    testWidgets('the primary tier paints the button.* family', (tester) async {
-      await tester.pumpWidget(host(onPressed: () {}));
-      expect(fillOf(tester, primary), splitTheme.buttonBackground);
-      expect(fillOf(tester, disclosure), splitTheme.buttonBackground);
+    Future<void> expectTierPaint(
+      WidgetTester tester, {
+      required bool secondary,
+      required Color fill,
+      required Color border,
+    }) async {
+      await tester.pumpWidget(host(onPressed: () {}, secondary: secondary));
+      expect(fillOf(tester, primary), fill);
+      expect(fillOf(tester, disclosure), fill);
       final decoration =
           tester.widget<DecoratedBox>(outline).decoration as BoxDecoration;
-      expect(decoration.border!.top.color, splitTheme.buttonBorder);
+      expect(decoration.border!.top.color, border);
+    }
+
+    testWidgets('the primary tier paints the button.* family', (tester) async {
+      await expectTierPaint(
+        tester,
+        secondary: false,
+        fill: splitTheme.buttonBackground,
+        border: splitTheme.buttonBorder,
+      );
     });
 
     testWidgets('the secondary tier paints the button.secondary* family', (
       tester,
     ) async {
-      await tester.pumpWidget(host(onPressed: () {}, secondary: true));
-      expect(fillOf(tester, primary), splitTheme.buttonSecondaryBackground);
-      expect(fillOf(tester, disclosure), splitTheme.buttonSecondaryBackground);
+      await expectTierPaint(
+        tester,
+        secondary: true,
+        fill: splitTheme.buttonSecondaryBackground,
+        border: splitTheme.buttonSecondaryBorder,
+      );
+      // The tier resolves its own stroke rather than inheriting the primary's.
       final decoration =
           tester.widget<DecoratedBox>(outline).decoration as BoxDecoration;
-      expect(decoration.border!.top.color, splitTheme.buttonSecondaryBorder);
-      // The tier resolves its own stroke rather than inheriting the primary's.
-      expect(
-        decoration.border!.top.color,
-        isNot(splitTheme.buttonBorder),
-      );
+      expect(decoration.border!.top.color, isNot(splitTheme.buttonBorder));
     });
 
     Future<void> expectHoverFill(
