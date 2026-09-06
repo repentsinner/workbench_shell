@@ -306,6 +306,15 @@ class ToggleModernUIIntent extends Intent {
   const ToggleModernUIIntent();
 }
 
+/// Host-defined intent for a row of a [WorkbenchSplitButton]'s disclosure
+/// menu (§spec:split-button). The control carries menu entries as
+/// [WorkbenchMenuEntry] descriptors, so a row dispatches an intent the host
+/// registers an `Action` for, exactly as the View menu's rows do.
+class RunCommitActionIntent extends Intent {
+  const RunCommitActionIntent(this.label);
+  final String label;
+}
+
 class WorkbenchHome extends StatefulWidget {
   const WorkbenchHome({
     super.key,
@@ -1820,31 +1829,115 @@ Widget _explorerHeaderAction({
 /// default pill ([StadiumBorder]). This is the self-contained chrome
 /// review surface (SPEC §spec:chrome-material-theming): run the example standalone to review the
 /// button taxonomy, no host needed.
-class _ButtonsReviewSidebar extends StatelessWidget {
+class _ButtonsReviewSidebar extends StatefulWidget {
   const _ButtonsReviewSidebar();
+
+  @override
+  State<_ButtonsReviewSidebar> createState() => _ButtonsReviewSidebarState();
+}
+
+class _ButtonsReviewSidebarState extends State<_ButtonsReviewSidebar> {
+  /// The last split-button action that ran, so a reviewer can tell the
+  /// primary half apart from a menu row without a debugger.
+  String _lastAction = 'none yet';
+
+  /// Drives both split buttons, so the disabled state can be seen dimming
+  /// the halves and the pipe together.
+  bool _splitEnabled = true;
+
+  void _record(String label) => setState(() => _lastAction = label);
+
+  /// The related actions the disclosure lists under the primary one — the
+  /// shape VS Code's Commit control uses.
+  static const _commitActions = [
+    WorkbenchViewMenuTab(
+      intent: RunCommitActionIntent('Commit and Push'),
+      label: 'Commit and Push',
+    ),
+    WorkbenchViewMenuTab(
+      intent: RunCommitActionIntent('Commit and Sync'),
+      label: 'Commit and Sync',
+    ),
+    WorkbenchMenuSeparator(),
+    WorkbenchViewMenuTab(
+      intent: RunCommitActionIntent('Commit (Amend)'),
+      label: 'Commit (Amend)',
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
-    return Padding(
+    final caption = theme.bodyText.copyWith(
+      color: theme.descriptionForeground,
+    );
+    // Scrolls vertically: the review now runs past a short side bar.
+    return SingleChildScrollView(
       padding: _sidebarBodyPadding,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'The three VS Code button tiers, themed by applyWorkbenchChrome: '
-            'a primary (accent fill), a secondary (neutral fill), and a '
-            'text/link button. All flat at rest with VS Code\'s 4px '
-            'rectangle, not Material 3\'s pill — none casts an at-rest shadow.',
-            style: theme.bodyText.copyWith(color: theme.descriptionForeground),
+      child: Actions(
+        actions: {
+          RunCommitActionIntent: CallbackAction<RunCommitActionIntent>(
+            onInvoke: (intent) {
+              _record(intent.label);
+              return null;
+            },
           ),
-          const SizedBox(height: WorkbenchLayoutConstants.spacingSize160),
-          FilledButton(onPressed: () {}, child: const Text('Primary')),
-          const SizedBox(height: WorkbenchLayoutConstants.spacingSize80),
-          FilledButton.tonal(onPressed: () {}, child: const Text('Secondary')),
-          const SizedBox(height: WorkbenchLayoutConstants.spacingSize80),
-          TextButton(onPressed: () {}, child: const Text('Text / link')),
-        ],
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'The three VS Code button tiers, themed by applyWorkbenchChrome: '
+              'a primary (accent fill), a secondary (neutral fill), and a '
+              'text/link button. All flat at rest with VS Code\'s 4px '
+              'rectangle, not Material 3\'s pill — none casts an at-rest '
+              'shadow.',
+              style: caption,
+            ),
+            const SizedBox(height: WorkbenchLayoutConstants.spacingSize160),
+            FilledButton(onPressed: () {}, child: const Text('Primary')),
+            const SizedBox(height: WorkbenchLayoutConstants.spacingSize80),
+            FilledButton.tonal(
+              onPressed: () {},
+              child: const Text('Secondary'),
+            ),
+            const SizedBox(height: WorkbenchLayoutConstants.spacingSize80),
+            TextButton(onPressed: () {}, child: const Text('Text / link')),
+            const SizedBox(height: WorkbenchLayoutConstants.spacingSize240),
+            Text(
+              'WorkbenchSplitButton — the control VS Code commits with, in '
+              'both tiers. One outline across both halves, one pipe inset '
+              'from the edges, and a disclosure opening the same menu '
+              'surface the View menu uses.',
+              style: caption,
+            ),
+            const SizedBox(height: WorkbenchLayoutConstants.spacingSize160),
+            WorkbenchSplitButton(
+              label: 'Commit',
+              onPressed: _splitEnabled ? () => _record('Commit') : null,
+              actions: _commitActions,
+            ),
+            const SizedBox(height: WorkbenchLayoutConstants.spacingSize80),
+            WorkbenchSplitButton(
+              label: 'Commit (secondary)',
+              secondary: true,
+              onPressed: _splitEnabled
+                  ? () => _record('Commit (secondary)')
+                  : null,
+              actions: _commitActions,
+            ),
+            const SizedBox(height: WorkbenchLayoutConstants.spacingSize80),
+            TextButton(
+              onPressed: () =>
+                  setState(() => _splitEnabled = !_splitEnabled),
+              child: Text(
+                _splitEnabled ? 'Disable both' : 'Enable both',
+              ),
+            ),
+            const SizedBox(height: WorkbenchLayoutConstants.spacingSize80),
+            Text('Last split action: $_lastAction', style: caption),
+          ],
+        ),
       ),
     );
   }

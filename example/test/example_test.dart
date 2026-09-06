@@ -330,6 +330,107 @@ void main() {
     },
   );
 
+  testWidgets(
+    'the buttons review carries both split-button tiers (§spec:split-button)',
+    (tester) async {
+      await tester.pumpWidget(const WorkbenchExampleApp());
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Symbols.smart_button_rounded));
+      await tester.pumpAndSettle();
+
+      final splitButtons = find.byType(WorkbenchSplitButton);
+      expect(splitButtons, findsNWidgets(2));
+
+      // Both tiers stand at the canon button height, and the secondary one
+      // resolves its own stroke rather than the primary tier's.
+      final chrome = Theme.of(
+        tester.element(splitButtons.first),
+      ).extension<WorkbenchTheme>()!;
+      for (final index in [0, 1]) {
+        expect(
+          tester.getSize(splitButtons.at(index)).height,
+          WorkbenchLayoutConstants.buttonHeight,
+        );
+      }
+      BoxDecoration outlineOf(int index) =>
+          tester
+                  .widget<DecoratedBox>(
+                    find
+                        .descendant(
+                          of: splitButtons.at(index),
+                          matching: find.byType(DecoratedBox),
+                        )
+                        .first,
+                  )
+                  .decoration
+              as BoxDecoration;
+      expect(outlineOf(0).border!.top.color, chrome.buttonBorder);
+      expect(outlineOf(1).border!.top.color, chrome.buttonSecondaryBorder);
+
+      // The disclosure opens the shell's menu, listing the primary action
+      // above the host's own rows.
+      final disclosure = find.descendant(
+        of: splitButtons.first,
+        matching: find.byIcon(Symbols.expand_more_rounded),
+      );
+      await tester.ensureVisible(disclosure);
+      await tester.pumpAndSettle();
+      await tester.tap(disclosure);
+      await tester.pumpAndSettle();
+
+      const rows = [
+        'Commit',
+        'Commit and Push',
+        'Commit and Sync',
+        'Commit (Amend)',
+      ];
+      final tops = <double>[];
+      for (final row in rows) {
+        final finder = find.widgetWithText(MenuItemButton, row);
+        expect(finder, findsOneWidget, reason: row);
+        tops.add(tester.getTopLeft(finder).dy);
+      }
+      for (var i = 1; i < tops.length; i++) {
+        expect(tops[i], greaterThan(tops[i - 1]), reason: rows[i]);
+      }
+
+      // A menu row dispatches its intent to the host's registered Action.
+      await tester.tap(find.widgetWithText(MenuItemButton, 'Commit and Push'));
+      await tester.pumpAndSettle();
+      expect(find.text('Last split action: Commit and Push'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'disabling the split buttons dims each as one control (§spec:split-button)',
+    (tester) async {
+      await tester.pumpWidget(const WorkbenchExampleApp());
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Symbols.smart_button_rounded));
+      await tester.pumpAndSettle();
+
+      final splitButtons = find.byType(WorkbenchSplitButton);
+      final dims = find.descendant(
+        of: splitButtons.first,
+        matching: find.byType(Opacity),
+      );
+      expect(dims, findsNothing);
+
+      final toggle = find.widgetWithText(TextButton, 'Disable both');
+      await tester.ensureVisible(toggle);
+      await tester.pumpAndSettle();
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+
+      // One layer per control, covering both halves and the pipe.
+      expect(dims, findsOneWidget);
+      expect(
+        find.descendant(of: splitButtons, matching: find.byType(Opacity)),
+        findsNWidgets(2),
+      );
+    },
+  );
+
   testWidgets('the editor select inherits the chrome dropdown colours '
       '(§spec:chrome-material-theming)', (tester) async {
     await tester.pumpWidget(const WorkbenchExampleApp());
