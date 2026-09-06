@@ -1933,7 +1933,7 @@ therefore impossible without breaking the dependency invariant.
   no implementation, so the contract is a no-op there and tablet
   builds are unaffected.
 
-**Platform cost gradient** (why one flag will not cover it):
+**Platform cost gradient** (why one flag cannot cover it):
 
 - *macOS* — cheapest. A full-size content view with a transparent
   title bar keeps the native traffic lights inset over shell
