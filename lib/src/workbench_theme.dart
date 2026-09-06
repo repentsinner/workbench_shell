@@ -194,6 +194,24 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   /// both §spec:chrome-material-theming filled tiers.
   final Color buttonBorder;
 
+  /// Split-button pipe. VS Code `button.separator`, whose registry default
+  /// is `button.foreground` at 40% opacity. Paints the 1px rule between a
+  /// [WorkbenchSplitButton]'s halves (§spec:split-button) — a colour
+  /// distinct from [buttonBorder], which strokes the control's outline.
+  final Color buttonSeparator;
+
+  /// Secondary-button hairline. VS Code `button.secondaryBorder`, whose
+  /// registry default is [foreground] at 15% outside high contrast. The
+  /// secondary tier strokes this rather than [buttonBorder]
+  /// (`button.css`: `.monaco-text-button.secondary`).
+  final Color buttonSecondaryBorder;
+
+  /// Secondary-button hover fill. VS Code
+  /// `button.secondaryHoverBackground`, whose registry default lightens
+  /// `list.hoverBackground` by 20% — the secondary counterpart to
+  /// [buttonHoverBackground].
+  final Color buttonSecondaryHoverBackground;
+
   /// Active-toggle fill. VS Code `inputOption.activeBackground` (the
   /// find/search toggle "on" state), a subtle accent tint; falls back to a
   /// translucent [focusBorder] accent. Marks the selected segment of the
@@ -519,6 +537,9 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.buttonSecondaryBackground,
     required this.buttonSecondaryForeground,
     required this.buttonBorder,
+    required this.buttonSeparator,
+    required this.buttonSecondaryBorder,
+    required this.buttonSecondaryHoverBackground,
     required this.inputOptionActiveBackground,
     required this.inputOptionActiveBorder,
     required this.foreground,
@@ -707,6 +728,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       'list.hoverBackground',
       dl(const Color(0xFF2A2D2E), const Color(0xFFF0F0F0)),
     );
+    // Shared so the split-button pipe resolves through the label colour the
+    // registry chains it to (inputColors.ts: button.separator defaults to
+    // transparent(button.foreground, .4)).
+    final buttonFg = map.resolve('button.foreground', const Color(0xFFFFFFFF));
     // Shared so the popup menu family resolves through the same values
     // VS Code's `menu.*` registry defaults name (menuColors.ts:
     // menu.background → dropdown.background, menu.selectionBackground →
@@ -948,10 +973,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         'button.background',
         dl(const Color(0xFF0E639C), const Color(0xFF007ACC)),
       ),
-      buttonForeground: map.resolve(
-        'button.foreground',
-        const Color(0xFFFFFFFF),
-      ),
+      buttonForeground: buttonFg,
       buttonHoverBackground: map.resolve(
         'button.hoverBackground',
         dl(const Color(0xFF1177BB), const Color(0xFF0062A3)),
@@ -966,6 +988,23 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // §spec:chrome-material-theming button border. VS Code has no registry default — themes opt
       // in; transparent when absent, so older themes draw no border.
       buttonBorder: map.resolve('button.border', const Color(0x00000000)),
+      // §spec:split-button token family. inputColors.ts: button.separator
+      // defaults to transparent(button.foreground, .4);
+      // button.secondaryBorder to transparent(foreground, 0.15) outside
+      // high contrast; button.secondaryHoverBackground to
+      // lighten(list.hoverBackground, 0.2).
+      buttonSeparator: map.resolve(
+        'button.separator',
+        buttonFg.withValues(alpha: buttonFg.a * 0.4),
+      ),
+      buttonSecondaryBorder: map.resolve(
+        'button.secondaryBorder',
+        fg.withValues(alpha: fg.a * 0.15),
+      ),
+      buttonSecondaryHoverBackground: map.resolve(
+        'button.secondaryHoverBackground',
+        _lighten(listHoverBg, 0.2),
+      ),
       // §spec:chrome-material-theming active-toggle (SegmentedButton selected segment). VS Code's
       // find/search toggle "on" state: a subtle accent tint plus a solid
       // accent border. Fall back to a translucent / solid focusBorder
@@ -1245,6 +1284,9 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? buttonSecondaryBackground,
     Color? buttonSecondaryForeground,
     Color? buttonBorder,
+    Color? buttonSeparator,
+    Color? buttonSecondaryBorder,
+    Color? buttonSecondaryHoverBackground,
     Color? inputOptionActiveBackground,
     Color? inputOptionActiveBorder,
     Color? foreground,
@@ -1398,6 +1440,11 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       buttonSecondaryForeground:
           buttonSecondaryForeground ?? this.buttonSecondaryForeground,
       buttonBorder: buttonBorder ?? this.buttonBorder,
+      buttonSeparator: buttonSeparator ?? this.buttonSeparator,
+      buttonSecondaryBorder:
+          buttonSecondaryBorder ?? this.buttonSecondaryBorder,
+      buttonSecondaryHoverBackground:
+          buttonSecondaryHoverBackground ?? this.buttonSecondaryHoverBackground,
       inputOptionActiveBackground:
           inputOptionActiveBackground ?? this.inputOptionActiveBackground,
       inputOptionActiveBorder:
@@ -1633,6 +1680,15 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         other.buttonSecondaryForeground,
       ),
       buttonBorder: c(buttonBorder, other.buttonBorder),
+      buttonSeparator: c(buttonSeparator, other.buttonSeparator),
+      buttonSecondaryBorder: c(
+        buttonSecondaryBorder,
+        other.buttonSecondaryBorder,
+      ),
+      buttonSecondaryHoverBackground: c(
+        buttonSecondaryHoverBackground,
+        other.buttonSecondaryHoverBackground,
+      ),
       inputOptionActiveBackground: c(
         inputOptionActiveBackground,
         other.inputOptionActiveBackground,
@@ -1867,6 +1923,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           buttonSecondaryBackground == other.buttonSecondaryBackground &&
           buttonSecondaryForeground == other.buttonSecondaryForeground &&
           buttonBorder == other.buttonBorder &&
+          buttonSeparator == other.buttonSeparator &&
+          buttonSecondaryBorder == other.buttonSecondaryBorder &&
+          buttonSecondaryHoverBackground ==
+              other.buttonSecondaryHoverBackground &&
           inputOptionActiveBackground == other.inputOptionActiveBackground &&
           inputOptionActiveBorder == other.inputOptionActiveBorder &&
           foreground == other.foreground &&
@@ -2003,6 +2063,9 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     buttonSecondaryBackground,
     buttonSecondaryForeground,
     buttonBorder,
+    buttonSeparator,
+    buttonSecondaryBorder,
+    buttonSecondaryHoverBackground,
     inputOptionActiveBackground,
     inputOptionActiveBorder,
     foreground,
@@ -2094,6 +2157,18 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
 /// `monospace`); Flutter's `TextStyle.fontFamily` takes a single name
 /// and falls back to the platform monospace if the primary is missing,
 /// which matches the upstream intent.
+/// VS Code's `Color.lighten` (`vs/base/common/color.ts`): scales HSL
+/// lightness by `1 + factor`, clamped to the channel. Reproduced here so
+/// `button.secondaryHoverBackground` resolves through its registry chain —
+/// `lighten(list.hoverBackground, 0.2)` — rather than through a literal that
+/// would stop tracking a theme's own hover surface.
+Color _lighten(Color color, double factor) {
+  final hsl = HSLColor.fromColor(color);
+  return hsl
+      .withLightness(clampDouble(hsl.lightness * (1 + factor), 0, 1))
+      .toColor();
+}
+
 String _platformEditorFontFamily() {
   switch (defaultTargetPlatform) {
     case TargetPlatform.macOS:

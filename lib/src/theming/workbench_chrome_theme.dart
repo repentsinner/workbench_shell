@@ -127,6 +127,19 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
     // (Dark Modern, Dark 2026) it is what keeps the secondary tier —
     // transparent-filled at rest — visible.
     //
+    // Upstream strokes the secondary tier from `button.secondaryBorder` and
+    // hovers it to `button.secondaryHoverBackground` (§spec:split-button).
+    // Flutter routes [FilledButton] and [FilledButton.tonal] through one
+    // [FilledButtonTheme] — the variant is private, and a state resolver sees
+    // only [WidgetState] — so a single theme cannot give the two tiers
+    // different strokes or hover fills. Only the fill and label split, via the
+    // colour-scheme roles each variant reads. The tonal hover therefore stays
+    // Material's overlay, composited from `onSecondaryContainer`
+    // (`button.secondaryForeground`) over `secondaryContainer`
+    // (`button.secondaryBackground`) — both chrome-set, so no unset role
+    // leaks. `WorkbenchSplitButton` renders its own tiers and takes the
+    // `button.secondary*` pair directly.
+    //
     // Elevation is pinned to 0 across all states. FilledButton's default
     // 1dp hover elevation renders the button through a PhysicalShape,
     // which paints a transparent fill (modern themes' resting secondary

@@ -1242,4 +1242,148 @@ void main() {
       expect(b, isNot(equals(a)));
     });
   });
+
+  group('WorkbenchTheme split-button token family (§spec:split-button)', () {
+    // Upstream registry, source-verified against
+    // src/vs/platform/theme/common/colors/inputColors.ts: button.separator
+    // defaults to transparent(button.foreground, .4), button.secondaryBorder
+    // to transparent(foreground, 0.15) outside high contrast, and
+    // button.secondaryHoverBackground to lighten(list.hoverBackground, 0.2).
+    test('fall back to the registry chains when the theme omits them', () {
+      final theme = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+      );
+      expect(
+        theme.buttonSeparator,
+        theme.buttonForeground.withValues(
+          alpha: theme.buttonForeground.a * 0.4,
+        ),
+      );
+      expect(
+        theme.buttonSecondaryBorder,
+        theme.foreground.withValues(alpha: theme.foreground.a * 0.15),
+      );
+      final hover = HSLColor.fromColor(theme.listHoverBackground);
+      expect(
+        theme.buttonSecondaryHoverBackground,
+        hover.withLightness(clampDouble(hover.lightness * 1.2, 0, 1)).toColor(),
+      );
+    });
+
+    test('the hover fallback is lighter than the surface it derives from', () {
+      // `lighten` scales HSL lightness, so the fallback has to read as a
+      // hover *state* rather than repeating the resting fill.
+      final theme = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+      );
+      expect(
+        HSLColor.fromColor(theme.buttonSecondaryHoverBackground).lightness,
+        greaterThan(HSLColor.fromColor(theme.listHoverBackground).lightness),
+      );
+    });
+
+    test('honour explicit tokens when present, alpha included', () {
+      final map = loader.parse('''
+        {
+          "name": "Split Test",
+          "type": "vs-dark",
+          "colors": {
+            "button.separator": "#ffffff66",
+            "button.secondaryBorder": "#3A3D41",
+            "button.secondaryHoverBackground": "#45494E"
+          }
+        }
+        ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.buttonSeparator, const Color(0x66FFFFFF));
+      expect(theme.buttonSecondaryBorder, const Color(0xFF3A3D41));
+      expect(theme.buttonSecondaryHoverBackground, const Color(0xFF45494E));
+    });
+
+    test('the separator fallback follows an overridden button.foreground', () {
+      // The registry chains the separator through button.foreground, so a
+      // theme that restyles the label moves the pipe with it.
+      final map = loader.parse('''
+        {
+          "name": "Separator Chain",
+          "type": "vs-dark",
+          "colors": {"button.foreground": "#112233"}
+        }
+        ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.buttonSeparator, const Color(0x66112233));
+    });
+
+    test('copyWith preserves the family when unspecified', () {
+      final base = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+      );
+      final modified = base.copyWith(foreground: const Color(0xFFFF0000));
+      expect(modified.buttonSeparator, equals(base.buttonSeparator));
+      expect(
+        modified.buttonSecondaryBorder,
+        equals(base.buttonSecondaryBorder),
+      );
+      expect(
+        modified.buttonSecondaryHoverBackground,
+        equals(base.buttonSecondaryHoverBackground),
+      );
+    });
+
+    test('copyWith overrides the family when specified', () {
+      final base = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+      );
+      const separator = Color(0xFF112233);
+      const border = Color(0xFF445566);
+      const hover = Color(0xFF778899);
+      final modified = base.copyWith(
+        buttonSeparator: separator,
+        buttonSecondaryBorder: border,
+        buttonSecondaryHoverBackground: hover,
+      );
+      expect(modified.buttonSeparator, equals(separator));
+      expect(modified.buttonSecondaryBorder, equals(border));
+      expect(modified.buttonSecondaryHoverBackground, equals(hover));
+    });
+
+    test('lerp interpolates the family', () {
+      final a = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'A', baseType: 'vs-dark', colors: {}),
+      ).copyWith(
+        buttonSeparator: const Color(0xFF000000),
+        buttonSecondaryBorder: const Color(0xFF000000),
+        buttonSecondaryHoverBackground: const Color(0xFF000000),
+      );
+      final b = a.copyWith(
+        buttonSeparator: const Color(0xFFFFFFFF),
+        buttonSecondaryBorder: const Color(0xFFFFFFFF),
+        buttonSecondaryHoverBackground: const Color(0xFFFFFFFF),
+      );
+      final mid = a.lerp(b, 0.5);
+      for (final colour in [
+        mid.buttonSeparator,
+        mid.buttonSecondaryBorder,
+        mid.buttonSecondaryHoverBackground,
+      ]) {
+        expect(colour, isNot(const Color(0xFF000000)));
+        expect(colour, isNot(const Color(0xFFFFFFFF)));
+      }
+    });
+
+    test('a differing family member breaks equality', () {
+      final a = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'A', baseType: 'vs-dark', colors: {}),
+      );
+      expect(a.copyWith(buttonSeparator: const Color(0xFF010203)), isNot(a));
+      expect(
+        a.copyWith(buttonSecondaryBorder: const Color(0xFF010203)),
+        isNot(a),
+      );
+      expect(
+        a.copyWith(buttonSecondaryHoverBackground: const Color(0xFF010203)),
+        isNot(a),
+      );
+    });
+  });
 }
