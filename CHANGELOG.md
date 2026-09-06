@@ -1,3 +1,17 @@
+# [0.32.0](https://github.com/repentsinner/workbench_shell/compare/v0.31.0...v0.32.0) (2026-09-06)
+
+
+### Bug Fixes
+
+* **layout:** apply simplify-gate findings to the density seam ([530121c](https://github.com/repentsinner/workbench_shell/commit/530121c52e4ac74e4f5f439a8a1de8f8ea6e6ea4))
+* **layout:** let the seam's owner draw it in either position ([6a45e85](https://github.com/repentsinner/workbench_shell/commit/6a45e85030659a70be672452ef47b00e586de35e))
+
+
+### Features
+
+* **example:** add a Density control to the View menu ([dd4fb0d](https://github.com/repentsinner/workbench_shell/commit/dd4fb0df48324c4d3b48a4dbd66d2a865a43f717))
+* expose layout density as a host-configurable property ([abaf2a8](https://github.com/repentsinner/workbench_shell/commit/abaf2a87b0fe84fc2f181267271ca1adcec519fd))
+
 # [0.31.0](https://github.com/repentsinner/workbench_shell/compare/v0.30.0...v0.31.0) (2026-09-06)
 
 
