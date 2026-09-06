@@ -1,3 +1,10 @@
+## [0.33.2](https://github.com/repentsinner/workbench_shell/compare/v0.33.1...v0.33.2) (2026-09-06)
+
+
+### Bug Fixes
+
+* **chrome:** match the pane header to its surface at rest ([cfce2f1](https://github.com/repentsinner/workbench_shell/commit/cfce2f1b8e1698d1bdb72ba6f8ec24f79b4237e3))
+
 ## [0.33.1](https://github.com/repentsinner/workbench_shell/compare/v0.33.0...v0.33.1) (2026-09-06)
 
 
