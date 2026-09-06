@@ -459,8 +459,8 @@ class _ClearAllControl extends StatelessWidget {
           borderRadius: _notificationCardRadius,
           child: Padding(
             padding: const EdgeInsets.symmetric(
-              horizontal: WorkbenchLayoutConstants.spacingSm,
-              vertical: WorkbenchLayoutConstants.spacingXs,
+              horizontal: WorkbenchLayoutConstants.spacingSize80,
+              vertical: WorkbenchLayoutConstants.spacingSize40,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -470,7 +470,7 @@ class _ClearAllControl extends StatelessWidget {
                   size: WorkbenchLayoutConstants.iconSm,
                   color: theme.notificationCloseForeground,
                 ),
-                const SizedBox(width: WorkbenchLayoutConstants.spacingXs),
+                const SizedBox(width: WorkbenchLayoutConstants.spacingSize40),
                 Text(
                   'Clear All',
                   style: theme.captionText.copyWith(
@@ -527,8 +527,8 @@ class _SummaryCard extends StatelessWidget {
               borderRadius: _notificationCardRadius,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: WorkbenchLayoutConstants.spacingMd,
-                  vertical: WorkbenchLayoutConstants.spacingSm,
+                  horizontal: WorkbenchLayoutConstants.spacingSize120,
+                  vertical: WorkbenchLayoutConstants.spacingSize80,
                 ),
                 child: Row(
                   children: [
@@ -537,7 +537,7 @@ class _SummaryCard extends StatelessWidget {
                       size: WorkbenchLayoutConstants.iconMd,
                       color: theme.notificationCloseForeground,
                     ),
-                    const SizedBox(width: WorkbenchLayoutConstants.spacingSm),
+                    const SizedBox(width: WorkbenchLayoutConstants.spacingSize80),
                     Expanded(
                       child: Text(
                         '+$hiddenCount more',
@@ -556,8 +556,8 @@ class _SummaryCard extends StatelessWidget {
               constraints: const BoxConstraints(maxHeight: 240),
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: WorkbenchLayoutConstants.spacingSm,
-                  vertical: WorkbenchLayoutConstants.spacingSm,
+                  horizontal: WorkbenchLayoutConstants.spacingSize80,
+                  vertical: WorkbenchLayoutConstants.spacingSize80,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -670,10 +670,10 @@ class _NotificationCard extends StatelessWidget {
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(
-                        WorkbenchLayoutConstants.spacingMd,
-                        WorkbenchLayoutConstants.spacingSm,
-                        WorkbenchLayoutConstants.spacingSm,
-                        WorkbenchLayoutConstants.spacingSm,
+                        WorkbenchLayoutConstants.spacingSize120,
+                        WorkbenchLayoutConstants.spacingSize80,
+                        WorkbenchLayoutConstants.spacingSize80,
+                        WorkbenchLayoutConstants.spacingSize80,
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -688,7 +688,7 @@ class _NotificationCard extends StatelessWidget {
                                 size: WorkbenchLayoutConstants.iconMd,
                               ),
                               const SizedBox(
-                                width: WorkbenchLayoutConstants.spacingSm,
+                                width: WorkbenchLayoutConstants.spacingSize80,
                               ),
                               Expanded(
                                 child: Padding(
@@ -706,7 +706,7 @@ class _NotificationCard extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(
-                                width: WorkbenchLayoutConstants.spacingSm,
+                                width: WorkbenchLayoutConstants.spacingSize80,
                               ),
                               _CloseButton(
                                 color: theme.notificationCloseForeground,
@@ -717,7 +717,7 @@ class _NotificationCard extends StatelessWidget {
                           if (notification.severity ==
                               NotificationSeverity.progress) ...[
                             const SizedBox(
-                              height: WorkbenchLayoutConstants.spacingSm,
+                              height: WorkbenchLayoutConstants.spacingSize80,
                             ),
                             _ProgressIndicatorRow(
                               value: notification.progress,
@@ -725,7 +725,7 @@ class _NotificationCard extends StatelessWidget {
                             ),
                             if (onCancelProgress != null) ...[
                               const SizedBox(
-                                height: WorkbenchLayoutConstants.spacingSm,
+                                height: WorkbenchLayoutConstants.spacingSize80,
                               ),
                               Align(
                                 alignment: Alignment.centerRight,
@@ -746,13 +746,13 @@ class _NotificationCard extends StatelessWidget {
                           ],
                           if (notification.actions.isNotEmpty) ...[
                             const SizedBox(
-                              height: WorkbenchLayoutConstants.spacingSm,
+                              height: WorkbenchLayoutConstants.spacingSize80,
                             ),
                             Align(
                               alignment: Alignment.centerRight,
                               child: Wrap(
-                                spacing: WorkbenchLayoutConstants.spacingSm,
-                                runSpacing: WorkbenchLayoutConstants.spacingXs,
+                                spacing: WorkbenchLayoutConstants.spacingSize80,
+                                runSpacing: WorkbenchLayoutConstants.spacingSize40,
                                 children: [
                                   for (final action in notification.actions)
                                     _ActionButton(
@@ -833,8 +833,8 @@ class _ActionButton extends StatelessWidget {
         hoverColor: theme.notificationActionHoverBackground,
         child: Padding(
           padding: const EdgeInsets.symmetric(
-            horizontal: WorkbenchLayoutConstants.spacingMd,
-            vertical: WorkbenchLayoutConstants.spacingXs,
+            horizontal: WorkbenchLayoutConstants.spacingSize120,
+            vertical: WorkbenchLayoutConstants.spacingSize40,
           ),
           child: Text(
             action.label,

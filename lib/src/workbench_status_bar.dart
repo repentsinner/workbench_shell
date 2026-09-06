@@ -62,7 +62,7 @@ class WorkbenchStatusBarItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(
-        horizontal: WorkbenchLayoutConstants.spacingSm,
+        horizontal: WorkbenchLayoutConstants.spacingSize80,
       ),
       child: _StatusBarLabel(
         icon: icon,
@@ -99,7 +99,7 @@ class WorkbenchStatusBarAction extends StatelessWidget {
   Widget build(BuildContext context) {
     final child = Padding(
       padding: const EdgeInsets.symmetric(
-        horizontal: WorkbenchLayoutConstants.spacingSm,
+        horizontal: WorkbenchLayoutConstants.spacingSize80,
       ),
       child: _StatusBarLabel(
         icon: icon,
@@ -154,19 +154,19 @@ class WorkbenchStatusBarProblemsItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final child = Padding(
       padding: const EdgeInsets.symmetric(
-        horizontal: WorkbenchLayoutConstants.spacingSm,
+        horizontal: WorkbenchLayoutConstants.spacingSize80,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           _StatusBarLabel(icon: Symbols.error_rounded, label: '$errorCount'),
-          const SizedBox(width: WorkbenchLayoutConstants.spacingSm),
+          const SizedBox(width: WorkbenchLayoutConstants.spacingSize80),
           _StatusBarLabel(
             icon: Symbols.warning_rounded,
             label: '$warningCount',
           ),
           if (infoCount > 0) ...[
-            const SizedBox(width: WorkbenchLayoutConstants.spacingSm),
+            const SizedBox(width: WorkbenchLayoutConstants.spacingSize80),
             _StatusBarLabel(icon: Symbols.info_rounded, label: '$infoCount'),
           ],
         ],
@@ -211,7 +211,7 @@ class _StatusBarLabel extends StatelessWidget {
             size: WorkbenchLayoutConstants.iconStatusBar,
             color: iconColor ?? theme.statusBarTextStyle.color,
           ),
-          const SizedBox(width: WorkbenchLayoutConstants.spacingXs),
+          const SizedBox(width: WorkbenchLayoutConstants.spacingSize40),
         ],
         Text(label, style: textStyle ?? theme.statusBarTextStyle),
       ],

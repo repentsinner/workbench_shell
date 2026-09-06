@@ -271,7 +271,7 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
                   tooltip: widget.closeButtonTooltip,
                   onPressed: widget.onTogglePanel,
                   padding: const EdgeInsets.all(
-                    WorkbenchLayoutConstants.spacingXs,
+                    WorkbenchLayoutConstants.spacingSize40,
                   ),
                   constraints: const BoxConstraints(
                     minWidth: WorkbenchLayoutConstants.iconXl,
@@ -308,7 +308,7 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(upper),
-        const SizedBox(width: WorkbenchLayoutConstants.spacingXs),
+        const SizedBox(width: WorkbenchLayoutConstants.spacingSize40),
         _badgePill(theme, badge),
       ],
     );

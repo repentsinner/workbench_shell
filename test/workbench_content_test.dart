@@ -906,7 +906,7 @@ void main() {
       // Full available width = pane width minus the outer padding.
       expect(
         tester.getSize(find.byKey(buttonKey)).width,
-        paneWidth - 2 * WorkbenchLayoutConstants.spacingLg,
+        paneWidth - 2 * WorkbenchLayoutConstants.spacingSize160,
       );
     });
   });

@@ -30,6 +30,38 @@ void main() {
     });
   });
 
+  group('WorkbenchLayoutConstants spacing ramp', () {
+    // Every step VS Code registers in `baseSizes.ts`, pinned to the value
+    // upstream registers for it (SPEC §spec:design-size-ladders).
+    test('spacing ramp matches baseSizes.ts registrations', () {
+      expect(WorkbenchLayoutConstants.spacingNone, 0.0);
+      expect(WorkbenchLayoutConstants.spacingSize20, 2.0);
+      expect(WorkbenchLayoutConstants.spacingSize40, 4.0);
+      expect(WorkbenchLayoutConstants.spacingSize60, 6.0);
+      expect(WorkbenchLayoutConstants.spacingSize80, 8.0);
+      expect(WorkbenchLayoutConstants.spacingSize100, 10.0);
+      expect(WorkbenchLayoutConstants.spacingSize120, 12.0);
+      expect(WorkbenchLayoutConstants.spacingSize160, 16.0);
+      expect(WorkbenchLayoutConstants.spacingSize200, 20.0);
+      expect(WorkbenchLayoutConstants.spacingSize240, 24.0);
+      expect(WorkbenchLayoutConstants.spacingSize280, 28.0);
+      expect(WorkbenchLayoutConstants.spacingSize320, 32.0);
+      expect(WorkbenchLayoutConstants.spacingSize360, 36.0);
+      expect(WorkbenchLayoutConstants.spacingSize400, 40.0);
+    });
+
+    test('notification stack metrics sit on the ramp', () {
+      expect(
+        WorkbenchLayoutConstants.notificationStackInset,
+        WorkbenchLayoutConstants.spacingSize160,
+      );
+      expect(
+        WorkbenchLayoutConstants.notificationStackGap,
+        WorkbenchLayoutConstants.spacingSize80,
+      );
+    });
+  });
+
   group('WorkbenchLayoutConstants VS Code canon (SPEC §spec:layout-constants-canon)', () {
     // Records the canonical literal values so an accidental edit fails
     // loudly. Each value cites its VS Code upstream in SPEC §spec:layout-constants-canon's

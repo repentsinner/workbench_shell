@@ -46,25 +46,56 @@ class WorkbenchLayoutConstants {
   /// margins/hairlines are suppressed (VS Code's `centeredLayoutAutoResize`).
   static const double centeredLayoutMinEditorWidth = 400.0;
 
-  // ==================== SPACING SCALE ====================
+  // ==================== SPACING RAMP ====================
+  //
+  // VS Code registers a fixed spacing ramp for padding, margins and gaps in
+  // [`baseSizes.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/platform/theme/common/sizes/baseSizes.ts)
+  // (§spec:design-size-ladders). Each numeric token encodes its value in
+  // tenths of a pixel, so `spacingSize160` is 16px. Upstream owns the
+  // values; a gap the package needs picks the nearest registered step
+  // rather than inventing a literal.
 
-  /// 2px — hairline gaps (e.g. between axis label and value).
-  static const double spacingXxs = 2.0;
+  /// 0px — `spacing.sizeNone`.
+  static const double spacingNone = 0.0;
 
-  /// 4px — tight gaps (e.g. icon-to-text in status bar items).
-  static const double spacingXs = 4.0;
+  /// 2px — `spacing.size20`.
+  static const double spacingSize20 = 2.0;
 
-  /// 8px — standard small gap (e.g. between buttons in a row).
-  static const double spacingSm = 8.0;
+  /// 4px — `spacing.size40`.
+  static const double spacingSize40 = 4.0;
 
-  /// 12px — medium gap (e.g. section heading to content).
-  static const double spacingMd = 12.0;
+  /// 6px — `spacing.size60`.
+  static const double spacingSize60 = 6.0;
 
-  /// 16px — standard section gap (e.g. between sidebar sections).
-  static const double spacingLg = 16.0;
+  /// 8px — `spacing.size80`.
+  static const double spacingSize80 = 8.0;
 
-  /// 24px — large section gap (e.g. between major sidebar sections).
-  static const double spacingXl = 24.0;
+  /// 10px — `spacing.size100`.
+  static const double spacingSize100 = 10.0;
+
+  /// 12px — `spacing.size120`.
+  static const double spacingSize120 = 12.0;
+
+  /// 16px — `spacing.size160`.
+  static const double spacingSize160 = 16.0;
+
+  /// 20px — `spacing.size200`.
+  static const double spacingSize200 = 20.0;
+
+  /// 24px — `spacing.size240`.
+  static const double spacingSize240 = 24.0;
+
+  /// 28px — `spacing.size280`.
+  static const double spacingSize280 = 28.0;
+
+  /// 32px — `spacing.size320`.
+  static const double spacingSize320 = 32.0;
+
+  /// 36px — `spacing.size360`.
+  static const double spacingSize360 = 36.0;
+
+  /// 40px — `spacing.size400`.
+  static const double spacingSize400 = 40.0;
 
   // ==================== ICON SIZES ====================
 
@@ -212,14 +243,15 @@ class WorkbenchLayoutConstants {
   /// on one row; matches VS Code's observable toast layout.
   static const double notificationCardWidth = 450.0;
 
-  /// 16px — gap between the notification stack and the workbench
-  /// edge (bottom and right). Aligns with [spacingLg] so the stack
-  /// sits on the same grid as sidebar content.
-  static const double notificationStackInset = 16.0;
+  /// Gap between the notification stack and the workbench edge (bottom
+  /// and right). Takes the ramp's 16px step so the stack sits on the same
+  /// grid as sidebar content.
+  static const double notificationStackInset = spacingSize160;
 
-  /// 8px — vertical gap between cards in the stack. One step below
-  /// [spacingMd] so cards feel grouped rather than separated.
-  static const double notificationStackGap = 8.0;
+  /// Vertical gap between cards in the stack. Two ramp steps below
+  /// [notificationStackInset] so cards read as grouped rather than
+  /// separated.
+  static const double notificationStackGap = spacingSize80;
 
   /// 5 — visible card budget. When more cards exist, the oldest
   /// non-persistent ones collapse into a "+N more" summary card
