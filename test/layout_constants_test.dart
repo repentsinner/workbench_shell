@@ -200,10 +200,7 @@ void main() {
     test('each density halves its own lane to inset the icon column', () {
       // floatingPanels.css: calc((lane - 2px) / 2), the lane less the card's
       // two strokes.
-      expect(
-        WorkbenchLayoutDensity.standard.activityBarIconInset,
-        WorkbenchLayoutConstants.activityBarIconInset,
-      );
+      expect(WorkbenchLayoutDensity.standard.activityBarIconInset, 3.0);
       expect(WorkbenchLayoutDensity.compact.activityBarIconInset, 1.0);
     });
   });

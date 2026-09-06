@@ -87,16 +87,16 @@ enum WorkbenchLayoutDensity {
   /// Inset from the activity bar card's content box to the icon column, on
   /// every side: this density's lane less the card's two strokes, halved.
   double get activityBarIconInset =>
-      (activityBarLane - 2 * WorkbenchLayoutConstants.strokeThickness) / 2;
+      WorkbenchLayoutConstants.iconInsetForLane(activityBarLane);
 
   /// The rail's whole layout allocation — the icon column, the lane beside it,
   /// and the cluster's perimeter gutter (VS Code
   /// `ActivitybarPart.minimumWidth`). The icon column keeps its own width in
   /// both densities; only the lane narrows.
-  double get activityBarWidth =>
-      WorkbenchLayoutConstants.activityBarRailWidth +
-      activityBarLane +
-      cardPerimeter;
+  double get activityBarWidth => switch (this) {
+    standard => WorkbenchLayoutConstants.activityBarWidth,
+    compact => WorkbenchLayoutConstants.railWidthForLane(activityBarLane),
+  };
 }
 
 /// Horizontal edge of a floating card (§spec:modern-ui-surfaces). Only the
@@ -114,13 +114,16 @@ enum _CardEdgeKind {
   /// draws the cluster's outer stroke.
   perimeter,
 
-  /// A card that follows this one. Under the leading-margin convention this
-  /// card reserves the gap, which compact closes; the follower then draws the
-  /// shared seam.
+  /// A neighbouring card, on the edge that leads. Under the leading-margin
+  /// convention this card reserves the gap, which compact closes. Only ever
+  /// appears on `left` or `top`.
   gap,
 
-  /// A card that leads with its own gap. Reserves nothing, but the two are
-  /// still a gap apart, so this edge keeps its corners rounded.
+  /// A neighbouring card, on the edge that trails — the neighbour already
+  /// reserved the gap from its own leading edge, so this one reserves nothing.
+  /// The two are still a gap apart at the default density, so the corners stay
+  /// rounded. Only ever appears on `right` or `bottom`. Under compact this
+  /// edge draws the shared stroke, since the leading side gives it up.
   led,
 
   /// A shared seam with no gap in either density. Reserves nothing and squares
@@ -232,37 +235,58 @@ class _FloatingCard extends StatelessWidget {
     );
   }
 
-  BorderRadius get _outerRadius {
-    if (density.cardRadius == 0) return BorderRadius.zero;
-    final corner = Radius.circular(density.cardRadius);
-    return switch (_seamEdge) {
-      _CardEdge.left => BorderRadius.only(
-        topRight: corner,
-        bottomRight: corner,
-      ),
-      _CardEdge.right => BorderRadius.only(topLeft: corner, bottomLeft: corner),
-      null => BorderRadius.all(corner),
-    };
-  }
+  // Both densities and all three seam shapes are known at compile time, so
+  // every radius a card can take is a const rather than an allocation on a
+  // path that rebuilds each frame of a sash drag. The face radius is the outer
+  // one less the stroke it sits inside, so the fill follows the ring's curve
+  // instead of poking through it.
+  static const _corner = Radius.circular(
+    WorkbenchLayoutConstants.floatingCardRadius,
+  );
+  static const _faceCorner = Radius.circular(
+    WorkbenchLayoutConstants.floatingCardRadius - _stroke,
+  );
 
-  /// The face's radius: the outer radius less the stroke it sits inside, so
-  /// the fill follows the ring's curve instead of poking through it.
-  static BorderRadius _faceRadius(BorderRadius outer) {
-    Radius shrink(Radius r) => r == Radius.zero
-        ? Radius.zero
-        : Radius.circular((r.x - _stroke).clamp(0.0, double.infinity));
-    return BorderRadius.only(
-      topLeft: shrink(outer.topLeft),
-      topRight: shrink(outer.topRight),
-      bottomLeft: shrink(outer.bottomLeft),
-      bottomRight: shrink(outer.bottomRight),
-    );
-  }
+  static const _outerAll = BorderRadius.all(_corner);
+  static const _outerFlushLeft = BorderRadius.only(
+    topRight: _corner,
+    bottomRight: _corner,
+  );
+  static const _outerFlushRight = BorderRadius.only(
+    topLeft: _corner,
+    bottomLeft: _corner,
+  );
+  static const _faceAll = BorderRadius.all(_faceCorner);
+  static const _faceFlushLeft = BorderRadius.only(
+    topRight: _faceCorner,
+    bottomRight: _faceCorner,
+  );
+  static const _faceFlushRight = BorderRadius.only(
+    topLeft: _faceCorner,
+    bottomLeft: _faceCorner,
+  );
+
+  BorderRadius get _outerRadius => density.cardRadius == 0
+      ? BorderRadius.zero
+      : switch (_seamEdge) {
+          _CardEdge.left => _outerFlushLeft,
+          _CardEdge.right => _outerFlushRight,
+          null => _outerAll,
+        };
+
+  BorderRadius get _faceRadius => density.cardRadius == 0
+      ? BorderRadius.zero
+      : switch (_seamEdge) {
+          _CardEdge.left => _faceFlushLeft,
+          _CardEdge.right => _faceFlushRight,
+          null => _faceAll,
+        };
 
   @override
   Widget build(BuildContext context) {
     final border = _border;
     final radius = _outerRadius;
+    final faceRadius = _faceRadius;
     final face = Padding(
       padding: EdgeInsets.fromLTRB(
         border.left.width,
@@ -270,10 +294,15 @@ class _FloatingCard extends StatelessWidget {
         border.right.width,
         border.bottom.width,
       ),
-      child: ClipRRect(
-        borderRadius: _faceRadius(radius),
-        child: ColoredBox(color: background, child: child),
-      ),
+      // Compact squares every corner, so there is nothing to clip to — and
+      // RenderClipRRect has no zero-radius fast path, so keeping the clip
+      // would cost a save/clipRRect/restore per card per frame for nothing.
+      child: faceRadius == BorderRadius.zero
+          ? ColoredBox(color: background, child: child)
+          : ClipRRect(
+              borderRadius: faceRadius,
+              child: ColoredBox(color: background, child: child),
+            ),
     );
 
     // A non-uniform Border cannot be painted under a corner radius in Flutter,

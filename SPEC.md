@@ -2988,10 +2988,12 @@ excluded here, to be specified separately rather than absorbed:
   squares every card corner at compact and then paints the four corners
   of the *cluster* back at the card radius, from a radial-gradient
   background stack standing in for a border it can no longer draw. The
-  package squares them all. Restoring them asks each part to know
-  whether it owns a corner of the cluster, a question nothing else in
-  the treatment reads, and the difference is four corners against window
-  chrome. Surveyed and excluded rather than absorbed.
+  package squares them all. Each part already declares which of its edges
+  face window chrome, so the question "does this part own a corner of the
+  cluster" is answerable where the radius is chosen; what upstream adds on
+  top is a gradient stack standing in for a border, and the difference it
+  buys is four corners against window chrome. Excluded on that balance,
+  not for want of the information.
 
 **Observable behavior**.
 

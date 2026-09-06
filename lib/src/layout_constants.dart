@@ -15,8 +15,8 @@ class WorkbenchLayoutConstants {
   /// [activityBarLane] + [floatingCardPerimeter] — the rail card plus the
   /// cluster's perimeter gutter (§spec:modern-ui-surfaces). The rail frames
   /// itself inside this allocation, so the row measures the same 48px it
-  /// always did. The compact density narrows the lane, so read the allocation
-  /// off the active density rather than this constant where either applies.
+  /// always did. This is the default density's allocation, which is the value
+  /// upstream states; a narrower lane derives its own via [railWidthForLane].
   static const double activityBarWidth = 48.0;
 
   /// Sidebar default width.
@@ -301,9 +301,22 @@ class WorkbenchLayoutConstants {
   /// column with `calc((var(--modern-ui-activitybar-lane) - 2px) / 2)` — the
   /// lane less the card's two strokes, halved. Taking the strokes off before
   /// halving is what keeps the icons optically centred instead of a pixel off.
-  /// The compact density halves its own narrower lane the same way.
+  /// A density that narrows the lane calls [iconInsetForLane] instead.
   static const double activityBarIconInset =
       (activityBarLane - 2 * strokeThickness) / 2;
+
+  /// [activityBarIconInset] for an arbitrary lane, so a density that narrows
+  /// the lane derives its inset from the same rule rather than restating it.
+  static double iconInsetForLane(double lane) =>
+      (lane - 2 * strokeThickness) / 2;
+
+  /// The rail's whole allocation for an arbitrary lane — the icon column, the
+  /// lane beside it, and the cluster's perimeter gutter (VS Code
+  /// `ActivitybarPart.minimumWidth`). At the default lane this resolves to
+  /// [activityBarWidth], which stays a literal because upstream states it as
+  /// one.
+  static double railWidthForLane(double lane) =>
+      activityBarRailWidth + lane + floatingCardPerimeter;
 
   // ==================== BUTTONS ====================
 
