@@ -742,9 +742,8 @@ void main() {
           as BoxDecoration;
     }
 
-    testWidgets('rounds the header at the controls tier and paints the band', (
-      tester,
-    ) async {
+    testWidgets('rounds the header at the controls tier and matches its '
+        'surface at rest', (tester) async {
       await tester.pumpWidget(
         wrapWith(
           themeWith(background: band, border: rule),
@@ -752,7 +751,11 @@ void main() {
         ),
       );
       final decoration = surfaceDecoration(tester);
-      expect(decoration.color, band);
+      // Modern UI overrides `sideBarSectionHeader.background` with the
+      // surface the header sits on, so the header reads as part of the side
+      // bar body rather than a tinted strip. Painting nothing lets that
+      // surface through, whatever the theme sets the band token to.
+      expect(decoration.color, isNull);
       expect(
         decoration.borderRadius,
         BorderRadius.circular(WorkbenchLayoutConstants.cornerRadiusSmall),
@@ -815,8 +818,8 @@ void main() {
         ),
       );
       expect(find.byKey(viewPaneHeaderRuleKey), findsNothing);
-      // The band still paints — only the separator is suppressed.
-      expect(surfaceDecoration(tester).color, band);
+      // Nothing paints at rest either way — only the separator is suppressed.
+      expect(surfaceDecoration(tester).color, isNull);
     });
 
     testWidgets('tints the header on hover with list.hoverBackground', (
@@ -829,7 +832,7 @@ void main() {
           const WorkbenchViewPane(title: 'Hello', child: Text('body')),
         ),
       );
-      expect(surfaceDecoration(tester).color, band);
+      expect(surfaceDecoration(tester).color, isNull);
 
       final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await gesture.addPointer(location: Offset.zero);
@@ -841,7 +844,7 @@ void main() {
 
       await gesture.moveTo(Offset.zero);
       await tester.pumpAndSettle();
-      expect(surfaceDecoration(tester).color, band);
+      expect(surfaceDecoration(tester).color, isNull);
     });
 
     testWidgets('body sits flush under the header (no top inset)', (

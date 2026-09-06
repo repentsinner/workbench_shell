@@ -272,9 +272,16 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
   /// so a collapsed pane's height is deterministic and matches the stack's
   /// measured natural height. Inside it, upstream's `padding.css` insets the
   /// header box from the pane edge by one spacing step, and `paneHeaders.css`
-  /// rounds that box at the controls tier, fills it with the section-header
-  /// band at rest (background token, null → no fill) and with
+  /// rounds that box at the controls tier and tints it with
   /// [WorkbenchTheme.listHoverBackground] while hovered.
+  ///
+  /// **At rest the header paints nothing.** Base VS Code fills it with
+  /// `sideBarSectionHeader.background`, but `paneHeaders.css` overrides that
+  /// with the surface the header sits on — `sideBar.background` in a side bar,
+  /// `panel.background` in the panel — so the header "reads as part of the
+  /// panel / side bar body rather than a tinted strip". Painting no fill lets
+  /// that surface through and reaches the same result without the header
+  /// needing to know which part encloses it.
   ///
   /// The separator that base VS Code draws as a full-width `border-top` becomes
   /// a short rule inset one spacing step from each end of the header box and
@@ -287,7 +294,6 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
   /// the header box: upstream negates that step as the focus outline's offset
   /// so the ring's top stroke clears the separator instead of overprinting it.
   Widget _withHeaderChrome(WorkbenchTheme theme, Widget header) {
-    final band = theme.sideBarSectionHeaderBackground;
     final rule = theme.sideBarSectionHeaderBorder;
     const inset = WorkbenchLayoutConstants.spacingSize40;
     const ringOffset = WorkbenchLayoutConstants.spacingSize20;
@@ -298,7 +304,7 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
         child: DecoratedBox(
           key: viewPaneHeaderSurfaceKey,
           decoration: BoxDecoration(
-            color: _hovered ? theme.listHoverBackground : band,
+            color: _hovered ? theme.listHoverBackground : null,
             borderRadius: WorkbenchLayoutConstants.controlsRadius,
           ),
           child: Stack(
