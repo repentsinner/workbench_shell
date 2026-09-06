@@ -289,6 +289,15 @@ class SetPanelAlignmentIntent extends Intent {
   final WorkbenchPanelAlignment alignment;
 }
 
+/// Host-defined intent to set the workbench's layout density
+/// (§spec:modern-ui-surfaces). The View menu's Density radio submenu dispatches
+/// one per choice; the shell exposes the `layoutDensity` property and the host
+/// owns the state, mirroring VS Code's `window.density.layout` setting.
+class SetLayoutDensityIntent extends Intent {
+  const SetLayoutDensityIntent(this.density);
+  final WorkbenchLayoutDensity density;
+}
+
 class WorkbenchHome extends StatefulWidget {
   const WorkbenchHome({
     super.key,
@@ -337,6 +346,11 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   // menu into the shell's controlled `panelAlignment` property. Center is the
   // default — the panel spans the editor while both side bars run full height.
   WorkbenchPanelAlignment _panelAlignment = WorkbenchPanelAlignment.center;
+
+  // Layout density, driven from the View ▸ Appearance ▸ Density radio submenu
+  // into the shell's controlled `layoutDensity` property. Standard is VS Code's
+  // `default`; compact closes the gaps between the cards and squares them.
+  WorkbenchLayoutDensity _layoutDensity = WorkbenchLayoutDensity.standard;
   void Function(Object id)? _focusPanelById;
   final NotificationService _notificationService = NotificationService();
 
@@ -432,12 +446,27 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
     setState(() => _panelAlignment = alignment);
   }
 
+  void _setLayoutDensity(WorkbenchLayoutDensity density) {
+    setState(() => _layoutDensity = density);
+  }
+
   /// Persist the shell's arrangement snapshot to the host store
   /// (§spec:layout-state-persistence). The shell hands over a JSON-encodable
   /// map; the host owns the codec and the bytes. No-op when no store is wired
   /// (widget tests).
   void _persistLayoutState(WorkbenchLayoutState state) {
     widget.prefs?.setString(_layoutStateKey, jsonEncode(state.toJson()));
+  }
+
+  /// Display name for a density, shown on the Density radio items. VS Code
+  /// labels its `window.density.layout` values Default and Compact.
+  static String _layoutDensityLabel(WorkbenchLayoutDensity density) {
+    switch (density) {
+      case WorkbenchLayoutDensity.standard:
+        return 'Default';
+      case WorkbenchLayoutDensity.compact:
+        return 'Compact';
+    }
   }
 
   /// Display name for an alignment, shown on the Align Panel radio items.
@@ -622,6 +651,12 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                         return null;
                       },
                     ),
+                SetLayoutDensityIntent: CallbackAction<SetLayoutDensityIntent>(
+                  onInvoke: (intent) {
+                    _setLayoutDensity(intent.density);
+                    return null;
+                  },
+                ),
               },
               child: WorkbenchMenuBar(
                 // VS Code's View menu structure built from the §spec:menu-model
@@ -701,6 +736,20 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                             ),
                         ],
                       ),
+                      // Density sits beside Align Panel: both are Appearance
+                      // choices the host owns and the shell renders
+                      // (§spec:modern-ui-surfaces).
+                      WorkbenchMenuSubmenu(
+                        label: 'Density',
+                        children: [
+                          for (final density in WorkbenchLayoutDensity.values)
+                            WorkbenchMenuRadio(
+                              intent: SetLayoutDensityIntent(density),
+                              label: _layoutDensityLabel(density),
+                              selected: _layoutDensity == density,
+                            ),
+                        ],
+                      ),
                     ],
                   ),
                   const WorkbenchMenuSeparator(),
@@ -745,6 +794,12 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                     panelAlignment: _panelAlignment,
                     onPanelAlignmentChanged: (next) =>
                         setState(() => _panelAlignment = next),
+                    // Controlled layout density (§spec:modern-ui-surfaces): the
+                    // host owns the choice and the shell reframes every card at
+                    // it, mirroring the panel alignment property above.
+                    layoutDensity: _layoutDensity,
+                    onLayoutDensityChanged: (next) =>
+                        setState(() => _layoutDensity = next),
                     // Controlled primary side-bar visibility
                     // (§spec:layout-customization): the host owns the flag; the
                     // shell renders it and also raises onSidebarVisibilityChanged
