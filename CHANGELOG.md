@@ -1,3 +1,16 @@
+# [0.31.0](https://github.com/repentsinner/workbench_shell/compare/v0.30.0...v0.31.0) (2026-09-06)
+
+
+### Bug Fixes
+
+* **view-pane:** apply simplify-gate findings to the header treatment ([3b54eca](https://github.com/repentsinner/workbench_shell/commit/3b54eca0d2e6c02fd23c38cbd4393754968a04f1))
+* **view-pane:** keep the whole header band clickable ([71c5a1f](https://github.com/repentsinner/workbench_shell/commit/71c5a1f02cdb410b785ed6393d93faa59f3a5cda))
+
+
+### Features
+
+* **view-pane:** adopt VS Code's Modern UI pane header metrics ([24f3626](https://github.com/repentsinner/workbench_shell/commit/24f36263f2127088d48e06bf5ccbc19105120073))
+
 # [0.30.0](https://github.com/repentsinner/workbench_shell/compare/v0.29.0...v0.30.0) (2026-09-06)
 
 
