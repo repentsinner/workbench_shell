@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'layout_constants.dart';
 import 'workbench_intents.dart';
 import 'workbench_theme.dart';
 
@@ -465,7 +466,21 @@ ButtonStyle workbenchMenuButtonStyle(WorkbenchTheme workbench) {
                 ? BorderSide(color: selectionBorder)
                 : BorderSide.none,
           ),
-    shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
+    // VS Code sizes a row at [WorkbenchLayoutConstants.menuRowHeight] and
+    // rounds its fill; Material's MenuItemButton is taller and square, and
+    // pads itself out to a touch target. Shrink-wrap so the rendered row
+    // matches the shell's density rather than Material's touch sizing.
+    minimumSize: const WidgetStatePropertyAll(
+      Size(0, WorkbenchLayoutConstants.menuRowHeight),
+    ),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    shape: const WidgetStatePropertyAll(
+      RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(
+          Radius.circular(WorkbenchLayoutConstants.cornerRadiusMedium),
+        ),
+      ),
+    ),
   );
 }
 
@@ -483,6 +498,15 @@ MenuStyle workbenchMenuPanelStyle(WorkbenchTheme workbench) {
     side: menuBorder == null
         ? null
         : WidgetStatePropertyAll(BorderSide(color: menuBorder)),
+    // `margin: 0 4px` on each row and `padding: 4px 0` on the panel, both
+    // supplied here so a row's rounded fill stops short of the panel edge
+    // and the end rows clear its corners.
+    padding: const WidgetStatePropertyAll(
+      EdgeInsets.symmetric(
+        horizontal: WorkbenchLayoutConstants.menuRowInset,
+        vertical: WorkbenchLayoutConstants.menuPanelVerticalPadding,
+      ),
+    ),
     shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
   );
 }

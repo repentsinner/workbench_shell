@@ -355,6 +355,23 @@ class WorkbenchLayoutConstants {
   /// vertical component is zero.
   static const EdgeInsets buttonPadding = EdgeInsets.symmetric(horizontal: 14);
 
+  /// Popup menu row height. VS Code's
+  /// [`menu.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/base/browser/ui/menu/menu.ts)
+  /// sizes `.monaco-menu .monaco-action-bar.vertical .action-menu-item` at
+  /// 24px. Material's `MenuItemButton` defaults far taller, so the
+  /// §spec:chrome-material-theming menu themes set this as the row's minimum
+  /// height with `MaterialTapTargetSize.shrinkWrap`.
+  static const double menuRowHeight = 24;
+
+  /// Popup menu row horizontal inset. The same rule carries `margin: 0 4px`,
+  /// which the panel supplies as horizontal padding so each row's rounded
+  /// fill stops short of the panel edge.
+  static const double menuRowInset = spacingSize40;
+
+  /// Popup menu panel vertical padding. `.monaco-action-bar.vertical` pads
+  /// `4px 0`, so the first and last rows clear the panel's rounded corners.
+  static const double menuPanelVerticalPadding = spacingSize40;
+
   /// 300px — welcome-view button width cap (§spec:structural-primitives).
   /// VS Code's `welcomeView.css` caps `.monaco-button` at `max-width: 300px`;
   /// a welcome button stretches full width in a narrow pane and centers at
