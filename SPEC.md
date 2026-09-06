@@ -1644,7 +1644,7 @@ warrant one.
 
 ## Split Button §spec:split-button
 
-*Status: not started*
+*Status: complete*
 
 A consuming app needs VS Code's Commit control: a primary action, a
 hairline pipe, and a disclosure that opens a menu of related actions.
@@ -1695,6 +1695,14 @@ and lets a host suppress it.
 satisfy the §spec:chrome-material-theming parity invariant — a themed
 family themes every member — which today it does not, since the
 package carries six of the nine registered `button.*` colours.
+
+**The control takes the secondary pair, not the chrome.** Flutter routes
+both filled variants through one `FilledButtonTheme` and keeps the variant
+private, so `applyWorkbenchChrome` cannot stroke or hover Material's tonal
+tier apart from the primary one; only the fill and label split, through the
+colour-scheme roles each variant reads. The shell renders this control's
+tiers itself and reads `button.secondaryBorder` and
+`button.secondaryHoverBackground` directly.
 
 **Rejected: a host-composed pair.** Two chrome-themed `FilledButton`s
 with a `Container` between them reaches the same pixels on one screen
