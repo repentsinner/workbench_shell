@@ -29,6 +29,9 @@ jobs:
         if: steps.classify.outputs.derived_release_commit != 'true'
         with:
           channel: stable
+          # Single source of truth for the toolchain: the same .fvmrc the
+          # local fvm pin reads, so CI and a developer machine cannot drift.
+          flutter-version-file: .fvmrc
           cache: true
       - name: Analyze
         if: steps.classify.outputs.derived_release_commit != 'true'
@@ -47,6 +50,9 @@ jobs:
         if: steps.classify.outputs.derived_release_commit != 'true'
         with:
           channel: stable
+          # Single source of truth for the toolchain: the same .fvmrc the
+          # local fvm pin reads, so CI and a developer machine cannot drift.
+          flutter-version-file: .fvmrc
           cache: true
       - name: Test (package)
         if: steps.classify.outputs.derived_release_commit != 'true'
@@ -65,6 +71,9 @@ jobs:
         if: steps.classify.outputs.derived_release_commit != 'true'
         with:
           channel: stable
+          # Single source of truth for the toolchain: the same .fvmrc the
+          # local fvm pin reads, so CI and a developer machine cannot drift.
+          flutter-version-file: .fvmrc
           cache: true
       # workbench_shell is a path dependency, so this resolves from source
       # and does not need the package's pub get to have run first.

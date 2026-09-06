@@ -13,6 +13,8 @@ analyzer:
     prefer_final_locals: error
     prefer_final_in_for_each: error
     always_declare_return_types: error
+  exclude:
+    - build/**
 
 linter:
   rules:
