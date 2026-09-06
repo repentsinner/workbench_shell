@@ -186,9 +186,9 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
       widget.headerFocusNode ??
       FocusNode(debugLabel: 'WorkbenchViewPane header');
 
-  // Reveal state for header actions (§spec:section-header-actions). Hover and
-  // focus are tracked independently; either reveals the actions while the
-  // pane is expanded.
+  // Hover and focus are tracked independently. Either reveals the header
+  // actions while the pane is expanded (§spec:section-header-actions); hover
+  // additionally tints the header surface (§spec:modern-ui-surfaces).
   bool _hovered = false;
   bool _focused = false;
 
@@ -299,9 +299,7 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
           key: viewPaneHeaderSurfaceKey,
           decoration: BoxDecoration(
             color: _hovered ? theme.listHoverBackground : band,
-            borderRadius: BorderRadius.circular(
-              WorkbenchLayoutConstants.cornerRadiusSmall,
-            ),
+            borderRadius: WorkbenchLayoutConstants.controlsRadius,
           ),
           child: Stack(
             fit: StackFit.expand,
@@ -321,7 +319,7 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
               // gaining or losing focus never reflows it (§spec:view-pane-focus).
               // A decorated box hit-tests its own shape, so it is made
               // transparent to pointers — the header beneath it stays clickable.
-              Positioned.fill(
+              Positioned(
                 left: ringOffset,
                 top: ringOffset,
                 right: ringOffset,
@@ -335,9 +333,7 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
                             ? theme.focusBorder
                             : Colors.transparent,
                       ),
-                      borderRadius: BorderRadius.circular(
-                        WorkbenchLayoutConstants.cornerRadiusSmall,
-                      ),
+                      borderRadius: WorkbenchLayoutConstants.controlsRadius,
                     ),
                   ),
                 ),
@@ -417,13 +413,12 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
     // highlight is suppressed: the hover tint is the treatment's
     // `list.hoverBackground` fill on the header surface, not a second overlay
     // stacked under it (§spec:modern-ui-surfaces).
-    Widget headerSurface = InkWell(
+    // No ink: the hover tint is painted on the header surface itself, so an
+    // InkWell would run its highlight animation — allocating a feature on the
+    // workbench's Material and repainting it for 200ms — to draw nothing.
+    // VS Code paints no ripple on a pane header either.
+    Widget headerSurface = GestureDetector(
       onTap: _handleHeaderTap,
-      canRequestFocus: false,
-      hoverColor: Colors.transparent,
-      borderRadius: BorderRadius.circular(
-        WorkbenchLayoutConstants.cornerRadiusSmall,
-      ),
       child: header,
     );
 
@@ -444,6 +439,9 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
     // node also reports descendant focus (a focused action), so focusing the
     // header — by click or Tab — reveals its actions (§spec:section-header-actions).
     headerSurface = MouseRegion(
+      // The header is a click target and a bare GestureDetector supplies no
+      // cursor of its own.
+      cursor: SystemMouseCursors.click,
       onEnter: (_) {
         if (!_hovered) setState(() => _hovered = true);
       },

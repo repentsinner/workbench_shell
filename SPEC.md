@@ -275,8 +275,9 @@ owns the stacking, the headers, and the chrome between bodies.
   header height. A pane's body sits flush under its header — VS Code's
   `.pane-body` has no top inset; the host body owns any padding.
 - Adjacent panes are separated by chrome on the header, not whitespace:
-  each header paints a section-header background band, and a 1px top
-  rule separates *adjacent* panes. The **first** pane in a container
+  each header paints a section-header background band, and a top rule
+  separates *adjacent* panes — inset from both ends under the Modern UI
+  treatment (§spec:modern-ui-surfaces). The **first** pane in a container
   omits the rule — VS Code draws no divider above the first pane (and
   none between the container's own header and the first pane). Both
   come from `WorkbenchTheme` tokens mapped from VS Code's
@@ -423,9 +424,10 @@ Reselecting the active container toggles sidebar visibility, unchanged.
   per-view collapsible flag.
 - Panes stack flush at the view-pane header height with no inter-pane
   gap, and each body sits flush under its header; adjacent panes are
-  separated by a header background band and a 1px top rule (each
-  nullable per theme, rendered in the bundled default themes). The
-  first pane in a container omits the top rule.
+  separated by a header background band and a top rule, inset from both
+  ends (§spec:modern-ui-surfaces) and each nullable per theme, rendered
+  in the bundled default themes. The first pane in a container omits the
+  top rule.
 - Whether a pane is collapsible is derived from the container's view
   count: multiple views → all collapsible; a single view → non-collapsible,
   or merged (header hidden, body fills) by container option.
@@ -2938,7 +2940,7 @@ off-by-a-margin errors the upstream comment warns about.
   specified as separate behaviors so a partial upstream reversal does
   not invalidate the whole section.
 
-**Scope boundary.** Two adjacent upstream changes are surveyed and
+**Scope boundary.** These adjacent upstream changes are surveyed and
 excluded here, to be specified separately rather than absorbed:
 
 - *The font ramp.* `baseSizes.ts` registers `fontSize.heading1` …
@@ -2951,12 +2953,30 @@ excluded here, to be specified separately rather than absorbed:
   The Modern UI look suppresses part shadows for a flat surface while
   preserving floating-overlay shadows. The package's shadow story is
   unaudited against either.
+- *Flattening the pane header's rest-state band.* Upstream additionally
+  paints a pane header the surface colour, discarding
+  `sideBarSectionHeader.background`. The band is retained: the shell
+  renders the header's own token, so a theme that tints it keeps that
+  tint. The two agree wherever a theme leaves the header token equal to
+  the surface — Dark Modern and Light Modern among them — and diverge
+  where it does not, Monokai being the case in the bundled set.
+- *Row insets inside a pane body.* Upstream insets list rows so a row's
+  hover fill stops short of the pane edge. The shell ships no list or
+  tree primitive and a pane body is host content
+  (§spec:capability-boundary), so there is no shell surface to inset.
+  This is a boundary consequence, not deferred work.
+- *Part title height.* The treatment tightens the side bar heading and
+  panel tab strip; both still render at the base height. The change is
+  part chrome rather than pane chrome, so it belongs with the parts
+  rather than here.
 
 **Observable behavior**.
 
 - The primary side bar, secondary side bar and bottom panel each
   render as a bordered, rounded card separated from its neighbours by
   a visible gap.
+- A view pane header is rounded at the controls tier and tints on
+  hover.
 - The editor renders inside a hairline frame with the same radius, and
   the frame consumes no additional layout space.
 - Where the primary side bar meets the activity bar, one hairline

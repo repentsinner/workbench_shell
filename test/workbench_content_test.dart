@@ -831,9 +831,11 @@ void main() {
       );
       // VS Code's `.pane-body` has no top inset: the body's top is flush with
       // the header band's bottom (§spec:view-stack), not a gap below it.
-      final headerBottom =
-          tester.getRect(find.byType(WorkbenchViewPane)).top +
-          WorkbenchLayoutConstants.viewPaneHeaderHeight;
+      // Measured, not recomputed from the header constant: a vertical inset
+      // added inside the band would leave a real gap this test could not see.
+      final headerBottom = tester
+          .getRect(find.byKey(viewPaneHeaderSurfaceKey).first)
+          .bottom;
       final bodyTop = tester.getTopLeft(find.text('BODY')).dy;
       expect(bodyTop - headerBottom, closeTo(0, 0.5));
     });

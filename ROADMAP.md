@@ -36,6 +36,17 @@ background across `lib/src/workbench_layout.dart`,
 including the shared seam where the rail meets the primary side bar
 (§spec:modern-ui-surfaces). Depends on §road:part-card-framing.
 
+### Part title height §road:part-title-height
+
+Tighten the side bar heading and panel tab strip from the base
+`.part > .title` height to the treatment's, updating
+`sidebarHeadingHeight` and `panelTabStripHeight` in
+`lib/src/layout_constants.dart` and their row in
+§spec:layout-constants-canon's source table
+(§spec:modern-ui-surfaces). The canon table still cites the base value,
+so a version-pinned re-audit reads the constants as current and the
+drift stays invisible.
+
 ### Layout density seam §road:layout-density
 
 Expose layout density as a host-configurable property on
