@@ -266,6 +266,7 @@ class WorkbenchMenuBar extends StatelessWidget {
               child: MenuBar(
                 children: [
                   SubmenuButton(
+                    style: _menuBarButtonStyle(workbench),
                     menuChildren: _buildMaterialChildren(context, entries),
                     child: const Text('View'),
                   ),
@@ -390,18 +391,18 @@ List<Widget> buildMaterialMenuChildren(
 /// bar is untouched; it renders through `PlatformMenuBar` (`NSMenu`), which
 /// ignores Material theming.
 ///
+/// The popup — panel, rows and separators — reads VS Code's `menu.*` family;
+/// the strip that opens it keeps `menubar.*` (§spec:chrome-material-theming).
 /// `MenuButtonThemeData` covers both top-level `SubmenuButton`s and the
 /// `MenuItemButton`/checkbox entries inside a menu — all descend from Flutter's
 /// private menu-button base and resolve through `MenuButtonTheme` (Flutter
-/// exposes no separate `SubmenuButtonTheme`). Shared by the View menu bar and
-/// the view-container title overflow popup (§spec:view-container-title) so both
-/// surfaces render identically.
+/// exposes no separate `SubmenuButtonTheme`) — so it carries the popup's row
+/// styling and the strip's own buttons override it with
+/// [_menuBarButtonStyle], which a widget-level `style` lets them do. Shared by
+/// the View menu bar and the view-container title overflow popup
+/// (§spec:view-container-title) so both surfaces render identically.
 ThemeData workbenchMenuThemeData(BuildContext context) {
   final workbench = context.workbenchTheme;
-  final foreground = workbench.menuBarForeground;
-  final hoverBackground = workbench.menuBarHoverBackground;
-  final menuSurface = workbench.panelBackground;
-  final labelStyle = workbench.helperStyle.copyWith(color: foreground);
   return Theme.of(context).copyWith(
     menuBarTheme: MenuBarThemeData(
       style: MenuStyle(
@@ -412,24 +413,98 @@ ThemeData workbenchMenuThemeData(BuildContext context) {
       ),
     ),
     menuButtonTheme: MenuButtonThemeData(
-      style: ButtonStyle(
-        backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
-        foregroundColor: WidgetStatePropertyAll(foreground),
-        overlayColor: WidgetStatePropertyAll(hoverBackground),
-        textStyle: WidgetStatePropertyAll(labelStyle),
-        iconColor: WidgetStatePropertyAll(foreground),
-        shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
-      ),
+      style: workbenchMenuButtonStyle(workbench),
     ),
-    menuTheme: MenuThemeData(
-      style: MenuStyle(
-        backgroundColor: WidgetStatePropertyAll(menuSurface),
-        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
-        elevation: const WidgetStatePropertyAll(2),
-        shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
-      ),
+    menuTheme: MenuThemeData(style: workbenchMenuPanelStyle(workbench)),
+    dividerTheme: DividerThemeData(color: workbench.menuSeparatorBackground),
+  );
+}
+
+/// Row styling for a popup menu, from the `menu.*` family
+/// (§spec:chrome-material-theming). Takes a [WorkbenchTheme] rather than a
+/// [BuildContext] so both menu surfaces share one definition: the shell's own
+/// popups through [workbenchMenuThemeData], and a host's `MenuAnchor` through
+/// `applyWorkbenchChrome`, which composes onto a [ThemeData] and has no
+/// context to read.
+@internal
+ButtonStyle workbenchMenuButtonStyle(WorkbenchTheme workbench) {
+  final foreground = workbench.menuForeground;
+  final selectionForeground = workbench.menuSelectionForeground;
+  final selectionBackground = workbench.menuSelectionBackground;
+  final selectionBorder = workbench.menuSelectionBorder;
+  // One resolver serves the label and the icon — the same colour either way.
+  final rowForeground = WidgetStateProperty.resolveWith<Color>(
+    (states) => _isRowHighlighted(states) ? selectionForeground : foreground,
+  );
+  return ButtonStyle(
+    // The highlighted row paints a real fill rather than an ink overlay, so
+    // a translucent `menu.selectionBackground` (2026 Dark) composites over
+    // the panel the way it does upstream.
+    backgroundColor: WidgetStateProperty.resolveWith(
+      (states) =>
+          _isRowHighlighted(states) ? selectionBackground : Colors.transparent,
     ),
-    dividerTheme: DividerThemeData(color: workbench.menuBarBorder),
+    foregroundColor: rowForeground,
+    overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+    textStyle: WidgetStatePropertyAll(
+      workbench.helperStyle.copyWith(color: foreground),
+    ),
+    iconColor: rowForeground,
+    // VS Code registers `menu.selectionBorder` as null outside high
+    // contrast; the highlighted row then draws no outline.
+    side: selectionBorder == null
+        ? null
+        : WidgetStateProperty.resolveWith(
+            (states) => _isRowHighlighted(states)
+                ? BorderSide(color: selectionBorder)
+                : BorderSide.none,
+          ),
+    shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
+  );
+}
+
+/// Panel styling for a popup menu, from the `menu.*` family. Shares its
+/// context-free shape with [workbenchMenuButtonStyle] for the same reason.
+@internal
+MenuStyle workbenchMenuPanelStyle(WorkbenchTheme workbench) {
+  final menuBorder = workbench.menuBorder;
+  return MenuStyle(
+    backgroundColor: WidgetStatePropertyAll(workbench.menuBackground),
+    surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+    elevation: const WidgetStatePropertyAll(2),
+    // `menu.border` is null outside high contrast — leave the side unset so
+    // the panel keeps the shape's own `BorderSide.none`.
+    side: menuBorder == null
+        ? null
+        : WidgetStatePropertyAll(BorderSide(color: menuBorder)),
+    shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
+  );
+}
+
+/// Whether a popup row draws its `menu.selection*` state. VS Code highlights
+/// the row under the pointer and the row keyboard focus has landed on, and
+/// keeps that highlight while the row is pressed.
+bool _isRowHighlighted(Set<WidgetState> states) =>
+    states.contains(WidgetState.hovered) ||
+    states.contains(WidgetState.focused) ||
+    states.contains(WidgetState.pressed);
+
+/// Styling for the in-window strip's top-level `SubmenuButton`s, which read
+/// `menubar.*` rather than the `menu.*` family [workbenchMenuThemeData]
+/// installs for the popup they open. Applied as a widget-level `style`, which
+/// takes precedence over `MenuButtonTheme`.
+ButtonStyle _menuBarButtonStyle(WorkbenchTheme workbench) {
+  final foreground = workbench.menuBarForeground;
+  return ButtonStyle(
+    backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
+    foregroundColor: WidgetStatePropertyAll(foreground),
+    overlayColor: WidgetStatePropertyAll(workbench.menuBarHoverBackground),
+    textStyle: WidgetStatePropertyAll(
+      workbench.helperStyle.copyWith(color: foreground),
+    ),
+    iconColor: WidgetStatePropertyAll(foreground),
+    side: const WidgetStatePropertyAll(BorderSide.none),
+    shape: const WidgetStatePropertyAll(RoundedRectangleBorder()),
   );
 }
 

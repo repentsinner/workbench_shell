@@ -27,4 +27,8 @@ export 'src/workbench_tabbed_panel.dart';
 export 'src/workbench_theme.dart';
 export 'src/workbench_theme_controller.dart';
 export 'src/workbench_view_container.dart';
-export 'src/workbench_view_menu.dart';
+// The menu style builders are `@internal`: `applyWorkbenchChrome` imports
+// this file directly to share one definition with the shell's own popups
+// (§spec:chrome-material-theming), but they are not public API.
+export 'src/workbench_view_menu.dart'
+    hide workbenchMenuButtonStyle, workbenchMenuPanelStyle;

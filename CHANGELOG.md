@@ -1,3 +1,15 @@
+# [0.30.0](https://github.com/repentsinner/workbench_shell/compare/v0.29.0...v0.30.0) (2026-09-06)
+
+
+### Bug Fixes
+
+* **api:** hide the internal menu style builders from the barrel ([e04b4ee](https://github.com/repentsinner/workbench_shell/commit/e04b4ee63b8f517b3e24581c6963d5316c629940))
+
+
+### Features
+
+* **theme:** paint popup menus from VS Code's menu.* tokens ([3275f6e](https://github.com/repentsinner/workbench_shell/commit/3275f6e21a99b7f60be3f7bf04e4f1d51a49007a))
+
 # [0.29.0](https://github.com/repentsinner/workbench_shell/compare/v0.28.0...v0.29.0) (2026-09-06)
 
 
