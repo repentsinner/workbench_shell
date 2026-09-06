@@ -215,12 +215,16 @@ void main() {
       );
       expect(sash, findsOneWidget);
 
-      // The panel content is inset ~1px below the panel's top edge by the
-      // border; the sash must not start above that edge (which would overhang
-      // into the clipped region above the panel).
+      // The panel content is inset below the panel's own top edge by the
+      // card's gutter and stroke (§spec:modern-ui-surfaces); the sash sits on
+      // that gutter and must not start above the panel's top edge (which would
+      // overhang into the region the Stack clips).
+      const cardInset =
+          WorkbenchLayoutConstants.floatingCardGap +
+          WorkbenchLayoutConstants.strokeThickness;
       final panelContentTop = tester.getRect(find.byKey(panelKey)).top;
       final sashTop = tester.getRect(sash).top;
-      expect(sashTop, greaterThanOrEqualTo(panelContentTop - 2));
+      expect(sashTop, greaterThanOrEqualTo(panelContentTop - cardInset));
     });
 
     testWidgets('sidebar sash is transparent at rest (VS Code canon) — no '
@@ -245,16 +249,14 @@ void main() {
       expect(opaqueFill, findsNothing);
     });
 
-    testWidgets('bottom panel top border is not overdrawn by panel child', (
+    testWidgets('bottom panel card stroke is not overdrawn by panel child', (
       tester,
     ) async {
-      // Regression: a bare DecoratedBox paints its Border *behind*
-      // the child. When the bottom panel's own background widget
-      // (e.g. ColoredBox(panelBackground) inside WorkbenchTabbedPanel)
-      // fills the full rect, it overdraws the 1px border region and
-      // the border disappears. The layout must use a Container so
-      // Container-added padding insets the child by the border
-      // dimensions, keeping the border visible.
+      // Regression: a border painted *behind* the child disappears once the
+      // panel's own background widget (e.g. ColoredBox(panelBackground) inside
+      // WorkbenchTabbedPanel) fills the full rect. The card paints its stroke
+      // as a ring and insets the child past it, so the hairline survives
+      // (§spec:modern-ui-surfaces).
       const panelBgKey = ValueKey('panel-bg');
       await tester.pumpWidget(
         MaterialApp(
@@ -276,35 +278,35 @@ void main() {
       final panelBgFinder = find.byKey(panelBgKey);
       expect(panelBgFinder, findsOneWidget);
 
-      final borderedContainer = find.ancestor(
+      final strokeRing = find.ancestor(
         of: panelBgFinder,
         matching: find.byWidgetPredicate((w) {
-          if (w is! Container) return false;
+          if (w is! DecoratedBox) return false;
           final decoration = w.decoration;
-          if (decoration is! BoxDecoration) return false;
-          final border = decoration.border;
-          return border is Border &&
-              border.top.color == _testTheme.panelBorder &&
-              border.top.width == 1.0;
+          return decoration is BoxDecoration &&
+              decoration.color == _testTheme.surfaceBorder &&
+              decoration.borderRadius ==
+                  BorderRadius.circular(
+                    WorkbenchLayoutConstants.floatingCardRadius,
+                  );
         }),
       );
       expect(
-        borderedContainer,
+        strokeRing,
         findsOneWidget,
         reason:
-            'panel border must be drawn via Container (not bare '
-            'DecoratedBox) so Container-added padding insets the '
-            'panel child past the border region',
+            'the panel card paints its hairline as a filled ring, so the '
+            'panel child cannot overdraw it',
       );
 
-      final borderRect = tester.getRect(borderedContainer);
+      final ringRect = tester.getRect(strokeRing);
       final panelRect = tester.getRect(panelBgFinder);
       expect(
-        panelRect.top - borderRect.top,
-        closeTo(1.0, 0.001),
+        panelRect.top - ringRect.top,
+        closeTo(WorkbenchLayoutConstants.strokeThickness, 0.001),
         reason:
-            'bottom panel child should be inset 1px from the bordered '
-            "container's top edge so the border remains visible",
+            'the panel child should be inset one stroke from the card ring '
+            'so the hairline remains visible',
       );
     });
   });
@@ -2427,6 +2429,54 @@ void main() {
 
       expect(snapshots, isNotEmpty);
       expect(snapshots.last.hidden['explorer'], contains('outline'));
+    });
+  });
+
+  group('Modern UI surface treatment (§spec:modern-ui-surfaces)', () {
+    const gap = WorkbenchLayoutConstants.floatingCardGap;
+
+    /// The ring a floating card paints its hairline with: a `DecoratedBox`
+    /// filled with `surface.border` and rounded at the card tier.
+    Finder cardRing(Finder of) => find.ancestor(
+      of: of,
+      matching: find.byWidgetPredicate((w) {
+        if (w is! DecoratedBox) return false;
+        final decoration = w.decoration;
+        return decoration is BoxDecoration &&
+            decoration.color == _testTheme.surfaceBorder;
+      }),
+    );
+
+    testWidgets('the side bars and bottom panel each render as a bordered, '
+        'rounded card', (tester) async {
+      await tester.pumpWidget(
+        _buildApp(
+          secondaryViewContainerIds: const ['outline'],
+          secondarySideBarVisible: true,
+          onSecondarySideBarVisibilityChanged: (_) {},
+        ),
+      );
+
+      for (final label in ['EXPLORER', 'Panel']) {
+        final ring = cardRing(find.text(label));
+        expect(ring, findsOneWidget, reason: '$label card');
+        final decoration =
+            tester.widget<DecoratedBox>(ring).decoration as BoxDecoration;
+        expect(
+          decoration.borderRadius,
+          BorderRadius.circular(WorkbenchLayoutConstants.floatingCardRadius),
+        );
+      }
+
+      // Visible gaps: the panel card is one gutter clear of the primary side
+      // bar's allocation, and of the window edge below it.
+      final sidebar = tester.getRect(cardRing(find.text('EXPLORER')));
+      final panel = tester.getRect(cardRing(find.text('Panel')));
+      expect(panel.left - sidebar.right, closeTo(gap, 0.001));
+
+      // Each card is framed inside its own allocation: the side bar's card
+      // still sits within the 300px the row assigned it.
+      expect(sidebar.width, lessThan(300));
     });
   });
 }

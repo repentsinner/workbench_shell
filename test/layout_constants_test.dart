@@ -94,4 +94,17 @@ void main() {
       });
     },
   );
+
+  group('WorkbenchLayoutConstants Modern UI surface treatment', () {
+    // Pins the values VS Code 1.138.0 uses for the floating-card treatment
+    // (SPEC §spec:modern-ui-surfaces). Each constant's doc comment cites the
+    // upstream registration it came from.
+    test('floatingCardGap matches layoutService.ts FLOATING_PANEL_MARGIN', () {
+      expect(WorkbenchLayoutConstants.floatingCardGap, 4.0);
+    });
+
+    test('floatingCardRadius takes the cornerRadius.large tier', () {
+      expect(WorkbenchLayoutConstants.floatingCardRadius, 8.0);
+    });
+  });
 }

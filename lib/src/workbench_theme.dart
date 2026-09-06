@@ -31,6 +31,21 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   final Color activityBarForeground;
   final Color activityBarInactiveForeground;
 
+  // ---- Framed container surfaces ("cards") ----
+
+  /// Fill of a framed workbench card. VS Code `surface.background`, whose
+  /// registry default is `sideBar.background` in dark and high-contrast
+  /// themes and `editor.background` in light ones. Carries the primary side
+  /// bar under the Modern UI treatment; the secondary side bar and the bottom
+  /// panel keep their own part backgrounds, as upstream's CSS overrides them
+  /// back (§spec:modern-ui-surfaces).
+  final Color surfaceBackground;
+
+  /// Hairline around a framed workbench card. VS Code `surface.border`,
+  /// registered as `foreground` at 10% composited over [surfaceBackground].
+  /// Every card in the treatment draws this one stroke.
+  final Color surfaceBorder;
+
   // ---- Sidebar ----
   final Color sideBarBackground;
 
@@ -333,6 +348,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.activityBarBorder,
     required this.activityBarForeground,
     required this.activityBarInactiveForeground,
+    required this.surfaceBackground,
+    required this.surfaceBorder,
     required this.sideBarBackground,
     required this.sideBarBorder,
     required this.sideBarForeground,
@@ -534,6 +551,19 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       dl(const Color(0xFF2A2D2E), const Color(0xFFF0F0F0)),
     );
 
+    // Framed container surfaces ("cards", §spec:modern-ui-surfaces). VS Code
+    // registers surface.background as sideBar.background in dark and
+    // high-contrast themes and editor.background in light ones, and
+    // surface.border as `foreground` at 10% composited over it.
+    final surfaceBg = map.resolve(
+      'surface.background',
+      map.isDark ? sideBarBg : editorBg,
+    );
+    final surfaceBorder = map.resolve(
+      'surface.border',
+      Color.alphaBlend(fg.withValues(alpha: 0.1), surfaceBg),
+    );
+
     // Chrome typography: chrome surfaces honour [chromeFontFamily]
     // (null → platform UI sans). The local helper carries the chrome
     // family so a single decision propagates across every chrome
@@ -582,6 +612,9 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
             .resolve('activityBar.foreground', const Color(0xFFFFFFFF))
             .withValues(alpha: 0.4),
       ),
+      // Framed container surfaces
+      surfaceBackground: surfaceBg,
+      surfaceBorder: surfaceBorder,
       // Sidebar
       sideBarBackground: sideBarBg,
       // Null by the same registry semantics as activityBar.border.
@@ -596,7 +629,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // sideBar.dropBackground to editorGroup.dropBackground; honor that
       // chain, falling back to the canonical dark default (#53595D @ 0.5)
       // so the overlay always renders.
-      sideBarDropBackground: map['sideBar.dropBackground'] ??
+      sideBarDropBackground:
+          map['sideBar.dropBackground'] ??
           map['editorGroup.dropBackground'] ??
           const Color(0x8053595D),
       // Editor
@@ -890,6 +924,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? activityBarBorder,
     Color? activityBarForeground,
     Color? activityBarInactiveForeground,
+    Color? surfaceBackground,
+    Color? surfaceBorder,
     Color? sideBarBackground,
     Color? sideBarBorder,
     Color? sideBarForeground,
@@ -1001,6 +1037,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           activityBarForeground ?? this.activityBarForeground,
       activityBarInactiveForeground:
           activityBarInactiveForeground ?? this.activityBarInactiveForeground,
+      surfaceBackground: surfaceBackground ?? this.surfaceBackground,
+      surfaceBorder: surfaceBorder ?? this.surfaceBorder,
       sideBarBackground: sideBarBackground ?? this.sideBarBackground,
       sideBarBorder: sideBarBorder ?? this.sideBarBorder,
       sideBarForeground: sideBarForeground ?? this.sideBarForeground,
@@ -1167,6 +1205,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         activityBarInactiveForeground,
         other.activityBarInactiveForeground,
       ),
+      surfaceBackground: c(surfaceBackground, other.surfaceBackground),
+      surfaceBorder: c(surfaceBorder, other.surfaceBorder),
       sideBarBackground: c(sideBarBackground, other.sideBarBackground),
       sideBarBorder: cn(sideBarBorder, other.sideBarBorder),
       sideBarForeground: c(sideBarForeground, other.sideBarForeground),
@@ -1381,6 +1421,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           activityBarForeground == other.activityBarForeground &&
           activityBarInactiveForeground ==
               other.activityBarInactiveForeground &&
+          surfaceBackground == other.surfaceBackground &&
+          surfaceBorder == other.surfaceBorder &&
           sideBarBackground == other.sideBarBackground &&
           sideBarBorder == other.sideBarBorder &&
           sideBarForeground == other.sideBarForeground &&
@@ -1494,6 +1536,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     activityBarBorder,
     activityBarForeground,
     activityBarInactiveForeground,
+    surfaceBackground,
+    surfaceBorder,
     sideBarBackground,
     sideBarBorder,
     sideBarForeground,

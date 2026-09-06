@@ -179,6 +179,34 @@ class WorkbenchLayoutConstants {
   /// outlines (§spec:design-size-ladders).
   static const double strokeThickness = 1.0;
 
+  // ==================== MODERN UI SURFACE TREATMENT ====================
+  //
+  // VS Code frames the side bars and bottom panel as bordered, rounded cards
+  // separated by a gap (§spec:modern-ui-surfaces). Values come from
+  // [`layoutService.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/services/layout/browser/layoutService.ts)
+  // and
+  // [`floatingPanels.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/media/floatingPanels.css),
+  // and are expressed through the ladders above wherever a step names them.
+  // Read against VS Code 1.138.0.
+  //
+  // Every gutter here is consumed from the part's own layout allocation, so
+  // the drag-resize arithmetic (§spec:resize-geometry) and the min/max floors
+  // (§spec:layout-constants) keep measuring the quantities they always did.
+
+  /// Gap between two adjacent cards, and between the outermost card and the
+  /// window edge. VS Code `layoutService.ts` `FLOATING_PANEL_MARGIN = 4`,
+  /// published to CSS as `--modern-ui-floating-card-margin`
+  /// (`spacing.size40`); the cluster perimeter
+  /// (`--modern-ui-floating-card-outer-margin`) takes the same step at the
+  /// default density. Each card owns the gap on its leading edge, so a
+  /// trailing edge carries one only where no card follows it.
+  static const double floatingCardGap = spacingSize40;
+
+  /// Corner radius of a floating card. Both `floatingPanels.css` and
+  /// `editorBorder.css` round every card at `cornerRadius.large` — the outer
+  /// tier, since a card is a prominent surface rather than a control.
+  static const double floatingCardRadius = cornerRadiusLarge;
+
   // ==================== BUTTONS ====================
 
   /// Button shape — applied to the app-level Material button themes

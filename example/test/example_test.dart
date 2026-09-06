@@ -573,7 +573,17 @@ void main() {
     await tester.pumpAndSettle();
     final justifyLeft = panelRect().left;
     expect(justifyLeft, lessThan(centerLeft - 40));
-    expect(justifyLeft, closeTo(0, 2));
+    // The panel card gives up the cluster's perimeter gutter and its own
+    // stroke inside its allocation (§spec:modern-ui-surfaces), so its content
+    // starts that far in from the window edge.
+    expect(
+      justifyLeft,
+      closeTo(
+        WorkbenchLayoutConstants.floatingCardGap +
+            WorkbenchLayoutConstants.strokeThickness,
+        0.001,
+      ),
+    );
 
     // Selecting Center again returns the panel to the editor band — the radio
     // mark moves without any label mutation.

@@ -25,6 +25,54 @@ enum WorkbenchSidebarPosition { left, right }
 /// by *where the panel sits in the widget tree*, not a layout solver.
 enum WorkbenchPanelAlignment { center, justify, left, right }
 
+/// A workbench part framed as a Modern UI floating card
+/// (§spec:modern-ui-surfaces): a hairline border,
+/// [WorkbenchLayoutConstants.floatingCardRadius] corners and a fill, all drawn
+/// *inside* [gutter], which is itself consumed from the space the layout
+/// already assigned to the part. Nothing is added outside, so the grid keeps
+/// measuring the same quantities (§spec:resize-geometry,
+/// §spec:layout-constants).
+///
+/// The stroke is a painted ring — an outer box filled with [borderColor] and
+/// an inner box inset by one stroke — rather than a [BoxDecoration.border],
+/// which paints behind the child and would be overdrawn by a part that fills
+/// its own rect.
+class _FloatingCard extends StatelessWidget {
+  final EdgeInsets gutter;
+  final Color background;
+  final Color borderColor;
+  final Widget child;
+
+  const _FloatingCard({
+    required this.gutter,
+    required this.background,
+    required this.borderColor,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const stroke = WorkbenchLayoutConstants.strokeThickness;
+    const radius = WorkbenchLayoutConstants.floatingCardRadius;
+    return Padding(
+      padding: gutter,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: borderColor,
+          borderRadius: BorderRadius.circular(radius),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(stroke),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(radius - stroke),
+            child: ColoredBox(color: background, child: child),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// VS Code-style workbench layout with activity bar, sidebar, editor
 /// area, bottom panel, and status bar.
 ///
@@ -799,6 +847,39 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
 
     final onRight = _sidebarPosition == WorkbenchSidebarPosition.right;
 
+    // Panel alignment reduces to one question per screen edge: does that edge's
+    // bar group run full height (outside the panel's band) or stop at the
+    // panel's top (inside it)? Center = both outside; justify = both inside;
+    // left/right = one of each. Two booleans, realized by where the panel sits
+    // in the widget tree — not a layout solver (§spec:panel-alignment).
+    final (leftInside, rightInside) = switch (_panelAlignment) {
+      WorkbenchPanelAlignment.center => (false, false),
+      WorkbenchPanelAlignment.justify => (true, true),
+      WorkbenchPanelAlignment.left => (false, true),
+      WorkbenchPanelAlignment.right => (true, false),
+    };
+
+    // Modern UI card gutters (§spec:modern-ui-surfaces). Each card owns the
+    // gap on its leading edge, so a trailing edge carries one only where no
+    // card follows it, and the cluster perimeter takes the same step. The
+    // primary side bar and the activity bar meet flush, so neither puts a gap
+    // on their shared seam. Every gutter is consumed from the part's own
+    // allocation — nothing here reflows the grid.
+    const gap = WorkbenchLayoutConstants.floatingCardGap;
+
+    // Whether a visible card follows the editor to its right, and so supplies
+    // the gap from its own leading edge.
+    final trailingCard = onRight || _secondarySideBarVisible;
+
+    // A bar group running full height meets the status bar and takes the
+    // perimeter gutter; one that stops at the panel's top leaves the gap to
+    // the panel's own leading margin.
+    double groupBottomGutter(bool inside) =>
+        inside && widget.showBottomPanel ? 0.0 : gap;
+
+    final primaryInside = onRight ? rightInside : leftInside;
+    final secondaryInside = onRight ? leftInside : rightInside;
+
     final activityBar = _ActivityBar(
       key: _activityBarKey,
       mainItems: _mainActivityItems,
@@ -821,6 +902,15 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       onWidth: (next) => setState(() => _sidebarWidth = next),
       onChangeEnd: widget.onSidebarWidthChangeEnd,
       theme: theme,
+      // Upstream fills the primary side bar's card with the shared
+      // `surface.background` (`floatingPanels.css`).
+      gutter: EdgeInsets.fromLTRB(
+        gap,
+        gap,
+        0,
+        groupBottomGutter(primaryInside),
+      ),
+      background: theme.surfaceBackground,
     );
 
     // Secondary side bar (§spec:secondary-sidebar): a second collapsible bar on
@@ -842,6 +932,16 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       onWidth: (next) => setState(() => _secondarySideBarWidth = next),
       onChangeEnd: widget.onSecondarySideBarWidthChangeEnd,
       theme: theme,
+      // No rail beside it, so the card is rounded all round. Upstream keys
+      // the auxiliary bar's fill to `sideBar.background` rather than the
+      // shared `surface.background` (`floatingPanels.css`).
+      gutter: EdgeInsets.fromLTRB(
+        gap,
+        gap,
+        onRight ? 0 : gap,
+        groupBottomGutter(secondaryInside),
+      ),
+      background: theme.sideBarBackground,
       tabIds: widget.secondaryViewContainerIds,
       onTabSelected: _setSecondaryActiveViewContainer,
     );
@@ -863,21 +963,21 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
         child: Stack(
           children: [
             Positioned.fill(
-              // Container (not bare DecoratedBox) so the child is inset
-              // 1px from the top by Container-added padding. Bare
-              // DecoratedBox paints the border behind the child and the
-              // panel's own opaque background widget overdraws the 1px
-              // border strip.
-              //
-              // Null panelBorder → theme explicitly suppresses the seam;
-              // skip the BorderSide entirely rather than falling back to a
-              // neighboring color.
-              child: Container(
-                decoration: BoxDecoration(
-                  border: theme.panelBorder == null
-                      ? null
-                      : Border(top: BorderSide(color: theme.panelBorder!)),
+              // Framed like the side bars, keeping its own `panel.background`
+              // fill — upstream overrides the shared surface fill for the
+              // panel the same way (`floatingPanels.css`). The card's ring
+              // insets the child past the stroke, so the panel's own opaque
+              // background widget cannot overdraw the hairline
+              // (§spec:modern-ui-surfaces).
+              child: _FloatingCard(
+                gutter: EdgeInsets.fromLTRB(
+                  gap,
+                  gap,
+                  !rightInside && trailingCard ? 0 : gap,
+                  gap,
                 ),
+                background: theme.panelBackground,
+                borderColor: theme.surfaceBorder,
                 child: widget.bottomPanel,
               ),
             ),
@@ -906,18 +1006,6 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     // outside the panel's horizontal band.
     final leftGroup = onRight ? [secondarySidebar] : [activityBar, sidebar];
     final rightGroup = onRight ? [sidebar, activityBar] : [secondarySidebar];
-
-    // Panel alignment reduces to one question per screen edge: does that edge's
-    // bar group run full height (outside the panel's band) or stop at the
-    // panel's top (inside it)? Center = both outside; justify = both inside;
-    // left/right = one of each. Two booleans, realized by where the panel sits
-    // in the widget tree — not a layout solver (§spec:panel-alignment).
-    final (leftInside, rightInside) = switch (_panelAlignment) {
-      WorkbenchPanelAlignment.center => (false, false),
-      WorkbenchPanelAlignment.justify => (true, true),
-      WorkbenchPanelAlignment.left => (false, true),
-      WorkbenchPanelAlignment.right => (true, false),
-    };
 
     // The band column holds the editor (beside any "inside" bars) above the
     // panel, so the panel spans the band's width. "Outside" bars are siblings of
@@ -991,6 +1079,8 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     required ValueChanged<double> onWidth,
     required ValueChanged<double>? onChangeEnd,
     required WorkbenchTheme theme,
+    required EdgeInsets gutter,
+    required Color background,
     List<String>? tabIds,
     ValueChanged<String>? onTabSelected,
   }) {
@@ -1004,6 +1094,8 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
           children: [
             _Sidebar(
               width: width,
+              gutter: gutter,
+              background: background,
               activeLabel: _activeLabelFor(activeId),
               activeContainerId: activeId,
               openedContainerIds: openedContainerIds,
@@ -1303,6 +1395,12 @@ class _ActivityBar extends StatelessWidget {
 /// and sash sizes survive switches.
 class _Sidebar extends StatelessWidget {
   final double width;
+
+  /// Card framing taken from this bar's own [width] allocation
+  /// (§spec:modern-ui-surfaces).
+  final EdgeInsets gutter;
+  final Color background;
+
   final String activeLabel;
   final String activeContainerId;
   final List<String> openedContainerIds;
@@ -1351,6 +1449,8 @@ class _Sidebar extends StatelessWidget {
 
   const _Sidebar({
     required this.width,
+    required this.gutter,
+    required this.background,
     required this.activeLabel,
     required this.activeContainerId,
     required this.openedContainerIds,
@@ -1367,47 +1467,39 @@ class _Sidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The editor-facing border is the canonical sideBar.border seam (VS Code),
-    // drawn by the sidebar like the panel draws its top border; the resize sash
-    // overlays it transparently. It is the right edge when the bar is on the
-    // left, the left edge when on the right (§spec:sidebar-position). Container
-    // (not bare DecoratedBox) so the border insets the body, keeping the view
-    // container's background from overdrawing the 1px seam. Null sideBarBorder →
-    // theme suppresses the seam; skip the BorderSide.
-    final onRight = position == WorkbenchSidebarPosition.right;
-    final borderSide = theme.sideBarBorder == null
-        ? null
-        : BorderSide(color: theme.sideBarBorder!);
-    return Container(
+    // Framed as a Modern UI card (§spec:modern-ui-surfaces): the hairline runs
+    // right round the bar rather than only down its editor-facing edge, so the
+    // canonical `sideBar.border` seam gives way to the shared `surface.border`
+    // — upstream's `floatingPanels.css` overrides the part's inline border
+    // colour for the same reason. The resize sash still overlays the
+    // editor-facing edge transparently.
+    return SizedBox(
       width: width,
-      decoration: BoxDecoration(
-        color: theme.sideBarBackground,
-        border: borderSide == null
-            ? null
-            : Border(
-                left: onRight ? borderSide : BorderSide.none,
-                right: onRight ? BorderSide.none : borderSide,
+      child: _FloatingCard(
+        gutter: gutter,
+        background: background,
+        borderColor: theme.surfaceBorder,
+        child: Column(
+          children: [
+            _buildTitle(context),
+            Expanded(
+              // One WorkbenchViewContainer per opened id, each in a stable
+              // Stack slot keyed by container id so its element/State identity
+              // is per container. Only the active id is onstage and ticking;
+              // the rest are kept in the tree (so their pane State persists)
+              // but offstage and with tickers disabled, mirroring VS Code
+              // detaching a hidden viewlet's DOM. Un-opened ids contribute no
+              // child, so their body builders never run — retention is lazy
+              // (§spec:view-container-state).
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  for (final id in openedContainerIds) _retainedContainer(id),
+                ],
               ),
-      ),
-      child: Column(
-        children: [
-          _buildTitle(context),
-          Expanded(
-            // One WorkbenchViewContainer per opened id, each in a stable Stack
-            // slot keyed by container id so its element/State identity is per
-            // container. Only the active id is onstage and ticking; the rest are
-            // kept in the tree (so their pane State persists) but offstage and
-            // with tickers disabled, mirroring VS Code detaching a hidden
-            // viewlet's DOM. Un-opened ids contribute no child, so their body
-            // builders never run — retention is lazy (§spec:view-container-state).
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                for (final id in openedContainerIds) _retainedContainer(id),
-              ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
