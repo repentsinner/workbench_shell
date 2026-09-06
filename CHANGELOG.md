@@ -1,3 +1,10 @@
+## [0.33.1](https://github.com/repentsinner/workbench_shell/compare/v0.33.0...v0.33.1) (2026-09-06)
+
+
+### Bug Fixes
+
+* **chrome:** size popup menu rows to VS Code's metrics ([c05e623](https://github.com/repentsinner/workbench_shell/commit/c05e623c1b93d0ed751c059c56008c0f6246bb5d))
+
 # [0.33.0](https://github.com/repentsinner/workbench_shell/compare/v0.32.0...v0.33.0) (2026-09-06)
 
 
