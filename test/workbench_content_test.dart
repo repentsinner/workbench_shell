@@ -352,6 +352,30 @@ void main() {
       expect(find.text('body'), findsNothing);
     });
 
+    testWidgets('the whole header band toggles, not just its glyphs', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          _collapsiblePane(title: 'Hello', child: const Text('body')),
+        ),
+      );
+      expect(find.text('body'), findsOneWidget);
+
+      // The band is taller than the glyphs it holds, so this lands inside the
+      // header but on no child. The header is opaque to hits across the whole
+      // band; deferring to the child would leave that slack dead, and
+      // TapRegion would read a click there as outside and drop header focus.
+      final band = tester.getRect(find.byKey(viewPaneHeaderSurfaceKey).first);
+      final title = tester.getRect(find.text('HELLO'));
+      expect(band.top, lessThan(title.top));
+      await tester.tapAt(Offset(title.center.dx, band.top + 2));
+      await tester.pumpAndSettle();
+
+      expect(find.text('body'), findsNothing);
+      expect(ringColor(tester), testWorkbenchTheme.focusBorder);
+    });
+
     testWidgets('clicking a non-collapsible header focuses without toggling', (
       tester,
     ) async {

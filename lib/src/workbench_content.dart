@@ -418,6 +418,11 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
     // workbench's Material and repainting it for 200ms — to draw nothing.
     // VS Code paints no ripple on a pane header either.
     Widget headerSurface = GestureDetector(
+      // The whole band toggles the pane, not just the glyphs in it. An InkWell
+      // is opaque by construction; a GestureDetector defers to its child, which
+      // would leave the gaps between title and actions dead — and TapRegion
+      // would read a click there as outside the header and drop its focus.
+      behavior: HitTestBehavior.opaque,
       onTap: _handleHeaderTap,
       child: header,
     );
