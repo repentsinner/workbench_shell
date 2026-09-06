@@ -181,11 +181,13 @@ class WorkbenchLayoutConstants {
 
   // ==================== MODERN UI SURFACE TREATMENT ====================
   //
-  // VS Code frames the side bars and bottom panel as bordered, rounded cards
-  // separated by a gap (§spec:modern-ui-surfaces). Values come from
-  // [`layoutService.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/services/layout/browser/layoutService.ts)
+  // VS Code frames the side bars, bottom panel and editor as bordered,
+  // rounded cards separated by a gap (§spec:modern-ui-surfaces). Values come
+  // from
+  // [`layoutService.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/services/layout/browser/layoutService.ts),
+  // [`floatingPanels.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/media/floatingPanels.css)
   // and
-  // [`floatingPanels.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/media/floatingPanels.css),
+  // [`editorBorder.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/editorBorder.css),
   // and are expressed through the ladders above wherever a step names them.
   // Read against VS Code 1.138.0.
   //

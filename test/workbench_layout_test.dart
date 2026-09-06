@@ -2447,7 +2447,7 @@ void main() {
       }),
     );
 
-    testWidgets('the side bars and bottom panel each render as a bordered, '
+    testWidgets('the side bars, panel and editor each render as a bordered, '
         'rounded card', (tester) async {
       await tester.pumpWidget(
         _buildApp(
@@ -2457,7 +2457,7 @@ void main() {
         ),
       );
 
-      for (final label in ['EXPLORER', 'Panel']) {
+      for (final label in ['EXPLORER', 'Panel', 'Editor']) {
         final ring = cardRing(find.text(label));
         expect(ring, findsOneWidget, reason: '$label card');
         final decoration =
@@ -2468,15 +2468,30 @@ void main() {
         );
       }
 
-      // Visible gaps: the panel card is one gutter clear of the primary side
-      // bar's allocation, and of the window edge below it.
+      // Visible gaps: one gutter between the editor and the side bar beside
+      // it, and between the editor and the panel below it.
       final sidebar = tester.getRect(cardRing(find.text('EXPLORER')));
+      final editor = tester.getRect(cardRing(find.text('Editor')));
       final panel = tester.getRect(cardRing(find.text('Panel')));
-      expect(panel.left - sidebar.right, closeTo(gap, 0.001));
+      expect(editor.left - sidebar.right, closeTo(gap, 0.001));
+      expect(panel.top - editor.bottom, closeTo(gap, 0.001));
+    });
 
-      // Each card is framed inside its own allocation: the side bar's card
-      // still sits within the 300px the row assigned it.
-      expect(sidebar.width, lessThan(300));
+    testWidgets('the editor frame consumes no extra layout space', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_buildApp(initialSidebarWidth: 300));
+
+      final layout = tester.getRect(find.byType(WorkbenchLayout));
+      const fixed =
+          WorkbenchLayoutConstants.activityBarWidth + 300; // rail + side bar
+
+      // The frame lives entirely inside the row's leftover width — the fixed
+      // parts still measure what they always did, so drag-resize arithmetic
+      // and the min/max floors keep measuring the same quantities.
+      final editor = tester.getRect(cardRing(find.text('Editor')));
+      expect(editor.left, greaterThanOrEqualTo(layout.left + fixed));
+      expect(editor.right, lessThanOrEqualTo(layout.right));
     });
   });
 }

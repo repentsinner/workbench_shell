@@ -947,8 +947,23 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     );
 
     // Editor area, filling the inner row's free space beside any side bars the
-    // panel runs beneath.
-    final editorArea = Expanded(child: editorContent);
+    // panel runs beneath. Framed like the other cards, with the hairline drawn
+    // inside the space the row already gave it — upstream's `editorBorder.css`
+    // sets `box-sizing: border-box` for the same reason, so the frame costs no
+    // relayout (§spec:modern-ui-surfaces).
+    final editorArea = Expanded(
+      child: _FloatingCard(
+        gutter: EdgeInsets.fromLTRB(
+          gap,
+          gap,
+          trailingCard ? 0 : gap,
+          widget.showBottomPanel ? 0 : gap,
+        ),
+        background: theme.editorBackground,
+        borderColor: theme.surfaceBorder,
+        child: editorContent,
+      ),
+    );
 
     // Bottom panel, wrapped in a Visibility(maintainState: true) so its widget
     // subtree (and any State it owns — timers, scroll positions, fetched data)
