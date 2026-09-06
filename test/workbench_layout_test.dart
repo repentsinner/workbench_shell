@@ -283,19 +283,27 @@ void main() {
         matching: find.byWidgetPredicate((w) {
           if (w is! DecoratedBox) return false;
           final decoration = w.decoration;
-          return decoration is BoxDecoration &&
-              decoration.color == _testTheme.surfaceBorder &&
-              decoration.borderRadius ==
-                  BorderRadius.circular(
-                    WorkbenchLayoutConstants.floatingCardRadius,
-                  );
+          if (decoration is! BoxDecoration) return false;
+          if (decoration.borderRadius !=
+              BorderRadius.circular(
+                WorkbenchLayoutConstants.floatingCardRadius,
+              )) {
+            return false;
+          }
+          // The panel's stroke is a foreground-safe Border; the one card that
+          // cedes an edge fills the box instead. Either satisfies the
+          // guarantee this test exists for.
+          final border = decoration.border;
+          return decoration.color == _testTheme.surfaceBorder ||
+              (border is Border &&
+                  border.top.color == _testTheme.surfaceBorder);
         }),
       );
       expect(
         strokeRing,
         findsOneWidget,
         reason:
-            'the panel card paints its hairline as a filled ring, so the '
+            'the panel card paints its hairline outside its child, so the '
             'panel child cannot overdraw it',
       );
 
@@ -2446,17 +2454,31 @@ void main() {
     const gap = WorkbenchLayoutConstants.floatingCardGap;
     const stroke = WorkbenchLayoutConstants.strokeThickness;
 
-    /// The ring a [_FloatingCard] paints its hairline with: a `DecoratedBox`
-    /// filled with `surface.border` and rounded at the card tier.
+    /// The `DecoratedBox` a card paints its hairline with, rounded at the card
+    /// tier. A card with a stroke on every edge draws a foreground [Border];
+    /// the one card that cedes an edge fills the box with `surface.border`
+    /// instead, because a non-uniform border cannot carry a corner radius.
+    /// Either way the observable property is the same — a `surface.border`
+    /// hairline at the card's edge.
     Finder cardRing(Finder of) => find.ancestor(
       of: of,
       matching: find.byWidgetPredicate((w) {
         if (w is! DecoratedBox) return false;
         final decoration = w.decoration;
-        return decoration is BoxDecoration &&
-            decoration.color == _testTheme.surfaceBorder;
+        if (decoration is! BoxDecoration) return false;
+        if (decoration.color == _testTheme.surfaceBorder) return true;
+        final border = decoration.border;
+        return border is Border && border.top.color == _testTheme.surfaceBorder;
       }),
     );
+
+    /// The filled box an activity bar item paints behind its icon when
+    /// selected or hovered. Inactive items wrap no decoration at all.
+    Finder indicator(Color color) => find.byWidgetPredicate((w) {
+      if (w is! DecoratedBox) return false;
+      final decoration = w.decoration;
+      return decoration is BoxDecoration && decoration.color == color;
+    });
 
     Finder fillOf(Finder card, Color color) => find.descendant(
       of: card,
@@ -2542,6 +2564,47 @@ void main() {
       );
     });
 
+    testWidgets('a standalone rail on the trailing edge keeps its full lane', (
+      tester,
+    ) async {
+      // Collapsed on the right the rail owns both gutters: the cluster
+      // perimeter on its trailing edge and the leading gap the missing side
+      // bar used to supply. Reserved on top of the allocation, not taken out
+      // of it — absorbed, both come off the lane and the icon column narrows.
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+          home: WorkbenchLayout(
+            activityBarItems: _testItems,
+            editor: const Center(child: Text('Editor')),
+            containerBuilder: _sidebarSpec,
+            bottomPanel: const Center(child: Text('Panel')),
+            statusBar: const SizedBox(height: 22, child: Text('Status')),
+            initialSidebarPosition: WorkbenchSidebarPosition.right,
+            initialSidebarVisible: false,
+          ),
+        ),
+      );
+
+      final railRect = tester.getRect(
+        cardRing(find.byIcon(Symbols.folder_rounded)),
+      );
+
+      // The card is the allocation less its two gutters; the lane (both
+      // strokes plus the icon inset either side) comes off that, leaving the
+      // same icon column the rail has in every other state.
+      expect(
+        railRect.width - WorkbenchLayoutConstants.activityBarLane,
+        closeTo(WorkbenchLayoutConstants.activityBarRailWidth, 0.001),
+      );
+
+      final icon = tester.getRect(find.byIcon(Symbols.folder_rounded));
+      expect(
+        icon.left - railRect.left,
+        closeTo(railRect.right - icon.right, 0.001),
+      );
+    });
+
     testWidgets('the editor frame consumes no extra layout space', (
       tester,
     ) async {
@@ -2570,12 +2633,6 @@ void main() {
     ) async {
       await tester.pumpWidget(_buildApp());
 
-      Finder indicator(Color color) => find.byWidgetPredicate((w) {
-        if (w is! Container) return false;
-        final decoration = w.decoration;
-        return decoration is BoxDecoration && decoration.color == color;
-      });
-
       final active = indicator(_testTheme.activityBarItemActiveBackground);
       expect(active, findsOneWidget);
 
@@ -2590,7 +2647,7 @@ void main() {
         ),
       );
       final decoration =
-          tester.widget<Container>(active).decoration as BoxDecoration;
+          tester.widget<DecoratedBox>(active).decoration as BoxDecoration;
       expect(
         decoration.borderRadius,
         BorderRadius.circular(
@@ -2618,12 +2675,7 @@ void main() {
     ) async {
       await tester.pumpWidget(_buildApp());
 
-      final hover = find.byWidgetPredicate((w) {
-        if (w is! Container) return false;
-        final decoration = w.decoration;
-        return decoration is BoxDecoration &&
-            decoration.color == _testTheme.activityBarItemHoverBackground;
-      });
+      final hover = indicator(_testTheme.activityBarItemHoverBackground);
       expect(hover, findsNothing);
 
       final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);

@@ -131,10 +131,7 @@ void main() {
       // activityBar.css sizes it calc(action-height - 4px), rounded at
       // cornerRadius.small.
       expect(WorkbenchLayoutConstants.activityBarItemIndicatorSize, 32.0);
-      expect(
-        WorkbenchLayoutConstants.activityBarItemIndicatorRadius,
-        WorkbenchLayoutConstants.cornerRadiusSmall,
-      );
+      expect(WorkbenchLayoutConstants.activityBarItemIndicatorRadius, 4.0);
     });
 
     test('the icon column inset centres it in the card content box', () {

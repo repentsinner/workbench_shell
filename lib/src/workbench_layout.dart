@@ -41,10 +41,12 @@ enum _CardEdge { left, right }
 /// stroke, for the card whose neighbour draws the shared hairline — the
 /// primary side bar, which leaves the seam to the activity bar rail.
 ///
-/// The stroke is a painted ring — an outer box filled with [borderColor] and
-/// an inner box inset by one stroke — rather than a [BoxDecoration.border].
-/// Flutter refuses to paint a non-uniform [Border] with a corner radius, and
-/// the card that cedes the seam has exactly one edge without a stroke.
+/// A card with a stroke on every edge paints it as a foreground [Border], so
+/// the fill is drawn once and the stroke lands in front of the child rather
+/// than behind it. The one card that cedes an edge ([cedesSeam]) cannot: a
+/// non-uniform [Border] with a corner radius is not paintable in Flutter, so
+/// that card alone falls back to a painted ring — an outer box filled with
+/// [borderColor] and an inner box inset by one stroke.
 class _FloatingCard extends StatelessWidget {
   final EdgeInsets gutter;
   final Color background;
@@ -62,37 +64,104 @@ class _FloatingCard extends StatelessWidget {
     this.cedesSeam = false,
   });
 
-  static BorderRadius _radius(double value, _CardEdge? flushEdge) {
-    final r = Radius.circular(value);
-    return BorderRadius.only(
-      topLeft: flushEdge == _CardEdge.left ? Radius.zero : r,
-      bottomLeft: flushEdge == _CardEdge.left ? Radius.zero : r,
-      topRight: flushEdge == _CardEdge.right ? Radius.zero : r,
-      bottomRight: flushEdge == _CardEdge.right ? Radius.zero : r,
-    );
-  }
+  static const _stroke = WorkbenchLayoutConstants.strokeThickness;
+  static const _radius = WorkbenchLayoutConstants.floatingCardRadius;
+
+  static const _outerSquare = BorderRadius.all(Radius.circular(_radius));
+  static const _innerSquare = BorderRadius.all(
+    Radius.circular(_radius - _stroke),
+  );
+  static const _outerFlushLeft = BorderRadius.only(
+    topRight: Radius.circular(_radius),
+    bottomRight: Radius.circular(_radius),
+  );
+  static const _innerFlushLeft = BorderRadius.only(
+    topRight: Radius.circular(_radius - _stroke),
+    bottomRight: Radius.circular(_radius - _stroke),
+  );
+  static const _outerFlushRight = BorderRadius.only(
+    topLeft: Radius.circular(_radius),
+    bottomLeft: Radius.circular(_radius),
+  );
+  static const _innerFlushRight = BorderRadius.only(
+    topLeft: Radius.circular(_radius - _stroke),
+    bottomLeft: Radius.circular(_radius - _stroke),
+  );
+
+  static const _insetAll = EdgeInsets.all(_stroke);
+  static const _insetCededLeft = EdgeInsets.fromLTRB(
+    0,
+    _stroke,
+    _stroke,
+    _stroke,
+  );
+  static const _insetCededRight = EdgeInsets.fromLTRB(
+    _stroke,
+    _stroke,
+    0,
+    _stroke,
+  );
+
+  BorderRadius get _outerRadius => switch (flushEdge) {
+    _CardEdge.left => _outerFlushLeft,
+    _CardEdge.right => _outerFlushRight,
+    null => _outerSquare,
+  };
+
+  BorderRadius get _innerRadius => switch (flushEdge) {
+    _CardEdge.left => _innerFlushLeft,
+    _CardEdge.right => _innerFlushRight,
+    null => _innerSquare,
+  };
 
   @override
   Widget build(BuildContext context) {
-    const stroke = WorkbenchLayoutConstants.strokeThickness;
-    const radius = WorkbenchLayoutConstants.floatingCardRadius;
     final ceded = cedesSeam ? flushEdge : null;
+
+    // The ceded-seam card drops one edge's stroke, which a Border cannot
+    // express alongside a corner radius. It alone pays a second fill: the
+    // outer box is the ring, the inner ColoredBox the card face.
+    if (ceded != null) {
+      return Padding(
+        padding: gutter,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: borderColor,
+            borderRadius: _outerRadius,
+          ),
+          child: Padding(
+            padding: ceded == _CardEdge.left
+                ? _insetCededLeft
+                : _insetCededRight,
+            child: ClipRRect(
+              borderRadius: _innerRadius,
+              child: ColoredBox(color: background, child: child),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Padding(
       padding: gutter,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: borderColor,
-          borderRadius: _radius(radius, flushEdge),
+          // Border only, no fill: the band is all this box needs to paint, and
+          // the face below is inset clear of it. Filling here and repainting
+          // the interior would cost a second full-card fill — on the editor,
+          // most of the window.
+          //
+          // The width is stated even though it currently equals Flutter's
+          // default, so the stroke tracks `strokeThickness` if upstream moves
+          // it rather than silently keeping 1px.
+          // ignore: avoid_redundant_argument_values
+          border: Border.all(color: borderColor, width: _stroke),
+          borderRadius: _outerRadius,
         ),
         child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            ceded == _CardEdge.left ? 0 : stroke,
-            stroke,
-            ceded == _CardEdge.right ? 0 : stroke,
-            stroke,
-          ),
+          padding: _insetAll,
           child: ClipRRect(
-            borderRadius: _radius(radius - stroke, flushEdge),
+            borderRadius: _innerRadius,
             child: ColoredBox(color: background, child: child),
           ),
         ),
@@ -1168,7 +1237,6 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
               toggleViewVisible: _toggleViewVisible,
               layoutState: _layoutState,
               onContainerArrangementChanged: _handleContainerArrangement,
-              position: position,
               theme: theme,
               tabIds: tabIds,
               onTabSelected: onTabSelected,
@@ -1403,8 +1471,17 @@ class _ActivityBar extends StatelessWidget {
     // The icon column sits inside the card's lane, inset equally on every side
     // so the items stay optically centred (§spec:modern-ui-surfaces).
     const inset = WorkbenchLayoutConstants.activityBarIconInset;
+    // Standing alone on the trailing edge, the rail supplies the leading gap
+    // the missing side bar used to lead with. That gap is reserved on top of
+    // the allocation rather than taken out of it: absorbed, it would come off
+    // the lane and narrow the icon column, which is the defect upstream
+    // reserves the width to prevent (`needsFloatingLeadingGap`).
+    final reservesLeadingGap =
+        position == WorkbenchSidebarPosition.right && !sidebarVisible;
     return SizedBox(
-      width: WorkbenchLayoutConstants.activityBarWidth,
+      width:
+          WorkbenchLayoutConstants.activityBarWidth +
+          (reservesLeadingGap ? WorkbenchLayoutConstants.floatingCardGap : 0.0),
       child: _FloatingCard(
         gutter: gutter,
         background: theme.activityBarBackground,
@@ -1471,7 +1548,23 @@ class _ActivityBarIcon extends StatefulWidget {
 }
 
 class _ActivityBarIconState extends State<_ActivityBarIcon> {
+  static const _indicatorRadius = BorderRadius.all(
+    Radius.circular(WorkbenchLayoutConstants.activityBarItemIndicatorRadius),
+  );
+
   bool _hovered = false;
+
+  /// Centred so the icon keeps its own intrinsic box inside the larger
+  /// indicator square. Letting the tight constraints reach [Icon] would
+  /// stretch its box to the indicator's size — the glyph still paints centred,
+  /// but the widget's rect is what the side-bar-position tests measure from.
+  Widget _icon(Color foreground) => Center(
+    child: Icon(
+      widget.item.icon,
+      color: foreground,
+      size: WorkbenchLayoutConstants.iconActivityBar,
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -1491,6 +1584,9 @@ class _ActivityBarIconState extends State<_ActivityBarIcon> {
       message: widget.item.label,
       preferBelow: false,
       child: MouseRegion(
+        // A bare GestureDetector supplies no cursor, so the pointer stays an
+        // arrow over a clickable target without this.
+        cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
         child: GestureDetector(
@@ -1499,21 +1595,20 @@ class _ActivityBarIconState extends State<_ActivityBarIcon> {
             width: WorkbenchLayoutConstants.activityBarRailWidth,
             height: WorkbenchLayoutConstants.activityBarItemHeight,
             child: Center(
-              child: Container(
+              child: SizedBox(
                 width: WorkbenchLayoutConstants.activityBarItemIndicatorSize,
                 height: WorkbenchLayoutConstants.activityBarItemIndicatorSize,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: indicator,
-                  borderRadius: BorderRadius.circular(
-                    WorkbenchLayoutConstants.activityBarItemIndicatorRadius,
-                  ),
-                ),
-                child: Icon(
-                  widget.item.icon,
-                  color: foreground,
-                  size: WorkbenchLayoutConstants.iconActivityBar,
-                ),
+                // Only the selected and hovered states paint a fill; an
+                // inactive item wraps no decoration at all.
+                child: indicator == null
+                    ? _icon(foreground)
+                    : DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: indicator,
+                          borderRadius: _indicatorRadius,
+                        ),
+                        child: _icon(foreground),
+                      ),
               ),
             ),
           ),
@@ -1571,7 +1666,6 @@ class _Sidebar extends StatelessWidget {
   )
   onContainerArrangementChanged;
 
-  final WorkbenchSidebarPosition position;
   final WorkbenchTheme theme;
 
   /// Secondary-bar membership (§spec:secondary-sidebar): when non-null the
@@ -1598,7 +1692,6 @@ class _Sidebar extends StatelessWidget {
     required this.toggleViewVisible,
     required this.layoutState,
     required this.onContainerArrangementChanged,
-    required this.position,
     required this.theme,
     this.tabIds,
     this.onTabSelected,
