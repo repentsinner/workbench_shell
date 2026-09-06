@@ -171,6 +171,46 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   final Color menuBarHoverBackground;
   final Color menuBarBorder;
 
+  // ---- Popup menu (§spec:chrome-material-theming) ----
+  //
+  // VS Code registers a seven-token `menu.*` family for the popup a
+  // menu bar opens, distinct from the `menubar.*` strip above. The
+  // shell's own popups — the View menu and the view-container title
+  // overflow (§spec:view-container-title) — read these; the strip
+  // keeps `menuBar*`. Registry defaults are source-verified against
+  // `src/vs/platform/theme/common/colors/menuColors.ts`.
+
+  /// Popup panel fill. VS Code `menu.background`, defaulting to
+  /// `dropdown.background` ([dropdownBackground]).
+  final Color menuBackground;
+
+  /// Popup row label. VS Code `menu.foreground`, defaulting to
+  /// `dropdown.foreground`.
+  final Color menuForeground;
+
+  /// Popup panel hairline. VS Code `menu.border`, whose registry
+  /// default is null outside high contrast — the panel then draws no
+  /// hairline (see [activityBarBorder]).
+  final Color? menuBorder;
+
+  /// Highlighted-row fill. VS Code `menu.selectionBackground`,
+  /// defaulting to `list.activeSelectionBackground`
+  /// ([listActiveSelectionBackground]).
+  final Color menuSelectionBackground;
+
+  /// Highlighted-row label. VS Code `menu.selectionForeground`,
+  /// defaulting to `list.activeSelectionForeground` (white in both
+  /// base types).
+  final Color menuSelectionForeground;
+
+  /// Highlighted-row outline. VS Code `menu.selectionBorder`, null
+  /// outside high contrast — the row then draws no outline.
+  final Color? menuSelectionBorder;
+
+  /// Popup separator rule. VS Code `menu.separatorBackground`,
+  /// defaulting to `transparent(foreground, 0.2)`.
+  final Color menuSeparatorBackground;
+
   // ---- Pre-mixed opacity variants (semantic color modifiers, §spec:theming) ----
   final Color focusBorderSubtle;
   final Color focusBorderMuted;
@@ -382,6 +422,13 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.menuBarForeground,
     required this.menuBarHoverBackground,
     required this.menuBarBorder,
+    required this.menuBackground,
+    required this.menuForeground,
+    required this.menuBorder,
+    required this.menuSelectionBackground,
+    required this.menuSelectionForeground,
+    required this.menuSelectionBorder,
+    required this.menuSeparatorBackground,
     required this.focusBorderSubtle,
     required this.focusBorderMuted,
     required this.focusBorderProminent,
@@ -533,6 +580,18 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       'list.hoverBackground',
       dl(const Color(0xFF2A2D2E), const Color(0xFFF0F0F0)),
     );
+    // Shared so the popup menu family resolves through the same values
+    // VS Code's `menu.*` registry defaults name (menuColors.ts:
+    // menu.background → dropdown.background, menu.selectionBackground →
+    // list.activeSelectionBackground).
+    final dropdownBg = map.resolve(
+      'dropdown.background',
+      dl(const Color(0xFF3C3C3C), const Color(0xFFFFFFFF)),
+    );
+    final listActiveSelectionBg = map.resolve(
+      'list.activeSelectionBackground',
+      dl(const Color(0xFF04395E), const Color(0xFF0060C0)),
+    );
 
     // Chrome typography: chrome surfaces honour [chromeFontFamily]
     // (null → platform UI sans). The local helper carries the chrome
@@ -650,10 +709,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         'input.placeholderForeground',
         secondaryFg,
       ),
-      dropdownBackground: map.resolve(
-        'dropdown.background',
-        dl(const Color(0xFF3C3C3C), const Color(0xFFFFFFFF)),
-      ),
+      dropdownBackground: dropdownBg,
       buttonBackground: map.resolve(
         'button.background',
         dl(const Color(0xFF0E639C), const Color(0xFF007ACC)),
@@ -706,10 +762,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       infoForeground: infoFg,
       // List
       listHoverBackground: listHoverBg,
-      listActiveSelectionBackground: map.resolve(
-        'list.activeSelectionBackground',
-        dl(const Color(0xFF04395E), const Color(0xFF0060C0)),
-      ),
+      listActiveSelectionBackground: listActiveSelectionBg,
       // Focus / sash
       focusBorder: accentFg,
       sashHoverBorder: map.resolve('sash.hoverBorder', accentFg),
@@ -735,6 +788,36 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // Win/Linux Material MenuBar. Fall through to the panel border
       // default, which is already translucent-grey.
       menuBarBorder: map.resolve('titleBar.border', panelBorder),
+      // Popup menu (§spec:chrome-material-theming). Fallback chains
+      // mirror menuColors.ts exactly: menu.border and
+      // menu.selectionBorder are null outside high contrast, so the
+      // panel and the highlighted row draw no outline unless the theme
+      // sets them.
+      menuBackground: map.resolve('menu.background', dropdownBg),
+      menuForeground: map.resolve(
+        'menu.foreground',
+        map.resolve(
+          'dropdown.foreground',
+          dl(const Color(0xFFF0F0F0), fg),
+        ),
+      ),
+      menuBorder: map['menu.border'],
+      menuSelectionBackground: map.resolve(
+        'menu.selectionBackground',
+        listActiveSelectionBg,
+      ),
+      menuSelectionForeground: map.resolve(
+        'menu.selectionForeground',
+        map.resolve(
+          'list.activeSelectionForeground',
+          const Color(0xFFFFFFFF),
+        ),
+      ),
+      menuSelectionBorder: map['menu.selectionBorder'],
+      menuSeparatorBackground: map.resolve(
+        'menu.separatorBackground',
+        fg.withValues(alpha: 0.2),
+      ),
       // Pre-mixed modifiers
       focusBorderSubtle: accentFg.withValues(alpha: 0.1),
       focusBorderMuted: accentFg.withValues(alpha: 0.3),
@@ -939,6 +1022,13 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? menuBarForeground,
     Color? menuBarHoverBackground,
     Color? menuBarBorder,
+    Color? menuBackground,
+    Color? menuForeground,
+    Color? menuBorder,
+    Color? menuSelectionBackground,
+    Color? menuSelectionForeground,
+    Color? menuSelectionBorder,
+    Color? menuSeparatorBackground,
     Color? focusBorderSubtle,
     Color? focusBorderMuted,
     Color? focusBorderProminent,
@@ -1066,6 +1156,16 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       menuBarHoverBackground:
           menuBarHoverBackground ?? this.menuBarHoverBackground,
       menuBarBorder: menuBarBorder ?? this.menuBarBorder,
+      menuBackground: menuBackground ?? this.menuBackground,
+      menuForeground: menuForeground ?? this.menuForeground,
+      menuBorder: menuBorder ?? this.menuBorder,
+      menuSelectionBackground:
+          menuSelectionBackground ?? this.menuSelectionBackground,
+      menuSelectionForeground:
+          menuSelectionForeground ?? this.menuSelectionForeground,
+      menuSelectionBorder: menuSelectionBorder ?? this.menuSelectionBorder,
+      menuSeparatorBackground:
+          menuSeparatorBackground ?? this.menuSeparatorBackground,
       focusBorderSubtle: focusBorderSubtle ?? this.focusBorderSubtle,
       focusBorderMuted: focusBorderMuted ?? this.focusBorderMuted,
       focusBorderProminent: focusBorderProminent ?? this.focusBorderProminent,
@@ -1264,6 +1364,22 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         other.menuBarHoverBackground,
       ),
       menuBarBorder: c(menuBarBorder, other.menuBarBorder),
+      menuBackground: c(menuBackground, other.menuBackground),
+      menuForeground: c(menuForeground, other.menuForeground),
+      menuBorder: cn(menuBorder, other.menuBorder),
+      menuSelectionBackground: c(
+        menuSelectionBackground,
+        other.menuSelectionBackground,
+      ),
+      menuSelectionForeground: c(
+        menuSelectionForeground,
+        other.menuSelectionForeground,
+      ),
+      menuSelectionBorder: cn(menuSelectionBorder, other.menuSelectionBorder),
+      menuSeparatorBackground: c(
+        menuSeparatorBackground,
+        other.menuSeparatorBackground,
+      ),
       focusBorderSubtle: c(focusBorderSubtle, other.focusBorderSubtle),
       focusBorderMuted: c(focusBorderMuted, other.focusBorderMuted),
       focusBorderProminent: c(focusBorderProminent, other.focusBorderProminent),
@@ -1432,6 +1548,13 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           menuBarForeground == other.menuBarForeground &&
           menuBarHoverBackground == other.menuBarHoverBackground &&
           menuBarBorder == other.menuBarBorder &&
+          menuBackground == other.menuBackground &&
+          menuForeground == other.menuForeground &&
+          menuBorder == other.menuBorder &&
+          menuSelectionBackground == other.menuSelectionBackground &&
+          menuSelectionForeground == other.menuSelectionForeground &&
+          menuSelectionBorder == other.menuSelectionBorder &&
+          menuSeparatorBackground == other.menuSeparatorBackground &&
           focusBorderSubtle == other.focusBorderSubtle &&
           focusBorderMuted == other.focusBorderMuted &&
           focusBorderProminent == other.focusBorderProminent &&
@@ -1543,6 +1666,13 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     menuBarForeground,
     menuBarHoverBackground,
     menuBarBorder,
+    menuBackground,
+    menuForeground,
+    menuBorder,
+    menuSelectionBackground,
+    menuSelectionForeground,
+    menuSelectionBorder,
+    menuSeparatorBackground,
     focusBorderSubtle,
     focusBorderMuted,
     focusBorderProminent,

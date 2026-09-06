@@ -69,9 +69,10 @@ Widget _buildApp({
   ValueChanged<bool>? onSecondarySideBarVisibilityChanged,
   double? initialSecondarySideBarWidth,
   ValueChanged<double>? onSecondarySideBarWidthChangeEnd,
+  WorkbenchTheme? theme,
 }) {
   return MaterialApp(
-    theme: ThemeData.dark().copyWith(extensions: [_testTheme]),
+    theme: ThemeData.dark().copyWith(extensions: [theme ?? _testTheme]),
     home: WorkbenchLayout(
       activityBarItems: items ?? _testItems,
       editor: const Center(child: Text('Editor')),
@@ -2161,6 +2162,39 @@ void main() {
 
       expect(find.byKey(const ValueKey('title-action')), findsOneWidget);
       expect(find.byIcon(Symbols.more_horiz), findsOneWidget);
+    });
+
+    // §spec:chrome-material-theming: the title overflow popup is a menu, so
+    // it takes the `menu.*` family rather than the panel it sits over.
+    testWidgets('overflow popup panel takes menu.background, not the panel '
+        'fill', (tester) async {
+      await tester.pumpWidget(
+        _buildApp(
+          containerBuilder: multiSpec,
+          theme: testWorkbenchTheme.copyWith(
+            menuBackground: const Color(0xFF1F1F1F),
+            menuBorder: const Color(0xFF454545),
+            panelBackground: const Color(0xFF181818),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byIcon(Symbols.more_horiz));
+      await tester.pumpAndSettle();
+
+      final panel = tester.widget<Material>(
+        find
+            .ancestor(
+              of: find.widgetWithText(MenuItemButton, 'Extra Action'),
+              matching: find.byType(Material),
+            )
+            .first,
+      );
+      expect(panel.color, const Color(0xFF1F1F1F));
+      expect(
+        (panel.shape! as OutlinedBorder).side.color,
+        const Color(0xFF454545),
+      );
     });
 
     testWidgets('overflow popup carries the Views group and host entries', (

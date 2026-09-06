@@ -548,6 +548,121 @@ void main() {
     });
   });
 
+  group('WorkbenchTheme popup menu tokens (§spec:chrome-material-theming)', () {
+    // Upstream registry, source-verified against
+    // src/vs/platform/theme/common/colors/menuColors.ts: menu.background
+    // defaults to dropdown.background, menu.foreground to
+    // dropdown.foreground, menu.selectionBackground and
+    // menu.selectionForeground to the list active-selection pair,
+    // menu.separatorBackground to transparent(foreground, 0.2), and
+    // menu.border / menu.selectionBorder to null outside high contrast.
+    test('fall back to their upstream defaults when menu.* omitted', () {
+      final theme = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+      );
+      expect(theme.menuBackground, theme.dropdownBackground);
+      expect(theme.menuForeground, const Color(0xFFF0F0F0));
+      expect(theme.menuBorder, isNull);
+      expect(
+        theme.menuSelectionBackground,
+        theme.listActiveSelectionBackground,
+      );
+      expect(theme.menuSelectionForeground, const Color(0xFFFFFFFF));
+      expect(theme.menuSelectionBorder, isNull);
+      expect(
+        theme.menuSeparatorBackground,
+        theme.foreground.withValues(alpha: 0.2),
+      );
+    });
+
+    test('take foreground for dropdown.foreground in light themes', () {
+      final theme = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs', colors: {}),
+      );
+      expect(theme.menuForeground, theme.foreground);
+    });
+
+    test('chain through dropdown.* and list.* before the literals', () {
+      final map = loader.parse('''
+        {
+          "name": "Chain Test",
+          "type": "vs-dark",
+          "colors": {
+            "dropdown.background": "#101112",
+            "dropdown.foreground": "#131415",
+            "list.activeSelectionBackground": "#161718",
+            "list.activeSelectionForeground": "#191A1B"
+          }
+        }
+        ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.menuBackground, const Color(0xFF101112));
+      expect(theme.menuForeground, const Color(0xFF131415));
+      expect(theme.menuSelectionBackground, const Color(0xFF161718));
+      expect(theme.menuSelectionForeground, const Color(0xFF191A1B));
+    });
+
+    test('honour explicit menu.* tokens when present', () {
+      final map = loader.parse('''
+        {
+          "name": "Menu Test",
+          "type": "vs-dark",
+          "colors": {
+            "dropdown.background": "#101112",
+            "menu.background": "#1F1F1F",
+            "menu.foreground": "#CCCCCC",
+            "menu.border": "#454545",
+            "menu.selectionBackground": "#0078D4",
+            "menu.selectionForeground": "#FFFFFF",
+            "menu.selectionBorder": "#00FF00",
+            "menu.separatorBackground": "#2A2B2C"
+          }
+        }
+        ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.menuBackground, const Color(0xFF1F1F1F));
+      expect(theme.menuForeground, const Color(0xFFCCCCCC));
+      expect(theme.menuBorder, const Color(0xFF454545));
+      expect(theme.menuSelectionBackground, const Color(0xFF0078D4));
+      expect(theme.menuSelectionForeground, const Color(0xFFFFFFFF));
+      expect(theme.menuSelectionBorder, const Color(0xFF00FF00));
+      expect(theme.menuSeparatorBackground, const Color(0xFF2A2B2C));
+    });
+
+    test('Dark Modern separates the menu fill from the panel fill', () async {
+      final map = await loader.loadAsset('dark_modern.json');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.menuBackground, isNot(equals(theme.panelBackground)));
+    });
+
+    test('copyWith preserves menu tokens when unspecified', () {
+      final base = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+      );
+      final modified = base.copyWith(foreground: const Color(0xFFFF0000));
+      expect(modified.menuBackground, equals(base.menuBackground));
+      expect(modified.menuForeground, equals(base.menuForeground));
+      expect(
+        modified.menuSelectionBackground,
+        equals(base.menuSelectionBackground),
+      );
+      expect(
+        modified.menuSeparatorBackground,
+        equals(base.menuSeparatorBackground),
+      );
+    });
+
+    test('lerp interpolates menu colours', () {
+      final a = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'A', baseType: 'vs-dark', colors: {}),
+      ).copyWith(menuBackground: const Color(0xFF000000));
+      final b = a.copyWith(menuBackground: const Color(0xFFFFFFFF));
+      final mid = a.lerp(b, 0.5);
+      expect(mid.menuBackground, isNot(equals(a.menuBackground)));
+      expect(mid.menuBackground, isNot(equals(b.menuBackground)));
+    });
+  });
+
   group('WorkbenchTheme.copyWith / lerp', () {
     final base = WorkbenchTheme.fromVscodeColorMap(
       const VscodeColorMap(name: 'Dark', baseType: 'vs-dark', colors: {}),
