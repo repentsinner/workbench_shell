@@ -64,8 +64,11 @@ wiring (§spec:chrome-material-theming). Demonstrate a bare
 
 **Verify:** Drop an unstyled `DropdownMenu` into the example app's
 editor area. Its trigger reads `dropdown.background` flat at the
-chrome's button height with no ripple; its open list reads
-`dropdown.listBackground` flat with a `dropdown.border` hairline and
-compact rows. Switch themes and confirm both follow. Confirm the
-package exports no select widget — `grep` the public API for
-`WorkbenchSelect` and expect no match (§spec:form-controls-excluded).
+chrome's button height with no ripple; its open list is flat with a
+`dropdown.border` hairline and compact rows. Under a theme that sets
+`dropdown.listBackground` the list takes that colour; under one that
+omits it — the default in dark and light — the list takes the trigger
+fill, never Material's surface. Switch themes and confirm both follow.
+Confirm the package exports no select widget — `grep` the public API
+for `WorkbenchSelect` and expect no match
+(§spec:form-controls-excluded).

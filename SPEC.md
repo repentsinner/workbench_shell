@@ -2516,14 +2516,20 @@ compact sizing:
   `menu.selectionForeground`, separator `menu.separatorBackground`.
 - `DropdownMenu` — trigger fill `dropdown.background`, label
   `dropdown.foreground`, hairline `dropdown.border`; its open list takes
-  `dropdown.listBackground`.
+  `dropdown.listBackground`, falling back to the trigger fill.
 
-**Four dropdown tokens, not one.** VS Code registers
-`dropdown.background`, `dropdown.listBackground`, `dropdown.foreground`
-and `dropdown.border` separately, giving the trigger and the open list
-distinct fills. A chrome that maps only `dropdown.background` themes the
-trigger and leaves the popup at Material's default surface — the visible
-half of the defect. The chrome carries all four.
+**Four dropdown tokens, not one — and the list falls back to the
+trigger.** VS Code registers `dropdown.background`,
+`dropdown.listBackground`, `dropdown.foreground` and `dropdown.border`
+separately, so the trigger and the open list are addressed
+independently. They are not separately *coloured* by default:
+`dropdown.listBackground` registers null outside high contrast, and
+upstream paints the list with that token defaulted to the trigger's
+fill. The chrome carries all four and resolves the list token through
+`dropdown.background`, so a theme that sets it gets the list colour it
+asked for and a theme that omits it gets the trigger fill rather than
+Material's default surface. Mapping `dropdown.background` alone leaves
+the popup unthemed under every theme.
 
 **Popup menus read `menu.*`, not a workbench part token.** VS Code
 registers a seven-token family for popup menu chrome, distinct from the
