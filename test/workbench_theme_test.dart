@@ -520,6 +520,51 @@ void main() {
       expect(theme.surfaceBorder, const Color(0xFF2B2B2B));
     });
 
+    test('activity bar item states chain through the modern tab family', () {
+      final base = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+      );
+      // Registry chain ends at list.inactiveSelectionBackground (#37373D
+      // dark) / list.hoverBackground, with foreground for both label colours.
+      expect(base.activityBarItemActiveBackground, const Color(0xFF37373D));
+      expect(base.activityBarItemActiveForeground, base.foreground);
+      expect(base.activityBarItemHoverBackground, base.listHoverBackground);
+      expect(base.activityBarItemHoverForeground, base.foreground);
+
+      // A theme that styles only its modern tabs still gets a coherent rail.
+      final tabbed = WorkbenchTheme.fromVscodeColorMap(
+        loader.parse('''
+        {
+          "name": "Tabbed",
+          "type": "vs-dark",
+          "colors": {
+            "modernTab.activeBackground": "#04395E",
+            "modernTab.hoverBackground": "#2A2D2E"
+          }
+        }
+        '''),
+      );
+      expect(tabbed.activityBarItemActiveBackground, const Color(0xFF04395E));
+      expect(tabbed.activityBarItemHoverBackground, const Color(0xFF2A2D2E));
+
+      // The dedicated keys win over the tab family.
+      final explicit = WorkbenchTheme.fromVscodeColorMap(
+        loader.parse('''
+        {
+          "name": "Explicit",
+          "type": "vs-dark",
+          "colors": {
+            "modernTab.activeBackground": "#04395E",
+            "modernActivityBarItem.activeBackground": "#0078D4",
+            "modernActivityBarItem.activeForeground": "#FFFFFF"
+          }
+        }
+        '''),
+      );
+      expect(explicit.activityBarItemActiveBackground, const Color(0xFF0078D4));
+      expect(explicit.activityBarItemActiveForeground, const Color(0xFFFFFFFF));
+    });
+
     test('copyWith and lerp carry the Modern UI tokens', () {
       final base = WorkbenchTheme.fromVscodeColorMap(
         const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
@@ -533,11 +578,22 @@ void main() {
         const Color(0xFF00FF00),
       );
 
-      final other = base.copyWith(surfaceBackground: const Color(0xFF000000));
+      final other = base.copyWith(
+        surfaceBackground: const Color(0xFF000000),
+        activityBarItemActiveBackground: const Color(0xFF000000),
+      );
       final mid = base.lerp(other, 0.5);
       expect(
         mid.surfaceBackground,
         Color.lerp(base.surfaceBackground, other.surfaceBackground, 0.5),
+      );
+      expect(
+        mid.activityBarItemActiveBackground,
+        Color.lerp(
+          base.activityBarItemActiveBackground,
+          other.activityBarItemActiveBackground,
+          0.5,
+        ),
       );
     });
   });

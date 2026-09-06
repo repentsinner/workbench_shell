@@ -1273,8 +1273,18 @@ void main() {
       final editor = tester.getRect(find.text('Editor'));
       expect(editor.right, lessThan(sidebarHeading.left));
       expect(sidebarHeading.left, lessThan(ab.left));
-      // The activity bar (48px) sits flush against the window's right edge.
-      expect(ab.right, closeTo(layout.right, 3));
+      // The activity bar's 48px allocation reaches the window's right edge;
+      // inside it the rail card gives up the cluster's perimeter gutter, its
+      // stroke and the lane, and the icon column centres what is left
+      // (§spec:modern-ui-surfaces).
+      const railToWindow =
+          WorkbenchLayoutConstants.floatingCardGap +
+          WorkbenchLayoutConstants.strokeThickness +
+          WorkbenchLayoutConstants.activityBarIconInset +
+          (WorkbenchLayoutConstants.activityBarRailWidth -
+                  WorkbenchLayoutConstants.iconActivityBar) /
+              2;
+      expect(ab.right, closeTo(layout.right - railToWindow, 0.001));
 
       // The sash now grows the bar when dragged left (toward the editor).
       expect(_sash(tester, Axis.horizontal).growSign, -1);
@@ -2434,8 +2444,9 @@ void main() {
 
   group('Modern UI surface treatment (§spec:modern-ui-surfaces)', () {
     const gap = WorkbenchLayoutConstants.floatingCardGap;
+    const stroke = WorkbenchLayoutConstants.strokeThickness;
 
-    /// The ring a floating card paints its hairline with: a `DecoratedBox`
+    /// The ring a [_FloatingCard] paints its hairline with: a `DecoratedBox`
     /// filled with `surface.border` and rounded at the card tier.
     Finder cardRing(Finder of) => find.ancestor(
       of: of,
@@ -2445,6 +2456,13 @@ void main() {
         return decoration is BoxDecoration &&
             decoration.color == _testTheme.surfaceBorder;
       }),
+    );
+
+    Finder fillOf(Finder card, Color color) => find.descendant(
+      of: card,
+      matching: find.byWidgetPredicate(
+        (w) => w is ColoredBox && w.color == color,
+      ),
     );
 
     testWidgets('the side bars, panel and editor each render as a bordered, '
@@ -2461,20 +2479,67 @@ void main() {
         final ring = cardRing(find.text(label));
         expect(ring, findsOneWidget, reason: '$label card');
         final decoration =
-            tester.widget<DecoratedBox>(ring).decoration as BoxDecoration;
+            (tester.widget<DecoratedBox>(ring).decoration as BoxDecoration);
+        // Every corner that does not meet a neighbour flush rounds at the
+        // card tier; the editor and the panel meet none.
         expect(
           decoration.borderRadius,
-          BorderRadius.circular(WorkbenchLayoutConstants.floatingCardRadius),
+          isA<BorderRadius>().having(
+            (r) => r.topRight,
+            'topRight',
+            const Radius.circular(WorkbenchLayoutConstants.floatingCardRadius),
+          ),
         );
       }
 
-      // Visible gaps: one gutter between the editor and the side bar beside
-      // it, and between the editor and the panel below it.
-      final sidebar = tester.getRect(cardRing(find.text('EXPLORER')));
+      // Visible gaps: the editor card is one gutter clear of the primary side
+      // bar's allocation on its left and of the secondary bar's card on its
+      // right.
       final editor = tester.getRect(cardRing(find.text('Editor')));
+      final sidebar = tester.getRect(cardRing(find.text('EXPLORER')));
       final panel = tester.getRect(cardRing(find.text('Panel')));
       expect(editor.left - sidebar.right, closeTo(gap, 0.001));
       expect(panel.top - editor.bottom, closeTo(gap, 0.001));
+    });
+
+    testWidgets('the primary side bar meets the activity bar as one surface — '
+        'one stroke, no gap', (tester) async {
+      await tester.pumpWidget(_buildApp());
+
+      final rail = cardRing(find.byIcon(Symbols.folder_rounded));
+      final bar = cardRing(find.text('EXPLORER'));
+      final railRect = tester.getRect(rail);
+      final barRect = tester.getRect(bar);
+
+      // No gap: the two cards share an edge.
+      expect(railRect.right, closeTo(barRect.left, 0.001));
+
+      // One stroke: the rail draws it, and the side bar's fill runs right up
+      // to its own card edge rather than adding a second hairline.
+      final railFill = fillOf(rail, _testTheme.activityBarBackground);
+      final barFill = fillOf(bar, _testTheme.surfaceBackground);
+      expect(
+        railRect.right - tester.getRect(railFill).right,
+        closeTo(stroke, 0.001),
+      );
+      expect(tester.getRect(barFill).left, closeTo(barRect.left, 0.001));
+    });
+
+    testWidgets('the rail keeps its icons optically centred', (tester) async {
+      await tester.pumpWidget(_buildApp());
+
+      final railRect = tester.getRect(
+        cardRing(find.byIcon(Symbols.folder_rounded)),
+      );
+      final icon = tester.getRect(find.byIcon(Symbols.folder_rounded));
+
+      // Equal margins either side of the icon column: the lane is halved after
+      // the card's two strokes come off it, which is what keeps the column
+      // centred in a card whose facing corners are square.
+      expect(
+        icon.left - railRect.left,
+        closeTo(railRect.right - icon.right, 0.001),
+      );
     });
 
     testWidgets('the editor frame consumes no extra layout space', (
@@ -2492,6 +2557,87 @@ void main() {
       final editor = tester.getRect(cardRing(find.text('Editor')));
       expect(editor.left, greaterThanOrEqualTo(layout.left + fixed));
       expect(editor.right, lessThanOrEqualTo(layout.right));
+
+      // The side bar's card spans its whole allocation horizontally: it cedes
+      // the rail seam on one side and leaves the editor to lead with the gap
+      // on the other.
+      final sidebar = tester.getRect(cardRing(find.text('EXPLORER')));
+      expect(sidebar.width, closeTo(300, 0.001));
+    });
+
+    testWidgets('selecting an activity bar item fills a rounded background', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_buildApp());
+
+      Finder indicator(Color color) => find.byWidgetPredicate((w) {
+        if (w is! Container) return false;
+        final decoration = w.decoration;
+        return decoration is BoxDecoration && decoration.color == color;
+      });
+
+      final active = indicator(_testTheme.activityBarItemActiveBackground);
+      expect(active, findsOneWidget);
+
+      // A filled box behind the icon, not an edge stroke: it is square, sized
+      // off the item height, and rounded at the controls tier.
+      final rect = tester.getRect(active);
+      expect(
+        rect.size,
+        const Size(
+          WorkbenchLayoutConstants.activityBarItemIndicatorSize,
+          WorkbenchLayoutConstants.activityBarItemIndicatorSize,
+        ),
+      );
+      final decoration =
+          tester.widget<Container>(active).decoration as BoxDecoration;
+      expect(
+        decoration.borderRadius,
+        BorderRadius.circular(
+          WorkbenchLayoutConstants.activityBarItemIndicatorRadius,
+        ),
+      );
+
+      // It sits behind the selected icon and follows the selection.
+      expect(
+        rect.center,
+        tester.getRect(find.byIcon(Symbols.folder_rounded)).center,
+      );
+      await tester.tap(find.byIcon(Symbols.search_rounded));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .getRect(indicator(_testTheme.activityBarItemActiveBackground))
+            .center,
+        tester.getRect(find.byIcon(Symbols.search_rounded)).center,
+      );
+    });
+
+    testWidgets('hovering an unselected item fills the hover background', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_buildApp());
+
+      final hover = find.byWidgetPredicate((w) {
+        if (w is! Container) return false;
+        final decoration = w.decoration;
+        return decoration is BoxDecoration &&
+            decoration.color == _testTheme.activityBarItemHoverBackground;
+      });
+      expect(hover, findsNothing);
+
+      final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await pointer.addPointer(
+        location: tester.getCenter(find.byIcon(Symbols.search_rounded)),
+      );
+      addTearDown(pointer.removePointer);
+      await tester.pumpAndSettle();
+
+      expect(hover, findsOneWidget);
+      expect(
+        tester.getRect(hover).center,
+        tester.getRect(find.byIcon(Symbols.search_rounded)).center,
+      );
     });
   });
 }

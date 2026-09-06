@@ -9,7 +9,12 @@ class WorkbenchLayoutConstants {
 
   // ==================== STRUCTURAL GEOMETRY ====================
 
-  /// Activity bar width.
+  /// Activity bar layout allocation. VS Code's `ActivitybarPart.minimumWidth`
+  /// is `baseWidth + floatingHorizontalGutter`, which under the Modern UI
+  /// treatment is [activityBarRailWidth] + [activityBarLane] +
+  /// [floatingCardGap] — the rail card plus the cluster's perimeter gutter
+  /// (§spec:modern-ui-surfaces). The rail frames itself inside this
+  /// allocation, so the row measures the same 48px it always did.
   static const double activityBarWidth = 48.0;
 
   /// Sidebar default width.
@@ -129,9 +134,6 @@ class WorkbenchLayoutConstants {
   /// the hit target — VS Code's `--vscode-sash-hover-size`.
   static const double sashHoverSize = 4.0;
 
-  /// Active-indicator border width on activity bar icons.
-  static const double activityBarIndicatorWidth = 2.0;
-
   // ==================== CORNER RADIUS LADDER ====================
   //
   // VS Code registers a six-tier corner-radius ladder in
@@ -181,13 +183,15 @@ class WorkbenchLayoutConstants {
 
   // ==================== MODERN UI SURFACE TREATMENT ====================
   //
-  // VS Code frames the side bars, bottom panel and editor as bordered,
-  // rounded cards separated by a gap (§spec:modern-ui-surfaces). Values come
-  // from
+  // VS Code frames the side bars, bottom panel, editor and activity bar as
+  // bordered, rounded cards separated by a gap (§spec:modern-ui-surfaces).
+  // Values come from
   // [`layoutService.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/services/layout/browser/layoutService.ts),
-  // [`floatingPanels.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/media/floatingPanels.css)
-  // and
+  // [`floatingPanels.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/media/floatingPanels.css),
   // [`editorBorder.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/editorBorder.css),
+  // [`activityBar.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/activityBar.css)
+  // and
+  // [`activitybarPart.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/activitybar/activitybarPart.ts),
   // and are expressed through the ladders above wherever a step names them.
   // Read against VS Code 1.138.0.
   //
@@ -208,6 +212,47 @@ class WorkbenchLayoutConstants {
   /// `editorBorder.css` round every card at `cornerRadius.large` — the outer
   /// tier, since a card is a prominent surface rather than a control.
   static const double floatingCardRadius = cornerRadiusLarge;
+
+  /// Icon-column width inside the activity bar card. VS Code
+  /// `activitybarPart.ts` `FLOATING_ACTIVITYBAR_WIDTH = 36`, published as
+  /// `--activity-bar-width` and applied to every `.action-item`.
+  static const double activityBarRailWidth = 36.0;
+
+  /// Space inside the activity bar card beside the icon column — the rail's
+  /// own horizontal padding, doubled. VS Code `activitybarPart.ts`
+  /// `FLOATING_LANE = 8` / `--modern-ui-activitybar-lane` (`spacing.size80`).
+  /// Independent of the cluster perimeter, so the icons keep their inset
+  /// whatever the gutter is.
+  static const double activityBarLane = spacingSize80;
+
+  /// Height of one activity bar item. VS Code `activitybarPart.ts`
+  /// `FLOATING_ACTION_HEIGHT = 36`.
+  static const double activityBarItemHeight = 36.0;
+
+  /// Vertical gap between two adjacent activity bar items. VS Code
+  /// `activitybarPart.ts` `FLOATING_ACTION_GAP = 8`, published as
+  /// `--activity-bar-action-gap` (`spacing.size80`) so the stylesheet and the
+  /// overflow computation cannot drift apart.
+  static const double activityBarItemGap = spacingSize80;
+
+  /// Side of the filled background behind an active or hovered activity bar
+  /// icon. `activityBar.css` sizes it
+  /// `calc(var(--activity-bar-action-height) - 4px)`.
+  static const double activityBarItemIndicatorSize =
+      activityBarItemHeight - spacingSize40;
+
+  /// Corner radius of that background. `activityBar.css` rounds it at
+  /// `cornerRadius.small` — the controls tier, since the indicator marks an
+  /// interactable target rather than a surface.
+  static const double activityBarItemIndicatorRadius = cornerRadiusSmall;
+
+  /// Inset from the activity bar card's content box to the icon column, on
+  /// every side. `floatingPanels.css` centres the column with
+  /// `calc((var(--modern-ui-activitybar-lane) - 2px) / 2)` — the lane less
+  /// the card's two strokes, halved. Taking the strokes off before halving is
+  /// what keeps the icons optically centred instead of a pixel off.
+  static const double activityBarIconInset =
+      (activityBarLane - 2 * strokeThickness) / 2;
 
   // ==================== BUTTONS ====================
 
