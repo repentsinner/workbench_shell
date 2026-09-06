@@ -1615,11 +1615,107 @@ set with explicit visual specifications, at which point the
 primitives are designed against that spec rather than extracted
 from ad-hoc usage.
 
+**Clause (a) does not apply to a control theming cannot reach.** The
+reuse test weighs a publish-grade API against the cost of waiting, and
+waiting is cheap where the chrome already paints the host's stock
+widget: a deferred text field still reads as VS Code. A control Flutter
+does not ship has no such fallback. Deferring it leaves every consumer
+to assemble one from the themed button family, and those assemblies
+diverge — on separator geometry, on which half owns the default action,
+on focus order and keyboard handling. That is the cross-consumer drift
+§spec:capability-boundary names as the failure mode this package exists
+to remove, so the gate would produce the harm it exists to prevent.
+Such a control is designed against canon under clause (b) on the first
+concrete consumer need, which is the bar §req:priorities sets.
+
 **Observable behavior**: form controls within sections may
 differ in styling across consuming apps until the re-promotion
 gate is met. That variance is explicitly tolerated over the
 cost of a publish-grade primitive surface that does not yet
 warrant one.
+
+---
+
+## Split Button §spec:split-button
+
+*Status: not started*
+
+A consuming app needs VS Code's Commit control: a primary action, a
+hairline pipe, and a disclosure that opens a menu of related actions.
+Flutter ships no split button, so the chrome has nothing to theme and
+the app assembles one from two buttons and a divider. Every consumer
+that needs one assembles it differently.
+
+**The shell owns this control.** It is the case
+§spec:form-controls-not-owned names: a VS Code control with no stock
+Flutter equivalent, where theming cannot reach what does not exist.
+The amended gate admits it on the first concrete consumer need rather
+than a second, because deferring a theming-unreachable control
+guarantees the drift the package exists to remove.
+
+**It is one control, not two buttons in a row.** The distinction drives
+every decision below. Upstream builds a single
+`.monaco-button-dropdown` flex container holding a primary `Button`, a
+separator, and a disclosure `Button`
+([`button.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/base/browser/ui/button/button.ts),
+`class ButtonWithDropdown`). The halves share one outer radius — the
+primary rounds its left corners only, the disclosure its right — drop
+their facing borders so no double stroke forms at the seam, and dim
+together when disabled. Two adjacent buttons would round four corners,
+draw two strokes where they meet, and dim independently.
+
+**The pipe is a distinct token, not a border.** The separator is a
+1px-wide element inset vertically inside a container that carries the
+button's own fill, painted in `button.separator` — a registered colour
+distinct from `button.border`. Drawing the seam as a border between the
+halves would take the border colour and run the full height; upstream
+takes neither.
+
+**The menu is the shell's existing popup surface.** The disclosure opens
+the same menu the View menu and the view-container overflow use
+(§spec:menu-model, §spec:chrome-material-theming), so a host gets one
+menu treatment across the workbench rather than a second popup style
+that drifts from it.
+
+**The primary action appears in the menu by default.** Upstream
+prepends the primary action to the disclosure's action list unless the
+caller opts out, so a pointer that reaches the menu can still invoke the
+default without closing it and re-aiming. The shell keeps that default
+and lets a host suppress it.
+
+**Tokens.** The control needs `button.separator`, which
+`WorkbenchTheme` does not yet carry. The secondary tier needs
+`button.secondaryBorder` and `button.secondaryHoverBackground` to
+satisfy the §spec:chrome-material-theming parity invariant — a themed
+family themes every member — which today it does not, since the
+package carries six of the nine registered `button.*` colours.
+
+**Rejected: a host-composed pair.** Two chrome-themed `FilledButton`s
+with a `Container` between them reaches the same pixels on one screen
+and diverges on the next. It also cannot express the shared radius or
+the joint disabled state without the host re-deriving both.
+
+**Rejected: a disclosure-only button.** A single button that opens a
+menu containing the primary action is simpler and is what a host reaches
+for first. It loses the affordance the control exists for: the default
+action reachable in one click, with the alternatives one step away.
+
+**Observable behavior**:
+
+- The control renders as one surface: a single outer radius across both
+  halves, one stroke at the seam, and both halves plus the separator
+  dimmed together when the control is disabled.
+- Activating the primary half runs the primary action without opening
+  the menu.
+- Activating the disclosure half opens the shell's menu surface,
+  anchored to the control, listing the primary action first unless the
+  host suppresses it.
+- The separator paints `button.separator`, distinct from the stroke the
+  control's outer border paints.
+- The secondary tier renders every state from the `button.secondary*`
+  family, resolving no colour the chrome leaves unset.
+- A host places the control without supplying colours, radii or
+  metrics; theme switching moves it with the rest of the chrome.
 
 ---
 
