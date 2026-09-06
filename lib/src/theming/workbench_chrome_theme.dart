@@ -248,6 +248,15 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
     // better and overrides its buttons with a widget-level style, which a
     // host can do too; a theme alone cannot separate the two roles.
     menuBarTheme: MenuBarThemeData(style: workbenchMenuBarStyle(chrome)),
+    // The separator a menu draws between groups. Flutter's menus take a
+    // plain [Divider] as a child and offer no menu-scoped divider theme,
+    // so the menu family's separator token can only be reached globally.
+    // Left unset, every divider under the chrome — inside a menu or not —
+    // resolves `outlineVariant`, a role the chrome overrides nothing of.
+    // The shell's own popups already paint `menu.separatorBackground`
+    // through `workbenchMenuThemeData`; this gives a host's menus the same
+    // hairline (§spec:chrome-material-theming).
+    dividerTheme: DividerThemeData(color: chrome.menuSeparatorBackground),
     // Select (§spec:chrome-material-theming). The trigger is a text field:
     // its fill, hairline and height come from a decoration theme scoped to
     // [DropdownMenu] rather than from `ThemeData.inputDecorationTheme`,

@@ -340,6 +340,45 @@ void main() {
       expect(style?.elevation?.resolve({}), 0);
     });
 
+    test('installs the menu separator hairline', () {
+      // Flutter menus separate groups with a plain Divider and expose no
+      // menu-scoped divider theme, so the token lands on DividerTheme.
+      expect(
+        result.dividerTheme.color,
+        testWorkbenchTheme.menuSeparatorBackground,
+      );
+      expect(result.dividerTheme.color, isNot(base.colorScheme.outlineVariant));
+    });
+
+    testWidgets('a bare DropdownMenu paints the dropdown family in a light '
+        'theme too', (tester) async {
+      final chrome = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'Light', baseType: 'vs', colors: {}),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: applyWorkbenchChrome(ThemeData.light(), chrome),
+          home: const Scaffold(
+            body: DropdownMenu<String>(
+              initialSelection: 'One',
+              dropdownMenuEntries: [
+                DropdownMenuEntry(value: 'One', label: 'One'),
+                DropdownMenuEntry(value: 'Two', label: 'Two'),
+              ],
+            ),
+          ),
+        ),
+      );
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.decoration?.fillColor, chrome.dropdownBackground);
+
+      await tester.tap(find.byType(DropdownMenu<String>));
+      await tester.pumpAndSettle();
+      final panel = popupPanelOf(tester, 'Two');
+      expect(panel.color, chrome.dropdownListBackground);
+      expect(panel.color, isNot(ThemeData.light().colorScheme.surface));
+    });
+
     test('the dropdown trigger fills from dropdown.background at the '
         "chrome's button height, flat and rippleless", () {
       final decoration = result.dropdownMenuTheme.inputDecorationTheme;
