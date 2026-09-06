@@ -112,9 +112,10 @@ void main() {
             as BoxDecoration;
       }
 
-      // Both keep the section-header background band.
-      expect(surfaceFor('ALPHA').color, const Color(0xFF252526));
-      expect(surfaceFor('BETA').color, const Color(0xFF252526));
+      // Neither paints at rest: Modern UI matches the header to the side bar
+      // surface rather than tinting it (§spec:modern-ui-surfaces).
+      expect(surfaceFor('ALPHA').color, isNull);
+      expect(surfaceFor('BETA').color, isNull);
 
       // Exactly one inset rule, and it belongs to the second pane: no divider
       // above the first pane in the stack (§spec:modern-ui-surfaces).
