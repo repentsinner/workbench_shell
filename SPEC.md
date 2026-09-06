@@ -2590,9 +2590,6 @@ and makes a stale row visible on inspection.
 | `sidebarMinWidth` | 170 | [`sidebarPart.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/sidebar/sidebarPart.ts) — `readonly minimumWidth: number = 170` | 1.138.0 |
 | `panelMinHeight` | 77 | [`panelPart.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/panel/panelPart.ts) — `readonly minimumHeight: number = 77` | 1.138.0 |
 | `notificationCardWidth` | 450 | [`notificationsToasts.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/notifications/notificationsToasts.ts) — `private static readonly MAX_WIDTH = 450` | 1.138.0 |
-| Corner radius ladder (`cornerRadiusXSmall` … `cornerRadiusCircle`) | 2 / 4 / 6 / 8 / 12 / 9999 | [`baseSizes.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/platform/theme/common/sizes/baseSizes.ts) — `cornerRadius.xSmall` … `cornerRadius.circle`; tier doctrine in [`roundedCorners.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/roundedCorners.css) | 1.138.0 |
-| `strokeThickness` | 1 | same file — `strokeThickness` | 1.138.0 |
-| Spacing ramp (`spacingNone`, `spacingSize20` … `spacingSize400`) | 0 / 2 … 40 | same file — `spacing.sizeNone`, `spacing.size20` … `spacing.size400` | 1.138.0 |
 
 **Constants without a VS Code peer.** Some
 `WorkbenchLayoutConstants` slots intentionally diverge because
@@ -2699,6 +2696,25 @@ it meets the activity bar, a split button keeps its inner seam flat. A
 prebuilt all-corners value cannot express that, so the radius ladder
 exposes the upstream number and the call site composes the shape.
 
+The cost lands on the common case: every radius consumer today rounds
+all four corners, so each composes the same wrapper, and the per-corner
+need belongs to work §spec:modern-ui-surfaces has not started. Shipping
+an all-corners `BorderRadius` beside each scalar would remove that
+repetition without introducing a second vocabulary, since one is
+derivable from the other. It is not shipped because a convenience whose
+only consumer is the package itself is better added when a host asks
+for it than removed once published; the wrapper stays local to the file
+that repeats it (§spec:capability-boundary's bias against publishing
+surface ahead of demand). Revisit when the per-corner work lands and
+the ratio of all-corners to per-corner call sites is known rather
+than assumed.
+
+`strokeThickness` ships with no call site: the borders it names
+currently take Flutter's own 1px default, and the surfaces that set it
+explicitly belong to §spec:modern-ui-surfaces. It is on the public API
+because it is an upstream registration this section adopts, not because
+a call site needs it yet.
+
 **Why constants, not theme tokens.** The registrations use
 `sizeForAllThemes`, which holds each size constant across every
 shipped theme, so §spec:layout-constants's "no runtime resolution for
@@ -2726,18 +2742,30 @@ reason beyond call-site familiarity.
   Traceability to upstream is the property §req:quality-attributes
   ranks first; call-site fluency is not a stated requirement.
 
-**Not covered by a ladder.** The icon scale (`iconXs` … `iconXl`) keeps
-its t-shirt names: VS Code registers two codicon sizes, not a ladder,
-so there is nothing upstream to adopt. §spec:layout-constants-canon
-records the rationale for that scale.
+**Not covered by a ladder.** Three values stay off the ladders, and each
+records why so a later reader can tell a decision from an oversight:
+
+- *The icon scale* (`iconXs` … `iconXl`) keeps its t-shirt names. VS Code
+  registers two codicon sizes, not a ladder, so there is nothing upstream
+  to adopt. §spec:layout-constants-canon records the rationale.
+- *Button horizontal padding* stays a literal. Upstream's
+  `.monaco-text-button` pads 14px, which sits between two ramp steps; the
+  value is canonical to `button.css` rather than to the ramp, and
+  rounding it to a neighbouring step would trade a sourced value for a
+  tidier one.
+- *The panel tab badge radius* stays a literal. Base VS Code rounds a
+  count badge at 11px, and the Modern UI treatment moves it to the circle
+  tier — neither is the package's current 8px, and both are restylings.
+  §spec:modern-ui-surfaces owns that change; adopting a tier name here
+  would assert a role the rendered shape does not yet match.
 
 **Observable behavior**.
 
 - Every radius and spacing value the package applies resolves to a
-  named step on the corresponding upstream ladder, and each radius
-  tier matches the role its surface plays.
-- Chrome borders render at the upstream stroke thickness rather than
-  at literals chosen per call site.
+  named step on the corresponding upstream ladder, except the values
+  recorded above as not covered by one.
+- The public API exposes no geometry name without an upstream
+  registration behind it.
 - A reader comparing the package's geometry names against
   `baseSizes.ts` finds the same names carrying the same values.
 

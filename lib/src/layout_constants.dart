@@ -55,46 +55,19 @@ class WorkbenchLayoutConstants {
   // values; a gap the package needs picks the nearest registered step
   // rather than inventing a literal.
 
-  /// 0px — `spacing.sizeNone`.
   static const double spacingNone = 0.0;
-
-  /// 2px — `spacing.size20`.
   static const double spacingSize20 = 2.0;
-
-  /// 4px — `spacing.size40`.
   static const double spacingSize40 = 4.0;
-
-  /// 6px — `spacing.size60`.
   static const double spacingSize60 = 6.0;
-
-  /// 8px — `spacing.size80`.
   static const double spacingSize80 = 8.0;
-
-  /// 10px — `spacing.size100`.
   static const double spacingSize100 = 10.0;
-
-  /// 12px — `spacing.size120`.
   static const double spacingSize120 = 12.0;
-
-  /// 16px — `spacing.size160`.
   static const double spacingSize160 = 16.0;
-
-  /// 20px — `spacing.size200`.
   static const double spacingSize200 = 20.0;
-
-  /// 24px — `spacing.size240`.
   static const double spacingSize240 = 24.0;
-
-  /// 28px — `spacing.size280`.
   static const double spacingSize280 = 28.0;
-
-  /// 32px — `spacing.size320`.
   static const double spacingSize320 = 32.0;
-
-  /// 36px — `spacing.size360`.
   static const double spacingSize360 = 36.0;
-
-  /// 40px — `spacing.size400`.
   static const double spacingSize400 = 40.0;
 
   // ==================== ICON SIZES ====================
@@ -206,6 +179,8 @@ class WorkbenchLayoutConstants {
   /// outlines (§spec:design-size-ladders).
   static const double strokeThickness = 1.0;
 
+  // ==================== BUTTONS ====================
+
   /// Button shape — applied to the app-level Material button themes
   /// (Filled/Text, §spec:chrome-material-theming). De-pills Material 3's
   /// default `StadiumBorder` to match VS Code's rectangular buttons. A
@@ -248,9 +223,9 @@ class WorkbenchLayoutConstants {
   /// grid as sidebar content.
   static const double notificationStackInset = spacingSize160;
 
-  /// Vertical gap between cards in the stack. Two ramp steps below
-  /// [notificationStackInset] so cards read as grouped rather than
-  /// separated.
+  /// Vertical gap between cards in the stack. Tighter than
+  /// [notificationStackInset] so the cards read as one group rather than
+  /// as separate overlays.
   static const double notificationStackGap = spacingSize80;
 
   /// 5 — visible card budget. When more cards exist, the oldest

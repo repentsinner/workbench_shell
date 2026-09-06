@@ -51,47 +51,47 @@ void main() {
     });
 
     test('notification stack metrics sit on the ramp', () {
-      expect(
-        WorkbenchLayoutConstants.notificationStackInset,
-        WorkbenchLayoutConstants.spacingSize160,
-      );
-      expect(
-        WorkbenchLayoutConstants.notificationStackGap,
-        WorkbenchLayoutConstants.spacingSize80,
-      );
+      // Pins the chosen step, not the definition. Asserting against
+      // `spacingSize160` would restate how the constant is declared and
+      // could never fail; the literal makes a re-tiering visible in the diff.
+      expect(WorkbenchLayoutConstants.notificationStackInset, 16.0);
+      expect(WorkbenchLayoutConstants.notificationStackGap, 8.0);
     });
   });
 
-  group('WorkbenchLayoutConstants VS Code canon (SPEC §spec:layout-constants-canon)', () {
-    // Records the canonical literal values so an accidental edit fails
-    // loudly. Each value cites its VS Code upstream in SPEC §spec:layout-constants-canon's
-    // canonical source table.
-    test('statusBarHeight matches statusbarpart.css (22px)', () {
-      expect(WorkbenchLayoutConstants.statusBarHeight, 22.0);
-    });
+  group(
+    'WorkbenchLayoutConstants VS Code canon (SPEC §spec:layout-constants-canon)',
+    () {
+      // Records the canonical literal values so an accidental edit fails
+      // loudly. Each value cites its VS Code upstream in SPEC §spec:layout-constants-canon's
+      // canonical source table.
+      test('statusBarHeight matches statusbarpart.css (22px)', () {
+        expect(WorkbenchLayoutConstants.statusBarHeight, 22.0);
+      });
 
-    test('sidebarMinWidth matches sidebarPart.ts minimumWidth (170)', () {
-      expect(WorkbenchLayoutConstants.sidebarMinWidth, 170.0);
-    });
+      test('sidebarMinWidth matches sidebarPart.ts minimumWidth (170)', () {
+        expect(WorkbenchLayoutConstants.sidebarMinWidth, 170.0);
+      });
 
-    test('panelMinHeight matches panelPart.ts minimumHeight (77)', () {
-      expect(WorkbenchLayoutConstants.panelMinHeight, 77.0);
-    });
+      test('panelMinHeight matches panelPart.ts minimumHeight (77)', () {
+        expect(WorkbenchLayoutConstants.panelMinHeight, 77.0);
+      });
 
-    test('notificationCardWidth matches notificationsToasts.ts MAX_WIDTH '
-        '(450)', () {
-      expect(WorkbenchLayoutConstants.notificationCardWidth, 450.0);
-    });
+      test('notificationCardWidth matches notificationsToasts.ts MAX_WIDTH '
+          '(450)', () {
+        expect(WorkbenchLayoutConstants.notificationCardWidth, 450.0);
+      });
 
-    test('panelTabStripHeight matches part.css .part > .title (35px)', () {
-      expect(WorkbenchLayoutConstants.panelTabStripHeight, 35.0);
-    });
+      test('panelTabStripHeight matches part.css .part > .title (35px)', () {
+        expect(WorkbenchLayoutConstants.panelTabStripHeight, 35.0);
+      });
 
-    test('sidebarHeadingHeight shares the 35px .part > .title container', () {
-      expect(
-        WorkbenchLayoutConstants.sidebarHeadingHeight,
-        WorkbenchLayoutConstants.panelTabStripHeight,
-      );
-    });
-  });
+      test('sidebarHeadingHeight shares the 35px .part > .title container', () {
+        expect(
+          WorkbenchLayoutConstants.sidebarHeadingHeight,
+          WorkbenchLayoutConstants.panelTabStripHeight,
+        );
+      });
+    },
+  );
 }

@@ -176,7 +176,9 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
         // keeps short labels single-line; the equal-width distribution and
         // [buttonMinSize] still give every segment a comfortable tap target.
         padding: const WidgetStatePropertyAll(
-          EdgeInsets.symmetric(horizontal: WorkbenchLayoutConstants.spacingSize40),
+          EdgeInsets.symmetric(
+            horizontal: WorkbenchLayoutConstants.spacingSize40,
+          ),
         ),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),

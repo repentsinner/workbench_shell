@@ -428,9 +428,7 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
           // the per-pane scroll boundary. A standalone pane renders the body
           // raw and grows to its content.
           if (widget.boundedBody)
-            Expanded(
-              child: SingleChildScrollView(child: widget.child),
-            )
+            Expanded(child: SingleChildScrollView(child: widget.child))
           else
             widget.child,
       ],
@@ -470,7 +468,8 @@ class WorkbenchViewWelcome extends StatelessWidget {
           // Paragraphs are full-width, default-aligned text — VS Code renders
           // viewsWelcome content as stacked <p> elements, not centered text.
           for (final (i, paragraph) in paragraphs.indexed) ...[
-            if (i > 0) const SizedBox(height: WorkbenchLayoutConstants.spacingSize80),
+            if (i > 0)
+              const SizedBox(height: WorkbenchLayoutConstants.spacingSize80),
             Text(paragraph, style: theme.bodyText),
           ],
           // Each button stretches full width but caps at the canon 300px and

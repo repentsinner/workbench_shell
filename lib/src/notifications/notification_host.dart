@@ -9,12 +9,13 @@ import '../workbench_theme.dart';
 import 'notification.dart';
 import 'notification_service.dart';
 
-/// The corner-radius ladder's controls tier, as a `BorderRadius`. Every
+/// The corner-radius ladder's 4px tier, as a `BorderRadius`. Every
 /// notification surface — card, summary card, action button and their ink
 /// wells — takes this tier (§spec:design-size-ladders); VS Code's
 /// `notificationsToasts.css` rounds the toast with the same
-/// `var(--vscode-cornerRadius-small)`.
-const BorderRadius _controlsRadius = BorderRadius.all(
+/// `var(--vscode-cornerRadius-small)`. Named for the tier rather than for
+/// a role, because the cards it rounds are not controls.
+const BorderRadius _smallRadius = BorderRadius.all(
   Radius.circular(WorkbenchLayoutConstants.cornerRadiusSmall),
 );
 
@@ -456,7 +457,7 @@ class _ClearAllControl extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onClear,
-          borderRadius: _controlsRadius,
+          borderRadius: _smallRadius,
           child: Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: WorkbenchLayoutConstants.spacingSize80,
@@ -513,7 +514,7 @@ class _SummaryCard extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.notificationBackground,
-        borderRadius: _controlsRadius,
+        borderRadius: _smallRadius,
         border: Border.all(color: theme.notificationBorder),
       ),
       child: Column(
@@ -524,7 +525,7 @@ class _SummaryCard extends StatelessWidget {
             color: Colors.transparent,
             child: InkWell(
               onTap: onTap,
-              borderRadius: _controlsRadius,
+              borderRadius: _smallRadius,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: WorkbenchLayoutConstants.spacingSize120,
@@ -537,7 +538,9 @@ class _SummaryCard extends StatelessWidget {
                       size: WorkbenchLayoutConstants.iconMd,
                       color: theme.notificationCloseForeground,
                     ),
-                    const SizedBox(width: WorkbenchLayoutConstants.spacingSize80),
+                    const SizedBox(
+                      width: WorkbenchLayoutConstants.spacingSize80,
+                    ),
                     Expanded(
                       child: Text(
                         '+$hiddenCount more',
@@ -652,11 +655,11 @@ class _NotificationCard extends StatelessWidget {
         onEnter: (_) => onHoverChanged(true),
         onExit: (_) => onHoverChanged(false),
         child: ClipRRect(
-          borderRadius: _controlsRadius,
+          borderRadius: _smallRadius,
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: theme.notificationBackground,
-              borderRadius: _controlsRadius,
+              borderRadius: _smallRadius,
               border: Border.all(color: theme.notificationBorder),
             ),
             child: IntrinsicHeight(
@@ -752,7 +755,8 @@ class _NotificationCard extends StatelessWidget {
                               alignment: Alignment.centerRight,
                               child: Wrap(
                                 spacing: WorkbenchLayoutConstants.spacingSize80,
-                                runSpacing: WorkbenchLayoutConstants.spacingSize40,
+                                runSpacing:
+                                    WorkbenchLayoutConstants.spacingSize40,
                                 children: [
                                   for (final action in notification.actions)
                                     _ActionButton(
@@ -797,9 +801,9 @@ class _CloseButton extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: _controlsRadius,
+        borderRadius: _smallRadius,
         child: Padding(
-          padding: const EdgeInsets.all(2),
+          padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingSize20),
           child: Icon(
             Symbols.close_rounded,
             size: WorkbenchLayoutConstants.iconSm,
@@ -826,10 +830,10 @@ class _ActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: theme.notificationActionBackground,
-      borderRadius: _controlsRadius,
+      borderRadius: _smallRadius,
       child: InkWell(
         onTap: onInvoke,
-        borderRadius: _controlsRadius,
+        borderRadius: _smallRadius,
         hoverColor: theme.notificationActionHoverBackground,
         child: Padding(
           padding: const EdgeInsets.symmetric(

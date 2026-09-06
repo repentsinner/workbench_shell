@@ -1369,7 +1369,9 @@ class _AutoDetectToggle extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: WorkbenchLayoutConstants.spacingSize20),
+                  const SizedBox(
+                    height: WorkbenchLayoutConstants.spacingSize20,
+                  ),
                   Text(
                     'Automatically select a color theme based on the '
                     'system color mode.',

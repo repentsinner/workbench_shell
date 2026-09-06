@@ -316,7 +316,10 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
 
   Widget _badgePill(WorkbenchTheme theme, PanelTabBadge badge) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(
+        horizontal: WorkbenchLayoutConstants.spacingSize60,
+        vertical: WorkbenchLayoutConstants.spacingSize20,
+      ),
       decoration: BoxDecoration(
         color: theme.badgeBackground,
         borderRadius: const BorderRadius.all(Radius.circular(8)),
