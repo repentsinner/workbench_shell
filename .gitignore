@@ -29,3 +29,6 @@ Podfile.lock
 
 # Symphonize/conduct local progress scratch — never commit.
 *.local.md
+
+# FVM Version Cache
+.fvm/

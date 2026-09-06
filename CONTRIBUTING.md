@@ -25,9 +25,20 @@ This repo uses [Flywheel](https://github.com/point-source/flywheel) to orchestra
 Run them locally before pushing:
 
 ```bash
-flutter analyze && flutter test && (cd example && flutter test)
+fvm flutter analyze && fvm flutter test && (cd example && fvm flutter test)
 npx markdownlint-cli2 SPEC.md ROADMAP.md README.md
 ```
+
+**Use the pinned SDK, not whatever `flutter` resolves to.** `.fvmrc` pins the
+Flutter version, and `quality.yml` feeds that same file to
+`subosito/flutter-action` via `flutter-version-file`, so CI and your machine
+run one toolchain. Run `fvm install` once to fetch it, then prefix commands
+with `fvm` (or put `.fvm/flutter_sdk/bin` on your `PATH`).
+
+An unpinned `flutter` is not equivalent. The analyzer gains lints between
+releases, so a stale local SDK reports a clean tree for code that CI rejects —
+`invalid_export_of_internal_element` reached `main` that way. Bump the version
+in `.fvmrc` alone; nothing else records it.
 
 **Open PRs only when ready to merge.** A branch is your private work-in-progress; a PR is a request to merge. Iterate on the branch beforehand; open the PR when the work is done. Once open and eligible, Flywheel auto-merges as soon as required checks pass.
 
