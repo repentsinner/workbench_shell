@@ -85,9 +85,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData.dark().copyWith(
-          extensions: [
-            testWorkbenchTheme.copyWith(sashHoverBorder: sashColor),
-          ],
+          extensions: [testWorkbenchTheme.copyWith(sashHoverBorder: sashColor)],
         ),
         home: Scaffold(
           body: Center(
@@ -274,10 +272,7 @@ void main() {
     ) async {
       var value = 200.0;
       await tester.pumpWidget(
-        buildResettable(
-          onReset: () {},
-          onChanged: (n) => value = n,
-        ),
+        buildResettable(onReset: () {}, onChanged: (n) => value = n),
       );
 
       final gesture = await tester.startGesture(

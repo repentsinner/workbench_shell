@@ -71,7 +71,10 @@ class WorkbenchLayoutState {
   /// different shell version rehydrates without the host guarding versions.
   factory WorkbenchLayoutState.fromJson(Map<String, dynamic> json) {
     return WorkbenchLayoutState(
-      sizes: _decodeNested(json['sizes'], (v) => v is num ? v.toDouble() : null),
+      sizes: _decodeNested(
+        json['sizes'],
+        (v) => v is num ? v.toDouble() : null,
+      ),
       order: _decodeLists(json['order']),
       expanded: _decodeNested(json['expanded'], (v) => v is bool ? v : null),
       hidden: {
@@ -109,7 +112,10 @@ class WorkbenchLayoutState {
     if (raw is Map) {
       raw.forEach((key, list) {
         if (key is String && list is List) {
-          result[key] = [for (final e in list) if (e is String) e];
+          result[key] = [
+            for (final e in list)
+              if (e is String) e,
+          ];
         }
       });
     }
@@ -166,13 +172,11 @@ class WorkbenchLayoutState {
 
       // Expansion (uncontrolled views only): persisted value if present, else
       // the descriptor default. Controlled descriptors own their own expansion.
-      final persistedExpanded =
-          expanded[containerId] ?? const <String, bool>{};
+      final persistedExpanded = expanded[containerId] ?? const <String, bool>{};
       final resolvedExpanded = <String, bool>{};
       for (final v in views) {
         if (v.expanded != null) continue;
-        resolvedExpanded[v.id] =
-            persistedExpanded[v.id] ?? v.initiallyExpanded;
+        resolvedExpanded[v.id] = persistedExpanded[v.id] ?? v.initiallyExpanded;
       }
       if (resolvedExpanded.isNotEmpty) {
         newExpanded[containerId] = resolvedExpanded;
@@ -210,7 +214,10 @@ class WorkbenchLayoutState {
   ) {
     final live = liveIds.toList();
     final liveSet = live.toSet();
-    final result = [for (final id in persisted) if (liveSet.contains(id)) id];
+    final result = [
+      for (final id in persisted)
+        if (liveSet.contains(id)) id,
+    ];
     final seen = result.toSet();
     for (final id in live) {
       if (seen.add(id)) result.add(id);
@@ -229,7 +236,10 @@ class WorkbenchLayoutState {
     int fromVisible,
     int toVisible,
   ) {
-    final visible = [for (final id in fullOrder) if (!hidden.contains(id)) id];
+    final visible = [
+      for (final id in fullOrder)
+        if (!hidden.contains(id)) id,
+    ];
     if (fromVisible < 0 || fromVisible >= visible.length) {
       return List<String>.from(fullOrder);
     }
@@ -252,9 +262,18 @@ class WorkbenchLayoutState {
     required Map<String, double> sizes,
   }) {
     return WorkbenchLayoutState(
-      sizes: {...this.sizes, containerId: {...sizes}},
-      order: {...this.order, containerId: [...order]},
-      expanded: {...this.expanded, containerId: {...expanded}},
+      sizes: {
+        ...this.sizes,
+        containerId: {...sizes},
+      },
+      order: {
+        ...this.order,
+        containerId: [...order],
+      },
+      expanded: {
+        ...this.expanded,
+        containerId: {...expanded},
+      },
       hidden: hidden,
     );
   }
@@ -265,7 +284,10 @@ class WorkbenchLayoutState {
       sizes: sizes,
       order: order,
       expanded: expanded,
-      hidden: {...hidden, containerId: {...hiddenIds}},
+      hidden: {
+        ...hidden,
+        containerId: {...hiddenIds},
+      },
     );
   }
 }

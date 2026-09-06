@@ -464,10 +464,7 @@ void main() {
       tester,
     ) async {
       final view = await pumpAndReadViewMenu(tester, const [
-        WorkbenchViewMenuTab(
-          intent: _FocusTestTabIntent('a'),
-          label: 'Alpha',
-        ),
+        WorkbenchViewMenuTab(intent: _FocusTestTabIntent('a'), label: 'Alpha'),
         WorkbenchMenuSeparator(),
         WorkbenchViewMenuTab(intent: _FocusTestTabIntent('b'), label: 'Beta'),
       ]);
@@ -723,7 +720,10 @@ void main() {
       final row = find.widgetWithText(MenuItemButton, 'MDI');
       expect(row, findsOneWidget);
       final rowStyle = MenuButtonTheme.of(tester.element(row)).style!;
-      expect(rowStyle.foregroundColor!.resolve(const {}), const Color(0xFFBFBFBF));
+      expect(
+        rowStyle.foregroundColor!.resolve(const {}),
+        const Color(0xFFBFBFBF),
+      );
       expect(
         rowStyle.backgroundColor!.resolve(const {}),
         Colors.transparent,
@@ -777,9 +777,7 @@ void main() {
       );
       expect(rowFill().color, Colors.transparent);
 
-      final pointer = await tester.createGesture(
-        kind: PointerDeviceKind.mouse,
-      );
+      final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
       addTearDown(pointer.removePointer);
       await pointer.addPointer(location: Offset.zero);
       await pointer.moveTo(tester.getCenter(find.text('MDI')));

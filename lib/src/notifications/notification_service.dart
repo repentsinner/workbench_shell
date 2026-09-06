@@ -39,8 +39,9 @@ class NotificationService extends ChangeNotifier {
   /// The view wraps the backing list once and reflects later mutations
   /// live, so repeated reads (the host reads it several times per change
   /// cycle) allocate nothing.
-  late final List<WorkbenchNotification> notifications =
-      UnmodifiableListView(_notifications);
+  late final List<WorkbenchNotification> notifications = UnmodifiableListView(
+    _notifications,
+  );
 
   /// Post a new notification.
   ///

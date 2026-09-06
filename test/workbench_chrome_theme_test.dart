@@ -444,6 +444,11 @@ void main() {
         field.decoration?.fillColor,
         testWorkbenchTheme.dropdownBackground,
       );
+      // Flat at the chrome's button height, not Material's 48px icon slot.
+      expect(
+        tester.getSize(find.byType(TextField)).height,
+        WorkbenchLayoutConstants.buttonHeight,
+      );
 
       await tester.tap(find.byType(DropdownMenu<String>));
       await tester.pumpAndSettle();

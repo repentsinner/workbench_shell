@@ -255,6 +255,9 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
     // family.
     dropdownMenuTheme: DropdownMenuThemeData(
       textStyle: chrome.helperStyle.copyWith(color: chrome.dropdownForeground),
+      // A disabled select dims its label the way a disabled segment does,
+      // rather than reading `onSurface` — a role the chrome leaves unset.
+      disabledColor: chrome.descriptionForeground,
       inputDecorationTheme: InputDecorationThemeData(
         filled: true,
         fillColor: chrome.dropdownBackground,
@@ -266,6 +269,15 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
           minHeight: WorkbenchLayoutConstants.buttonHeight,
         ),
         contentPadding: buttonPadding,
+        // The trailing chevron sits in Material's 48px icon slot, inside a
+        // 4px pad [DropdownMenu] adds of its own — together taller than
+        // every other chrome control, and the tallest thing in the field,
+        // so it alone sets the trigger's height. Pin the slot to the
+        // chrome's button box in both directions: the maximum is what
+        // brings the trigger down to [WorkbenchLayoutConstants.buttonHeight],
+        // and the chevron centres in it at its natural size.
+        prefixIconConstraints: _dropdownIconSlot,
+        suffixIconConstraints: _dropdownIconSlot,
         border: dropdownBorder,
         enabledBorder: dropdownBorder,
         focusedBorder: dropdownBorder,
@@ -290,3 +302,11 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
     ),
   );
 }
+
+/// The icon slot a [DropdownMenu]'s leading and trailing glyphs sit in —
+/// the chrome's button box rather than Material's 48px touch target.
+const BoxConstraints _dropdownIconSlot = BoxConstraints(
+  minWidth: WorkbenchLayoutConstants.buttonHeight,
+  minHeight: WorkbenchLayoutConstants.buttonHeight,
+  maxHeight: WorkbenchLayoutConstants.buttonHeight,
+);

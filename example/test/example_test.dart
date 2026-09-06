@@ -295,6 +295,97 @@ void main() {
     },
   );
 
+  testWidgets('the editor select inherits the chrome dropdown colours '
+      '(§spec:chrome-material-theming)', (tester) async {
+    await tester.pumpWidget(const WorkbenchExampleApp());
+    await tester.pumpAndSettle();
+
+    // A bare DropdownMenu stands in the editor area — nothing in the
+    // example styles it.
+    final select = find.byType(DropdownMenu<String>);
+    expect(select, findsOneWidget);
+
+    final chrome = Theme.of(
+      tester.element(select),
+    ).extension<WorkbenchTheme>()!;
+
+    // Trigger: dropdown.background, flat at the chrome's button height.
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.decoration?.fillColor, chrome.dropdownBackground);
+    expect(
+      tester.getSize(find.byType(TextField)).height,
+      WorkbenchLayoutConstants.buttonHeight,
+    );
+
+    // Open list: dropdown.listBackground, which resolves through the
+    // trigger fill in themes that omit the token.
+    await tester.tap(select);
+    await tester.pumpAndSettle();
+    final panel = tester
+        .widgetList<Material>(
+          find.ancestor(
+            of: find.widgetWithText(MenuItemButton, 'Markdown').last,
+            matching: find.byType(Material),
+          ),
+        )
+        .first;
+    expect(panel.color, chrome.dropdownListBackground);
+  });
+
+  testWidgets('switching themes repaints the select, list background and all '
+      '(§spec:chrome-material-theming)', (tester) async {
+    await tester.pumpWidget(const WorkbenchExampleApp());
+    await tester.pumpAndSettle();
+
+    final select = find.byType(DropdownMenu<String>);
+    Color triggerFill() =>
+        tester.widget<TextField>(find.byType(TextField)).decoration!.fillColor!;
+    final before = triggerFill();
+
+    // Pick Monokai from the Color theme slot. It is one of the bundled
+    // themes that colours its open list apart from its trigger. The slot
+    // only accepts a pick with auto-detect off, so turn that off first.
+    await tester.tap(find.byIcon(Symbols.settings_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Auto detect color scheme'));
+    await tester.pumpAndSettle();
+    final colorThemeSlot = find.descendant(
+      of: find
+          .ancestor(of: find.text('Color theme'), matching: find.byType(Column))
+          .first,
+      matching: find.byType(DropdownMenu<String>),
+    );
+    await tester.tap(colorThemeSlot);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Monokai').last);
+    await tester.pumpAndSettle();
+
+    final chrome = Theme.of(
+      tester.element(select.first),
+    ).extension<WorkbenchTheme>()!;
+    expect(chrome.dropdownBackground, isNot(before));
+
+    // The editor's bare select followed the switch, and its open list
+    // takes the theme's own `dropdown.listBackground` rather than the
+    // trigger fill.
+    await tester.tap(find.byIcon(Symbols.folder_rounded));
+    await tester.pumpAndSettle();
+    expect(triggerFill(), chrome.dropdownBackground);
+    expect(chrome.dropdownListBackground, isNot(chrome.dropdownBackground));
+
+    await tester.tap(find.byType(DropdownMenu<String>));
+    await tester.pumpAndSettle();
+    final panel = tester
+        .widgetList<Material>(
+          find.ancestor(
+            of: find.widgetWithText(MenuItemButton, 'Markdown').last,
+            matching: find.byType(Material),
+          ),
+        )
+        .first;
+    expect(panel.color, chrome.dropdownListBackground);
+  });
+
   testWidgets(
     'Up/Down traverse the Explorer headers and clamp at the ends (§spec:view-pane-focus)',
     (tester) async {

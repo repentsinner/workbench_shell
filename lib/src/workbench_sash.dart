@@ -135,6 +135,7 @@ class _WorkbenchSashState extends State<WorkbenchSash> {
     _lastDownTime = event.timeStamp;
     _lastDownPosition = event.position;
   }
+
   OverlayEntry? _overlay;
   final ValueNotifier<MouseCursor> _overlayCursor = ValueNotifier(
     SystemMouseCursors.basic,
