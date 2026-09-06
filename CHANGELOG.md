@@ -1,3 +1,13 @@
+# [0.33.0](https://github.com/repentsinner/workbench_shell/compare/v0.32.0...v0.33.0) (2026-09-06)
+
+
+### Features
+
+* **example:** demonstrate the chrome-themed select ([539602c](https://github.com/repentsinner/workbench_shell/commit/539602c9d89a986088cd4e8711486b99e68d9b8c))
+* **theme:** add the three missing dropdown.* colors ([4d9693d](https://github.com/repentsinner/workbench_shell/commit/4d9693d5d36872674692aab27112e36c10e5d86e)), closes [#F0F0F0](https://github.com/repentsinner/workbench_shell/issues/F0F0F0) [#CECECE](https://github.com/repentsinner/workbench_shell/issues/CECECE)
+* **theming:** bring the menu and select family under the chrome ([7653834](https://github.com/repentsinner/workbench_shell/commit/76538340f8834d0efc4e50fb4cf7d41656dd146a)), closes [#30](https://github.com/repentsinner/workbench_shell/issues/30)
+* **theming:** give a host's menu separator the menu hairline ([4013d60](https://github.com/repentsinner/workbench_shell/commit/4013d6006455e5597721edd8e3b67705f7a66b8f))
+
 # [0.32.0](https://github.com/repentsinner/workbench_shell/compare/v0.31.0...v0.32.0) (2026-09-06)
 
 
