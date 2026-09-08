@@ -3226,8 +3226,16 @@ all (`_HighlightModeManager.handlePointerEvent`, Flutter 3.47.2). The
 pane does not need one. It already knows which path delivered its
 focus — a tap focuses the header itself, where traversal moves focus
 through the focus system (§spec:view-pane-focus) — so recording that is
-enough to tell the two apart, and the record clears on blur so each
-focus episode answers for itself.
+enough to tell the two apart.
+
+The record answers each *gain of the header's own focus*, not each
+episode in its subtree. Both distinctions matter: a header's enclosing
+focus is descendant-inclusive so that a focused action reveals the
+action row (§spec:section-header-actions), and holding one verdict for
+as long as focus stays anywhere in the header would leave a header
+unringed after the keyboard brought focus back to it from one of its
+own actions. Upstream's `:focus-visible` re-evaluates per focus event,
+and so does this.
 
 **Rejected — suppressing the ring by not focusing on tap.** The
 one-line version of the rule: drop the `requestFocus` from the tap

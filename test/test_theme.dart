@@ -73,3 +73,16 @@ bool viewPaneHeaderFocused(WidgetTester tester, {Finder? of}) {
       .widgetList<Focus>(finder)
       .any((f) => f.focusNode!.hasPrimaryFocus);
 }
+
+/// The view-pane header's own [FocusNode], scoped to [of] when a test has
+/// several panes. Identified the same way [viewPaneHeaderFocused] identifies
+/// it — by the key handler only the header carries.
+FocusNode headerFocusNodeOf(WidgetTester tester, {Finder? of}) {
+  final headerFocus = find.byWidgetPredicate(
+    (w) => w is Focus && w.onKeyEvent != null && w.focusNode != null,
+  );
+  final finder = of == null
+      ? headerFocus
+      : find.descendant(of: of, matching: headerFocus);
+  return tester.widgetList<Focus>(finder).first.focusNode!;
+}

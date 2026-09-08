@@ -347,6 +347,52 @@ void main() {
       expect(ringBorder(tester).top.width, 1.0);
     });
 
+    testWidgets('a header regaining focus from its own action rings again', (
+      tester,
+    ) async {
+      // `:focus-visible` re-answers on every focus event, not once per subtree
+      // episode. A header whose click left it unringed shall ring when the
+      // keyboard brings focus back to it from an action inside it — the ring
+      // reads the header's own focus, not the descendant-inclusive value that
+      // reveals the action row (§spec:modern-ui-surfaces).
+      // A non-collapsible pane: the tap focuses without toggling, so the
+      // action stays in the tree and keeps its node attached.
+      final actionFocus = FocusNode(debugLabel: 'header-action');
+      addTearDown(actionFocus.dispose);
+      await tester.pumpWidget(
+        wrapWithTheme(
+          WorkbenchViewPane(
+            title: 'Hello',
+            actionsAlwaysVisible: true,
+            actions: [
+              Focus(
+                focusNode: actionFocus,
+                child: const SizedBox(width: 16, height: 16),
+              ),
+            ],
+            child: const Text('body'),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Hello'));
+      await tester.pumpAndSettle();
+      expect(ringColor(tester), Colors.transparent, reason: 'clicked');
+
+      // Focus moves into the header's own action, then back to the header.
+      actionFocus.requestFocus();
+      await tester.pumpAndSettle();
+      expect(ringColor(tester), Colors.transparent, reason: 'action holds it');
+
+      headerFocusNodeOf(tester).requestFocus();
+      await tester.pumpAndSettle();
+      expect(
+        ringColor(tester),
+        testWorkbenchTheme.focusBorder,
+        reason: 'the header took focus back without a pointer',
+      );
+    });
+
     testWidgets('traversal rings the header a click left unringed', (
       tester,
     ) async {
