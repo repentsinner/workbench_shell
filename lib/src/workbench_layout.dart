@@ -2230,11 +2230,21 @@ class _Sidebar extends StatelessWidget {
     final showOverflow =
         spec.views.any((v) => v.canHide) ||
         spec.titleOverflowEntries.isNotEmpty;
+    final modernUI = WorkbenchSurfaceTreatment.of(context);
+    // Two insets, not one: `.part > .title` pads the row and `.title-label`
+    // pads the label inside it, so the title reads further in than the
+    // trailing action does. `padding.css` takes the pair from base `part.css`'s
+    // 8/12 to 4/8; the trailing action keeps only the part's inset, since
+    // upstream zeroes the last action's margin (§spec:modern-ui-surfaces).
+    final partInset = modernUI
+        ? WorkbenchLayoutConstants.spacingSize40
+        : WorkbenchLayoutConstants.spacingSize80;
+    final labelInset = modernUI
+        ? WorkbenchLayoutConstants.spacingSize80
+        : WorkbenchLayoutConstants.spacingSize120;
     return Container(
       height: WorkbenchLayoutConstants.sidebarHeadingHeight,
-      padding: const EdgeInsets.symmetric(
-        horizontal: WorkbenchLayoutConstants.spacingSize160,
-      ),
+      padding: EdgeInsets.symmetric(horizontal: partInset),
       child: Row(
         children: [
           Expanded(
@@ -2243,18 +2253,23 @@ class _Sidebar extends StatelessWidget {
             // activity-item label as fallback (§spec:view-container-title).
             // A container the activity bar never lists (a secondary's) has
             // an empty [activeLabel], so its spec title is its only source.
+            // Only the label takes the label inset — upstream's composite bar
+            // is a sibling of `.title-label`, not a child.
             child: tabIds != null
                 ? _buildTitleTabs()
-                : Text(
-                    WorkbenchSurfaceTreatment.titleCasing(
-                      context,
-                      spec.title ?? activeLabel,
+                : Padding(
+                    padding: EdgeInsets.only(left: labelInset),
+                    child: Text(
+                      WorkbenchSurfaceTreatment.titleCasing(
+                        context,
+                        spec.title ?? activeLabel,
+                      ),
+                      style: WorkbenchSurfaceTreatment.partTitleStyle(
+                        context,
+                        theme,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    style: WorkbenchSurfaceTreatment.partTitleStyle(
-                      context,
-                      theme,
-                    ),
-                    overflow: TextOverflow.ellipsis,
                   ),
           ),
           // Host inline title actions, persistent (the composite title is

@@ -2586,6 +2586,43 @@ void main() {
       );
     });
 
+    testWidgets('insets the composite title at the part and label tiers', (
+      tester,
+    ) async {
+      // `padding.css`: the part takes size40 on each side and the title label
+      // a further size80 on its leading edge (§spec:modern-ui-surfaces).
+      await tester.pumpWidget(_buildApp());
+      final card = tester.getRect(cardRing(find.text('Explorer')));
+      final label = tester.getRect(find.text('Explorer'));
+      // The primary side bar cedes its rail-facing edge, so no stroke stands
+      // between the card box and the part inset (§spec:modern-ui-surfaces).
+      expect(
+        label.left - card.left,
+        closeTo(
+          WorkbenchLayoutConstants.spacingSize40 +
+              WorkbenchLayoutConstants.spacingSize80,
+          0.001,
+        ),
+      );
+
+      // The trailing action sits against the part's own inset — upstream
+      // zeroes the last action's margin.
+      final overflow = tester.getRect(
+        find.ancestor(
+          of: find.byIcon(Symbols.more_horiz),
+          matching: find.byType(IconButton),
+        ),
+      );
+      expect(
+        card.right - overflow.right,
+        closeTo(
+          WorkbenchLayoutConstants.strokeThickness +
+              WorkbenchLayoutConstants.spacingSize40,
+          0.001,
+        ),
+      );
+    });
+
     testWidgets('paints the ground behind the cards from the workbench '
         'backdrop, not the editor', (tester) async {
       await tester.pumpWidget(_buildApp(theme: backdropTheme));
@@ -3276,6 +3313,27 @@ void main() {
       expect(
         tester.widget<Text>(find.text('EXPLORER')).style,
         baseTheme.baseSidebarOrPanelHeading,
+      );
+    });
+
+    testWidgets('insets the composite title at the base part and label tiers', (
+      tester,
+    ) async {
+      // Base `part.css`: 8px on the part, a further 12px on the label.
+      await tester.pumpWidget(
+        _buildApp(initialModernUI: false, theme: baseTheme),
+      );
+      final card = tester.getRect(
+        seamBox(find.text('EXPLORER'), sideBarSeam),
+      );
+      final label = tester.getRect(find.text('EXPLORER'));
+      expect(
+        label.left - card.left,
+        closeTo(
+          WorkbenchLayoutConstants.spacingSize80 +
+              WorkbenchLayoutConstants.spacingSize120,
+          0.001,
+        ),
       );
     });
 

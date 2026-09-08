@@ -206,6 +206,20 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
     final partTitle = WorkbenchSurfaceTreatment.partTitleStyle(context, theme);
+    // `padding.css` gives the panel's composite title its own asymmetric
+    // inset — `.part.basepanel .composite.title { padding-left: size20;
+    // padding-right: size40 }` — rather than the generic part inset the side
+    // bar heading takes. Base VS Code falls through to `part.css`'s 8px on
+    // both edges (§spec:modern-ui-surfaces).
+    final modernUI = WorkbenchSurfaceTreatment.of(context);
+    final stripInset = modernUI
+        ? const EdgeInsets.only(
+            left: WorkbenchLayoutConstants.spacingSize20,
+            right: WorkbenchLayoutConstants.spacingSize40,
+          )
+        : const EdgeInsets.symmetric(
+            horizontal: WorkbenchLayoutConstants.spacingSize80,
+          );
     return ColoredBox(
       color: theme.panelBackground,
       child: Column(
@@ -214,75 +228,80 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
             // Single 35px container (VS Code's `.part > .title`); the Row
             // flex-centres its children vertically with no extra padding.
             height: WorkbenchLayoutConstants.panelTabStripHeight,
-            child: Row(
-              children: [
-                Expanded(
-                  child: TabBar(
-                    controller: _tabController,
-                    isScrollable: true,
-                    tabAlignment: TabAlignment.start,
-                    labelColor: theme.tabBarLabelColor,
-                    unselectedLabelColor: theme.tabBarUnselectedLabelColor,
-                    labelStyle: partTitle.copyWith(
-                      color: theme.tabBarLabelColor,
-                    ),
-                    unselectedLabelStyle: partTitle.copyWith(
-                      color: theme.tabBarUnselectedLabelColor,
-                    ),
-                    dividerColor: theme.tabBarDividerColor,
-                    // Suppress Material's hover/focus/pressed overlay box;
-                    // the §spec:tab-strip-canon canon is a label-colour transition with no
-                    // background overlay.
-                    overlayColor: const WidgetStatePropertyAll(
-                      Colors.transparent,
-                    ),
-                    indicator: UnderlineTabIndicator(
-                      borderSide: BorderSide(color: theme.tabBarIndicatorColor),
-                    ),
-                    tabs: [
-                      for (var i = 0; i < widget.tabs.length; i++)
-                        Tab(
-                          child: _HoverableTabLabel(
-                            controller: _tabController,
-                            tabIndex: i,
-                            activeColor: theme.tabBarLabelColor,
-                            inactiveColor: theme.tabBarUnselectedLabelColor,
-                            // Hover tints inactive labels toward the
-                            // active-tab text colour (the
-                            // panelTitle.activeForeground accent),
-                            // not the selection underline. The selection
-                            // underline is a "this is the active tab"
-                            // signal, while hover is "if you click this
-                            // tab will become active" — visually closer
-                            // to the active text colour.
-                            inactiveHoverColor: theme.tabBarLabelColor,
-                            child: _buildTabLabel(
-                              context,
-                              theme,
-                              widget.tabs[i],
+            child: Padding(
+              padding: stripInset,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TabBar(
+                      controller: _tabController,
+                      isScrollable: true,
+                      tabAlignment: TabAlignment.start,
+                      labelColor: theme.tabBarLabelColor,
+                      unselectedLabelColor: theme.tabBarUnselectedLabelColor,
+                      labelStyle: partTitle.copyWith(
+                        color: theme.tabBarLabelColor,
+                      ),
+                      unselectedLabelStyle: partTitle.copyWith(
+                        color: theme.tabBarUnselectedLabelColor,
+                      ),
+                      dividerColor: theme.tabBarDividerColor,
+                      // Suppress Material's hover/focus/pressed overlay box;
+                      // the §spec:tab-strip-canon canon is a label-colour transition with no
+                      // background overlay.
+                      overlayColor: const WidgetStatePropertyAll(
+                        Colors.transparent,
+                      ),
+                      indicator: UnderlineTabIndicator(
+                        borderSide: BorderSide(
+                          color: theme.tabBarIndicatorColor,
+                        ),
+                      ),
+                      tabs: [
+                        for (var i = 0; i < widget.tabs.length; i++)
+                          Tab(
+                            child: _HoverableTabLabel(
+                              controller: _tabController,
+                              tabIndex: i,
+                              activeColor: theme.tabBarLabelColor,
+                              inactiveColor: theme.tabBarUnselectedLabelColor,
+                              // Hover tints inactive labels toward the
+                              // active-tab text colour (the
+                              // panelTitle.activeForeground accent),
+                              // not the selection underline. The selection
+                              // underline is a "this is the active tab"
+                              // signal, while hover is "if you click this
+                              // tab will become active" — visually closer
+                              // to the active text colour.
+                              inactiveHoverColor: theme.tabBarLabelColor,
+                              child: _buildTabLabel(
+                                context,
+                                theme,
+                                widget.tabs[i],
+                              ),
                             ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(
-                    Symbols.close_rounded,
-                    size: WorkbenchLayoutConstants.iconMd,
+                  IconButton(
+                    icon: const Icon(
+                      Symbols.close_rounded,
+                      size: WorkbenchLayoutConstants.iconMd,
+                    ),
+                    color: theme.descriptionForeground,
+                    tooltip: widget.closeButtonTooltip,
+                    onPressed: widget.onTogglePanel,
+                    padding: const EdgeInsets.all(
+                      WorkbenchLayoutConstants.spacingSize40,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: WorkbenchLayoutConstants.iconXl,
+                      minHeight: WorkbenchLayoutConstants.iconXl,
+                    ),
                   ),
-                  color: theme.descriptionForeground,
-                  tooltip: widget.closeButtonTooltip,
-                  onPressed: widget.onTogglePanel,
-                  padding: const EdgeInsets.all(
-                    WorkbenchLayoutConstants.spacingSize40,
-                  ),
-                  constraints: const BoxConstraints(
-                    minWidth: WorkbenchLayoutConstants.iconXl,
-                    minHeight: WorkbenchLayoutConstants.iconXl,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           Expanded(

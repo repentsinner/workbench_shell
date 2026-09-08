@@ -46,6 +46,60 @@ void main() {
       expect(find.text('content-a'), findsOneWidget);
     });
 
+    testWidgets('insets the tab strip at the composite-title tier', (
+      tester,
+    ) async {
+      // `padding.css`: `.part.basepanel .composite.title` takes size20 on its
+      // leading edge and size40 on its trailing one
+      // (§spec:modern-ui-surfaces).
+      await tester.pumpWidget(
+        wrapWithTheme(
+          SizedBox(
+            width: 400,
+            height: 300,
+            child: WorkbenchTabbedPanel(tabs: tabs(), onTogglePanel: () {}),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final strip = tester.getRect(find.byType(TabBar));
+      final part = tester.getRect(find.byType(WorkbenchTabbedPanel));
+      expect(
+        strip.left - part.left,
+        closeTo(WorkbenchLayoutConstants.spacingSize20, 0.001),
+      );
+      final close = tester.getRect(find.byType(IconButton));
+      expect(
+        part.right - close.right,
+        closeTo(WorkbenchLayoutConstants.spacingSize40, 0.001),
+      );
+    });
+
+    testWidgets('insets the tab strip at the base part tier', (tester) async {
+      // Base `part.css` `.part > .title`: 8px on both edges.
+      await tester.pumpWidget(
+        wrapWithTheme(
+          WorkbenchSurfaceTreatment(
+            modernUI: false,
+            child: SizedBox(
+              width: 400,
+              height: 300,
+              child: WorkbenchTabbedPanel(tabs: tabs(), onTogglePanel: () {}),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final strip = tester.getRect(find.byType(TabBar));
+      final part = tester.getRect(find.byType(WorkbenchTabbedPanel));
+      expect(
+        strip.left - part.left,
+        closeTo(WorkbenchLayoutConstants.spacingSize80, 0.001),
+      );
+    });
+
     testWidgets('uppercases tab labels with the treatment off', (
       tester,
     ) async {
