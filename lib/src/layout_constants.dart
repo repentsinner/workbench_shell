@@ -166,6 +166,10 @@ class WorkbenchLayoutConstants {
   /// upstream, not a spacing token.
   static const double sashGripDotSpacing = 5.0;
 
+  /// Clear gap between two adjacent grip dots — the pitch less one dot. What a
+  /// flex layout lays out, where upstream offsets a shadow from a centre.
+  static const double sashGripDotGap = sashGripDotSpacing - sashGripDotSize;
+
   /// Alpha the grip paints `foreground` at: `sashHandles.css` mixes the token
   /// to 30% and sets `opacity: 0.75` on the element, and the two compose
   /// (§spec:modern-ui-surfaces).

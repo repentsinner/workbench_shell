@@ -205,32 +205,26 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
   @override
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
-    final partTitle = WorkbenchSurfaceTreatment.partTitleStyle(context, theme);
-    // `padding.css` gives the panel's composite title its own asymmetric
-    // inset — `.part.basepanel .composite.title { padding-left: size20;
-    // padding-right: size40 }` — rather than the generic part inset the side
-    // bar heading takes. Base VS Code falls through to `part.css`'s 8px on
-    // both edges (§spec:modern-ui-surfaces).
+    // One read of the treatment for the whole strip: the title tier, the tab
+    // labels and the strip's own inset all turn on it.
     final modernUI = WorkbenchSurfaceTreatment.of(context);
-    final stripInset = modernUI
-        ? const EdgeInsets.only(
-            left: WorkbenchLayoutConstants.spacingSize20,
-            right: WorkbenchLayoutConstants.spacingSize40,
-          )
-        : const EdgeInsets.symmetric(
-            horizontal: WorkbenchLayoutConstants.spacingSize80,
-          );
+    final partTitle = WorkbenchSurfaceTreatment.partTitleStyleFor(
+      modernUI,
+      theme,
+    );
+    final stripInset = WorkbenchSurfaceTreatment.panelTitleInsetFor(modernUI);
     return ColoredBox(
       color: theme.panelBackground,
       child: Column(
         children: [
-          SizedBox(
+          Container(
             // Single 35px container (VS Code's `.part > .title`); the Row
-            // flex-centres its children vertically with no extra padding.
+            // flex-centres its children vertically, and the strip's own inset
+            // is the container's padding — one widget, matching the side bar
+            // heading (§spec:modern-ui-surfaces).
             height: WorkbenchLayoutConstants.panelTabStripHeight,
-            child: Padding(
-              padding: stripInset,
-              child: Row(
+            padding: stripInset,
+            child: Row(
                 children: [
                   Expanded(
                     child: TabBar(
@@ -302,7 +296,6 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
                   ),
                 ],
               ),
-            ),
           ),
           Expanded(
             child: TabBarView(

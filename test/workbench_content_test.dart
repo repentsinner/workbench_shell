@@ -1079,12 +1079,8 @@ void main() {
       ),
     );
 
-    Widget wrapBase(Widget child) => MaterialApp(
-      theme: ThemeData.dark().copyWith(extensions: [theme]),
-      home: Scaffold(
-        body: WorkbenchSurfaceTreatment(modernUI: false, child: child),
-      ),
-    );
+    Widget wrapBase(Widget child) =>
+        wrapWithTheme(child, modernUI: false, theme: theme);
 
     /// The band box the base treatment draws around the header — the
     /// innermost [Container] enclosing the title, which base `paneview.css`

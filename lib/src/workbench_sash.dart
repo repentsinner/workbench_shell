@@ -104,9 +104,11 @@ class WorkbenchSash extends StatefulWidget {
 
   /// Whether this seam carries the treatment's persistent three-dot grip
   /// (§spec:modern-ui-surfaces). Resolved by the call site, not inferred here:
-  /// `sashHandles.css` suppresses the grip for a sash inside a part, at compact
-  /// density, and for a collapsed part whose reveal sash has no gap to sit in —
-  /// three facts the seam's owner knows and the sash does not.
+  /// `sashHandles.css` suppresses the grip for a sash inside a part and at
+  /// compact density — facts the seam's owner knows and the sash does not.
+  /// Upstream's third case, a collapsed part whose reveal sash has no gap to
+  /// sit in, does not arise: a hidden bar is `Offstage` and a hidden panel
+  /// invisible, so neither renders a sash to suppress.
   /// [WorkbenchLayoutDensity] and the treatment flag both live with that owner,
   /// so taking the resolved answer keeps this leaf free of a dependency on the
   /// layout that composes it.
@@ -272,20 +274,18 @@ class _WorkbenchSashState extends State<WorkbenchSash> {
     if (base == null) return null;
     final color = _dragging ? base : base.withValues(alpha: base.a * 0.5);
     const band = WorkbenchLayoutConstants.sashHoverSize;
-    return Positioned.fill(
-      child: IgnorePointer(
-        child: Padding(
-          padding: widget.highlightInset,
-          child: Align(
-            child: SizedBox(
-              width: widget.axis == Axis.horizontal ? band : double.infinity,
-              height: widget.axis == Axis.horizontal ? double.infinity : band,
-              child: ColoredBox(color: color),
-            ),
-          ),
-        ),
+    final strip = Align(
+      child: SizedBox(
+        width: widget.axis == Axis.horizontal ? band : double.infinity,
+        height: widget.axis == Axis.horizontal ? double.infinity : band,
+        child: ColoredBox(color: color),
       ),
     );
+    // A pane sash inside a part leaves no gutter, so it skips the Padding
+    // rather than laying one out for EdgeInsets.zero every drag frame.
+    return widget.highlightInset == EdgeInsets.zero
+        ? strip
+        : Padding(padding: widget.highlightInset, child: strip);
   }
 
   /// The persistent grip: three dots at the seam's midpoint, spaced along it.
@@ -299,14 +299,8 @@ class _WorkbenchSashState extends State<WorkbenchSash> {
     ).extension<WorkbenchTheme>()?.foreground;
     if (foreground == null) return null;
     const dot = WorkbenchLayoutConstants.sashGripDotSize;
-    const spacing = WorkbenchLayoutConstants.sashGripDotSpacing;
-    const span = 2 * spacing + dot;
-    final along = widget.axis == Axis.horizontal
-        ? Axis.vertical
-        : Axis.horizontal;
-    final pip = SizedBox(
-      width: dot,
-      height: dot,
+    final pip = SizedBox.square(
+      dimension: dot,
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: foreground.withValues(
@@ -316,28 +310,29 @@ class _WorkbenchSashState extends State<WorkbenchSash> {
         ),
       ),
     );
-    return Positioned.fill(
-      child: IgnorePointer(
-        child: Align(
-          child: SizedBox(
-            key: sashGripKey,
-            width: along == Axis.vertical ? dot : span,
-            height: along == Axis.vertical ? span : dot,
-            child: Flex(
-              direction: along,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [pip, pip, pip],
-            ),
-          ),
-        ),
+    // The dots run along the seam, across the drag axis. `spacing` is the gap
+    // between two dots, so the centre-to-centre pitch upstream states as a
+    // shadow offset falls out of it without a span to divide back up.
+    return Align(
+      child: Flex(
+        key: sashGripKey,
+        direction: widget.axis == Axis.horizontal
+            ? Axis.vertical
+            : Axis.horizontal,
+        mainAxisSize: MainAxisSize.min,
+        spacing: WorkbenchLayoutConstants.sashGripDotGap,
+        children: [pip, pip, pip],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final highlight = _highlight(context);
-    final grip = _grip(context);
+    // The grip and the highlight are mutually exclusive by construction: the
+    // grip is suppressed while hovering or dragging and the highlight paints
+    // only then, which is how `sashHandles.css` hands one off to the other. So
+    // the sash carries at most one overlay, never both.
+    final overlay = _highlight(context) ?? _grip(context);
     final strip = MouseRegion(
       cursor:
           widget.hoverCursor ??
@@ -355,9 +350,13 @@ class _WorkbenchSashState extends State<WorkbenchSash> {
           onPanUpdate: _onUpdate,
           onPanEnd: (_) => _onEnd(),
           onPanCancel: _onEnd,
-          child: (highlight == null && grip == null)
+          child: overlay == null
               ? widget.child
-              : Stack(children: [widget.child, ?grip, ?highlight]),
+              // The overlay never takes pointers: the sash beneath owns the
+              // whole hit region.
+              : Stack(
+                  children: [widget.child, IgnorePointer(child: overlay)],
+                ),
         ),
       ),
     );

@@ -1443,11 +1443,9 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
               left: 0,
               right: 0,
               child: _buildHorizontalResizer(
-                grip: modernUI && !density.cardsAbut,
-                highlightInset: EdgeInsets.only(
-                  left: _cardGutter(panelEdges.left, density),
-                  right: _cardGutter(panelEdges.right, density),
-                ),
+                edges: panelEdges,
+                density: density,
+                modernUI: modernUI,
               ),
             ),
           ],
@@ -1595,17 +1593,11 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
                 width: width,
                 onWidth: onWidth,
                 onChangeEnd: onChangeEnd,
-                // A boundary between two parts, so it carries the grip — but
-                // only while the cards stand a gap apart. Compact closes the
-                // gap and `sashHandles.css` retires the grip with it
-                // (§spec:modern-ui-surfaces).
-                grip: modernUI && !density.cardsAbut,
-                // The bar's own card leaves these gutters at the seam's two
-                // ends, so the highlight stops where the card does.
-                highlightInset: EdgeInsets.only(
-                  top: _cardGutter(edges.top, density),
-                  bottom: _cardGutter(edges.bottom, density),
-                ),
+                // A boundary between two parts, so it carries the grip and
+                // the treatment's highlight inset (§spec:modern-ui-surfaces).
+                edges: edges,
+                density: density,
+                modernUI: modernUI,
               ),
             ),
           ],
@@ -1624,22 +1616,60 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   /// The shell owns the live [width]: [onWidth] permutes it each frame so the
   /// tree relayouts, and [onChangeEnd] commits the final value once on release
   /// for persistence (§spec:resize-geometry). No per-frame host callback.
+  /// How a seam between two parts renders under the treatment in force
+  /// (§spec:modern-ui-surfaces): whether it carries the persistent grip, and
+  /// how far its highlight insets from each end.
+  ///
+  /// Both answers come from the same three inputs, so they are resolved
+  /// together rather than at each call site — stated twice, the two drifted:
+  /// the grip was gated on the treatment and the inset was not, so a base-mode
+  /// highlight inset itself by gutters no card leaves. The [_CardEdges] fields
+  /// an axis reads are picked here too, so a call site cannot pair a vertical
+  /// seam with the horizontal pair.
+  ({bool grip, EdgeInsets highlightInset}) _seamTreatment(
+    Axis axis,
+    _CardEdges edges,
+    WorkbenchLayoutDensity density,
+    bool modernUI,
+  ) {
+    // Base VS Code frames no cards, so there is neither a grip to draw nor a
+    // gutter to stop the highlight short of.
+    if (!modernUI) return (grip: false, highlightInset: EdgeInsets.zero);
+    return (
+      // Compact closes the gap and `sashHandles.css` retires the grip with it.
+      grip: !density.cardsAbut,
+      // The cards either side leave these gutters at the seam's two ends, so
+      // the highlight stops where they do.
+      highlightInset: axis == Axis.horizontal
+          ? EdgeInsets.only(
+              top: _cardGutter(edges.top, density),
+              bottom: _cardGutter(edges.bottom, density),
+            )
+          : EdgeInsets.only(
+              left: _cardGutter(edges.left, density),
+              right: _cardGutter(edges.right, density),
+            ),
+    );
+  }
+
   Widget _buildSidebarResizer({
     required double growSign,
     required double width,
     required ValueChanged<double> onWidth,
     required ValueChanged<double>? onChangeEnd,
-    bool grip = false,
-    EdgeInsets highlightInset = EdgeInsets.zero,
+    required _CardEdges edges,
+    required WorkbenchLayoutDensity density,
+    required bool modernUI,
   }) {
+    final seam = _seamTreatment(Axis.horizontal, edges, density, modernUI);
     return WorkbenchSash(
       axis: Axis.horizontal,
       value: width,
       min: WorkbenchLayoutConstants.sidebarMinWidth,
       max: WorkbenchLayoutConstants.sidebarMaxWidth,
       growSign: growSign,
-      grip: grip,
-      highlightInset: highlightInset,
+      grip: seam.grip,
+      highlightInset: seam.highlightInset,
       onChanged: onWidth,
       onChangeEnd: onChangeEnd,
       // Double-click resets the seam to its default and commits it through the
@@ -1655,9 +1685,11 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   }
 
   Widget _buildHorizontalResizer({
-    bool grip = false,
-    EdgeInsets highlightInset = EdgeInsets.zero,
+    required _CardEdges edges,
+    required WorkbenchLayoutDensity density,
+    required bool modernUI,
   }) {
+    final seam = _seamTreatment(Axis.vertical, edges, density, modernUI);
     // The panel sits at the bottom, so dragging the seam up grows its height
     // (growSign -1: moving the pointer down shrinks the panel). Same canonical
     // sash, highlight and grip included (§spec:workbench-layout).
@@ -1667,8 +1699,8 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       min: WorkbenchLayoutConstants.panelMinHeight,
       max: WorkbenchLayoutConstants.panelMaxHeight,
       growSign: -1,
-      grip: grip,
-      highlightInset: highlightInset,
+      grip: seam.grip,
+      highlightInset: seam.highlightInset,
       // Shell-owned, mirroring the sidebar resizer above (§spec:resize-geometry).
       onChanged: (next) => setState(() => _panelHeight = next),
       onChangeEnd: widget.onPanelHeightChangeEnd,
@@ -2265,21 +2297,18 @@ class _Sidebar extends StatelessWidget {
     final showOverflow =
         spec.views.any((v) => v.canHide) ||
         spec.titleOverflowEntries.isNotEmpty;
-    final modernUI = WorkbenchSurfaceTreatment.of(context);
     // Two insets, not one: `.part > .title` pads the row and `.title-label`
     // pads the label inside it, so the title reads further in than the
-    // trailing action does. `padding.css` takes the pair from base `part.css`'s
-    // 8/12 to 4/8; the trailing action keeps only the part's inset, since
-    // upstream zeroes the last action's margin (§spec:modern-ui-surfaces).
-    final partInset = modernUI
-        ? WorkbenchLayoutConstants.spacingSize40
-        : WorkbenchLayoutConstants.spacingSize80;
-    final labelInset = modernUI
-        ? WorkbenchLayoutConstants.spacingSize80
-        : WorkbenchLayoutConstants.spacingSize120;
+    // trailing action does. The trailing action keeps only the part's inset,
+    // since upstream zeroes the last action's margin
+    // (§spec:modern-ui-surfaces). The layout hands this bar its treatment, so
+    // it uses the field rather than reading the tree a second time.
+    final labelInset = WorkbenchSurfaceTreatment.partTitleLabelInsetFor(
+      modernUI,
+    );
     return Container(
       height: WorkbenchLayoutConstants.sidebarHeadingHeight,
-      padding: EdgeInsets.symmetric(horizontal: partInset),
+      padding: WorkbenchSurfaceTreatment.partTitleInsetFor(modernUI),
       child: Row(
         children: [
           Expanded(
@@ -2293,7 +2322,7 @@ class _Sidebar extends StatelessWidget {
             child: tabIds != null
                 ? _buildTitleTabs()
                 : Padding(
-                    padding: EdgeInsets.only(left: labelInset),
+                    padding: labelInset,
                     child: Text(
                       WorkbenchSurfaceTreatment.titleCasing(
                         context,

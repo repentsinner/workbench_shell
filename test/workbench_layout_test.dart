@@ -121,6 +121,25 @@ WorkbenchSash _sash(WidgetTester tester, Axis axis) =>
       find.byWidgetPredicate((w) => w is WorkbenchSash && w.axis == axis),
     );
 
+/// The fill behind the whole workbench — what shows through the card gutters
+/// (§spec:modern-ui-surfaces).
+Color _scaffoldFill(WidgetTester tester) => tester
+    .widget<Scaffold>(
+      find.descendant(
+        of: find.byType(WorkbenchLayout),
+        matching: find.byType(Scaffold),
+      ),
+    )
+    .backgroundColor!;
+
+/// A theme whose backdrop and editor tokens differ, so a test can tell which
+/// one a surface painted. The two are equal on many themes, which is what hid
+/// the backdrop defect.
+WorkbenchTheme _splitBackdrop(WorkbenchTheme base) => base.copyWith(
+  workbenchBackdrop: const Color(0xFF191A1B),
+  editorBackground: const Color(0xFF121314),
+);
+
 Finder _sashFinder(Axis axis) =>
     find.byWidgetPredicate((w) => w is WorkbenchSash && w.axis == axis);
 
@@ -2559,19 +2578,7 @@ void main() {
     // A theme whose title bar and editor differ, which is the only way to see
     // which one the gutters paint. Themes that leave the two equal — most of
     // the bundled set — hide the difference entirely.
-    final backdropTheme = _testTheme.copyWith(
-      workbenchBackdrop: const Color(0xFF191A1B),
-      editorBackground: const Color(0xFF121314),
-    );
-
-    Color scaffoldFill(WidgetTester tester) => tester
-        .widget<Scaffold>(
-          find.descendant(
-            of: find.byType(WorkbenchLayout),
-            matching: find.byType(Scaffold),
-          ),
-        )
-        .backgroundColor!;
+    final backdropTheme = _splitBackdrop(_testTheme);
 
     testWidgets('marks each boundary between two parts with a grip, and no '
         'seam inside one', (tester) async {
@@ -2693,8 +2700,8 @@ void main() {
     testWidgets('paints the ground behind the cards from the workbench '
         'backdrop, not the editor', (tester) async {
       await tester.pumpWidget(_buildApp(theme: backdropTheme));
-      expect(scaffoldFill(tester), backdropTheme.workbenchBackdrop);
-      expect(scaffoldFill(tester), isNot(backdropTheme.editorBackground));
+      expect(_scaffoldFill(tester), backdropTheme.workbenchBackdrop);
+      expect(_scaffoldFill(tester), isNot(backdropTheme.editorBackground));
     });
 
     testWidgets('zen mode keeps the backdrop behind the bare editor', (
@@ -2715,7 +2722,7 @@ void main() {
       );
 
       expect(find.text('Panel'), findsNothing);
-      expect(scaffoldFill(tester), backdropTheme.workbenchBackdrop);
+      expect(_scaffoldFill(tester), backdropTheme.workbenchBackdrop);
     });
 
     testWidgets('the side bars, panel and editor each render as a bordered, '
@@ -3418,20 +3425,11 @@ void main() {
     ) async {
       // No card gutters to show a backdrop through, so the pre-treatment
       // ground stands: base VS Code has no `floatingPanels.css` shell colour.
-      final theme = baseTheme.copyWith(
-        workbenchBackdrop: const Color(0xFF191A1B),
-        editorBackground: const Color(0xFF121314),
-      );
+      final theme = _splitBackdrop(baseTheme);
       await tester.pumpWidget(
         _buildApp(initialModernUI: false, theme: theme),
       );
-      final scaffold = tester.widget<Scaffold>(
-        find.descendant(
-          of: find.byType(WorkbenchLayout),
-          matching: find.byType(Scaffold),
-        ),
-      );
-      expect(scaffold.backgroundColor, theme.editorBackground);
+      expect(_scaffoldFill(tester), theme.editorBackground);
     });
 
     testWidgets('draws each part seam from its own border token', (

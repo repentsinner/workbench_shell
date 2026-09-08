@@ -6,6 +6,44 @@ import 'package:workbench_shell/workbench_shell.dart';
 
 import 'test_theme.dart';
 
+/// The one [WorkbenchSash] tree every test in this file pumps. [theme] installs
+/// a `WorkbenchTheme` for the tests that read one; [size] bounds the seam for
+/// the geometry assertions.
+Widget sashApp({
+  required Axis axis,
+  required double growSign,
+  required double value,
+  double min = 100,
+  double max = 300,
+  bool grip = false,
+  EdgeInsets highlightInset = EdgeInsets.zero,
+  WorkbenchTheme? theme,
+  Size size = const Size(24, 24),
+}) {
+  final sash = WorkbenchSash(
+    key: const Key('sash'),
+    axis: axis,
+    value: value,
+    min: min,
+    max: max,
+    growSign: growSign,
+    grip: grip,
+    highlightInset: highlightInset,
+    onChanged: (_) {},
+    child: const SizedBox.expand(),
+  );
+  return MaterialApp(
+    theme: theme == null
+        ? null
+        : ThemeData.dark().copyWith(extensions: [theme]),
+    home: Scaffold(
+      body: Center(
+        child: SizedBox(width: size.width, height: size.height, child: sash),
+      ),
+    ),
+  );
+}
+
 /// Pump a static [WorkbenchSash] at [value] for cursor assertions.
 Future<void> pumpSash(
   WidgetTester tester, {
@@ -14,26 +52,15 @@ Future<void> pumpSash(
   required double value,
   double min = 100,
   double max = 300,
-}) {
-  return tester.pumpWidget(
-    MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: WorkbenchSash(
-            key: const Key('sash'),
-            axis: axis,
-            value: value,
-            min: min,
-            max: max,
-            growSign: growSign,
-            onChanged: (_) {},
-            child: const SizedBox(width: 24, height: 24),
-          ),
-        ),
-      ),
-    ),
-  );
-}
+}) => tester.pumpWidget(
+  sashApp(
+    axis: axis,
+    growSign: growSign,
+    value: value,
+    min: min,
+    max: max,
+  ),
+);
 
 MouseCursor sashCursor(WidgetTester tester) => tester
     .widget<MouseRegion>(
@@ -84,26 +111,12 @@ void main() {
   ) async {
     const sashColor = Color(0xFF44AAFF);
     await tester.pumpWidget(
-      MaterialApp(
-        theme: ThemeData.dark().copyWith(
-          extensions: [
-            testWorkbenchTheme.copyWith(sashHoverBorder: sashColor),
-          ],
-        ),
-        home: Scaffold(
-          body: Center(
-            child: WorkbenchSash(
-              key: const Key('sash'),
-              axis: Axis.horizontal,
-              growSign: 1,
-              value: 200,
-              min: 100,
-              max: 300,
-              onChanged: (_) {},
-              child: const SizedBox(width: 24, height: 24),
-            ),
-          ),
-        ),
+      sashApp(
+        axis: Axis.horizontal,
+        growSign: 1,
+        value: 200,
+        theme: testWorkbenchTheme.copyWith(sashHoverBorder: sashColor),
+        size: const Size(200, 200),
       ),
     );
 
@@ -143,28 +156,14 @@ void main() {
       required bool grip,
       Axis axis = Axis.horizontal,
       EdgeInsets highlightInset = EdgeInsets.zero,
-    }) => MaterialApp(
-      theme: ThemeData.dark().copyWith(extensions: [testWorkbenchTheme]),
-      home: Scaffold(
-        body: Center(
-          child: SizedBox(
-            width: 200,
-            height: 200,
-            child: WorkbenchSash(
-              key: const Key('sash'),
-              axis: axis,
-              growSign: 1,
-              value: 200,
-              min: 100,
-              max: 300,
-              grip: grip,
-              highlightInset: highlightInset,
-              onChanged: (_) {},
-              child: const SizedBox.expand(),
-            ),
-          ),
-        ),
-      ),
+    }) => sashApp(
+      axis: axis,
+      growSign: 1,
+      value: 200,
+      grip: grip,
+      highlightInset: highlightInset,
+      theme: testWorkbenchTheme,
+      size: const Size(200, 200),
     );
 
     testWidgets('a seam between two parts paints three dots at its midpoint', (
