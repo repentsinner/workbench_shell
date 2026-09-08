@@ -2,36 +2,6 @@
   "name": "Light+ (Visual Studio)",
   "type": "light",
   "colors": {
-    "foreground": "#3B3B3B",
-    "descriptionForeground": "#717171",
-    "focusBorder": "#0078D4",
-    "activityBar.background": "#2C2C2C",
-    "activityBar.foreground": "#FFFFFF",
-    "activityBar.inactiveForeground": "#FFFFFF66",
-    "sideBar.background": "#F3F3F3",
-    "sideBar.foreground": "#3B3B3B",
-    "panel.background": "#FFFFFF",
-    "panel.border": "#80808059",
-    "panelTitle.activeForeground": "#000000",
-    "panelTitle.inactiveForeground": "#717171",
-    "statusBar.background": "#007ACC",
-    "statusBar.foreground": "#FFFFFF",
-    "statusBar.border": "#007ACC",
-    "input.background": "#FFFFFF",
-    "input.border": "#CECECE",
-    "input.foreground": "#3B3B3B",
-    "button.background": "#007ACC",
-    "button.foreground": "#FFFFFF",
-    "button.hoverBackground": "#0062A3",
-    "dropdown.background": "#FFFFFF",
-    "dropdown.foreground": "#3B3B3B",
-    "dropdown.border": "#CECECE",
-    "tab.activeBackground": "#FFFFFF",
-    "tab.activeForeground": "#333333",
-    "tab.inactiveBackground": "#ECECEC",
-    "tab.inactiveForeground": "#717171",
-    "tab.border": "#E7E7E7",
-    "errorForeground": "#F85149",
     "checkbox.border": "#919191",
     "editor.background": "#FFFFFF",
     "editor.foreground": "#000000",
@@ -53,8 +23,8 @@
     "ports.iconRunningProcessForeground": "#369432",
     "sideBarSectionHeader.background": "#0000",
     "sideBarSectionHeader.border": "#61616130",
-    "tab.selectedForeground": "#333333b3",
-    "tab.selectedBackground": "#ffffffa5",
+    "tab.selectedForeground": "#333333",
+    "tab.selectedBackground": "#E4E6F1",
     "tab.lastPinnedBorder": "#61616130",
     "notebook.cellBorderColor": "#E8E8E8",
     "notebook.selectedCellBackground": "#c8ddf150",
@@ -64,7 +34,16 @@
     "terminal.inactiveSelectionBackground": "#E5EBF1",
     "widget.border": "#d4d4d4",
     "actionBar.toggledBackground": "#dddddd",
-    "diffEditor.unchangedRegionBackground": "#f8f8f8"
+    "diffEditor.unchangedRegionBackground": "#f8f8f8",
+    "agentsNewSessionButton.border": "#D8D8D8",
+    "agentsChatInput.border": "#D8D8D8",
+    "agentsPanel.border": "#00000000",
+    "surface.border": "#F3F3F3",
+    "modernActivityBarItem.activeBackground": "#e4e6f122",
+    "modernActivityBarItem.hoverBackground": "#E8E8E822",
+    "modernActivityBarItem.activeForeground": "#FFF",
+    "modernActivityBarItem.hoverForeground": "#FFF",
+    "modernActivityBar.border": "#2C2C2C"
   },
   "tokenColors": [
     {
@@ -650,11 +629,5 @@
       }
     }
   ],
-  "semanticTokenColors": {
-    "newOperator": "#AF00DB",
-    "stringLiteral": "#a31515",
-    "customLiteral": "#795E26",
-    "numberLiteral": "#098658"
-  },
   "semanticHighlighting": true
 }

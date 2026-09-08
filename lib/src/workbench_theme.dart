@@ -646,14 +646,19 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     // src/vs/platform/theme/common/colors/*.ts.
     Color dl(Color dark, Color light) => map.isDark ? dark : light;
 
+    // VS Code `baseColors.ts` registers `foreground` dark #CCCCCC /
+    // light #616161. The light default was #000000 here, which no theme
+    // shows while it sets the token and every theme shows once upstream
+    // moves the value into its own registry — as `light_vs.json` since has.
     final fg = map.resolve(
       'foreground',
-      dl(const Color(0xFFCCCCCC), const Color(0xFF000000)),
+      dl(const Color(0xFFCCCCCC), const Color(0xFF616161)),
     );
-    // VS Code: transparent(foreground, 0.5) for both dark and light.
+    // VS Code `baseColors.ts`: light is the literal #717171, and every other
+    // base takes `transparent(foreground, 0.7)`.
     final secondaryFg = map.resolve(
       'descriptionForeground',
-      fg.withValues(alpha: 0.5),
+      dl(fg.withValues(alpha: 0.7), const Color(0xFF717171)),
     );
     final accentFg = map.resolve(
       'focusBorder',
