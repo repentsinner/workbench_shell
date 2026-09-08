@@ -1,3 +1,10 @@
+## [0.36.2](https://github.com/repentsinner/workbench_shell/compare/v0.36.1...v0.36.2) (2026-09-08)
+
+
+### Bug Fixes
+
+* **chrome:** close three panel and status bar gaps against canon ([983b6a2](https://github.com/repentsinner/workbench_shell/commit/983b6a248d1cc877c98410af475ce7b0119902c1))
+
 ## [0.36.1](https://github.com/repentsinner/workbench_shell/compare/v0.36.0...v0.36.1) (2026-09-08)
 
 
