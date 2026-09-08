@@ -254,7 +254,34 @@ void main() {
         testWorkbenchTheme.tabBarUnselectedLabelColor,
       );
       expect(tabBar.dividerColor, testWorkbenchTheme.tabBarDividerColor);
-      final indicator = tabBar.indicator! as UnderlineTabIndicator;
+      // The treatment marks the active tab with a filled rounded target
+      // (§spec:modern-ui-surfaces); base VS Code keeps the underline.
+      final indicator = tabBar.indicator! as BoxDecoration;
+      expect(indicator.color, testWorkbenchTheme.panelTabActiveBackground);
+      expect(
+        indicator.borderRadius,
+        WorkbenchLayoutConstants.controlsRadius,
+      );
+    });
+
+    testWidgets('the base treatment keeps the underline indicator', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          modernUI: false,
+          SizedBox(
+            width: 400,
+            height: 300,
+            child: WorkbenchTabbedPanel(tabs: tabs(), onTogglePanel: () {}),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final indicator =
+          tester.widget<TabBar>(find.byType(TabBar)).indicator!
+              as UnderlineTabIndicator;
       expect(
         indicator.borderSide.color,
         testWorkbenchTheme.tabBarIndicatorColor,
@@ -561,6 +588,97 @@ void main() {
         testWorkbenchTheme.tabBarLabelColor,
         reason: 'active tab label color is unchanged on hover',
       );
+    });
+  });
+
+  group('panel tab canon (§spec:modern-ui-surfaces)', () {
+    List<WorkbenchPanelTab> canonTabs({int count = 1}) => [
+      WorkbenchPanelTab(
+        id: 'a',
+        label: 'Problems',
+        contentBuilder: (_) => const Text('content-a'),
+      ),
+      if (count > 1)
+        WorkbenchPanelTab(
+          id: 'b',
+          label: 'Output',
+          contentBuilder: (_) => const Text('content-b'),
+        ),
+    ];
+
+    TextStyle labelStyle(WidgetTester tester) =>
+        tester.widget<TabBar>(find.byType(TabBar)).labelStyle!;
+
+    Future<void> pumpPanel(
+      WidgetTester tester, {
+      bool modernUI = true,
+      int tabCount = 1,
+    }) => tester.pumpWidget(
+      wrapWithTheme(
+        modernUI: modernUI,
+        SizedBox(
+          width: 400,
+          height: 300,
+          child: WorkbenchTabbedPanel(
+            tabs: canonTabs(count: tabCount),
+            onTogglePanel: () {},
+          ),
+        ),
+      ),
+    );
+
+    testWidgets('a tab label carries the composite bar weight, not the part '
+        "title's", (tester) async {
+      // `fontRamp.css` raises the part title to semiBold and leaves the
+      // composite bar's labels regular — upstream says so where the auxiliary
+      // bar's labels would otherwise inherit the heavier weight.
+      await pumpPanel(tester);
+      expect(labelStyle(tester).fontWeight, FontWeight.w400);
+      // `tabs.css` gives the label `fontSize.body1`, and it loads after
+      // `fontRamp.css` at equal specificity, so it wins the ramp's label1.
+      expect(labelStyle(tester).fontSize, 13);
+    });
+
+    testWidgets('the active tab indicator is a centred pill', (tester) async {
+      await pumpPanel(tester);
+      final bar = tester.widget<TabBar>(find.byType(TabBar));
+      final inset = bar.indicatorPadding.resolve(TextDirection.ltr);
+      // `tabs.css` sizes the indicator to spacing.size240 and anchors it to the
+      // item's middle, inset spacing.size20 from each end.
+      expect(inset.left, WorkbenchLayoutConstants.panelTabIndicatorInset);
+      expect(inset.right, WorkbenchLayoutConstants.panelTabIndicatorInset);
+      expect(
+        WorkbenchLayoutConstants.modernPartTitleHeight -
+            inset.top -
+            inset.bottom,
+        WorkbenchLayoutConstants.panelTabIndicatorHeight,
+      );
+    });
+
+    testWidgets('hovering an inactive tab fills the same shape', (
+      tester,
+    ) async {
+      await pumpPanel(tester, tabCount: 2);
+      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await gesture.addPointer(location: Offset.zero);
+      addTearDown(gesture.removePointer);
+
+      Finder hoverFill() => find.byWidgetPredicate((w) {
+        if (w is! DecoratedBox) return false;
+        final d = w.decoration;
+        return d is BoxDecoration &&
+            d.color == testWorkbenchTheme.panelTabHoverBackground;
+      });
+      expect(hoverFill(), findsNothing);
+
+      await gesture.moveTo(tester.getCenter(find.text('Output')));
+      await tester.pumpAndSettle();
+      expect(hoverFill(), findsOneWidget);
+    });
+
+    testWidgets('the base treatment keeps the part title tier', (tester) async {
+      await pumpPanel(tester, modernUI: false);
+      expect(labelStyle(tester).fontSize, 11);
     });
   });
 }

@@ -788,7 +788,16 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                 ],
                 child: NotificationHost(
                   service: _notificationService,
-                  bottomInset: WorkbenchLayoutConstants.statusBarHeight,
+                  // The treatment gives the status bar a skirt below its
+                  // content, so the bar the toasts sit above is taller
+                  // (§spec:modern-ui-surfaces). The host owns the flag, so it
+                  // owns the arithmetic; the overlay sits outside the shell and
+                  // cannot read the treatment from the tree.
+                  bottomInset:
+                      WorkbenchLayoutConstants.statusBarHeight +
+                      (_modernUI
+                          ? WorkbenchLayoutConstants.statusBarFloatingSkirt
+                          : 0),
                   child: WorkbenchLayout(
                     activityBarItems: _activityBarItems,
                     containerBuilder: _buildContainerSpec,

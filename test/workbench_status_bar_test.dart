@@ -68,6 +68,30 @@ void main() {
       );
     });
 
+    testWidgets('carries the treatment skirt below its content', (
+      tester,
+    ) async {
+      // `statusbarPart.ts` reports HEIGHT + floatingBottomPadding as the height
+      // the workbench reserves, so the bar clears the window edge the way the
+      // cards clear it (§spec:modern-ui-surfaces).
+      await tester.pumpWidget(wrapWithTheme(const WorkbenchStatusBar()));
+      expect(
+        tester.getSize(find.byType(WorkbenchStatusBar)).height,
+        WorkbenchLayoutConstants.statusBarHeight +
+            WorkbenchLayoutConstants.statusBarFloatingSkirt,
+      );
+    });
+
+    testWidgets('drops the skirt with the treatment off', (tester) async {
+      await tester.pumpWidget(
+        wrapWithTheme(const WorkbenchStatusBar(), modernUI: false),
+      );
+      expect(
+        tester.getSize(find.byType(WorkbenchStatusBar)).height,
+        WorkbenchLayoutConstants.statusBarHeight,
+      );
+    });
+
     testWidgets('renders leading and trailing items with spacer between', (
       tester,
     ) async {
@@ -88,7 +112,9 @@ void main() {
     testWidgets('uses shell-defined height from layout constants', (
       tester,
     ) async {
-      await tester.pumpWidget(wrapWithTheme(const WorkbenchStatusBar()));
+      await tester.pumpWidget(
+        wrapWithTheme(const WorkbenchStatusBar(), modernUI: false),
+      );
       final size = tester.getSize(find.byType(WorkbenchStatusBar));
       expect(size.height, WorkbenchLayoutConstants.statusBarHeight);
     });

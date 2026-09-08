@@ -38,8 +38,22 @@ class WorkbenchLayoutConstants {
   /// Bottom panel maximum height.
   static const double panelMaxHeight = 400.0;
 
-  /// Status bar height. VS Code `statusbarpart.css` `height: 22px`.
+  /// Status bar content height. VS Code `statusbarPart.ts`
+  /// `StatusbarPart.HEIGHT = 22`, applied by `statusbarpart.css` as
+  /// `height: 22px`.
   static const double statusBarHeight = 22.0;
+
+  /// Skirt the Modern UI treatment adds below the status bar's content, so the
+  /// bar clears the window edge the way the cards clear it with their
+  /// perimeter gutter (§spec:modern-ui-surfaces). VS Code `statusbarPart.ts`
+  /// `FLOATING_BOTTOM_PADDING = 6`, which `minimumHeight` adds to
+  /// [statusBarHeight] — a metric the treatment sets in code rather than CSS,
+  /// and in the part rather than the Modern UI contribution.
+  static const double statusBarFloatingSkirt = 6.0;
+
+  /// The same skirt at compact density. VS Code `statusbarPart.ts`
+  /// `COMPACT_DENSITY_FLOATING_BOTTOM_PADDING = 4`.
+  static const double compactStatusBarFloatingSkirt = 4.0;
 
   /// Centered-layout default margin ratio per side (§spec:editing-modes). VS
   /// Code's `centeredViewLayout.ts` `defaultState` uses `leftMarginRatio =
@@ -159,6 +173,21 @@ class WorkbenchLayoutConstants {
   /// inside this single container — VS Code lays the tab strip out the
   /// same way, with no separate vertical padding constants.
   static const double panelTabStripHeight = 35.0;
+
+  /// Height of the filled indicator behind an active or hovered panel tab
+  /// under the Modern UI treatment. VS Code
+  /// [`tabs.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/tabs.css)
+  /// sizes the composite bar's `active-item-indicator`
+  /// `height: var(--vscode-spacing-size240)` (§spec:modern-ui-surfaces).
+  static const double panelTabIndicatorHeight = spacingSize240;
+
+  /// Inset from each end of a panel tab to that indicator. `tabs.css` anchors
+  /// it `left`/`right: var(--vscode-spacing-size20)`.
+  static const double panelTabIndicatorInset = spacingSize20;
+
+  /// Horizontal padding inside a panel tab. `tabs.css`
+  /// `.action-item:not(.icon) { padding: 0 var(--vscode-spacing-size100) }`.
+  static const double panelTabPadding = spacingSize100;
 
   /// Cross-axis thickness of a resize sash's hit target — VS Code's
   /// `--vscode-sash-size`. Owned by `WorkbenchSash` so every seam is identical.
