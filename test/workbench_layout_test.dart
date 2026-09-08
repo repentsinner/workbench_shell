@@ -3662,4 +3662,75 @@ void main() {
       );
     });
   });
+
+  group('sash seam alignment (§spec:modern-ui-surfaces)', () {
+    // A sash shall sit on the gap between the two cards it divides, not beside
+    // it. Upstream centres it there explicitly — `floatingPanels.css` widens
+    // the sash to the gap and translates it onto the gap's midpoint — because
+    // the grid boundary and the visible seam are a leading margin apart.
+    const gap = WorkbenchLayoutConstants.floatingCardGap;
+
+    Rect cardOf(WidgetTester tester, String label) => tester.getRect(
+      find.ancestor(
+        of: find.text(label),
+        matching: find.byWidgetPredicate((w) {
+          if (w is! DecoratedBox) return false;
+          final d = w.decoration;
+          if (d is! BoxDecoration) return false;
+          if (d.color == _testTheme.surfaceBorder) return true;
+          final b = d.border;
+          return b is Border &&
+              [b.left, b.top, b.right, b.bottom].any(
+                (side) => side.width > 0 && side.color == _testTheme.surfaceBorder,
+              );
+        }),
+      ).first,
+    );
+
+    testWidgets('the vertical sash sits on the seam between the side bar and '
+        'the editor', (tester) async {
+      await tester.pumpWidget(_buildApp());
+
+      final sash = tester.getRect(_sashFinder(Axis.horizontal));
+      final sidebar = cardOf(tester, 'Sidebar: explorer');
+      final editor = cardOf(tester, 'Editor');
+
+      // The seam is the space between the two cards' facing strokes.
+      expect(editor.left - sidebar.right, closeTo(gap, 0.001));
+      expect(sash.left, closeTo(sidebar.right, 0.001));
+      expect(sash.right, closeTo(editor.left, 0.001));
+    });
+
+    testWidgets('the horizontal sash sits on the seam between the editor and '
+        'the panel', (tester) async {
+      await tester.pumpWidget(_buildApp());
+
+      final sash = tester.getRect(_sashFinder(Axis.vertical));
+      final editor = cardOf(tester, 'Editor');
+      final panel = cardOf(tester, 'Panel');
+
+      expect(panel.top - editor.bottom, closeTo(gap, 0.001));
+      expect(sash.top, closeTo(editor.bottom, 0.001));
+      expect(sash.bottom, closeTo(panel.top, 0.001));
+    });
+
+    testWidgets('the vertical sash follows the side bar to the right edge', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildApp(
+          sidebarPosition: WorkbenchSidebarPosition.right,
+          onSidebarPositionChanged: (_) {},
+        ),
+      );
+
+      final sash = tester.getRect(_sashFinder(Axis.horizontal));
+      final sidebar = cardOf(tester, 'Sidebar: explorer');
+      final editor = cardOf(tester, 'Editor');
+
+      expect(sidebar.left - editor.right, closeTo(gap, 0.001));
+      expect(sash.left, closeTo(editor.right, 0.001));
+      expect(sash.right, closeTo(sidebar.left, 0.001));
+    });
+  });
 }

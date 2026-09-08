@@ -3190,6 +3190,33 @@ margins rather than with the card's outer edge. The rule carries no
 density qualifier upstream, so both densities take it. Base VS Code runs
 its items flush from edge to edge and takes neither margin.
 
+**A seam is hosted by the part that leads with it.** The gap between
+two cards belongs to one of their allocations — under the
+leading-margin convention, the one that leads. A sash has to sit on
+that gap rather than beside it, and Flutter bounds-checks hit testing,
+so a sash drawn outside its host's allocation is visible and
+ungrabbable. The part that would otherwise trail therefore takes the
+gap into its own allocation and leads with it: the allocation grows by
+exactly what the card then reserves, so every card lands where it did
+and the bar's width still measures the same content. Upstream reaches
+the same place from the other side — its sash is a grid element it
+translates onto the gap's midpoint — because it has no such constraint.
+
+The alternative, hosting every seam from a stack spanning both parts,
+is rejected: the offsets are then computed from the bar widths and the
+panel alignment a second time, beside the layout that already resolves
+them, and the two would drift.
+
+*Tradeoff — a compact seam's sash sits beside the boundary, not across
+it.* Compact closes the gap, so the seam is a line rather than a lane
+and there is nothing for the owning part to host the sash *in*: its
+allocation stops at the boundary. The sash therefore lies wholly on one
+side, where upstream — whose sash is a positioned overlay — centres it.
+The hit target is the same size and the grips are already suppressed at
+compact, so what differs is the hover band, by half a sash. Closing it
+needs the spanning host rejected above, which is a poor trade for two
+pixels on one density.
+
 **Sashes carry a persistent grip.** With the parts separated by a gap,
 an invisible-until-hovered sash leaves no sign of where one part ends
 and the next begins. `sashHandles.css` marks each boundary with three

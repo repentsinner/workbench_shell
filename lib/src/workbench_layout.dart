@@ -1263,6 +1263,24 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     final primaryInside = onRight ? rightInside : leftInside;
     final secondaryInside = onRight ? leftInside : rightInside;
 
+    // Which bar hosts the seam it drags. Under the leading-margin convention a
+    // bar on the left trails, so the gap toward the editor would otherwise sit
+    // in the editor's own gutter and the sash could not reach it. The bar takes
+    // that gap into its allocation and leads with it; its neighbour then
+    // reserves nothing, so every card lands where it did
+    // (§spec:modern-ui-surfaces).
+    final primaryOwnsSeam = modernUI && !onRight && _sidebarVisible;
+    final secondaryOwnsSeam =
+        modernUI && onRight && _secondarySideBarVisible;
+
+    // Whether the card on the editor's leading side already reserved the gap
+    // between them. When it did, the editor — and a panel running beneath the
+    // same neighbour — reserves nothing there, so the seam stays one gap wide.
+    final leadingSeamOwned = onRight ? secondaryOwnsSeam : primaryOwnsSeam;
+    final leadingEditorEdge = leadingSeamOwned
+        ? _CardEdgeKind.led
+        : _CardEdgeKind.gap;
+
     final activityBar = _ActivityBar(
       key: _activityBarKey,
       mainItems: _mainActivityItems,
@@ -1312,9 +1330,12 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       edges: (
         left: onRight ? _CardEdgeKind.gap : _CardEdgeKind.seam,
         top: _CardEdgeKind.perimeter,
-        right: onRight ? _CardEdgeKind.seam : _CardEdgeKind.led,
+        right: onRight
+            ? _CardEdgeKind.seam
+            : (primaryOwnsSeam ? _CardEdgeKind.gap : _CardEdgeKind.led),
         bottom: groupBottomEdge(primaryInside),
       ),
+      ownsSeam: primaryOwnsSeam,
       // Upstream fills the primary side bar's card with the shared
       // `surface.background`; base VS Code fills it with its own
       // `sideBar.background` (`floatingPanels.css`).
@@ -1350,9 +1371,12 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       edges: (
         left: onRight ? _CardEdgeKind.perimeter : _CardEdgeKind.gap,
         top: _CardEdgeKind.perimeter,
-        right: onRight ? _CardEdgeKind.led : _CardEdgeKind.perimeter,
+        right: onRight
+            ? (secondaryOwnsSeam ? _CardEdgeKind.gap : _CardEdgeKind.led)
+            : _CardEdgeKind.perimeter,
         bottom: groupBottomEdge(secondaryInside),
       ),
+      ownsSeam: secondaryOwnsSeam,
       background: theme.sideBarBackground,
       tabIds: widget.secondaryViewContainerIds,
       onTabSelected: _setSecondaryActiveViewContainer,
@@ -1370,7 +1394,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
         // the treatment's own stylesheet (§spec:modern-ui-surfaces).
         modernUI: modernUI,
         edges: (
-          left: leadingCard ? _CardEdgeKind.gap : _CardEdgeKind.perimeter,
+          left: leadingCard ? leadingEditorEdge : _CardEdgeKind.perimeter,
           top: _CardEdgeKind.perimeter,
           right: trailingCard ? _CardEdgeKind.led : _CardEdgeKind.perimeter,
           bottom: widget.showBottomPanel
@@ -1394,7 +1418,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     // gutter instead of an inter-card gap.
     final _CardEdges panelEdges = (
       left: !leftInside && leadingCard
-          ? _CardEdgeKind.gap
+          ? leadingEditorEdge
           : _CardEdgeKind.perimeter,
       top: _CardEdgeKind.gap,
       right: !rightInside && trailingCard
@@ -1551,11 +1575,22 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     required bool modernUI,
     required _CardEdges edges,
     required Color background,
+    required bool ownsSeam,
     bool cedesSeam = false,
     List<String>? tabIds,
     ValueChanged<String>? onTabSelected,
   }) {
     final onRight = position == WorkbenchSidebarPosition.right;
+    // The sash shall sit on the seam it drags, and the seam is the gap between
+    // this bar's card and its neighbour's. Under the leading-margin convention
+    // a bar on the *left* trails, so that gap falls in the neighbour's leading
+    // gutter — outside this subtree, where Flutter's bounds-checked hit testing
+    // would leave the sash visible but ungrabbable. Widening the allocation by
+    // the gap and leading with it instead puts the seam inside this Stack. The
+    // cards do not move: the allocation grew by exactly what the card now
+    // reserves, so [width] still measures the same content
+    // (§spec:modern-ui-surfaces).
+    final seamGap = ownsSeam ? density.cardGap : 0.0;
     return Offstage(
       key: key,
       offstage: !visible,
@@ -1564,7 +1599,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
         child: Stack(
           children: [
             _Sidebar(
-              width: width,
+              width: width + seamGap,
               density: density,
               modernUI: modernUI,
               position: position,
