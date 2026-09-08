@@ -2453,6 +2453,17 @@ workbench CSS:
 `sidebarOrPanelHeading`, `captionText`, `helperStyle`, and
 `smallText` tokens carry these literals.
 
+**The two tiers the treatment moves are registered twice.** The pane
+header and the part title each read one tier under the treatment and
+another before it, so `baseSectionTitle` and `baseSidebarOrPanelHeading`
+carry the base literals alongside them. Registering the pair rather than
+deriving one from the other keeps a host that overrides one tier from
+silently moving the other, and matches how `baseViewPaneHeaderHeight`
+already stands beside `viewPaneHeaderHeight` (§spec:modern-ui-surfaces).
+`WorkbenchTheme` is a `ThemeExtension` resolved without a `BuildContext`
+while the casing that travels with the tier is a per-widget decision, so
+the widget reads the treatment once and picks both.
+
 **`sectionTitle` adopts pane-header semantics.** The token's role —
 top-level grouping inside a sidebar or panel body, per
 `WorkbenchViewPane` (§spec:structural-primitives) — maps onto VS
@@ -3153,14 +3164,15 @@ shipped behavior. The shell therefore renders these surfaces in the
 casing its host supplies and stops transforming them
 (§spec:chrome-typography-canon).
 
-**A part title keeps its height and loses two thirds of its inset.**
-`part.css` sizes `.part > .title` at 35px and no module overrides it,
-so the side bar heading and the panel tab strip stay where they are.
-What the treatment moves is the inset: `padding.css` takes the part's
-horizontal padding from 8px to one spacing step and the title label's
-leading padding from 12px to two, so the label sits closer to the
-card edge and the trailing action sits against it. The package pads
-the row a flat four steps and matches neither.
+**A part title tightens and loses two thirds of its inset.**
+`padding.css` takes `.part > .title` from `part.css`'s 35px to 32px,
+carrying the label's line height and the action row with it, and
+keeps that value in sync with `PartLayout.AREA_HEIGHT_MODERN_UI` in
+`part.ts`. It also moves the inset: the part's horizontal padding
+drops from 8px to one spacing step and the title label's leading
+padding from 12px to two, so the label sits closer to the card edge
+and the trailing action sits against it. The package pads the row a
+flat four steps and matches neither.
 
 **Sashes carry a persistent grip.** With the parts separated by a gap,
 an invisible-until-hovered sash leaves no sign of where one part ends

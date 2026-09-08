@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 
 import 'layout_constants.dart';
+import 'workbench_theme.dart';
 
 /// Publishes whether the workbench renders VS Code's Modern UI surface
 /// treatment (§spec:modern-ui-surfaces) to every part below the shell.
@@ -45,6 +46,87 @@ class WorkbenchSurfaceTreatment extends InheritedWidget {
   static double viewPaneHeaderHeight(BuildContext context) => of(context)
       ? WorkbenchLayoutConstants.viewPaneHeaderHeight
       : WorkbenchLayoutConstants.baseViewPaneHeaderHeight;
+
+  /// The inset `.part > .title` pads its row by at [context]. `padding.css`
+  /// takes it from base `part.css`'s 8px to one spacing step
+  /// (§spec:modern-ui-surfaces).
+  static EdgeInsets partTitleInset(BuildContext context) =>
+      partTitleInsetFor(of(context));
+
+  /// [partTitleInset] against an already-resolved treatment, for a widget the
+  /// layout hands the answer to rather than one that reads it from the tree.
+  static EdgeInsets partTitleInsetFor(bool modernUI) =>
+      modernUI ? _modernPartTitleInset : _basePartTitleInset;
+
+  static const _modernPartTitleInset = EdgeInsets.symmetric(
+    horizontal: WorkbenchLayoutConstants.spacingSize40,
+  );
+  static const _basePartTitleInset = EdgeInsets.symmetric(
+    horizontal: WorkbenchLayoutConstants.spacingSize80,
+  );
+
+  /// The further inset `.title-label` pads the label by inside that row, so the
+  /// title reads deeper in than the trailing action does. `padding.css` takes
+  /// it from 12px to two spacing steps (§spec:modern-ui-surfaces).
+  static EdgeInsets partTitleLabelInsetFor(bool modernUI) =>
+      modernUI ? _modernLabelInset : _baseLabelInset;
+
+  static const _modernLabelInset = EdgeInsets.only(
+    left: WorkbenchLayoutConstants.spacingSize80,
+  );
+  static const _baseLabelInset = EdgeInsets.only(
+    left: WorkbenchLayoutConstants.spacingSize120,
+  );
+
+  /// The panel's composite title inset. `padding.css` gives it its own
+  /// asymmetric pair — `.part.basepanel .composite.title` — rather than the
+  /// generic part inset the side bar heading takes; base VS Code falls through
+  /// to `part.css`'s 8px on both edges (§spec:modern-ui-surfaces).
+  static EdgeInsets panelTitleInsetFor(bool modernUI) =>
+      modernUI ? _modernPanelTitleInset : _basePartTitleInset;
+
+  static const _modernPanelTitleInset = EdgeInsets.only(
+    left: WorkbenchLayoutConstants.spacingSize20,
+    right: WorkbenchLayoutConstants.spacingSize40,
+  );
+
+  /// The casing a chrome title renders in at [context]. The treatment's
+  /// `fontRamp.css` swaps `text-transform: uppercase` for `capitalize`, and
+  /// upstream's own strings are already cased — so `capitalize` is a no-op and
+  /// the shell renders [title] verbatim. Base VS Code's `paneview.css` and
+  /// `part.css` uppercase, and so does this (§spec:chrome-typography-canon).
+  ///
+  /// Casing and the type tier travel together and both depend on the
+  /// treatment, so they resolve at the widget from one read of this inherited
+  /// widget. [WorkbenchTheme] is a `ThemeExtension` resolved without a
+  /// `BuildContext`, so it registers both tiers as tokens and cannot make the
+  /// choice itself.
+  static String titleCasing(BuildContext context, String title) =>
+      titleCasingFor(of(context), title);
+
+  /// [titleCasing] against an already-resolved treatment.
+  static String titleCasingFor(bool modernUI, String title) =>
+      modernUI ? title : title.toUpperCase();
+
+  /// The view-pane header type tier in force at [context]
+  /// (§spec:chrome-typography-canon).
+  static TextStyle paneHeaderStyle(BuildContext context, WorkbenchTheme theme) =>
+      paneHeaderStyleFor(of(context), theme);
+
+  /// [paneHeaderStyle] against an already-resolved treatment.
+  static TextStyle paneHeaderStyleFor(bool modernUI, WorkbenchTheme theme) =>
+      modernUI ? theme.sectionTitle : theme.baseSectionTitle;
+
+  /// The part-title type tier in force at [context] — the side bar heading and
+  /// the panel tab label (§spec:chrome-typography-canon).
+  static TextStyle partTitleStyle(BuildContext context, WorkbenchTheme theme) =>
+      partTitleStyleFor(of(context), theme);
+
+  /// [partTitleStyle] against an already-resolved treatment.
+  static TextStyle partTitleStyleFor(bool modernUI, WorkbenchTheme theme) =>
+      modernUI
+      ? theme.sidebarOrPanelHeading
+      : theme.baseSidebarOrPanelHeading;
 
   @override
   bool updateShouldNotify(WorkbenchSurfaceTreatment oldWidget) =>

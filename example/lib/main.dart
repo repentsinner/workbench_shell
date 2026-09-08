@@ -926,7 +926,7 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
         // order state. (A host that needs to persist order across restarts can
         // pass a controlled `order` plus `onReorder`.)
         final byId = _explorerViews(_notificationService);
-        // Canon (VS Code): the EXPLORER container title carries only the `⋯`
+        // Canon (VS Code): the Explorer container title carries only the `⋯`
         // overflow (the Views toggles). New File / New Folder / Refresh /
         // Collapse Folders are VIEW-title actions on the Folders view
         // (explorerView.ts, MenuId.ViewTitle), not container-title actions.
@@ -993,7 +993,7 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
         // and Outline exercises per-member retention
         // (§spec:view-container-state), and its panes exercise reorder, sash
         // resize, and the `⋯` Views toggles inside the secondary. View names
-        // differ from the container title, as in canon (EXPLORER holds
+        // differ from the container title, as in canon (Explorer holds
         // Folders/Outline/Timeline).
         return const WorkbenchViewContainerSpec(
           title: 'Notes',

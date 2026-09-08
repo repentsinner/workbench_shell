@@ -40,7 +40,7 @@ WorkbenchViewPane _collapsiblePane({
 
 void main() {
   group('WorkbenchViewPane', () {
-    testWidgets('renders title uppercased with sectionTitle style', (
+    testWidgets('renders the host casing at the pane-header tier', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -48,21 +48,21 @@ void main() {
           const WorkbenchViewPane(title: 'Hello', child: Text('body')),
         ),
       );
-      // §spec:chrome-typography-canon: WorkbenchViewPane adopts the pane-header canon —
-      // titles render uppercase regardless of input casing, parallel
-      // to the §spec:tabbed-panel tab-label canon.
-      final titleFinder = find.text('HELLO');
+      // §spec:chrome-typography-canon: `fontRamp.css` renders the pane header
+      // `capitalize` at label1 semiBold, and upstream's own strings are
+      // already cased — so the shell transforms nothing.
+      final titleFinder = find.text('Hello');
       expect(titleFinder, findsOneWidget);
-      expect(find.text('Hello'), findsNothing);
+      expect(find.text('HELLO'), findsNothing);
       expect(find.text('body'), findsOneWidget);
       final textWidget = tester.widget<Text>(titleFinder);
       expect(textWidget.style, testWorkbenchTheme.sectionTitle);
     });
 
-    testWidgets('uppercases title regardless of input casing', (tester) async {
-      // Mixed-case, all-lower, and already-upper inputs all render
-      // uppercase — the shell owns the transform so consumers cannot
-      // diverge (§spec:capability-boundary canon enforcement).
+    testWidgets('renders every input casing verbatim', (tester) async {
+      // Mixed-case, all-lower and already-upper inputs each render as the
+      // host supplied them; the shell owns no casing transform
+      // (§spec:chrome-typography-canon).
       await tester.pumpWidget(
         wrapWithTheme(
           const Column(
@@ -74,9 +74,30 @@ void main() {
           ),
         ),
       );
-      expect(find.text('MIXED CASE'), findsOneWidget);
-      expect(find.text('ALL LOWER'), findsOneWidget);
+      expect(find.text('mixed Case'), findsOneWidget);
+      expect(find.text('all lower'), findsOneWidget);
       expect(find.text('ALREADY UP'), findsOneWidget);
+    });
+
+    testWidgets('uppercases the title at the base tier with the treatment '
+        'off', (tester) async {
+      // Base VS Code's `paneview.css` is `text-transform: uppercase` at
+      // 11px bold, which the treatment replaces (§spec:modern-ui-surfaces).
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const WorkbenchSurfaceTreatment(
+            modernUI: false,
+            child: WorkbenchViewPane(title: 'Hello', child: Text('body')),
+          ),
+        ),
+      );
+      final titleFinder = find.text('HELLO');
+      expect(titleFinder, findsOneWidget);
+      expect(find.text('Hello'), findsNothing);
+      expect(
+        tester.widget<Text>(titleFinder).style,
+        testWorkbenchTheme.baseSectionTitle,
+      );
     });
 
     testWidgets('renders info tooltip when provided', (tester) async {
@@ -156,7 +177,7 @@ void main() {
       expect(find.text('body'), findsOneWidget);
       expect(find.byIcon(Symbols.expand_more_rounded), findsOneWidget);
 
-      await tester.tap(find.text('HELLO'));
+      await tester.tap(find.text('Hello'));
       await tester.pumpAndSettle();
 
       // Collapsed → body hidden, chevron points right.
@@ -164,7 +185,7 @@ void main() {
       expect(find.byIcon(Symbols.chevron_right_rounded), findsOneWidget);
       expect(find.byIcon(Symbols.expand_more_rounded), findsNothing);
 
-      await tester.tap(find.text('HELLO'));
+      await tester.tap(find.text('Hello'));
       await tester.pumpAndSettle();
       expect(find.text('body'), findsOneWidget);
       expect(find.byIcon(Symbols.expand_more_rounded), findsOneWidget);
@@ -221,27 +242,27 @@ void main() {
       );
       // Expanded by default.
       expect(
-        tester.getSemantics(find.text('HELLO')),
+        tester.getSemantics(find.text('Hello')),
         matchesSemantics(
           isButton: true,
           hasExpandedState: true,
           isExpanded: true,
-          label: 'HELLO',
+          label: 'Hello',
           hasTapAction: true,
           hasFocusAction: true,
           isFocusable: true,
         ),
       );
 
-      await tester.tap(find.text('HELLO'));
+      await tester.tap(find.text('Hello'));
       await tester.pumpAndSettle();
       expect(
-        tester.getSemantics(find.text('HELLO')),
+        tester.getSemantics(find.text('Hello')),
         matchesSemantics(
           isButton: true,
           hasExpandedState: true,
           // isExpanded omitted — defaults to false, asserting collapsed.
-          label: 'HELLO',
+          label: 'Hello',
           hasTapAction: true,
           hasFocusAction: true,
           isFocusable: true,
@@ -271,7 +292,7 @@ void main() {
 
       // Tapping reports the requested next state but does not self-toggle:
       // the host drives the value.
-      await tester.tap(find.text('HELLO'));
+      await tester.tap(find.text('Hello'));
       await tester.pumpAndSettle();
       expect(reported, isFalse);
       // Still expanded because the host has not pushed a new value.
@@ -310,7 +331,7 @@ void main() {
       expect(ringColor(tester), Colors.transparent);
       expect(ringBorder(tester).top.width, 1.0);
 
-      await tester.tap(find.text('HELLO'));
+      await tester.tap(find.text('Hello'));
       await tester.pumpAndSettle();
 
       // Click focused the header → ring paints the focusBorder accent.
@@ -328,7 +349,7 @@ void main() {
         );
         expect(ringColor(tester), Colors.transparent);
 
-        await tester.tap(find.text('HELLO'));
+        await tester.tap(find.text('Hello'));
         await tester.pumpAndSettle();
 
         expect(ringColor(tester), testWorkbenchTheme.focusBorder);
@@ -345,7 +366,7 @@ void main() {
       );
       expect(find.text('body'), findsOneWidget);
 
-      await tester.tap(find.text('HELLO'));
+      await tester.tap(find.text('Hello'));
       await tester.pumpAndSettle();
 
       // Focused (ring) and toggled (body hidden).
@@ -368,7 +389,7 @@ void main() {
       // band; deferring to the child would leave that slack dead, and
       // TapRegion would read a click there as outside and drop header focus.
       final band = tester.getRect(find.byKey(viewPaneHeaderSurfaceKey).first);
-      final title = tester.getRect(find.text('HELLO'));
+      final title = tester.getRect(find.text('Hello'));
       expect(band.top, lessThan(title.top));
       await tester.tapAt(Offset(title.center.dx, band.top + 2));
       await tester.pumpAndSettle();
@@ -387,7 +408,7 @@ void main() {
       );
       expect(find.text('body'), findsOneWidget);
 
-      await tester.tap(find.text('HELLO'));
+      await tester.tap(find.text('Hello'));
       await tester.pumpAndSettle();
 
       // Focused but body unaffected (a non-collapsible pane has no disclosure).
@@ -404,7 +425,7 @@ void main() {
       );
       // Focus via click (expanded panes toggle on click → re-expand for a
       // clean starting state).
-      await tester.tap(find.text('HELLO'));
+      await tester.tap(find.text('Hello'));
       await tester.pumpAndSettle();
       expect(find.text('body'), findsNothing);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
@@ -465,7 +486,7 @@ void main() {
             const WorkbenchViewPane(title: 'Hello', child: Text('body')),
           ),
         );
-        await tester.tap(find.text('HELLO'));
+        await tester.tap(find.text('Hello'));
         await tester.pumpAndSettle();
         expect(ringColor(tester), testWorkbenchTheme.focusBorder);
 
@@ -489,7 +510,7 @@ void main() {
           const WorkbenchViewPane(title: 'Hello', child: Text('body')),
         ),
       );
-      await tester.tap(find.text('HELLO'));
+      await tester.tap(find.text('Hello'));
       await tester.pumpAndSettle();
       expect(ringColor(tester), equals(testWorkbenchTheme.focusBorder));
       // Sanity: focusBorder is not transparent, so the assertion is meaningful.
@@ -514,7 +535,7 @@ void main() {
       final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await gesture.addPointer(location: Offset.zero);
       addTearDown(gesture.removePointer);
-      await gesture.moveTo(tester.getCenter(find.text('HELLO')));
+      await gesture.moveTo(tester.getCenter(find.text('Hello')));
       await tester.pumpAndSettle();
       return gesture;
     }
@@ -527,7 +548,7 @@ void main() {
       );
       // No actions supplied → no IconButton, header is title-only.
       expect(find.byType(IconButton), findsNothing);
-      expect(find.text('HELLO'), findsOneWidget);
+      expect(find.text('Hello'), findsOneWidget);
       expect(find.text('body'), findsOneWidget);
     });
 
@@ -682,7 +703,7 @@ void main() {
       final twistyX = tester
           .getCenter(find.byIcon(Symbols.expand_more_rounded))
           .dx;
-      final titleX = tester.getCenter(find.text('HELLO')).dx;
+      final titleX = tester.getCenter(find.text('Hello')).dx;
       final infoX = tester.getCenter(find.byIcon(Symbols.info_rounded)).dx;
       final actionX = tester.getCenter(find.byKey(actionKey)).dx;
       expect(twistyX, lessThan(titleX));
@@ -701,7 +722,7 @@ void main() {
           ),
         ),
       );
-      final titleY = tester.getCenter(find.text('HELLO')).dy;
+      final titleY = tester.getCenter(find.text('Hello')).dy;
       final actionY = tester.getCenter(find.byKey(actionKey)).dy;
       expect((titleY - actionY).abs(), lessThan(1.0));
     });
@@ -838,7 +859,7 @@ void main() {
       final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await gesture.addPointer(location: Offset.zero);
       addTearDown(gesture.removePointer);
-      await gesture.moveTo(tester.getCenter(find.text('HELLO')));
+      await gesture.moveTo(tester.getCenter(find.text('Hello')));
       await tester.pumpAndSettle();
 
       expect(surfaceDecoration(tester).color, theme.listHoverBackground);
@@ -884,8 +905,8 @@ void main() {
       // VS Code always renders the twisty container, so a non-collapsible
       // header keeps the indent: its title aligns with a collapsible pane's
       // rather than sliding into the chevron's place (§spec:section-disclosure).
-      final collapsibleX = tester.getTopLeft(find.text('COLLAPSIBLE')).dx;
-      final staticX = tester.getTopLeft(find.text('STATIC')).dx;
+      final collapsibleX = tester.getTopLeft(find.text('Collapsible')).dx;
+      final staticX = tester.getTopLeft(find.text('Static')).dx;
       expect(staticX, closeTo(collapsibleX, 0.5));
     });
 
@@ -936,7 +957,7 @@ void main() {
         tester.getSize(surface().first).height,
         WorkbenchLayoutConstants.viewPaneHeaderHeight,
       );
-      expect(find.text('HELLO'), findsOneWidget);
+      expect(find.text('Hello'), findsOneWidget);
       expect(find.text('body'), findsOneWidget);
     });
 
@@ -947,7 +968,7 @@ void main() {
           const WorkbenchViewPane(title: 'Hello', child: Text('body')),
         ),
       );
-      await tester.tap(find.text('HELLO'));
+      await tester.tap(find.text('Hello'));
       await tester.pumpAndSettle();
 
       // Upstream negates the smallest spacing step as the focus outline's
@@ -1058,15 +1079,12 @@ void main() {
       ),
     );
 
-    Widget wrapBase(Widget child) => MaterialApp(
-      theme: ThemeData.dark().copyWith(extensions: [theme]),
-      home: Scaffold(
-        body: WorkbenchSurfaceTreatment(modernUI: false, child: child),
-      ),
-    );
+    Widget wrapBase(Widget child) =>
+        wrapWithTheme(child, modernUI: false, theme: theme);
 
     /// The band box the base treatment draws around the header — the
-    /// innermost [Container] enclosing the title.
+    /// innermost [Container] enclosing the title, which base `paneview.css`
+    /// renders uppercase (§spec:chrome-typography-canon).
     Finder chrome() => find
         .ancestor(of: find.text('HELLO'), matching: find.byType(Container))
         .first;

@@ -72,6 +72,16 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   /// `modernActivityBar.border` both resolve to it upstream.
   final Color surfaceBorder;
 
+  /// Ground the cards float above — what shows through the gutters between
+  /// them and around the cluster. VS Code `titleBar.activeBackground`, per
+  /// `src/vs/workbench/browser/media/floatingPanels.css`:
+  /// `.monaco-workbench.floating-panels { background-color:
+  /// var(--modern-ui-shell-background, var(--vscode-titleBar-activeBackground)) }`
+  /// (§spec:modern-ui-surfaces). Distinct from [editorBackground]: a theme may
+  /// set the two shades apart, and then the gutters and the status bar read as
+  /// one band only if the backdrop follows the title bar.
+  final Color workbenchBackdrop;
+
   // ---- Sidebar ----
   final Color sideBarBackground;
 
@@ -349,6 +359,13 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
 
   // ---- Semantic text styles (§spec:chrome-typography-canon) ----
   final TextStyle sectionTitle;
+
+  /// [sectionTitle] before the Modern UI treatment: VS Code's base
+  /// `paneview.css` `.pane-header` at 11px bold, which that stylesheet also
+  /// renders `text-transform: uppercase`. Registered rather than derived so a
+  /// host overriding one tier does not silently move the other
+  /// (§spec:modern-ui-surfaces).
+  final TextStyle baseSectionTitle;
   final TextStyle labelText;
   final TextStyle bodyText;
   final TextStyle captionText;
@@ -368,6 +385,11 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
 
   final TextStyle valueText;
   final TextStyle sidebarOrPanelHeading;
+
+  /// [sidebarOrPanelHeading] before the Modern UI treatment: base `part.css`
+  /// `.title-label h2` at 11px regular, uppercased by its part
+  /// (§spec:modern-ui-surfaces).
+  final TextStyle baseSidebarOrPanelHeading;
   final TextStyle loglineMessage;
 
   // ---- Syntax token theme ----
@@ -443,6 +465,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.activityBarItemHoverForeground,
     required this.surfaceBackground,
     required this.surfaceBorder,
+    required this.workbenchBackdrop,
     required this.sideBarBackground,
     required this.sideBarBorder,
     required this.sideBarForeground,
@@ -534,6 +557,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.borderColor,
     required this.focusBorderColor,
     required this.sectionTitle,
+    required this.baseSectionTitle,
     required this.labelText,
     required this.bodyText,
     required this.captionText,
@@ -543,6 +567,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.statusBarTextStyle,
     required this.valueText,
     required this.sidebarOrPanelHeading,
+    required this.baseSidebarOrPanelHeading,
     required this.loglineMessage,
     required this.tokenTheme,
     required this.notificationBackground,
@@ -685,6 +710,14 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       'surface.border',
       Color.alphaBlend(fg.withValues(alpha: 0.1), surfaceBg),
     );
+    // The title bar's active fill. Two surfaces read it — the workbench
+    // backdrop the cards float above (`floatingPanels.css`) and the
+    // Windows/Linux menu bar strip — so it resolves once here rather than
+    // twice below, where the two could drift apart.
+    final titleBarActiveBg = map.resolve(
+      'titleBar.activeBackground',
+      dl(const Color(0xFF3C3C3C), const Color(0xFFDDDDDD)),
+    );
     // Activity bar item states. Upstream chains each key through the modern
     // tab family to the list colours, so a theme that styles only its tabs
     // still gets a coherent rail.
@@ -772,6 +805,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // Framed container surfaces
       surfaceBackground: surfaceBg,
       surfaceBorder: surfaceBorder,
+      workbenchBackdrop: titleBarActiveBg,
       // Sidebar
       sideBarBackground: sideBarBg,
       // Null by the same registry semantics as activityBar.border.
@@ -917,10 +951,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // Menu bar (Windows/Linux in-window strip).
       // VS Code stops at `titleBar.activeBackground` for the strip
       // itself; individual menu items read `menubar.*` and `menu.*`.
-      menuBarBackground: map.resolve(
-        'titleBar.activeBackground',
-        dl(const Color(0xFF3C3C3C), const Color(0xFFDDDDDD)),
-      ),
+      menuBarBackground: titleBarActiveBg,
       menuBarForeground: map.resolve(
         'titleBar.activeForeground',
         dl(const Color(0xFFCCCCCC), const Color(0xFF333333)),
@@ -1024,14 +1055,18 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // from VS Code's workbench CSS. See SPEC §spec:chrome-typography-canon table for the
       // upstream file and selector per token.
       //
-      // sidebar / panel part title ("EXPLORER", "SETTINGS") —
-      // part.css `.title-label h2`.
-      sidebarOrPanelHeading: t(11, FontWeight.w400),
-      // pane header / WorkbenchViewPane title — paneview.css
-      // `.pane-header` (11 / bold / uppercase). The uppercase
-      // transform lives in WorkbenchViewPane's rendering, not the
-      // token literal.
-      sectionTitle: t(11, FontWeight.w700),
+      // sidebar / panel part title ("Explorer", "Settings") —
+      // fontRamp.css `.part > .title > .title-label h2`, label1 semiBold.
+      sidebarOrPanelHeading: t(12, FontWeight.w600),
+      // The same title before the treatment — part.css `.title-label h2`,
+      // uppercased by `.part > .title` (§spec:modern-ui-surfaces).
+      baseSidebarOrPanelHeading: t(11, FontWeight.w400),
+      // pane header / WorkbenchViewPane title — fontRamp.css
+      // `.pane-header .title`, label1 semiBold.
+      sectionTitle: t(12, FontWeight.w600),
+      // The same header before the treatment — paneview.css `.pane-header`
+      // (11 / bold), uppercased by its own `text-transform`.
+      baseSectionTitle: t(11, FontWeight.w700),
       // workbench body content — part.css `.part > .content`.
       bodyText: t(13, FontWeight.w400),
       // settings label / form label — settingsEditor2.css
@@ -1118,6 +1153,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? activityBarItemHoverForeground,
     Color? surfaceBackground,
     Color? surfaceBorder,
+    Color? workbenchBackdrop,
     Color? sideBarBackground,
     Color? sideBarBorder,
     Color? sideBarForeground,
@@ -1209,6 +1245,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? borderColor,
     Color? focusBorderColor,
     TextStyle? sectionTitle,
+    TextStyle? baseSectionTitle,
     TextStyle? labelText,
     TextStyle? bodyText,
     TextStyle? captionText,
@@ -1218,6 +1255,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     TextStyle? statusBarTextStyle,
     TextStyle? valueText,
     TextStyle? sidebarOrPanelHeading,
+    TextStyle? baseSidebarOrPanelHeading,
     TextStyle? loglineMessage,
     TokenTheme? tokenTheme,
     Color? notificationBackground,
@@ -1251,6 +1289,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           activityBarItemHoverForeground ?? this.activityBarItemHoverForeground,
       surfaceBackground: surfaceBackground ?? this.surfaceBackground,
       surfaceBorder: surfaceBorder ?? this.surfaceBorder,
+      workbenchBackdrop: workbenchBackdrop ?? this.workbenchBackdrop,
       sideBarBackground: sideBarBackground ?? this.sideBarBackground,
       sideBarBorder: sideBarBorder ?? this.sideBarBorder,
       sideBarForeground: sideBarForeground ?? this.sideBarForeground,
@@ -1370,6 +1409,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       borderColor: borderColor ?? this.borderColor,
       focusBorderColor: focusBorderColor ?? this.focusBorderColor,
       sectionTitle: sectionTitle ?? this.sectionTitle,
+      baseSectionTitle: baseSectionTitle ?? this.baseSectionTitle,
       labelText: labelText ?? this.labelText,
       bodyText: bodyText ?? this.bodyText,
       captionText: captionText ?? this.captionText,
@@ -1380,6 +1420,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       valueText: valueText ?? this.valueText,
       sidebarOrPanelHeading:
           sidebarOrPanelHeading ?? this.sidebarOrPanelHeading,
+      baseSidebarOrPanelHeading:
+          baseSidebarOrPanelHeading ?? this.baseSidebarOrPanelHeading,
       loglineMessage: loglineMessage ?? this.loglineMessage,
       tokenTheme: tokenTheme ?? this.tokenTheme,
       notificationBackground:
@@ -1449,6 +1491,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       ),
       surfaceBackground: c(surfaceBackground, other.surfaceBackground),
       surfaceBorder: c(surfaceBorder, other.surfaceBorder),
+      workbenchBackdrop: c(workbenchBackdrop, other.workbenchBackdrop),
       sideBarBackground: c(sideBarBackground, other.sideBarBackground),
       sideBarBorder: cn(sideBarBorder, other.sideBarBorder),
       sideBarForeground: c(sideBarForeground, other.sideBarForeground),
@@ -1625,6 +1668,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       borderColor: cn(borderColor, other.borderColor),
       focusBorderColor: c(focusBorderColor, other.focusBorderColor),
       sectionTitle: ts(sectionTitle, other.sectionTitle),
+      baseSectionTitle: ts(baseSectionTitle, other.baseSectionTitle),
       labelText: ts(labelText, other.labelText),
       bodyText: ts(bodyText, other.bodyText),
       captionText: ts(captionText, other.captionText),
@@ -1636,6 +1680,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       sidebarOrPanelHeading: ts(
         sidebarOrPanelHeading,
         other.sidebarOrPanelHeading,
+      ),
+      baseSidebarOrPanelHeading: ts(
+        baseSidebarOrPanelHeading,
+        other.baseSidebarOrPanelHeading,
       ),
       loglineMessage: ts(loglineMessage, other.loglineMessage),
       tokenTheme: t < 0.5 ? tokenTheme : other.tokenTheme,
@@ -1695,6 +1743,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
               other.activityBarItemHoverForeground &&
           surfaceBackground == other.surfaceBackground &&
           surfaceBorder == other.surfaceBorder &&
+          workbenchBackdrop == other.workbenchBackdrop &&
           sideBarBackground == other.sideBarBackground &&
           sideBarBorder == other.sideBarBorder &&
           sideBarForeground == other.sideBarForeground &&
@@ -1789,6 +1838,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           borderColor == other.borderColor &&
           focusBorderColor == other.focusBorderColor &&
           sectionTitle == other.sectionTitle &&
+          baseSectionTitle == other.baseSectionTitle &&
           labelText == other.labelText &&
           bodyText == other.bodyText &&
           captionText == other.captionText &&
@@ -1798,6 +1848,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           statusBarTextStyle == other.statusBarTextStyle &&
           valueText == other.valueText &&
           sidebarOrPanelHeading == other.sidebarOrPanelHeading &&
+          baseSidebarOrPanelHeading == other.baseSidebarOrPanelHeading &&
           loglineMessage == other.loglineMessage &&
           tokenTheme == other.tokenTheme &&
           notificationBackground == other.notificationBackground &&
@@ -1824,6 +1875,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     activityBarItemHoverForeground,
     surfaceBackground,
     surfaceBorder,
+    workbenchBackdrop,
     sideBarBackground,
     sideBarBorder,
     sideBarForeground,
@@ -1915,6 +1967,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     borderColor,
     focusBorderColor,
     sectionTitle,
+    baseSectionTitle,
     labelText,
     bodyText,
     captionText,
@@ -1924,6 +1977,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     statusBarTextStyle,
     valueText,
     sidebarOrPanelHeading,
+    baseSidebarOrPanelHeading,
     loglineMessage,
     tokenTheme,
     notificationBackground,

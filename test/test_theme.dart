@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:workbench_shell/src/workbench_surface_treatment.dart';
 import 'package:workbench_shell/workbench_shell.dart';
 
 /// Shared test [WorkbenchTheme] fixture.
@@ -12,10 +13,21 @@ final WorkbenchTheme testWorkbenchTheme = WorkbenchTheme.fromVscodeColorMap(
 );
 
 /// Wrap a widget in a [MaterialApp] with [testWorkbenchTheme] installed.
-Widget wrapWithTheme(Widget child) {
+///
+/// [modernUI] publishes the surface treatment the way `WorkbenchLayout` does
+/// (§spec:modern-ui-surfaces), so a primitive can be pumped under either
+/// treatment without hand-rolling the inherited widget. [theme] overrides the
+/// shared fixture for a test that needs particular tokens.
+Widget wrapWithTheme(
+  Widget child, {
+  bool modernUI = true,
+  WorkbenchTheme? theme,
+}) {
   return MaterialApp(
-    theme: ThemeData.dark().copyWith(extensions: [testWorkbenchTheme]),
-    home: Scaffold(body: child),
+    theme: ThemeData.dark().copyWith(extensions: [theme ?? testWorkbenchTheme]),
+    home: Scaffold(
+      body: WorkbenchSurfaceTreatment(modernUI: modernUI, child: child),
+    ),
   );
 }
 

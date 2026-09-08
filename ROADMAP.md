@@ -10,40 +10,19 @@ design decisions live in the cited spec sections, not here.
 Render the workbench as VS Code's Modern UI treatment ships it
 (§spec:modern-ui-surfaces). Upstream enables fifteen modules from one
 setting; the package has landed the card framing, the editor frame,
-the activity bar and the pane header metrics. Every workstream below
+the activity bar, the pane header metrics, the workbench backdrop, the
+chrome casing and type tiers, the part title insets and the sash grips.
+Every workstream below
 closes one surveyed module or metric, expresses its geometry through
 the shipped size ladders (§spec:design-size-ladders), and renders its
 base behavior when the `modernUI` flag is off.
 
-### Workbench backdrop §road:workbench-backdrop
+### Part title height §road:part-title-height
 
-Paint the ground behind the cards from VS Code's
-`titleBar.activeBackground` rather than reusing `editorBackground`,
-adding the token to `lib/src/workbench_theme.dart` and applying it in
-`lib/src/workbench_layout.dart` (§spec:modern-ui-surfaces).
-
-### Workbench casing §road:workbench-casing
-
-Drop the `.toUpperCase()` transform from the view-pane header, the
-composite title, the secondary tab labels and the panel tab strip
-(`lib/src/workbench_content.dart`, `lib/src/workbench_layout.dart`,
-`lib/src/workbench_tabbed_panel.dart`) and move `sectionTitle` and
-`sidebarOrPanelHeading` to the treatment's 12px semiBold tier in
-`lib/src/workbench_theme.dart` (§spec:chrome-typography-canon,
-§spec:modern-ui-surfaces).
-
-### Sash grips §road:sash-grips
-
-Draw the three-dot grip on every inter-part sash in
-`lib/src/workbench_sash.dart`, suppressed on the view-stack pane
-sashes, at compact density, and while the sash is hovered or dragged
-(§spec:modern-ui-surfaces).
-
-### Part title padding §road:part-title-padding
-
-Replace the composite title row's flat inset with upstream's part and
-label padding in `lib/src/workbench_layout.dart`, and do the same for
-the panel tab strip in `lib/src/workbench_tabbed_panel.dart`
+Tighten the side bar heading and panel tab strip to the treatment's
+band, updating `sidebarHeadingHeight` and `panelTabStripHeight` in
+`lib/src/layout_constants.dart` and their rows in
+§spec:layout-constants-canon's source table
 (§spec:modern-ui-surfaces).
 
 ### Status bar treatment §road:status-bar-treatment

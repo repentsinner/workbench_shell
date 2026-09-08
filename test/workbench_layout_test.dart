@@ -121,6 +121,25 @@ WorkbenchSash _sash(WidgetTester tester, Axis axis) =>
       find.byWidgetPredicate((w) => w is WorkbenchSash && w.axis == axis),
     );
 
+/// The fill behind the whole workbench — what shows through the card gutters
+/// (§spec:modern-ui-surfaces).
+Color _scaffoldFill(WidgetTester tester) => tester
+    .widget<Scaffold>(
+      find.descendant(
+        of: find.byType(WorkbenchLayout),
+        matching: find.byType(Scaffold),
+      ),
+    )
+    .backgroundColor!;
+
+/// A theme whose backdrop and editor tokens differ, so a test can tell which
+/// one a surface painted. The two are equal on many themes, which is what hid
+/// the backdrop defect.
+WorkbenchTheme _splitBackdrop(WorkbenchTheme base) => base.copyWith(
+  workbenchBackdrop: const Color(0xFF191A1B),
+  editorBackground: const Color(0xFF121314),
+);
+
 Finder _sashFinder(Axis axis) =>
     find.byWidgetPredicate((w) => w is WorkbenchSash && w.axis == axis);
 
@@ -147,7 +166,7 @@ void main() {
       await tester.pumpWidget(_buildApp());
 
       expect(find.text('Sidebar: explorer'), findsOneWidget);
-      expect(find.text('EXPLORER'), findsOneWidget);
+      expect(find.text('Explorer'), findsOneWidget);
     });
 
     testWidgets('switches sidebar on activity bar tap', (tester) async {
@@ -158,24 +177,24 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Sidebar: search'), findsOneWidget);
-      expect(find.text('SEARCH'), findsOneWidget);
+      expect(find.text('Search'), findsOneWidget);
     });
 
     testWidgets('toggles sidebar on tapping active section', (tester) async {
       await tester.pumpWidget(_buildApp());
 
       // Sidebar visible initially
-      expect(find.text('EXPLORER'), findsOneWidget);
+      expect(find.text('Explorer'), findsOneWidget);
 
       // Tap active section hides sidebar
       await tester.tap(find.byIcon(Symbols.folder_rounded));
       await tester.pumpAndSettle();
-      expect(find.text('EXPLORER'), findsNothing);
+      expect(find.text('Explorer'), findsNothing);
 
       // Tap again shows sidebar
       await tester.tap(find.byIcon(Symbols.folder_rounded));
       await tester.pumpAndSettle();
-      expect(find.text('EXPLORER'), findsOneWidget);
+      expect(find.text('Explorer'), findsOneWidget);
     });
 
     testWidgets('renders bottom panel when visible', (tester) async {
@@ -412,8 +431,8 @@ void main() {
         // The container renders one WorkbenchViewContainer from the descriptors.
         expect(find.byType(WorkbenchViewContainer), findsOneWidget);
         // Two views → two collapsible panes, each header uppercased.
-        expect(find.text('OPEN EDITORS'), findsOneWidget);
-        expect(find.text('OUTLINE'), findsOneWidget);
+        expect(find.text('Open Editors'), findsOneWidget);
+        expect(find.text('Outline'), findsOneWidget);
         expect(find.byIcon(Symbols.expand_more_rounded), findsNWidgets(2));
         expect(find.text('editors-body'), findsOneWidget);
       },
@@ -436,7 +455,7 @@ void main() {
         ),
       );
       // No panes, no crash; the heading still shows.
-      expect(find.text('EXPLORER'), findsOneWidget);
+      expect(find.text('Explorer'), findsOneWidget);
       expect(find.byType(WorkbenchViewPane), findsNothing);
     });
   });
@@ -519,7 +538,7 @@ void main() {
       expect(find.text('explorer-body-b'), findsOneWidget);
 
       // Collapse the first pane by tapping its header.
-      await tester.tap(find.text('EXPLORER ALPHA'));
+      await tester.tap(find.text('explorer Alpha'));
       await tester.pumpAndSettle();
       expect(find.text('explorer-body-a'), findsNothing);
       expect(find.text('explorer-body-b'), findsOneWidget);
@@ -554,7 +573,7 @@ void main() {
       );
 
       // Collapse pane A.
-      await tester.tap(find.text('EXPLORER ALPHA'));
+      await tester.tap(find.text('explorer Alpha'));
       await tester.pumpAndSettle();
       expect(find.text('explorer-body-a'), findsNothing);
 
@@ -590,7 +609,7 @@ void main() {
       await tester.pumpWidget(app(WorkbenchSidebarPosition.left));
 
       // Collapse pane A on the left edge.
-      await tester.tap(find.text('EXPLORER ALPHA'));
+      await tester.tap(find.text('explorer Alpha'));
       await tester.pumpAndSettle();
       expect(find.text('explorer-body-a'), findsNothing);
 
@@ -638,7 +657,7 @@ void main() {
       );
 
       // Collapse the shared pane in explorer.
-      await tester.tap(find.text('EXPLORER SHARED'));
+      await tester.tap(find.text('explorer Shared'));
       await tester.pumpAndSettle();
       expect(find.text('explorer-shared-body'), findsNothing);
 
@@ -792,7 +811,7 @@ void main() {
       // Editor remains; every chrome surface is gone.
       expect(find.text('Editor'), findsOneWidget);
       expect(find.byIcon(Symbols.folder_rounded), findsNothing);
-      expect(find.text('EXPLORER'), findsNothing);
+      expect(find.text('Explorer'), findsNothing);
       expect(find.text('Panel'), findsNothing);
       expect(find.text('Status'), findsNothing);
     });
@@ -877,7 +896,7 @@ void main() {
 
       // The side bar body is hidden; the activity bar remains so the user can
       // bring it back.
-      expect(find.text('EXPLORER'), findsNothing);
+      expect(find.text('Explorer'), findsNothing);
       expect(find.byIcon(Symbols.folder_rounded), findsOneWidget);
     });
 
@@ -907,19 +926,19 @@ void main() {
         ),
       );
 
-      expect(find.text('EXPLORER'), findsOneWidget);
+      expect(find.text('Explorer'), findsOneWidget);
 
       // Tapping the active container icon requests a hide through the seam; the
       // controlled value flips and the bar disappears.
       await tester.tap(find.byIcon(Symbols.folder_rounded));
       await tester.pumpAndSettle();
       expect(visible, isFalse);
-      expect(find.text('EXPLORER'), findsNothing);
+      expect(find.text('Explorer'), findsNothing);
 
       // Host flips its own state back on → the bar returns.
       setOuter(() => visible = true);
       await tester.pumpAndSettle();
-      expect(find.text('EXPLORER'), findsOneWidget);
+      expect(find.text('Explorer'), findsOneWidget);
     });
 
     testWidgets('asserts onSidebarVisibilityChanged is required in controlled '
@@ -958,7 +977,7 @@ void main() {
       expect(find.text('Status'), findsNothing);
       // The rest of the workbench is untouched.
       expect(find.byIcon(Symbols.folder_rounded), findsOneWidget);
-      expect(find.text('EXPLORER'), findsOneWidget);
+      expect(find.text('Explorer'), findsOneWidget);
     });
 
     testWidgets('controlled: host drives statusBarVisible', (tester) async {
@@ -1271,7 +1290,7 @@ void main() {
 
       // Left-to-right: activity bar, side bar, editor.
       final ab = tester.getRect(find.byIcon(Symbols.folder_rounded));
-      final sidebarHeading = tester.getRect(find.text('EXPLORER'));
+      final sidebarHeading = tester.getRect(find.text('Explorer'));
       final editor = tester.getRect(find.text('Editor'));
       expect(ab.left, lessThan(sidebarHeading.left));
       expect(sidebarHeading.left, lessThan(editor.left));
@@ -1291,7 +1310,7 @@ void main() {
       // window's right edge.
       final layout = layoutRect(tester);
       final ab = tester.getRect(find.byIcon(Symbols.folder_rounded));
-      final sidebarHeading = tester.getRect(find.text('EXPLORER'));
+      final sidebarHeading = tester.getRect(find.text('Explorer'));
       final editor = tester.getRect(find.text('Editor'));
       expect(editor.right, lessThan(sidebarHeading.left));
       expect(sidebarHeading.left, lessThan(ab.left));
@@ -1554,7 +1573,7 @@ void main() {
       await tester.pumpWidget(app(WorkbenchSidebarPosition.left));
 
       // Collapse the secondary's first pane (AUX ALPHA).
-      await tester.tap(find.text('AUX ALPHA'));
+      await tester.tap(find.text('aux Alpha'));
       await tester.pumpAndSettle();
       expect(find.text('aux-body-a'), findsNothing);
       expect(find.text('aux-body-b'), findsOneWidget);
@@ -1581,8 +1600,8 @@ void main() {
 
       // Both members render as uppercase tab labels — not a single composite
       // title naming only the active container.
-      expect(find.text('OUTLINE'), findsOneWidget);
-      expect(find.text('NOTES'), findsOneWidget);
+      expect(find.text('Outline'), findsOneWidget);
+      expect(find.text('Notes'), findsOneWidget);
       // First member active by default; the second's body never builds.
       expect(find.text('body-outline'), findsOneWidget);
       expect(find.text('body-notes'), findsNothing);
@@ -1601,7 +1620,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('NOTES'));
+      await tester.tap(find.text('Notes'));
       await tester.pumpAndSettle();
 
       // The shell originated the switch AND reported it (§spec:secondary-sidebar,
@@ -1639,7 +1658,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('NOTES'));
+      await tester.tap(find.text('Notes'));
       await tester.pumpAndSettle();
 
       // Reported but not self-switched — the host owns the value.
@@ -1691,16 +1710,16 @@ void main() {
       );
 
       // Collapse the first pane of the active member (outline).
-      await tester.tap(find.text('OUTLINE ALPHA'));
+      await tester.tap(find.text('outline Alpha'));
       await tester.pumpAndSettle();
       expect(find.text('outline-body-a'), findsNothing);
       expect(find.text('outline-body-b'), findsOneWidget);
 
       // Switch to notes, then back to outline.
-      await tester.tap(find.text('NOTES'));
+      await tester.tap(find.text('Notes'));
       await tester.pumpAndSettle();
       expect(find.text('notes-body-a'), findsOneWidget);
-      await tester.tap(find.text('OUTLINE'));
+      await tester.tap(find.text('Outline'));
       await tester.pumpAndSettle();
 
       // The collapse survived the round trip.
@@ -1719,7 +1738,7 @@ void main() {
       );
 
       // Canon's default presentation: one member, one tab.
-      expect(find.text('OUTLINE'), findsOneWidget);
+      expect(find.text('Outline'), findsOneWidget);
       expect(find.text('body-outline'), findsOneWidget);
     });
 
@@ -1747,24 +1766,38 @@ void main() {
       expect(overflow, findsOneWidget);
       expect(
         tester.getCenter(overflow).dx,
-        greaterThan(tester.getCenter(find.text('NOTES')).dx),
+        greaterThan(tester.getCenter(find.text('Notes')).dx),
       );
 
       // It lists the active member's views only.
       await tester.tap(overflow);
       await tester.pumpAndSettle();
-      expect(find.text('outline view'), findsOneWidget);
-      expect(find.text('notes view'), findsNothing);
+      // Matched on the toggle row rather than the bare text: the active
+      // member's pane header now carries the same string.
+      expect(
+        find.widgetWithText(CheckboxMenuButton, 'outline view'),
+        findsOneWidget,
+      );
+      expect(
+        find.widgetWithText(CheckboxMenuButton, 'notes view'),
+        findsNothing,
+      );
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
 
       // Switching tabs retargets the overflow to the new active member.
-      await tester.tap(find.text('NOTES'));
+      await tester.tap(find.text('Notes'));
       await tester.pumpAndSettle();
       await tester.tap(overflow);
       await tester.pumpAndSettle();
-      expect(find.text('notes view'), findsOneWidget);
-      expect(find.text('outline view'), findsNothing);
+      expect(
+        find.widgetWithText(CheckboxMenuButton, 'notes view'),
+        findsOneWidget,
+      );
+      expect(
+        find.widgetWithText(CheckboxMenuButton, 'outline view'),
+        findsNothing,
+      );
     });
 
     testWidgets('tabs shrink and ellipsize instead of overflowing a narrow '
@@ -1999,7 +2032,7 @@ void main() {
       await tester.pumpWidget(app(WorkbenchPanelAlignment.center));
 
       // Collapse the primary's first pane.
-      await tester.tap(find.text('EXPLORER ALPHA'));
+      await tester.tap(find.text('explorer Alpha'));
       await tester.pumpAndSettle();
       expect(find.text('explorer-body-a'), findsNothing);
       expect(find.text('explorer-body-b'), findsOneWidget);
@@ -2098,8 +2131,8 @@ void main() {
         _buildApp(containerBuilder: builderTitling({'explorer': 'My Files'})),
       );
 
-      expect(find.text('MY FILES'), findsOneWidget);
-      expect(find.text('EXPLORER'), findsNothing);
+      expect(find.text('My Files'), findsOneWidget);
+      expect(find.text('Explorer'), findsNothing);
     });
 
     testWidgets('a null spec.title keeps the activity-bar label', (
@@ -2107,7 +2140,7 @@ void main() {
     ) async {
       await tester.pumpWidget(_buildApp(containerBuilder: builderTitling({})));
 
-      expect(find.text('EXPLORER'), findsOneWidget);
+      expect(find.text('Explorer'), findsOneWidget);
     });
 
     testWidgets(
@@ -2127,7 +2160,7 @@ void main() {
         // the activity bar never lists 'notes' and spec.title is null
         // (§spec:secondary-sidebar).
         expect(find.text('body-notes-a'), findsOneWidget);
-        expect(find.text('NOTES'), findsNothing);
+        expect(find.text('Notes'), findsNothing);
       },
     );
 
@@ -2144,8 +2177,8 @@ void main() {
           ),
         );
 
-        expect(find.text('NOTES'), findsOneWidget); // the member's tab label
-        expect(find.text('EXPLORER'), findsOneWidget); // primary unchanged
+        expect(find.text('Notes'), findsOneWidget); // the member's tab label
+        expect(find.text('Explorer'), findsOneWidget); // primary unchanged
       },
     );
   });
@@ -2238,9 +2271,13 @@ void main() {
       await tester.tap(find.text('Views'));
       await tester.pumpAndSettle();
 
-      // One checkbox per view; the non-hideable Gamma is disabled.
+      // One checkbox per view; the non-hideable Gamma is disabled. Matched on
+      // the toggle row: each pane header carries the same string.
       for (final title in ['Alpha', 'Beta', 'Gamma']) {
-        expect(find.text(title), findsOneWidget);
+        expect(
+          find.widgetWithText(CheckboxMenuButton, title),
+          findsOneWidget,
+        );
       }
       final gamma = tester.widget<CheckboxMenuButton>(
         find.ancestor(
@@ -2256,17 +2293,17 @@ void main() {
       await tester.pumpWidget(_buildApp(containerBuilder: multiSpec));
 
       // All three pane headers present initially.
-      expect(find.text('BETA'), findsOneWidget);
+      expect(find.text('Beta'), findsOneWidget);
 
       await tester.tap(find.byIcon(Symbols.more_horiz));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Views'));
       await tester.pumpAndSettle();
 
-      // Uncheck Beta → its pane leaves the stack.
-      await tester.tap(find.text('Beta'));
+      // Uncheck Beta → its pane leaves the stack. The toggle row carries the
+      // same string as the pane header, so the tap targets the row.
+      await tester.tap(find.widgetWithText(CheckboxMenuButton, 'Beta'));
       await tester.pumpAndSettle();
-      expect(find.text('BETA'), findsNothing);
 
       // Close the popup, switch to Search and back to Explorer.
       await tester.tap(find.byIcon(Symbols.more_horiz));
@@ -2277,8 +2314,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Visibility is shell-owned and container-keyed, so Beta stays hidden.
-      expect(find.text('BETA'), findsNothing);
-      expect(find.text('ALPHA'), findsOneWidget);
+      expect(find.text('Beta'), findsNothing);
+      expect(find.text('Alpha'), findsOneWidget);
     });
 
     // Canon: with no host overflow entries, the Views group is the only
@@ -2311,14 +2348,17 @@ void main() {
       await tester.tap(find.byIcon(Symbols.more_horiz));
       await tester.pumpAndSettle();
 
-      // No `Views` wrapper — the toggles are reachable directly.
+      // No `Views` wrapper — the toggles are reachable directly. Matched on
+      // the toggle row: each pane header carries the same string.
       expect(find.text('Views'), findsNothing);
-      expect(find.text('Alpha'), findsOneWidget);
+      expect(find.widgetWithText(CheckboxMenuButton, 'Alpha'), findsOneWidget);
 
-      // Uncheck Beta straight from the root popup.
-      await tester.tap(find.text('Beta'));
+      // Uncheck Beta straight from the root popup. The popup stays open
+      // (closeOnActivate: false), so the hidden pane is what disappears —
+      // its toggle row is still there to switch back on.
+      await tester.tap(find.widgetWithText(CheckboxMenuButton, 'Beta'));
       await tester.pumpAndSettle();
-      expect(find.text('BETA'), findsNothing);
+      expect(find.text('body-b'), findsNothing);
     });
 
     // Canon: the file explorer's pane header shows the workspace folder name
@@ -2349,15 +2389,18 @@ void main() {
 
       await tester.pumpWidget(_buildApp(containerBuilder: labelSpec));
 
-      // Header shows the title, uppercased per pane-header canon.
-      expect(find.text('WORKBENCH_SHELL'), findsOneWidget);
+      // Header shows the title in the host's own casing.
+      expect(find.text('workbench_shell'), findsOneWidget);
 
       await tester.tap(find.byIcon(Symbols.more_horiz));
       await tester.pumpAndSettle();
 
       // The toggle reads the menuLabel, not the header title.
-      expect(find.text('Folders'), findsOneWidget);
-      expect(find.text('workbench_shell'), findsNothing);
+      expect(find.widgetWithText(CheckboxMenuButton, 'Folders'), findsOneWidget);
+      expect(
+        find.widgetWithText(CheckboxMenuButton, 'workbench_shell'),
+        findsNothing,
+      );
     });
   });
 
@@ -2423,8 +2466,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Outline is hidden by the seeded visibility store.
-      expect(find.text('OUTLINE'), findsNothing);
-      expect(find.text('FOLDERS'), findsOneWidget);
+      expect(find.text('Outline'), findsNothing);
+      expect(find.text('Folders'), findsOneWidget);
     });
 
     testWidgets('drops stale ids in the seed without error (reconcile)', (
@@ -2456,8 +2499,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Both live panes render; the stale ids are simply absent.
-      expect(find.text('FOLDERS'), findsOneWidget);
-      expect(find.text('OUTLINE'), findsOneWidget);
+      expect(find.text('Folders'), findsOneWidget);
+      expect(find.text('Outline'), findsOneWidget);
     });
 
     testWidgets('toggling visibility notifies host with the snapshot', (
@@ -2482,7 +2525,7 @@ void main() {
       // Open the container title's ⋯ overflow and toggle Outline off.
       await tester.tap(find.byIcon(Symbols.more_horiz));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Outline').last);
+      await tester.tap(find.widgetWithText(CheckboxMenuButton, 'Outline'));
       await tester.pumpAndSettle();
 
       expect(snapshots, isNotEmpty);
@@ -2532,6 +2575,156 @@ void main() {
       ),
     );
 
+    // A theme whose title bar and editor differ, which is the only way to see
+    // which one the gutters paint. Themes that leave the two equal — most of
+    // the bundled set — hide the difference entirely.
+    final backdropTheme = _splitBackdrop(_testTheme);
+
+    testWidgets('marks each boundary between two parts with a grip, and no '
+        'seam inside one', (tester) async {
+      await tester.pumpWidget(
+        _buildApp(
+          secondaryViewContainerIds: const ['outline'],
+          secondarySideBarVisible: true,
+          onSecondarySideBarVisibilityChanged: (_) {},
+          containerBuilder: (id) => WorkbenchViewContainerSpec(
+            views: [
+              WorkbenchViewDescriptor(
+                id: '$id-a',
+                title: '$id A',
+                bodyBuilder: (_) => const SizedBox.shrink(),
+              ),
+              WorkbenchViewDescriptor(
+                id: '$id-b',
+                title: '$id B',
+                bodyBuilder: (_) => const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      // Three inter-part seams: the primary side bar, the secondary side bar
+      // and the bottom panel. The Explorer's own view-stack sash lives inside
+      // a part, so it draws none (§spec:modern-ui-surfaces).
+      expect(find.byKey(sashGripKey), findsNWidgets(3));
+      expect(
+        find.byWidgetPredicate((w) => w is WorkbenchSash && w.grip),
+        findsNWidgets(3),
+      );
+      expect(
+        find.byWidgetPredicate((w) => w is WorkbenchSash && !w.grip),
+        findsWidgets,
+      );
+    });
+
+    testWidgets('compact density retires the grips with the gaps', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildApp(initialLayoutDensity: WorkbenchLayoutDensity.compact),
+      );
+      expect(find.byKey(sashGripKey), findsNothing);
+    });
+
+    testWidgets('insets the side bar sash highlight by the card gutters', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_buildApp());
+      final sash = tester.widget<WorkbenchSash>(
+        _sashFinder(Axis.horizontal),
+      );
+      // At the default centre alignment the bar runs full height, so its card
+      // faces window chrome at both ends and the highlight stops at the
+      // cluster's perimeter gutter either way (§spec:modern-ui-surfaces).
+      expect(
+        sash.highlightInset.top,
+        WorkbenchLayoutConstants.floatingCardPerimeter,
+      );
+      expect(
+        sash.highlightInset.bottom,
+        WorkbenchLayoutConstants.floatingCardPerimeter,
+      );
+    });
+
+    testWidgets('renders the composite title in the host casing at the '
+        'part-title tier', (tester) async {
+      await tester.pumpWidget(_buildApp());
+      // `fontRamp.css` renders `.title-label h2` capitalize at label1
+      // semiBold; the host's string is already cased
+      // (§spec:chrome-typography-canon).
+      expect(find.text('EXPLORER'), findsNothing);
+      expect(
+        tester.widget<Text>(find.text('Explorer')).style,
+        _testTheme.sidebarOrPanelHeading,
+      );
+    });
+
+    testWidgets('insets the composite title at the part and label tiers', (
+      tester,
+    ) async {
+      // `padding.css`: the part takes size40 on each side and the title label
+      // a further size80 on its leading edge (§spec:modern-ui-surfaces).
+      await tester.pumpWidget(_buildApp());
+      final card = tester.getRect(cardRing(find.text('Explorer')));
+      final label = tester.getRect(find.text('Explorer'));
+      // The primary side bar cedes its rail-facing edge, so no stroke stands
+      // between the card box and the part inset (§spec:modern-ui-surfaces).
+      expect(
+        label.left - card.left,
+        closeTo(
+          WorkbenchLayoutConstants.spacingSize40 +
+              WorkbenchLayoutConstants.spacingSize80,
+          0.001,
+        ),
+      );
+
+      // The trailing action sits against the part's own inset — upstream
+      // zeroes the last action's margin.
+      final overflow = tester.getRect(
+        find.ancestor(
+          of: find.byIcon(Symbols.more_horiz),
+          matching: find.byType(IconButton),
+        ),
+      );
+      expect(
+        card.right - overflow.right,
+        closeTo(
+          WorkbenchLayoutConstants.strokeThickness +
+              WorkbenchLayoutConstants.spacingSize40,
+          0.001,
+        ),
+      );
+    });
+
+    testWidgets('paints the ground behind the cards from the workbench '
+        'backdrop, not the editor', (tester) async {
+      await tester.pumpWidget(_buildApp(theme: backdropTheme));
+      expect(_scaffoldFill(tester), backdropTheme.workbenchBackdrop);
+      expect(_scaffoldFill(tester), isNot(backdropTheme.editorBackground));
+    });
+
+    testWidgets('zen mode keeps the backdrop behind the bare editor', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [backdropTheme]),
+          home: WorkbenchLayout(
+            activityBarItems: _testItems,
+            editor: const Center(child: Text('Editor')),
+            containerBuilder: _sidebarSpec,
+            bottomPanel: const Center(child: Text('Panel')),
+            statusBar: const SizedBox(height: 22, child: Text('Status')),
+            initialZenMode: true,
+          ),
+        ),
+      );
+
+      expect(find.text('Panel'), findsNothing);
+      expect(_scaffoldFill(tester), backdropTheme.workbenchBackdrop);
+    });
+
     testWidgets('the side bars, panel and editor each render as a bordered, '
         'rounded card', (tester) async {
       await tester.pumpWidget(
@@ -2542,7 +2735,7 @@ void main() {
         ),
       );
 
-      for (final label in ['EXPLORER', 'Panel', 'Editor']) {
+      for (final label in ['Explorer', 'Panel', 'Editor']) {
         final ring = cardRing(find.text(label));
         expect(ring, findsOneWidget, reason: '$label card');
         final decoration =
@@ -2563,7 +2756,7 @@ void main() {
       // bar's allocation on its left and of the secondary bar's card on its
       // right.
       final editor = tester.getRect(cardRing(find.text('Editor')));
-      final sidebar = tester.getRect(cardRing(find.text('EXPLORER')));
+      final sidebar = tester.getRect(cardRing(find.text('Explorer')));
       final panel = tester.getRect(cardRing(find.text('Panel')));
       expect(editor.left - sidebar.right, closeTo(gap, 0.001));
       expect(panel.top - editor.bottom, closeTo(gap, 0.001));
@@ -2574,7 +2767,7 @@ void main() {
       await tester.pumpWidget(_buildApp());
 
       final rail = cardRing(find.byIcon(Symbols.folder_rounded));
-      final bar = cardRing(find.text('EXPLORER'));
+      final bar = cardRing(find.text('Explorer'));
       final railRect = tester.getRect(rail);
       final barRect = tester.getRect(bar);
 
@@ -2669,7 +2862,7 @@ void main() {
       // The side bar's card spans its whole allocation horizontally: it cedes
       // the rail seam on one side and leaves the editor to lead with the gap
       // on the other.
-      final sidebar = tester.getRect(cardRing(find.text('EXPLORER')));
+      final sidebar = tester.getRect(cardRing(find.text('Explorer')));
       expect(sidebar.width, closeTo(300, 0.001));
     });
 
@@ -2683,7 +2876,7 @@ void main() {
       );
 
       final editor = tester.getRect(cardRing(find.text('Editor')));
-      final sidebar = tester.getRect(cardRing(find.text('EXPLORER')));
+      final sidebar = tester.getRect(cardRing(find.text('Explorer')));
       expect(editor.top, closeTo(sidebar.top, 0.001));
       expect(editor.bottom, closeTo(sidebar.bottom, 0.001));
     });
@@ -2713,7 +2906,7 @@ void main() {
       // Compare against the allocation, not the content: card and content
       // shrink together, so measuring one against the other passes either way.
       final card = tester.getRect(cardRing(find.text('line 0')));
-      final sidebar = tester.getRect(cardRing(find.text('EXPLORER')));
+      final sidebar = tester.getRect(cardRing(find.text('Explorer')));
       expect(
         card.top,
         closeTo(sidebar.top, 0.001),
@@ -2731,7 +2924,7 @@ void main() {
 
       final editor = tester.getRect(cardRing(find.text('Editor')));
       final panel = tester.getRect(cardRing(find.text('Panel')));
-      final sidebar = tester.getRect(cardRing(find.text('EXPLORER')));
+      final sidebar = tester.getRect(cardRing(find.text('Explorer')));
 
       // The editor starts at the same top as the side bar and runs down to
       // the panel, leaving only the inter-card gap between them.
@@ -2836,7 +3029,7 @@ void main() {
           await tester.pumpAndSettle();
 
           final editor = cardOf(tester, 'Editor');
-          final sidebar = cardOf(tester, 'EXPLORER');
+          final sidebar = cardOf(tester, 'Explorer');
           final secondary = cardOf(tester, 'Sidebar: outline');
           final panel = cardOf(tester, 'Panel');
 
@@ -2896,7 +3089,7 @@ void main() {
         await tester.pumpAndSettle();
 
         for (final label in [
-          'EXPLORER',
+          'Explorer',
           'Sidebar: outline',
           'Panel',
           'Editor',
@@ -3006,7 +3199,7 @@ void main() {
           // The lane narrows, so the allocation does — the icon column itself
           // keeps its own width in both densities.
           expect(
-            cardOf(tester, 'EXPLORER').left - layout.left,
+            cardOf(tester, 'Explorer').left - layout.left,
             closeTo(allocation, 0.001),
             reason: '$density: rail allocation',
           );
@@ -3022,7 +3215,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(
-          cardOf(tester, 'Editor').left - cardOf(tester, 'EXPLORER').right,
+          cardOf(tester, 'Editor').left - cardOf(tester, 'Explorer').right,
           closeTo(0, 0.001),
         );
       });
@@ -3052,7 +3245,7 @@ void main() {
         );
 
         double seam() =>
-            cardOf(tester, 'Editor').left - cardOf(tester, 'EXPLORER').right;
+            cardOf(tester, 'Editor').left - cardOf(tester, 'Explorer').right;
         expect(seam(), closeTo(gap, 0.001));
 
         setOuter(() => density = WorkbenchLayoutDensity.compact);
@@ -3158,6 +3351,85 @@ void main() {
       expect(rail.right, closeTo(sidebar.left, 0.001));
       expect(sidebar.right, closeTo(editor.left, 0.001));
       expect(editor.bottom, closeTo(panel.top, 0.001));
+    });
+
+    testWidgets('draws no sash grips', (tester) async {
+      // `sashHandles.css` is a treatment stylesheet; base VS Code's sashes are
+      // invisible until hovered (§spec:modern-ui-surfaces).
+      await tester.pumpWidget(
+        _buildApp(initialModernUI: false, theme: baseTheme),
+      );
+      expect(find.byKey(sashGripKey), findsNothing);
+    });
+
+    testWidgets('uppercases the composite title and the secondary tabs', (
+      tester,
+    ) async {
+      // Base `part.css` renders `.title-label` uppercase at 11 / w400, which
+      // the treatment replaces (§spec:chrome-typography-canon).
+      await tester.pumpWidget(
+        _buildApp(
+          initialModernUI: false,
+          theme: baseTheme,
+          secondaryViewContainerIds: const ['outline', 'notes'],
+          secondarySideBarVisible: true,
+          onSecondarySideBarVisibilityChanged: (_) {},
+          containerBuilder: (id) => WorkbenchViewContainerSpec(
+            title: id == 'explorer' ? null : 'Titled $id',
+            mergeSingleView: true,
+            views: [
+              WorkbenchViewDescriptor(
+                id: id,
+                title: id,
+                bodyBuilder: (_) => Text('body-$id'),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      expect(find.text('EXPLORER'), findsOneWidget);
+      expect(find.text('Explorer'), findsNothing);
+      expect(find.text('TITLED OUTLINE'), findsOneWidget);
+      expect(find.text('TITLED NOTES'), findsOneWidget);
+
+      expect(
+        tester.widget<Text>(find.text('EXPLORER')).style,
+        baseTheme.baseSidebarOrPanelHeading,
+      );
+    });
+
+    testWidgets('insets the composite title at the base part and label tiers', (
+      tester,
+    ) async {
+      // Base `part.css`: 8px on the part, a further 12px on the label.
+      await tester.pumpWidget(
+        _buildApp(initialModernUI: false, theme: baseTheme),
+      );
+      final card = tester.getRect(
+        seamBox(find.text('EXPLORER'), sideBarSeam),
+      );
+      final label = tester.getRect(find.text('EXPLORER'));
+      expect(
+        label.left - card.left,
+        closeTo(
+          WorkbenchLayoutConstants.spacingSize80 +
+              WorkbenchLayoutConstants.spacingSize120,
+          0.001,
+        ),
+      );
+    });
+
+    testWidgets('grounds the workbench on the editor background', (
+      tester,
+    ) async {
+      // No card gutters to show a backdrop through, so the pre-treatment
+      // ground stands: base VS Code has no `floatingPanels.css` shell colour.
+      final theme = _splitBackdrop(baseTheme);
+      await tester.pumpWidget(
+        _buildApp(initialModernUI: false, theme: theme),
+      );
+      expect(_scaffoldFill(tester), theme.editorBackground);
     });
 
     testWidgets('draws each part seam from its own border token', (

@@ -92,8 +92,8 @@ class WorkbenchPanel {
   /// values from their own tab vocabulary.
   final Object id;
 
-  /// Natural-case label (`'Output'`, `'Debug Console'`). The shell
-  /// uppercases when rendering the tab strip.
+  /// Tab label (`'Output'`, `'Debug Console'`), rendered in the casing the
+  /// host supplies (§spec:chrome-typography-canon).
   final String label;
 
   /// Builds the body for this panel. Receives the per-panel

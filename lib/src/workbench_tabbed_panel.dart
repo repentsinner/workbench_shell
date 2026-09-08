@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import 'layout_constants.dart';
 import 'workbench_panel.dart';
+import 'workbench_surface_treatment.dart';
 import 'workbench_theme.dart';
 
 /// Descriptor for one tab in a [WorkbenchTabbedPanel].
@@ -13,10 +14,8 @@ import 'workbench_theme.dart';
 /// only carries identity, label string, optional badge, and the
 /// content builder.
 ///
-/// **Canonical rendering**. Per §spec:capability-boundary of the workbench_shell spec, tabs
-/// render uppercase regardless of how the consumer cases the input.
-/// Hosts pass natural-case labels (`'Output'`, `'Debug Console'`)
-/// and the shell paints `'OUTPUT'` / `'DEBUG CONSOLE'`. Hosts that
+/// **Canonical rendering**. The tab strip renders the label the host supplies
+/// (§spec:chrome-typography-canon); base VS Code uppercases it. Hosts that
 /// want a count-style badge supply [badge] as a typed
 /// [PanelTabBadge] carrying the count; the shell paints the inline
 /// pill in the panel-active accent colour (matching the active-tab
@@ -29,7 +28,8 @@ class WorkbenchPanelTab {
   /// [WorkbenchTabbedPanel.onRegisterFocusTab].
   final String id;
 
-  /// Natural-case label rendered uppercase by the shell.
+  /// Tab label, rendered in the casing the host supplies
+  /// (§spec:chrome-typography-canon).
   final String label;
 
   /// Optional inline badge rendered next to the label.
@@ -51,8 +51,7 @@ class WorkbenchPanelTab {
 ///
 /// Owns the [TabController] and renders:
 ///
-/// 1. A scrollable [TabBar] of the tab labels (uppercase, with
-///    optional inline badges).
+/// 1. A scrollable [TabBar] of the tab labels (with optional inline badges).
 /// 2. A trailing close button that fires [onTogglePanel].
 /// 3. A [TabBarView] hosting each descriptor's content.
 ///
@@ -206,80 +205,97 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
   @override
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
+    // One read of the treatment for the whole strip: the title tier, the tab
+    // labels and the strip's own inset all turn on it.
+    final modernUI = WorkbenchSurfaceTreatment.of(context);
+    final partTitle = WorkbenchSurfaceTreatment.partTitleStyleFor(
+      modernUI,
+      theme,
+    );
+    final stripInset = WorkbenchSurfaceTreatment.panelTitleInsetFor(modernUI);
     return ColoredBox(
       color: theme.panelBackground,
       child: Column(
         children: [
-          SizedBox(
+          Container(
             // Single 35px container (VS Code's `.part > .title`); the Row
-            // flex-centres its children vertically with no extra padding.
+            // flex-centres its children vertically, and the strip's own inset
+            // is the container's padding — one widget, matching the side bar
+            // heading (§spec:modern-ui-surfaces).
             height: WorkbenchLayoutConstants.panelTabStripHeight,
+            padding: stripInset,
             child: Row(
-              children: [
-                Expanded(
-                  child: TabBar(
-                    controller: _tabController,
-                    isScrollable: true,
-                    tabAlignment: TabAlignment.start,
-                    labelColor: theme.tabBarLabelColor,
-                    unselectedLabelColor: theme.tabBarUnselectedLabelColor,
-                    labelStyle: theme.sidebarOrPanelHeading.copyWith(
-                      color: theme.tabBarLabelColor,
-                    ),
-                    unselectedLabelStyle: theme.sidebarOrPanelHeading.copyWith(
-                      color: theme.tabBarUnselectedLabelColor,
-                    ),
-                    dividerColor: theme.tabBarDividerColor,
-                    // Suppress Material's hover/focus/pressed overlay box;
-                    // the §spec:tab-strip-canon canon is a label-colour transition with no
-                    // background overlay.
-                    overlayColor: const WidgetStatePropertyAll(
-                      Colors.transparent,
-                    ),
-                    indicator: UnderlineTabIndicator(
-                      borderSide: BorderSide(color: theme.tabBarIndicatorColor),
-                    ),
-                    tabs: [
-                      for (var i = 0; i < widget.tabs.length; i++)
-                        Tab(
-                          child: _HoverableTabLabel(
-                            controller: _tabController,
-                            tabIndex: i,
-                            activeColor: theme.tabBarLabelColor,
-                            inactiveColor: theme.tabBarUnselectedLabelColor,
-                            // Hover tints inactive labels toward the
-                            // active-tab text colour (the
-                            // panelTitle.activeForeground accent),
-                            // not the selection underline. The selection
-                            // underline is a "this is the active tab"
-                            // signal, while hover is "if you click this
-                            // tab will become active" — visually closer
-                            // to the active text colour.
-                            inactiveHoverColor: theme.tabBarLabelColor,
-                            child: _buildTabLabel(theme, widget.tabs[i]),
-                          ),
+                children: [
+                  Expanded(
+                    child: TabBar(
+                      controller: _tabController,
+                      isScrollable: true,
+                      tabAlignment: TabAlignment.start,
+                      labelColor: theme.tabBarLabelColor,
+                      unselectedLabelColor: theme.tabBarUnselectedLabelColor,
+                      labelStyle: partTitle.copyWith(
+                        color: theme.tabBarLabelColor,
+                      ),
+                      unselectedLabelStyle: partTitle.copyWith(
+                        color: theme.tabBarUnselectedLabelColor,
+                      ),
+                      dividerColor: theme.tabBarDividerColor,
+                      // Suppress Material's hover/focus/pressed overlay box;
+                      // the §spec:tab-strip-canon canon is a label-colour transition with no
+                      // background overlay.
+                      overlayColor: const WidgetStatePropertyAll(
+                        Colors.transparent,
+                      ),
+                      indicator: UnderlineTabIndicator(
+                        borderSide: BorderSide(
+                          color: theme.tabBarIndicatorColor,
                         ),
-                    ],
+                      ),
+                      tabs: [
+                        for (var i = 0; i < widget.tabs.length; i++)
+                          Tab(
+                            child: _HoverableTabLabel(
+                              controller: _tabController,
+                              tabIndex: i,
+                              activeColor: theme.tabBarLabelColor,
+                              inactiveColor: theme.tabBarUnselectedLabelColor,
+                              // Hover tints inactive labels toward the
+                              // active-tab text colour (the
+                              // panelTitle.activeForeground accent),
+                              // not the selection underline. The selection
+                              // underline is a "this is the active tab"
+                              // signal, while hover is "if you click this
+                              // tab will become active" — visually closer
+                              // to the active text colour.
+                              inactiveHoverColor: theme.tabBarLabelColor,
+                              child: _buildTabLabel(
+                                context,
+                                theme,
+                                widget.tabs[i],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(
-                    Symbols.close_rounded,
-                    size: WorkbenchLayoutConstants.iconMd,
+                  IconButton(
+                    icon: const Icon(
+                      Symbols.close_rounded,
+                      size: WorkbenchLayoutConstants.iconMd,
+                    ),
+                    color: theme.descriptionForeground,
+                    tooltip: widget.closeButtonTooltip,
+                    onPressed: widget.onTogglePanel,
+                    padding: const EdgeInsets.all(
+                      WorkbenchLayoutConstants.spacingSize40,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: WorkbenchLayoutConstants.iconXl,
+                      minHeight: WorkbenchLayoutConstants.iconXl,
+                    ),
                   ),
-                  color: theme.descriptionForeground,
-                  tooltip: widget.closeButtonTooltip,
-                  onPressed: widget.onTogglePanel,
-                  padding: const EdgeInsets.all(
-                    WorkbenchLayoutConstants.spacingSize40,
-                  ),
-                  constraints: const BoxConstraints(
-                    minWidth: WorkbenchLayoutConstants.iconXl,
-                    minHeight: WorkbenchLayoutConstants.iconXl,
-                  ),
-                ),
-              ],
-            ),
+                ],
+              ),
           ),
           Expanded(
             child: TabBarView(
@@ -295,19 +311,24 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
     );
   }
 
-  /// Canonical tab label: uppercased text plus an optional severity
-  /// pill. The shell owns this rendering so consumers cannot diverge
-  /// (§spec:capability-boundary canon enforcement).
-  Widget _buildTabLabel(WorkbenchTheme theme, WorkbenchPanelTab tab) {
-    final upper = tab.label.toUpperCase();
+  /// Canonical tab label: the host's string plus an optional severity pill.
+  /// The treatment renders the label `capitalize` and upstream's own strings
+  /// are already cased, so the shell transforms nothing; base VS Code
+  /// uppercases (§spec:chrome-typography-canon).
+  Widget _buildTabLabel(
+    BuildContext context,
+    WorkbenchTheme theme,
+    WorkbenchPanelTab tab,
+  ) {
+    final label = WorkbenchSurfaceTreatment.titleCasing(context, tab.label);
     final badge = tab.badge;
     if (badge == null) {
-      return Text(upper);
+      return Text(label);
     }
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(upper),
+        Text(label),
         const SizedBox(width: WorkbenchLayoutConstants.spacingSize40),
         _badgePill(theme, badge),
       ],

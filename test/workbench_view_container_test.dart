@@ -57,9 +57,9 @@ void main() {
       );
 
       // Titles render uppercased per pane canon.
-      expect(find.text('ALPHA'), findsOneWidget);
-      expect(find.text('BETA'), findsOneWidget);
-      expect(find.text('GAMMA'), findsOneWidget);
+      expect(find.text('Alpha'), findsOneWidget);
+      expect(find.text('Beta'), findsOneWidget);
+      expect(find.text('Gamma'), findsOneWidget);
       // Bodies present.
       expect(find.text('body-a'), findsOneWidget);
       expect(find.text('body-b'), findsOneWidget);
@@ -68,8 +68,8 @@ void main() {
       // Flush: the container inserts no SizedBox gap between panes. Assert
       // adjacent headers are vertically ordered, the later header below the
       // earlier one.
-      final alphaTop = tester.getTopLeft(find.text('ALPHA')).dy;
-      final betaTop = tester.getTopLeft(find.text('BETA')).dy;
+      final alphaTop = tester.getTopLeft(find.text('Alpha')).dy;
+      final betaTop = tester.getTopLeft(find.text('Beta')).dy;
       expect(betaTop, greaterThan(alphaTop));
     });
 
@@ -114,8 +114,8 @@ void main() {
 
       // Neither paints at rest: Modern UI matches the header to the side bar
       // surface rather than tinting it (§spec:modern-ui-surfaces).
-      expect(surfaceFor('ALPHA').color, isNull);
-      expect(surfaceFor('BETA').color, isNull);
+      expect(surfaceFor('Alpha').color, isNull);
+      expect(surfaceFor('Beta').color, isNull);
 
       // Exactly one inset rule, and it belongs to the second pane: no divider
       // above the first pane in the stack (§spec:modern-ui-surfaces).
@@ -189,7 +189,7 @@ void main() {
       expect(find.text('body-b'), findsOneWidget);
 
       // Collapse Alpha by tapping its header.
-      await tester.tap(find.text('ALPHA'));
+      await tester.tap(find.text('Alpha'));
       await tester.pumpAndSettle();
 
       // Alpha's body is gone; Beta's stays.
@@ -228,7 +228,7 @@ void main() {
       );
 
       // Header visible, body shown, no chevron.
-      expect(find.text('SOLO'), findsOneWidget);
+      expect(find.text('Solo'), findsOneWidget);
       expect(find.text('body-solo'), findsOneWidget);
       expect(find.byIcon(Symbols.expand_more_rounded), findsNothing);
       expect(find.byIcon(Symbols.chevron_right_rounded), findsNothing);
@@ -257,7 +257,7 @@ void main() {
 
       // Body fills; no pane header (title not rendered as a header).
       expect(find.text('body-solo'), findsOneWidget);
-      expect(find.text('SOLO'), findsNothing);
+      expect(find.text('Solo'), findsNothing);
       // No WorkbenchViewPane rendered at all.
       expect(find.byType(WorkbenchViewPane), findsNothing);
     });
@@ -437,7 +437,7 @@ void main() {
       expect(tallScroller.position.maxScrollExtent, greaterThan(0.0));
 
       // The short pane's header stays fixed when the tall body scrolls.
-      final shortHeaderTopBefore = tester.getTopLeft(find.text('SHORT')).dy;
+      final shortHeaderTopBefore = tester.getTopLeft(find.text('Short')).dy;
       await tester.drag(
         find.descendant(
           of: find.byKey(const ValueKey('workbench-view-pane-tall')),
@@ -446,7 +446,7 @@ void main() {
         const Offset(0, -200),
       );
       await tester.pumpAndSettle();
-      final shortHeaderTopAfter = tester.getTopLeft(find.text('SHORT')).dy;
+      final shortHeaderTopAfter = tester.getTopLeft(find.text('Short')).dy;
       expect(shortHeaderTopAfter, closeTo(shortHeaderTopBefore, 0.5));
 
       // The container itself did not scroll the whole stack: the tall pane is
@@ -490,7 +490,7 @@ void main() {
       final aBefore = paneRect(tester, 'a').height;
 
       // Collapse Gamma.
-      await tester.tap(find.text('GAMMA'));
+      await tester.tap(find.text('Gamma'));
       await tester.pumpAndSettle();
 
       // Gamma now occupies only its header height.
@@ -564,7 +564,7 @@ void main() {
       // Scrolling the outer region keeps the third pane's header reachable.
       await tester.drag(outerScrollable, const Offset(0, -300));
       await tester.pumpAndSettle();
-      expect(find.text('GAMMA'), findsOneWidget);
+      expect(find.text('Gamma'), findsOneWidget);
     });
 
     testWidgets('dragging the sash transfers body height between adjacent '
@@ -820,7 +820,7 @@ void main() {
 
       // Collapse Alpha: Beta's sash disappears — its only expanded neighbor
       // (Alpha) is gone, so there is no body boundary to drag.
-      await tester.tap(find.text('ALPHA'));
+      await tester.tap(find.text('Alpha'));
       await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('workbench-view-sash-b')),
@@ -875,7 +875,7 @@ void main() {
       // Collapse Gamma. Its freed body must be absorbed by the two survivors
       // in proportion to their weights — no dead space at the bottom, and the
       // A:B ratio holds.
-      await tester.tap(find.text('GAMMA'));
+      await tester.tap(find.text('Gamma'));
       await tester.pumpAndSettle();
 
       // Gamma now occupies only its header height.
@@ -941,9 +941,9 @@ void main() {
 
       // Collapse Gamma, then expand it again. VS Code SplitView canon: the
       // re-expanded pane returns to its prior size and the others shrink back.
-      await tester.tap(find.text('GAMMA'));
+      await tester.tap(find.text('Gamma'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('GAMMA'));
+      await tester.tap(find.text('Gamma'));
       await tester.pumpAndSettle();
 
       // Gamma is restored to its prior body height (not reset to even).
@@ -1134,15 +1134,15 @@ void main() {
       );
 
       // Initial order: Alpha, Beta, Gamma.
-      final alphaTop0 = tester.getTopLeft(find.text('ALPHA')).dy;
-      final betaTop0 = tester.getTopLeft(find.text('BETA')).dy;
-      final gammaTop0 = tester.getTopLeft(find.text('GAMMA')).dy;
+      final alphaTop0 = tester.getTopLeft(find.text('Alpha')).dy;
+      final betaTop0 = tester.getTopLeft(find.text('Beta')).dy;
+      final gammaTop0 = tester.getTopLeft(find.text('Gamma')).dy;
       expect(alphaTop0, lessThan(betaTop0));
       expect(betaTop0, lessThan(gammaTop0));
 
       // Drag the third pane (Gamma) header up onto the first pane (Alpha):
       // dropping on Alpha's top half inserts Gamma before Alpha.
-      final gammaHeader = tester.getCenter(find.text('GAMMA'));
+      final gammaHeader = tester.getCenter(find.text('Gamma'));
       final alphaCenter = tester.getCenter(
         find.byKey(const ValueKey('workbench-view-pane-a')),
       );
@@ -1157,9 +1157,9 @@ void main() {
       // Notified of the move (Gamma index 2 → 0)…
       expect(reported, (2, 0));
       // …and the shell itself reordered the rendered stack: Gamma, Alpha, Beta.
-      final gammaTop1 = tester.getTopLeft(find.text('GAMMA')).dy;
-      final alphaTop1 = tester.getTopLeft(find.text('ALPHA')).dy;
-      final betaTop1 = tester.getTopLeft(find.text('BETA')).dy;
+      final gammaTop1 = tester.getTopLeft(find.text('Gamma')).dy;
+      final alphaTop1 = tester.getTopLeft(find.text('Alpha')).dy;
+      final betaTop1 = tester.getTopLeft(find.text('Beta')).dy;
       expect(gammaTop1, lessThan(alphaTop1));
       expect(alphaTop1, lessThan(betaTop1));
     });
@@ -1190,13 +1190,13 @@ void main() {
       );
 
       expect(
-        tester.getTopLeft(find.text('ALPHA')).dy,
-        lessThan(tester.getTopLeft(find.text('BETA')).dy),
+        tester.getTopLeft(find.text('Alpha')).dy,
+        lessThan(tester.getTopLeft(find.text('Beta')).dy),
       );
 
       // Drag Beta's header onto Alpha's top half → Beta before Alpha, with no
       // host order state and no onReorder callback at all.
-      final betaHeader = tester.getCenter(find.text('BETA'));
+      final betaHeader = tester.getCenter(find.text('Beta'));
       final alphaCenter = tester.getCenter(
         find.byKey(const ValueKey('workbench-view-pane-a')),
       );
@@ -1208,8 +1208,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        tester.getTopLeft(find.text('BETA')).dy,
-        lessThan(tester.getTopLeft(find.text('ALPHA')).dy),
+        tester.getTopLeft(find.text('Beta')).dy,
+        lessThan(tester.getTopLeft(find.text('Alpha')).dy),
       );
     });
 
@@ -1246,7 +1246,7 @@ void main() {
       );
 
       // Start dragging Alpha's header and move over Beta.
-      final alphaHeader = tester.getCenter(find.text('ALPHA'));
+      final alphaHeader = tester.getCenter(find.text('Alpha'));
       final betaCenter = tester.getCenter(
         find.byKey(const ValueKey('workbench-view-pane-b')),
       );
@@ -1293,7 +1293,7 @@ void main() {
         ),
       );
 
-      final alphaHeader = tester.getCenter(find.text('ALPHA'));
+      final alphaHeader = tester.getCenter(find.text('Alpha'));
       final gesture = await tester.startGesture(alphaHeader);
       await tester.pump(const Duration(milliseconds: 200));
       await gesture.moveTo(Offset(alphaHeader.dx, alphaHeader.dy + 60));
@@ -1336,12 +1336,12 @@ void main() {
 
       await tester.pumpWidget(build(const ['a', 'b']));
       expect(
-        tester.getTopLeft(find.text('ALPHA')).dy,
-        lessThan(tester.getTopLeft(find.text('BETA')).dy),
+        tester.getTopLeft(find.text('Alpha')).dy,
+        lessThan(tester.getTopLeft(find.text('Beta')).dy),
       );
 
       // Drag Beta onto Alpha's top half.
-      final betaHeader = tester.getCenter(find.text('BETA'));
+      final betaHeader = tester.getCenter(find.text('Beta'));
       final alphaCenter = tester.getCenter(
         find.byKey(const ValueKey('workbench-view-pane-a')),
       );
@@ -1356,16 +1356,16 @@ void main() {
       // order still renders Alpha, Beta until the host pushes a new order.
       expect(reported, (1, 0));
       expect(
-        tester.getTopLeft(find.text('ALPHA')).dy,
-        lessThan(tester.getTopLeft(find.text('BETA')).dy),
+        tester.getTopLeft(find.text('Alpha')).dy,
+        lessThan(tester.getTopLeft(find.text('Beta')).dy),
       );
 
       // Host applies the move → the render follows.
       await tester.pumpWidget(build(const ['b', 'a']));
       await tester.pumpAndSettle();
       expect(
-        tester.getTopLeft(find.text('BETA')).dy,
-        lessThan(tester.getTopLeft(find.text('ALPHA')).dy),
+        tester.getTopLeft(find.text('Beta')).dy,
+        lessThan(tester.getTopLeft(find.text('Alpha')).dy),
       );
     });
 
@@ -1400,7 +1400,7 @@ void main() {
 
       // Tapping reports the requested next state but does not self-toggle:
       // the host drives the controlled descriptor's value.
-      await tester.tap(find.text('ALPHA'));
+      await tester.tap(find.text('Alpha'));
       await tester.pumpAndSettle();
       expect(reported, isFalse);
       expect(find.text('body-a'), findsOneWidget);
@@ -1469,9 +1469,9 @@ void main() {
 
       // Focus the first header by clicking it. Clicking a collapsible header
       // toggles it, so re-expand to keep the stack expanded for the test.
-      await tester.tap(find.text('ALPHA'));
+      await tester.tap(find.text('Alpha'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('ALPHA'));
+      await tester.tap(find.text('Alpha'));
       await tester.pumpAndSettle();
       expect(isFocused(tester, 'a'), isTrue);
 
@@ -1504,7 +1504,7 @@ void main() {
 
       // Beta has a sash above it (Alpha is expanded). Clicking toggles Beta
       // collapsed and must leave focus on Beta's header.
-      await tester.tap(find.text('BETA'));
+      await tester.tap(find.text('Beta'));
       await tester.pumpAndSettle();
       expect(isFocused(tester, 'b'), isTrue);
       expect(isFocused(tester, 'a'), isFalse);
@@ -1525,7 +1525,7 @@ void main() {
       await pumpStack(tester, threeViews());
 
       // Focus Beta by clicking it (also collapses it; focus stays on its header).
-      await tester.tap(find.text('BETA'));
+      await tester.tap(find.text('Beta'));
       await tester.pumpAndSettle();
       expect(isFocused(tester, 'b'), isTrue);
 
@@ -1542,9 +1542,9 @@ void main() {
       await pumpStack(tester, threeViews());
 
       // Drive focus to the last header via Down, then walk back with Up.
-      await tester.tap(find.text('ALPHA'));
+      await tester.tap(find.text('Alpha'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('ALPHA'));
+      await tester.tap(find.text('Alpha'));
       await tester.pumpAndSettle();
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
@@ -1576,7 +1576,7 @@ void main() {
       ]);
 
       // A lone non-collapsible header is focusable; click focuses it.
-      await tester.tap(find.text('SOLO'));
+      await tester.tap(find.text('Solo'));
       await tester.pumpAndSettle();
       expect(isFocused(tester, 'solo'), isTrue);
 
@@ -1594,9 +1594,9 @@ void main() {
     ) async {
       await pumpStack(tester, threeViews());
 
-      await tester.tap(find.text('ALPHA'));
+      await tester.tap(find.text('Alpha'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('ALPHA'));
+      await tester.tap(find.text('Alpha'));
       await tester.pumpAndSettle();
       // All bodies visible (every pane expanded).
       expect(find.text('body-a'), findsOneWidget);
@@ -1640,9 +1640,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('ALPHA'));
+      await tester.tap(find.text('Alpha'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('ALPHA'));
+      await tester.tap(find.text('Alpha'));
       await tester.pumpAndSettle();
 
       // Up on the first header clamps — does not escape to outerAbove.
@@ -1681,9 +1681,9 @@ void main() {
         ),
       ]);
 
-      await tester.tap(find.text('ALPHA'));
+      await tester.tap(find.text('Alpha'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('ALPHA'));
+      await tester.tap(find.text('Alpha'));
       await tester.pumpAndSettle();
       expect(isFocused(tester, 'a'), isTrue);
 
@@ -1708,15 +1708,15 @@ void main() {
       await pumpStack(tester, threeViews());
 
       // Collapse the middle pane (click toggles it).
-      await tester.tap(find.text('BETA'));
+      await tester.tap(find.text('Beta'));
       await tester.pumpAndSettle();
       expect(find.text('body-b'), findsNothing);
 
       // Focus the first header (re-expand after the toggling click), then
       // traverse: Down still lands on the collapsed pane's header.
-      await tester.tap(find.text('ALPHA'));
+      await tester.tap(find.text('Alpha'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('ALPHA'));
+      await tester.tap(find.text('Alpha'));
       await tester.pumpAndSettle();
       expect(isFocused(tester, 'a'), isTrue);
 
@@ -1764,9 +1764,9 @@ void main() {
         ),
       );
 
-      expect(find.text('ALPHA'), findsOneWidget);
-      expect(find.text('BETA'), findsNothing);
-      expect(find.text('GAMMA'), findsOneWidget);
+      expect(find.text('Alpha'), findsOneWidget);
+      expect(find.text('Beta'), findsNothing);
+      expect(find.text('Gamma'), findsOneWidget);
     });
 
     testWidgets('re-showing a hidden view restores its original slot', (
@@ -1787,9 +1787,9 @@ void main() {
       await tester.pumpAndSettle();
 
       // Beta returns between Alpha and Gamma — its order slot was retained.
-      final ay = tester.getTopLeft(find.text('ALPHA')).dy;
-      final by = tester.getTopLeft(find.text('BETA')).dy;
-      final cy = tester.getTopLeft(find.text('GAMMA')).dy;
+      final ay = tester.getTopLeft(find.text('Alpha')).dy;
+      final by = tester.getTopLeft(find.text('Beta')).dy;
+      final cy = tester.getTopLeft(find.text('Gamma')).dy;
       expect(ay, lessThan(by));
       expect(by, lessThan(cy));
     });
@@ -1809,7 +1809,7 @@ void main() {
         ),
       );
 
-      expect(find.text('ALPHA'), findsOneWidget);
+      expect(find.text('Alpha'), findsOneWidget);
       // A lone visible pane shows no chevron (non-collapsible).
       expect(find.byIcon(Symbols.expand_more_rounded), findsNothing);
       expect(find.byIcon(Symbols.chevron_right_rounded), findsNothing);
@@ -1828,9 +1828,9 @@ void main() {
         ),
       );
 
-      expect(find.text('ALPHA'), findsNothing);
-      expect(find.text('BETA'), findsNothing);
-      expect(find.text('GAMMA'), findsNothing);
+      expect(find.text('Alpha'), findsNothing);
+      expect(find.text('Beta'), findsNothing);
+      expect(find.text('Gamma'), findsNothing);
     });
 
     testWidgets('a hidden middle view keeps its slot through a reorder of the '
@@ -1851,8 +1851,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Drag Gamma's header onto Alpha's top half (visible order A, C → C, A).
-      final gamma = find.text('GAMMA');
-      final alpha = find.text('ALPHA');
+      final gamma = find.text('Gamma');
+      final alpha = find.text('Alpha');
       final alphaCenter = tester.getCenter(
         find.byKey(const ValueKey('workbench-view-pane-a')),
       );
@@ -1875,9 +1875,9 @@ void main() {
       await tester.pumpAndSettle();
       // Beta sits where its id slot landed: original order was a,b,c; reordering
       // visible [a,c]→[c,a] rebuilt order to c,b,a, so Beta is the middle pane.
-      final cy = tester.getTopLeft(find.text('GAMMA')).dy;
-      final by = tester.getTopLeft(find.text('BETA')).dy;
-      final ay = tester.getTopLeft(find.text('ALPHA')).dy;
+      final cy = tester.getTopLeft(find.text('Gamma')).dy;
+      final by = tester.getTopLeft(find.text('Beta')).dy;
+      final ay = tester.getTopLeft(find.text('Alpha')).dy;
       expect(cy, lessThan(by));
       expect(by, lessThan(ay));
     });

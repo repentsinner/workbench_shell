@@ -140,6 +140,17 @@ typedef _CardEdges = ({
   _CardEdgeKind bottom,
 });
 
+/// The gutter one edge reserves at [density]. Shared by the card that draws the
+/// frame and by the sash that runs alongside it: a seam's highlight is inset by
+/// the same gutters its two cards leave, so both read the answer from here
+/// (§spec:modern-ui-surfaces).
+double _cardGutter(_CardEdgeKind kind, WorkbenchLayoutDensity density) =>
+    switch (kind) {
+      _CardEdgeKind.perimeter => density.cardPerimeter,
+      _CardEdgeKind.gap => density.cardGap,
+      _CardEdgeKind.led || _CardEdgeKind.seam => 0.0,
+    };
+
 /// The frame a workbench part draws around itself (§spec:modern-ui-surfaces).
 ///
 /// Under the Modern UI treatment ([modernUI]) the part is a floating card: a
@@ -195,17 +206,11 @@ class _PartFrame extends StatelessWidget {
     _ => null,
   };
 
-  double _gutterFor(_CardEdgeKind kind) => switch (kind) {
-    _CardEdgeKind.perimeter => density.cardPerimeter,
-    _CardEdgeKind.gap => density.cardGap,
-    _CardEdgeKind.led || _CardEdgeKind.seam => 0.0,
-  };
-
   EdgeInsets get _gutter => EdgeInsets.fromLTRB(
-    _gutterFor(edges.left),
-    _gutterFor(edges.top),
-    _gutterFor(edges.right),
-    _gutterFor(edges.bottom),
+    _cardGutter(edges.left, density),
+    _cardGutter(edges.top, density),
+    _cardGutter(edges.right, density),
+    _cardGutter(edges.bottom, density),
   );
 
   /// Whether one edge draws a stroke. Cards that stand clear of their
@@ -1047,6 +1052,15 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   late bool _internalModernUI;
   bool get _modernUI => widget.modernUI ?? _internalModernUI;
 
+  /// The ground the workbench paints behind its parts. Under the treatment the
+  /// cards float a gutter apart and `floatingPanels.css` fills what shows
+  /// through from `titleBar.activeBackground`, which is also the status bar's
+  /// band — so the two read as one surface. Base VS Code leaves no gutter to
+  /// show anything through, and the pre-treatment ground stands
+  /// (§spec:modern-ui-surfaces).
+  Color _backdrop(WorkbenchTheme theme) =>
+      _modernUI ? theme.workbenchBackdrop : theme.editorBackground;
+
   @override
   void initState() {
     super.initState();
@@ -1202,7 +1216,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       return WorkbenchSurfaceTreatment(
         modernUI: _modernUI,
         child: Scaffold(
-          backgroundColor: theme.editorBackground,
+          backgroundColor: _backdrop(theme),
           body: SafeArea(child: editorContent),
         ),
       );
@@ -1373,6 +1387,22 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     // subtree (and any State it owns — timers, scroll positions, fetched data)
     // survives hide/show cycles. Without this, toggling showBottomPanel disposes
     // the entire panel tree and discards content state every cycle.
+    // Named once: the card draws its frame from these and the sash alongside
+    // it insets its highlight by the same gutters (§spec:modern-ui-surfaces).
+    // A bar group lifted into the band sits above the panel rather than beside
+    // it, so that side of the panel faces the window and takes the perimeter
+    // gutter instead of an inter-card gap.
+    final _CardEdges panelEdges = (
+      left: !leftInside && leadingCard
+          ? _CardEdgeKind.gap
+          : _CardEdgeKind.perimeter,
+      top: _CardEdgeKind.gap,
+      right: !rightInside && trailingCard
+          ? _CardEdgeKind.led
+          : _CardEdgeKind.perimeter,
+      bottom: _CardEdgeKind.perimeter,
+    );
+
     final panel = Visibility(
       visible: widget.showBottomPanel,
       maintainState: true,
@@ -1396,19 +1426,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
                 baseBorder: theme.panelBorder == null
                     ? null
                     : Border(top: BorderSide(color: theme.panelBorder!)),
-                // A bar group lifted into the band sits above the panel rather
-                // than beside it, so that side of the panel faces the window
-                // and takes the perimeter gutter instead of an inter-card gap.
-                edges: (
-                  left: !leftInside && leadingCard
-                      ? _CardEdgeKind.gap
-                      : _CardEdgeKind.perimeter,
-                  top: _CardEdgeKind.gap,
-                  right: !rightInside && trailingCard
-                      ? _CardEdgeKind.led
-                      : _CardEdgeKind.perimeter,
-                  bottom: _CardEdgeKind.perimeter,
-                ),
+                edges: panelEdges,
                 background: theme.panelBackground,
                 borderColor: theme.surfaceBorder,
                 child: widget.bottomPanel,
@@ -1424,7 +1442,11 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
               top: 0,
               left: 0,
               right: 0,
-              child: _buildHorizontalResizer(theme),
+              child: _buildHorizontalResizer(
+                edges: panelEdges,
+                density: density,
+                modernUI: modernUI,
+              ),
             ),
           ],
         ),
@@ -1484,7 +1506,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     return WorkbenchSurfaceTreatment(
       modernUI: modernUI,
       child: Scaffold(
-        backgroundColor: theme.editorBackground,
+        backgroundColor: _backdrop(theme),
         body: SafeArea(
           child: Column(
             children: [
@@ -1571,6 +1593,11 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
                 width: width,
                 onWidth: onWidth,
                 onChangeEnd: onChangeEnd,
+                // A boundary between two parts, so it carries the grip and
+                // the treatment's highlight inset (§spec:modern-ui-surfaces).
+                edges: edges,
+                density: density,
+                modernUI: modernUI,
               ),
             ),
           ],
@@ -1589,18 +1616,60 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   /// The shell owns the live [width]: [onWidth] permutes it each frame so the
   /// tree relayouts, and [onChangeEnd] commits the final value once on release
   /// for persistence (§spec:resize-geometry). No per-frame host callback.
+  /// How a seam between two parts renders under the treatment in force
+  /// (§spec:modern-ui-surfaces): whether it carries the persistent grip, and
+  /// how far its highlight insets from each end.
+  ///
+  /// Both answers come from the same three inputs, so they are resolved
+  /// together rather than at each call site — stated twice, the two drifted:
+  /// the grip was gated on the treatment and the inset was not, so a base-mode
+  /// highlight inset itself by gutters no card leaves. The [_CardEdges] fields
+  /// an axis reads are picked here too, so a call site cannot pair a vertical
+  /// seam with the horizontal pair.
+  ({bool grip, EdgeInsets highlightInset}) _seamTreatment(
+    Axis axis,
+    _CardEdges edges,
+    WorkbenchLayoutDensity density,
+    bool modernUI,
+  ) {
+    // Base VS Code frames no cards, so there is neither a grip to draw nor a
+    // gutter to stop the highlight short of.
+    if (!modernUI) return (grip: false, highlightInset: EdgeInsets.zero);
+    return (
+      // Compact closes the gap and `sashHandles.css` retires the grip with it.
+      grip: !density.cardsAbut,
+      // The cards either side leave these gutters at the seam's two ends, so
+      // the highlight stops where they do.
+      highlightInset: axis == Axis.horizontal
+          ? EdgeInsets.only(
+              top: _cardGutter(edges.top, density),
+              bottom: _cardGutter(edges.bottom, density),
+            )
+          : EdgeInsets.only(
+              left: _cardGutter(edges.left, density),
+              right: _cardGutter(edges.right, density),
+            ),
+    );
+  }
+
   Widget _buildSidebarResizer({
     required double growSign,
     required double width,
     required ValueChanged<double> onWidth,
     required ValueChanged<double>? onChangeEnd,
+    required _CardEdges edges,
+    required WorkbenchLayoutDensity density,
+    required bool modernUI,
   }) {
+    final seam = _seamTreatment(Axis.horizontal, edges, density, modernUI);
     return WorkbenchSash(
       axis: Axis.horizontal,
       value: width,
       min: WorkbenchLayoutConstants.sidebarMinWidth,
       max: WorkbenchLayoutConstants.sidebarMaxWidth,
       growSign: growSign,
+      grip: seam.grip,
+      highlightInset: seam.highlightInset,
       onChanged: onWidth,
       onChangeEnd: onChangeEnd,
       // Double-click resets the seam to its default and commits it through the
@@ -1615,16 +1684,23 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     );
   }
 
-  Widget _buildHorizontalResizer(WorkbenchTheme theme) {
+  Widget _buildHorizontalResizer({
+    required _CardEdges edges,
+    required WorkbenchLayoutDensity density,
+    required bool modernUI,
+  }) {
+    final seam = _seamTreatment(Axis.vertical, edges, density, modernUI);
     // The panel sits at the bottom, so dragging the seam up grows its height
     // (growSign -1: moving the pointer down shrinks the panel). Same canonical
-    // sash, highlight included (§spec:workbench-layout).
+    // sash, highlight and grip included (§spec:workbench-layout).
     return WorkbenchSash(
       axis: Axis.vertical,
       value: _panelHeight,
       min: WorkbenchLayoutConstants.panelMinHeight,
       max: WorkbenchLayoutConstants.panelMaxHeight,
       growSign: -1,
+      grip: seam.grip,
+      highlightInset: seam.highlightInset,
       // Shell-owned, mirroring the sidebar resizer above (§spec:resize-geometry).
       onChanged: (next) => setState(() => _panelHeight = next),
       onChangeEnd: widget.onPanelHeightChangeEnd,
@@ -2221,11 +2297,18 @@ class _Sidebar extends StatelessWidget {
     final showOverflow =
         spec.views.any((v) => v.canHide) ||
         spec.titleOverflowEntries.isNotEmpty;
+    // Two insets, not one: `.part > .title` pads the row and `.title-label`
+    // pads the label inside it, so the title reads further in than the
+    // trailing action does. The trailing action keeps only the part's inset,
+    // since upstream zeroes the last action's margin
+    // (§spec:modern-ui-surfaces). The layout hands this bar its treatment, so
+    // it uses the field rather than reading the tree a second time.
+    final labelInset = WorkbenchSurfaceTreatment.partTitleLabelInsetFor(
+      modernUI,
+    );
     return Container(
       height: WorkbenchLayoutConstants.sidebarHeadingHeight,
-      padding: const EdgeInsets.symmetric(
-        horizontal: WorkbenchLayoutConstants.spacingSize160,
-      ),
+      padding: WorkbenchSurfaceTreatment.partTitleInsetFor(modernUI),
       child: Row(
         children: [
           Expanded(
@@ -2234,12 +2317,23 @@ class _Sidebar extends StatelessWidget {
             // activity-item label as fallback (§spec:view-container-title).
             // A container the activity bar never lists (a secondary's) has
             // an empty [activeLabel], so its spec title is its only source.
+            // Only the label takes the label inset — upstream's composite bar
+            // is a sibling of `.title-label`, not a child.
             child: tabIds != null
                 ? _buildTitleTabs()
-                : Text(
-                    (spec.title ?? activeLabel).toUpperCase(),
-                    style: theme.sidebarOrPanelHeading,
-                    overflow: TextOverflow.ellipsis,
+                : Padding(
+                    padding: labelInset,
+                    child: Text(
+                      WorkbenchSurfaceTreatment.titleCasing(
+                        context,
+                        spec.title ?? activeLabel,
+                      ),
+                      style: WorkbenchSurfaceTreatment.partTitleStyle(
+                        context,
+                        theme,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
           ),
           // Host inline title actions, persistent (the composite title is
@@ -2254,8 +2348,9 @@ class _Sidebar extends StatelessWidget {
   /// One compact text-label tab per secondary member in the title row
   /// (§spec:secondary-sidebar), the port of VS Code's `AuxiliaryBarPart`
   /// embedding its `PaneCompositeBar` at the title position. Labels come from
-  /// each member's spec `title`, uppercased like the composite title
-  /// (§spec:view-container-title); an untitled member renders a blank tab — no
+  /// each member's spec `title`, in the casing the host supplies like the
+  /// composite title (§spec:view-container-title); an untitled member renders a
+  /// blank tab — no
   /// activity item exists to fall back to. A single-member bar still shows its
   /// one tab, matching canon's default presentation. Stretched so the active
   /// underline sits at the bottom of the row.
@@ -2269,7 +2364,10 @@ class _Sidebar extends StatelessWidget {
           // canon's tab-overflow dropdown is deferred (§spec:secondary-sidebar).
           Flexible(
             child: _SecondaryBarTab(
-              label: (containerBuilder(id).title ?? '').toUpperCase(),
+              // Raw label: the tab reads the treatment itself, so its casing
+              // and its type tier come from one decision
+              // (§spec:chrome-typography-canon).
+              label: containerBuilder(id).title ?? '',
               active: id == activeContainerId,
               onTap: () => onTabSelected?.call(id),
               theme: theme,
@@ -2395,8 +2493,11 @@ class _SecondaryBarTabState extends State<_SecondaryBarTab> {
           ),
           alignment: Alignment.center,
           child: Text(
-            widget.label,
-            style: theme.sidebarOrPanelHeading.copyWith(color: color),
+            WorkbenchSurfaceTreatment.titleCasing(context, widget.label),
+            style: WorkbenchSurfaceTreatment.partTitleStyle(
+              context,
+              theme,
+            ).copyWith(color: color),
             overflow: TextOverflow.ellipsis,
           ),
         ),

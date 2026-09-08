@@ -60,23 +60,23 @@ void main() {
     expect(find.byIcon(Symbols.search_rounded), findsOneWidget);
 
     // Default sidebar (Explorer) renders its collapsible view panes
-    // (§spec:section-disclosure). Titles uppercase per the pane-header canon.
-    // Folders (the file tree, headered by the workspace folder name) is the
-    // Explorer's primary pane; Open Editors is hidden by default (canon).
-    expect(find.text('WORKBENCH_SHELL'), findsOneWidget);
-    expect(find.text('OUTLINE'), findsOneWidget);
-    expect(find.text('TIMELINE'), findsOneWidget);
-    expect(find.text('OPEN EDITORS'), findsNothing);
+    // (§spec:section-disclosure). Titles render in the host's own casing per
+    // the pane-header canon. Folders (the file tree, headered by the workspace
+    // folder name) is the Explorer's primary pane; Open Editors is hidden by
+    // default (canon).
+    expect(find.text('workbench_shell'), findsOneWidget);
+    expect(find.text('Outline'), findsOneWidget);
+    expect(find.text('Timeline'), findsOneWidget);
+    expect(find.text('Open Editors'), findsNothing);
 
-    // All five canonical panels render their tab labels. The tab
-    // strip uppercases labels per the §spec:tab-strip-canon canon, so assert against
-    // the uppercased form.
+    // All five canonical panels render their tab labels, in the casing the
+    // host supplies (§spec:chrome-typography-canon).
     for (final label in const [
-      'PROBLEMS',
-      'OUTPUT',
-      'DEBUG CONSOLE',
-      'TERMINAL',
-      'PORTS',
+      'Problems',
+      'Output',
+      'Debug Console',
+      'Terminal',
+      'Ports',
     ]) {
       expect(find.text(label), findsWidgets, reason: 'tab "$label" missing');
     }
@@ -104,12 +104,12 @@ void main() {
     // uppercased per canon), not a raw merged body. Its body is welcome
     // content — paragraphs plus a host-supplied button
     // (§spec:structural-primitives).
-    expect(find.text('RESULTS'), findsOneWidget);
+    expect(find.text('Results'), findsOneWidget);
     expect(find.text('You have not yet opened a folder.'), findsOneWidget);
     expect(find.text('Search across files in your workspace.'), findsOneWidget);
     expect(find.text('Open Folder'), findsOneWidget);
     // Explorer's collapsible panes are gone once Search is active.
-    expect(find.text('WORKBENCH_SHELL'), findsNothing);
+    expect(find.text('workbench_shell'), findsNothing);
   });
 
   testWidgets('Explorer view pane collapses and expands on header tap', (
@@ -123,12 +123,12 @@ void main() {
     expect(find.byIcon(Symbols.expand_more_rounded), findsWidgets);
 
     // Tapping the header collapses it — body hidden, chevron flips right.
-    await tester.tap(find.text('WORKBENCH_SHELL'));
+    await tester.tap(find.text('workbench_shell'));
     await tester.pumpAndSettle();
     expect(find.text('lib/\nexample/\ntest/\nstyles/'), findsNothing);
 
     // Tapping again restores the body.
-    await tester.tap(find.text('WORKBENCH_SHELL'));
+    await tester.tap(find.text('workbench_shell'));
     await tester.pumpAndSettle();
     expect(find.text('lib/\nexample/\ntest/\nstyles/'), findsOneWidget);
   });
@@ -141,14 +141,14 @@ void main() {
 
     // Initial Explorer order: Folders, Outline, Timeline.
     expect(
-      tester.getTopLeft(find.text('WORKBENCH_SHELL')).dy,
-      lessThan(tester.getTopLeft(find.text('OUTLINE')).dy),
+      tester.getTopLeft(find.text('workbench_shell')).dy,
+      lessThan(tester.getTopLeft(find.text('Outline')).dy),
     );
 
     // Drag the Outline header up onto the top half of Folders: Outline
     // lands before it. The drop indicator shows the target slot mid-drag.
-    final outlineHeader = tester.getCenter(find.text('OUTLINE'));
-    final foldersHeader = tester.getCenter(find.text('WORKBENCH_SHELL'));
+    final outlineHeader = tester.getCenter(find.text('Outline'));
+    final foldersHeader = tester.getCenter(find.text('workbench_shell'));
     final gesture = await tester.startGesture(outlineHeader);
     await tester.pump(const Duration(milliseconds: 200));
     await gesture.moveTo(Offset(foldersHeader.dx, foldersHeader.dy - 6));
@@ -162,8 +162,8 @@ void main() {
 
     // Order persists: Outline is now above Folders.
     expect(
-      tester.getTopLeft(find.text('OUTLINE')).dy,
-      lessThan(tester.getTopLeft(find.text('WORKBENCH_SHELL')).dy),
+      tester.getTopLeft(find.text('Outline')).dy,
+      lessThan(tester.getTopLeft(find.text('workbench_shell')).dy),
     );
   });
 
@@ -178,7 +178,7 @@ void main() {
       final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await gesture.addPointer(location: Offset.zero);
       addTearDown(gesture.removePointer);
-      await gesture.moveTo(tester.getCenter(find.text('WORKBENCH_SHELL')));
+      await gesture.moveTo(tester.getCenter(find.text('workbench_shell')));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byTooltip('Refresh Explorer'));
@@ -204,8 +204,8 @@ void main() {
 
     // Settings content is organized into two named view panes (headers
     // uppercased per canon): "Appearance" and "Color Theme".
-    expect(find.text('APPEARANCE'), findsOneWidget);
-    expect(find.text('COLOR THEME'), findsOneWidget);
+    expect(find.text('Appearance'), findsOneWidget);
+    expect(find.text('Color Theme'), findsOneWidget);
     // Auto-detect checkbox row and the three labelled dropdown slots
     // render, mirroring VS Code's settings layout.
     expect(find.text('Auto detect color scheme'), findsOneWidget);
@@ -228,8 +228,8 @@ void main() {
 
     // Content is split across two named view panes (headers uppercased
     // per canon): "Severities" and "Progress".
-    expect(find.text('SEVERITIES'), findsOneWidget);
-    expect(find.text('PROGRESS'), findsOneWidget);
+    expect(find.text('Severities'), findsOneWidget);
+    expect(find.text('Progress'), findsOneWidget);
     // The Severities pane exposes the trigger buttons.
     expect(find.text('Info'), findsOneWidget);
     expect(find.text('Success'), findsOneWidget);
@@ -292,7 +292,7 @@ void main() {
 
       // Content lives in a named "Button Tiers" view pane (header
       // uppercased per canon), not a raw merged body.
-      expect(find.text('BUTTON TIERS'), findsOneWidget);
+      expect(find.text('Button Tiers'), findsOneWidget);
 
       // Primary (FilledButton), secondary (FilledButton.tonal), and
       // text/link (TextButton) tiers each render once in the review.
@@ -431,9 +431,9 @@ void main() {
       // Focus the first visible Explorer header (Folders; Open Editors is
       // hidden by default). Clicking a collapsible header also toggles it, so
       // re-click to leave the stack fully expanded.
-      await tester.tap(find.text('WORKBENCH_SHELL'));
+      await tester.tap(find.text('workbench_shell'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('WORKBENCH_SHELL'));
+      await tester.tap(find.text('workbench_shell'));
       await tester.pumpAndSettle();
       expect(isFocused('folders'), isTrue);
 
@@ -490,7 +490,7 @@ void main() {
     // Editor only — activity bar, sidebar, and status bar gone.
     expect(find.textContaining('Lorem ipsum'), findsOneWidget);
     expect(find.byIcon(Symbols.folder_rounded), findsNothing);
-    expect(find.text('WORKBENCH_SHELL'), findsNothing);
+    expect(find.text('workbench_shell'), findsNothing);
     expect(find.text('workbench_shell example'), findsNothing);
 
     // Toggling off restores all chrome.
@@ -597,7 +597,7 @@ void main() {
     // Members the activity bar never lists label their title-row tabs through
     // WorkbenchViewContainerSpec.title (§spec:view-container-title). NOTES is
     // the inactive member's tab; its body stays unbuilt until tapped.
-    expect(find.text('NOTES'), findsOneWidget);
+    expect(find.text('Notes'), findsOneWidget);
     final editor = tester.getRect(find.textContaining('Lorem ipsum'));
     expect(tester.getCenter(secondaryBody).dx, greaterThan(editor.center.dx));
 
@@ -623,17 +623,17 @@ void main() {
     await tester.pumpAndSettle();
 
     // Explorer is visible by default.
-    expect(find.text('EXPLORER'), findsOneWidget);
+    expect(find.text('Explorer'), findsOneWidget);
 
     final context = tester.element(find.byType(WorkbenchLayout));
     Actions.invoke(context, const ToggleSidebarIntent());
     await tester.pumpAndSettle();
-    expect(find.text('EXPLORER'), findsNothing);
+    expect(find.text('Explorer'), findsNothing);
 
     // Toggling again brings it back.
     Actions.invoke(context, const ToggleSidebarIntent());
     await tester.pumpAndSettle();
-    expect(find.text('EXPLORER'), findsOneWidget);
+    expect(find.text('Explorer'), findsOneWidget);
   });
 
   // Status bar visibility (§spec:layout-customization). The View menu dispatches
@@ -774,9 +774,18 @@ void main() {
       ),
     );
 
+    // Casing follows the same flag: base VS Code uppercases every pane
+    // header, part title and panel tab (§spec:chrome-typography-canon).
+    expect(find.text('OUTLINE'), findsOneWidget);
+    expect(find.text('Outline'), findsNothing);
+    expect(find.text('EXPLORER'), findsOneWidget);
+    expect(find.text('PROBLEMS'), findsWidgets);
+
     Actions.invoke(context, const ToggleModernUIIntent());
     await tester.pumpAndSettle();
     expect(panel().left, closeTo(treated.left, 0.001));
+    expect(find.text('Outline'), findsOneWidget);
+    expect(find.text('Problems'), findsWidgets);
   });
 
   testWidgets('seeded WorkbenchLayoutState restores the Explorer arrangement '
@@ -801,11 +810,11 @@ void main() {
     await tester.pumpAndSettle();
 
     // Timeline is dropped from the stack; the other panes render.
-    expect(find.text('TIMELINE'), findsNothing);
-    expect(find.text('WORKBENCH_SHELL'), findsOneWidget);
-    expect(find.text('OUTLINE'), findsOneWidget);
+    expect(find.text('Timeline'), findsNothing);
+    expect(find.text('workbench_shell'), findsOneWidget);
+    expect(find.text('Outline'), findsOneWidget);
     // Open Editors — hidden by descriptor default — is re-shown because the
     // persisted state marks it known and not hidden (reconcile honors it).
-    expect(find.text('OPEN EDITORS'), findsOneWidget);
+    expect(find.text('Open Editors'), findsOneWidget);
   });
 }
