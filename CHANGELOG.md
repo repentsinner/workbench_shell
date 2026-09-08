@@ -1,3 +1,10 @@
+## [0.36.1](https://github.com/repentsinner/workbench_shell/compare/v0.36.0...v0.36.1) (2026-09-08)
+
+
+### Bug Fixes
+
+* **layout:** sit a side bar's sash on the seam it drags ([f9a984e](https://github.com/repentsinner/workbench_shell/commit/f9a984e758550041a22b36babea7886fba8cc63b))
+
 # [0.36.0](https://github.com/repentsinner/workbench_shell/compare/v0.35.0...v0.36.0) (2026-09-08)
 
 
