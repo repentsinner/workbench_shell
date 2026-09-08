@@ -3190,6 +3190,23 @@ margins rather than with the card's outer edge. The rule carries no
 density qualifier upstream, so both densities take it. Base VS Code runs
 its items flush from edge to edge and takes neither margin.
 
+**A seam is hosted by the part that leads with it.** The gap between
+two cards belongs to one of their allocations — under the
+leading-margin convention, the one that leads. A sash has to sit on
+that gap rather than beside it, and Flutter bounds-checks hit testing,
+so a sash drawn outside its host's allocation is visible and
+ungrabbable. The part that would otherwise trail therefore takes the
+gap into its own allocation and leads with it: the allocation grows by
+exactly what the card then reserves, so every card lands where it did
+and the bar's width still measures the same content. Upstream reaches
+the same place from the other side — its sash is a grid element it
+translates onto the gap's midpoint — because it has no such constraint.
+
+The alternative, hosting every seam from a stack spanning both parts,
+is rejected: the offsets are then computed from the bar widths and the
+panel alignment a second time, beside the layout that already resolves
+them, and the two would drift.
+
 **Sashes carry a persistent grip.** With the parts separated by a gap,
 an invisible-until-hovered sash leaves no sign of where one part ends
 and the next begins. `sashHandles.css` marks each boundary with three
