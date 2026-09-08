@@ -2246,8 +2246,14 @@ class _Sidebar extends StatelessWidget {
             child: tabIds != null
                 ? _buildTitleTabs()
                 : Text(
-                    (spec.title ?? activeLabel).toUpperCase(),
-                    style: theme.sidebarOrPanelHeading,
+                    WorkbenchSurfaceTreatment.titleCasing(
+                      context,
+                      spec.title ?? activeLabel,
+                    ),
+                    style: WorkbenchSurfaceTreatment.partTitleStyle(
+                      context,
+                      theme,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
           ),
@@ -2263,8 +2269,9 @@ class _Sidebar extends StatelessWidget {
   /// One compact text-label tab per secondary member in the title row
   /// (§spec:secondary-sidebar), the port of VS Code's `AuxiliaryBarPart`
   /// embedding its `PaneCompositeBar` at the title position. Labels come from
-  /// each member's spec `title`, uppercased like the composite title
-  /// (§spec:view-container-title); an untitled member renders a blank tab — no
+  /// each member's spec `title`, in the casing the host supplies like the
+  /// composite title (§spec:view-container-title); an untitled member renders a
+  /// blank tab — no
   /// activity item exists to fall back to. A single-member bar still shows its
   /// one tab, matching canon's default presentation. Stretched so the active
   /// underline sits at the bottom of the row.
@@ -2278,7 +2285,10 @@ class _Sidebar extends StatelessWidget {
           // canon's tab-overflow dropdown is deferred (§spec:secondary-sidebar).
           Flexible(
             child: _SecondaryBarTab(
-              label: (containerBuilder(id).title ?? '').toUpperCase(),
+              // Raw label: the tab reads the treatment itself, so its casing
+              // and its type tier come from one decision
+              // (§spec:chrome-typography-canon).
+              label: containerBuilder(id).title ?? '',
               active: id == activeContainerId,
               onTap: () => onTabSelected?.call(id),
               theme: theme,
@@ -2404,8 +2414,11 @@ class _SecondaryBarTabState extends State<_SecondaryBarTab> {
           ),
           alignment: Alignment.center,
           child: Text(
-            widget.label,
-            style: theme.sidebarOrPanelHeading.copyWith(color: color),
+            WorkbenchSurfaceTreatment.titleCasing(context, widget.label),
+            style: WorkbenchSurfaceTreatment.partTitleStyle(
+              context,
+              theme,
+            ).copyWith(color: color),
             overflow: TextOverflow.ellipsis,
           ),
         ),

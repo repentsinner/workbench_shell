@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:workbench_shell/src/workbench_surface_treatment.dart';
 import 'package:workbench_shell/workbench_shell.dart';
 
 import 'test_theme.dart';
@@ -36,12 +37,36 @@ void main() {
       );
       await tester.pump();
 
-      // Shell uppercases natural-case labels per §spec:capability-boundary canon enforcement.
-      expect(find.text('OUTPUT'), findsOneWidget);
-      expect(find.text('DEBUG CONSOLE'), findsOneWidget);
-      expect(find.text('Output'), findsNothing);
-      expect(find.text('Debug Console'), findsNothing);
+      // The treatment renders the host's own casing
+      // (§spec:chrome-typography-canon).
+      expect(find.text('Output'), findsOneWidget);
+      expect(find.text('Debug Console'), findsOneWidget);
+      expect(find.text('OUTPUT'), findsNothing);
+      expect(find.text('DEBUG CONSOLE'), findsNothing);
       expect(find.text('content-a'), findsOneWidget);
+    });
+
+    testWidgets('uppercases tab labels with the treatment off', (
+      tester,
+    ) async {
+      // Base `part.css` uppercases the composite tab label
+      // (§spec:chrome-typography-canon).
+      await tester.pumpWidget(
+        wrapWithTheme(
+          WorkbenchSurfaceTreatment(
+            modernUI: false,
+            child: SizedBox(
+              width: 400,
+              height: 300,
+              child: WorkbenchTabbedPanel(tabs: tabs(), onTogglePanel: () {}),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('OUTPUT'), findsOneWidget);
+      expect(find.text('Output'), findsNothing);
     });
 
     testWidgets('initialTabId focuses requested tab on first frame', (
@@ -260,7 +285,7 @@ void main() {
       // inactive; initial focus is 'a' (rendered as 'OUTPUT').
       final inactiveLabel = find.descendant(
         of: find.byType(TabBar),
-        matching: find.text('DEBUG CONSOLE'),
+        matching: find.text('Debug Console'),
       );
       expect(inactiveLabel, findsOneWidget);
 
@@ -420,7 +445,7 @@ void main() {
 
       final activeLabel = find.descendant(
         of: find.byType(TabBar),
-        matching: find.text('OUTPUT'),
+        matching: find.text('Output'),
       );
       expect(activeLabel, findsOneWidget);
 

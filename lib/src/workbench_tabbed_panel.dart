@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import 'layout_constants.dart';
 import 'workbench_panel.dart';
+import 'workbench_surface_treatment.dart';
 import 'workbench_theme.dart';
 
 /// Descriptor for one tab in a [WorkbenchTabbedPanel].
@@ -13,10 +14,8 @@ import 'workbench_theme.dart';
 /// only carries identity, label string, optional badge, and the
 /// content builder.
 ///
-/// **Canonical rendering**. Per §spec:capability-boundary of the workbench_shell spec, tabs
-/// render uppercase regardless of how the consumer cases the input.
-/// Hosts pass natural-case labels (`'Output'`, `'Debug Console'`)
-/// and the shell paints `'OUTPUT'` / `'DEBUG CONSOLE'`. Hosts that
+/// **Canonical rendering**. The tab strip renders the label the host supplies
+/// (§spec:chrome-typography-canon); base VS Code uppercases it. Hosts that
 /// want a count-style badge supply [badge] as a typed
 /// [PanelTabBadge] carrying the count; the shell paints the inline
 /// pill in the panel-active accent colour (matching the active-tab
@@ -29,7 +28,8 @@ class WorkbenchPanelTab {
   /// [WorkbenchTabbedPanel.onRegisterFocusTab].
   final String id;
 
-  /// Natural-case label rendered uppercase by the shell.
+  /// Tab label, rendered in the casing the host supplies
+  /// (§spec:chrome-typography-canon).
   final String label;
 
   /// Optional inline badge rendered next to the label.
@@ -51,8 +51,7 @@ class WorkbenchPanelTab {
 ///
 /// Owns the [TabController] and renders:
 ///
-/// 1. A scrollable [TabBar] of the tab labels (uppercase, with
-///    optional inline badges).
+/// 1. A scrollable [TabBar] of the tab labels (with optional inline badges).
 /// 2. A trailing close button that fires [onTogglePanel].
 /// 3. A [TabBarView] hosting each descriptor's content.
 ///
@@ -206,6 +205,7 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
   @override
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
+    final partTitle = WorkbenchSurfaceTreatment.partTitleStyle(context, theme);
     return ColoredBox(
       color: theme.panelBackground,
       child: Column(
@@ -223,10 +223,10 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
                     tabAlignment: TabAlignment.start,
                     labelColor: theme.tabBarLabelColor,
                     unselectedLabelColor: theme.tabBarUnselectedLabelColor,
-                    labelStyle: theme.sidebarOrPanelHeading.copyWith(
+                    labelStyle: partTitle.copyWith(
                       color: theme.tabBarLabelColor,
                     ),
-                    unselectedLabelStyle: theme.sidebarOrPanelHeading.copyWith(
+                    unselectedLabelStyle: partTitle.copyWith(
                       color: theme.tabBarUnselectedLabelColor,
                     ),
                     dividerColor: theme.tabBarDividerColor,
@@ -256,7 +256,11 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
                             // tab will become active" — visually closer
                             // to the active text colour.
                             inactiveHoverColor: theme.tabBarLabelColor,
-                            child: _buildTabLabel(theme, widget.tabs[i]),
+                            child: _buildTabLabel(
+                              context,
+                              theme,
+                              widget.tabs[i],
+                            ),
                           ),
                         ),
                     ],
@@ -295,19 +299,24 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
     );
   }
 
-  /// Canonical tab label: uppercased text plus an optional severity
-  /// pill. The shell owns this rendering so consumers cannot diverge
-  /// (§spec:capability-boundary canon enforcement).
-  Widget _buildTabLabel(WorkbenchTheme theme, WorkbenchPanelTab tab) {
-    final upper = tab.label.toUpperCase();
+  /// Canonical tab label: the host's string plus an optional severity pill.
+  /// The treatment renders the label `capitalize` and upstream's own strings
+  /// are already cased, so the shell transforms nothing; base VS Code
+  /// uppercases (§spec:chrome-typography-canon).
+  Widget _buildTabLabel(
+    BuildContext context,
+    WorkbenchTheme theme,
+    WorkbenchPanelTab tab,
+  ) {
+    final label = WorkbenchSurfaceTreatment.titleCasing(context, tab.label);
     final badge = tab.badge;
     if (badge == null) {
-      return Text(upper);
+      return Text(label);
     }
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(upper),
+        Text(label),
         const SizedBox(width: WorkbenchLayoutConstants.spacingSize40),
         _badgePill(theme, badge),
       ],

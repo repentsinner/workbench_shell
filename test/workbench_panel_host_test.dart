@@ -111,7 +111,7 @@ void main() {
       );
       await tester.pump();
       // Move to second tab.
-      await tester.tap(find.text('BETA'));
+      await tester.tap(find.text('Beta'));
       await tester.pumpAndSettle();
       // Hide panel.
       await tester.pumpWidget(
@@ -152,8 +152,8 @@ void main() {
           ),
         );
         await tester.pump();
-        expect(find.text('ALPHA'), findsOneWidget);
-        expect(find.text('BETA'), findsOneWidget);
+        expect(find.text('Alpha'), findsOneWidget);
+        expect(find.text('Beta'), findsOneWidget);
         expect(capturedMenuTabs!.map((t) => t.label).toList(), [
           'Alpha',
           'Beta',
@@ -168,8 +168,8 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.text('ALPHA'), findsOneWidget);
-        expect(find.text('BETA'), findsNothing);
+        expect(find.text('Alpha'), findsOneWidget);
+        expect(find.text('Beta'), findsNothing);
         expect(capturedMenuTabs!.map((t) => t.label).toList(), ['Alpha']);
       },
     );
@@ -249,7 +249,7 @@ void main() {
 
       // Switch tabs — Alpha's lifecycle goes false, Beta's content
       // builder runs for the first time and Beta is focused.
-      await tester.tap(find.text('BETA'));
+      await tester.tap(find.text('Beta'));
       await tester.pumpAndSettle();
       expect(lifecycles['a']!.isFocused.value, isFalse);
       expect(lifecycles['b']!.isFocused.value, isTrue);
@@ -294,8 +294,8 @@ void main() {
       await tester.pump();
 
       // Both tabs present in the strip.
-      expect(find.text('ALPHA'), findsOneWidget);
-      expect(find.text('BETA'), findsOneWidget);
+      expect(find.text('Alpha'), findsOneWidget);
+      expect(find.text('Beta'), findsOneWidget);
       // Menu only has the panel that supplied a focus intent.
       expect(capturedMenuTabs!.map((t) => t.label).toList(), ['Alpha']);
     });

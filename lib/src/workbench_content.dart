@@ -15,10 +15,9 @@ import 'workbench_theme.dart';
 /// live in the host application as application helpers. See SPEC
 /// §spec:form-controls-excluded for rationale and the re-promotion gate.
 
-/// Top-level grouping inside a sidebar or panel. Renders [title]
-/// uppercased — the shell owns the transform so consumers cannot
-/// diverge (§spec:capability-boundary canon enforcement, §spec:chrome-typography-canon pane-header semantics) — in
-/// [WorkbenchTheme.sectionTitle] with an optional info tooltip icon.
+/// Top-level grouping inside a sidebar or panel. Renders [title] in the casing
+/// the host supplies, at the pane-header tier
+/// (§spec:chrome-typography-canon), with an optional info tooltip icon.
 ///
 /// Disclosure (§spec:section-disclosure) is container-derived, not a host
 /// choice: the default public constructor renders a non-collapsible pane whose
@@ -421,7 +420,14 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
             const SizedBox(width: WorkbenchLayoutConstants.iconMd),
           const SizedBox(width: WorkbenchLayoutConstants.spacingSize40),
           Expanded(
-            child: Text(widget.title.toUpperCase(), style: theme.sectionTitle),
+            child: Text(
+              // The header renders the string the host supplied: the
+              // treatment's `capitalize` is a no-op on an already-cased
+              // string, and base `paneview.css` uppercases
+              // (§spec:chrome-typography-canon).
+              WorkbenchSurfaceTreatment.titleCasing(context, widget.title),
+              style: WorkbenchSurfaceTreatment.paneHeaderStyle(context, theme),
+            ),
           ),
           if (widget.infoTooltip != null) ...[
             const SizedBox(width: WorkbenchLayoutConstants.spacingSize80),

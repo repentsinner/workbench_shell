@@ -1000,14 +1000,31 @@ void main() {
         const VscodeColorMap(name: 'Canon', baseType: 'vs-dark', colors: {}),
       );
 
-      test('sidebarOrPanelHeading is 11 / w400 (part.css .title-label h2)', () {
-        expect(theme.sidebarOrPanelHeading.fontSize, 11);
-        expect(theme.sidebarOrPanelHeading.fontWeight, FontWeight.w400);
+      test(
+        'sidebarOrPanelHeading is 12 / w600 '
+        '(fontRamp.css .title-label h2)',
+        () {
+          expect(theme.sidebarOrPanelHeading.fontSize, 12);
+          expect(theme.sidebarOrPanelHeading.fontWeight, FontWeight.w600);
+        },
+      );
+
+      test(
+        'baseSidebarOrPanelHeading is 11 / w400 (part.css .title-label h2)',
+        () {
+          expect(theme.baseSidebarOrPanelHeading.fontSize, 11);
+          expect(theme.baseSidebarOrPanelHeading.fontWeight, FontWeight.w400);
+        },
+      );
+
+      test('sectionTitle is 12 / w600 (fontRamp.css .pane-header .title)', () {
+        expect(theme.sectionTitle.fontSize, 12);
+        expect(theme.sectionTitle.fontWeight, FontWeight.w600);
       });
 
-      test('sectionTitle is 11 / w700 (paneview.css .pane-header)', () {
-        expect(theme.sectionTitle.fontSize, 11);
-        expect(theme.sectionTitle.fontWeight, FontWeight.w700);
+      test('baseSectionTitle is 11 / w700 (paneview.css .pane-header)', () {
+        expect(theme.baseSectionTitle.fontSize, 11);
+        expect(theme.baseSectionTitle.fontWeight, FontWeight.w700);
       });
 
       test('bodyText is 13 / w400 (part.css .part > .content)', () {

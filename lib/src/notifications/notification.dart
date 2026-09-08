@@ -46,9 +46,7 @@ extension NotificationSeverityPersistence on NotificationSeverity {
 /// state visible after an action runs post a follow-up notification
 /// from inside [onInvoke].
 class NotificationAction extends Equatable {
-  /// Button label. The host supplies natural case; the host widget
-  /// renders the label as-is (action buttons are not subject to the
-  /// uppercase tab/section convention).
+  /// Button label, rendered as the host supplies it.
   final String label;
 
   /// Callback invoked when the operator taps the action.

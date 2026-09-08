@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 
 import 'layout_constants.dart';
+import 'workbench_theme.dart';
 
 /// Publishes whether the workbench renders VS Code's Modern UI surface
 /// treatment (§spec:modern-ui-surfaces) to every part below the shell.
@@ -45,6 +46,32 @@ class WorkbenchSurfaceTreatment extends InheritedWidget {
   static double viewPaneHeaderHeight(BuildContext context) => of(context)
       ? WorkbenchLayoutConstants.viewPaneHeaderHeight
       : WorkbenchLayoutConstants.baseViewPaneHeaderHeight;
+
+  /// The casing a chrome title renders in at [context]. The treatment's
+  /// `fontRamp.css` swaps `text-transform: uppercase` for `capitalize`, and
+  /// upstream's own strings are already cased — so `capitalize` is a no-op and
+  /// the shell renders [title] verbatim. Base VS Code's `paneview.css` and
+  /// `part.css` uppercase, and so does this (§spec:chrome-typography-canon).
+  ///
+  /// Casing and the type tier travel together and both depend on the
+  /// treatment, so they resolve at the widget from one read of this inherited
+  /// widget. [WorkbenchTheme] is a `ThemeExtension` resolved without a
+  /// `BuildContext`, so it registers both tiers as tokens and cannot make the
+  /// choice itself.
+  static String titleCasing(BuildContext context, String title) =>
+      of(context) ? title : title.toUpperCase();
+
+  /// The view-pane header type tier in force at [context]
+  /// (§spec:chrome-typography-canon).
+  static TextStyle paneHeaderStyle(BuildContext context, WorkbenchTheme theme) =>
+      of(context) ? theme.sectionTitle : theme.baseSectionTitle;
+
+  /// The part-title type tier in force at [context] — the side bar heading and
+  /// the panel tab label (§spec:chrome-typography-canon).
+  static TextStyle partTitleStyle(BuildContext context, WorkbenchTheme theme) =>
+      of(context)
+      ? theme.sidebarOrPanelHeading
+      : theme.baseSidebarOrPanelHeading;
 
   @override
   bool updateShouldNotify(WorkbenchSurfaceTreatment oldWidget) =>
