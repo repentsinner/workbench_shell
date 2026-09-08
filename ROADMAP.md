@@ -5,66 +5,6 @@ documented gap between the current implementation and SPEC.md.
 Workstreams are sized to fit one agent session; rationale and
 design decisions live in the cited spec sections, not here.
 
-## Modern UI Surface Treatment §road:modern-ui-surfaces
-
-Render the workbench as VS Code's Modern UI treatment ships it
-(§spec:modern-ui-surfaces). Upstream enables fifteen modules from one
-setting; the package has landed the card framing, the editor frame,
-the activity bar, the pane header metrics, the workbench backdrop, the
-chrome casing and type tiers, the part title insets and the sash grips.
-Every workstream below
-closes one surveyed module or metric, expresses its geometry through
-the shipped size ladders (§spec:design-size-ladders), and renders its
-base behavior when the `modernUI` flag is off.
-
-### Part title height §road:part-title-height
-
-Tighten the side bar heading and panel tab strip to the treatment's
-band, updating `sidebarHeadingHeight` and `panelTabStripHeight` in
-`lib/src/layout_constants.dart` and their rows in
-§spec:layout-constants-canon's source table
-(§spec:modern-ui-surfaces).
-
-### Status bar treatment §road:status-bar-treatment
-
-Inset the status bar's content and round its items at the controls
-tier in `lib/src/workbench_status_bar.dart`, aligning the horizontal
-inset to the activity bar's gutter (§spec:modern-ui-surfaces).
-
-### Keyboard-only focus rings §road:keyboard-focus-rings
-
-Paint the view-pane header's focus ring only for keyboard-originated
-focus in `lib/src/workbench_content.dart`, reading the highlight mode
-`FocusManager` tracks rather than gesture history
-(§spec:modern-ui-surfaces, §spec:view-pane-focus).
-
-### Notification surface treatment §road:notification-treatment
-
-Round the notification card, the summary card and the close and action
-controls at the card tier in
-`lib/src/notifications/notification_host.dart`
-(§spec:modern-ui-surfaces, §spec:notification-center).
-
-### Activity bar zone margins §road:activity-bar-zone-margins
-
-Give the activity bar's item column its leading margin and its
-trailing zone the matching bottom margin in
-`lib/src/workbench_layout.dart` (§spec:modern-ui-surfaces).
-
-**Verify:** Run the example app beside VS Code at the same density and
-on the same theme. The side bars, panel and editor each read as a
-separate bordered card with a visible gap, against a ground the same
-colour as the status bar. Pane headers, the side bar title and the
-panel tabs read in title case at the same size VS Code renders. Each
-boundary between two parts shows three dots at its midpoint that
-vanish while dragging, and a pane sash inside the Explorer shows none.
-Status bar items round when they paint a background. Click a pane
-header — no focus ring; Tab to it — a ring. Post a notification from
-the Explorer header action and confirm its corner radius matches a
-card's. Switch density to compact and confirm the gaps, the corner
-radii and the sash grips all disappear. Untick View ▸ Appearance ▸
-Modern UI and confirm every surface returns to the base treatment.
-
 ## Split Button §road:split-button
 
 Give the shell VS Code's Commit control — a primary action, a pipe, and

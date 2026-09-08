@@ -1040,6 +1040,9 @@ focus ring while focused. Clicking a collapsible header both focuses it and
 toggles the pane; clicking a non-collapsible header focuses it. The ring is
 the `WorkbenchTheme.focusBorder` accent (VS Code's `focusBorder`), reusing
 the token the rest of the chrome already uses rather than minting a new one.
+The Modern UI treatment narrows *when* the ring paints — keyboard-delivered
+focus only (§spec:modern-ui-surfaces) — but not what takes focus: a click
+still focuses the header under either treatment.
 A non-collapsible header is still focusable — so traversal can land on it
 and its actions reveal on focus (§spec:section-header-actions) — even though
 it has no disclosure state to toggle.
@@ -1085,7 +1088,9 @@ section.
 
 - Every view-pane header is a single focus stop that paints a focus ring
   (the `focusBorder` accent) while focused; a pointer click focuses the
-  header, and on a collapsible header also toggles the pane.
+  header, and on a collapsible header also toggles the pane. Under the
+  treatment the click's focus carries no ring (§spec:modern-ui-surfaces),
+  and Down from a clicked header still walks to the next one.
 - A pointer tap outside a focused header — a pane body, another header, or
   any surface beyond the stack — clears its focus ring; focus does not linger
   where the user is no longer interacting.
@@ -3017,7 +3022,7 @@ records why so a later reader can tell a decision from an oversight:
 
 ## Modern UI Surface Treatment §spec:modern-ui-surfaces
 
-*Status: in progress*
+*Status: complete*
 
 VS Code frames the side bars, bottom panel and editor as separate
 rounded cards — each with a hairline border and a gap between them —
@@ -3166,32 +3171,47 @@ casing its host supplies and stops transforming them
 (§spec:chrome-typography-canon).
 
 **A part title tightens and loses two thirds of its inset.**
-`padding.css` takes `.part > .title` from `part.css`'s 35px to 32px,
-carrying the label's line height and the action row with it, and
-keeps that value in sync with `PartLayout.AREA_HEIGHT_MODERN_UI` in
-`part.ts`. It also moves the inset: the part's horizontal padding
-drops from 8px to one spacing step and the title label's leading
-padding from 12px to two, so the label sits closer to the card edge
-and the trailing action sits against it. The package pads the row a
-flat four steps and matches neither.
+`padding.css` takes `.part > .title` from `part.css`'s 35px to 32px and
+moves the inset inward, so the label sits closer to the card edge and
+the trailing action sits against it. Two insets, not one: the part pads
+the row and the title label pads itself again inside it, which is why
+the package resolves them separately rather than as a single padding.
+The side bar heading and the panel tab strip are the same upstream rule
+and share the tightened band; each keeps its own base constant so the
+flag returns both to 35px (§spec:layout-constants-canon).
+
+**The activity bar holds its two zones off the card edges.**
+`padding.css` gives the vertical rail's item column a top margin and its
+trailing zone a bottom margin, over and above the lane inset that centres
+the icon column. The margin is one spacing step plus a stroke, not a
+round number, because it is measured against a card whose hairline is
+drawn inside the allocation — so the icons line up with the pane header
+margins rather than with the card's outer edge. The rule carries no
+density qualifier upstream, so both densities take it. Base VS Code runs
+its items flush from edge to edge and takes neither margin.
 
 **Sashes carry a persistent grip.** With the parts separated by a gap,
 an invisible-until-hovered sash leaves no sign of where one part ends
 and the next begins. `sashHandles.css` marks each boundary with three
-2px dots, 5px apart along the seam, painted `foreground` mixed to 30%
-alpha with the whole grip at `opacity: 0.75`, and faded out on hover
-and drag so the existing full-length highlight takes over unchanged. Grips mark boundaries *between* parts only:
-upstream suppresses them for sashes inside a part, which in this
-package is every view-stack pane sash. Compact closes the gaps, so the
-grips retire with the space they occupied.
+dots at its midpoint, faded out on hover and drag so the existing
+full-length highlight takes over unchanged. Grips mark boundaries
+*between* parts only: upstream suppresses them for sashes inside a
+part, which in this package is every view-stack pane sash. Compact
+closes the gaps, so the grips retire with the space they occupied.
 
 **The status bar is a rail inside the cluster, not a card.** It spans
 the full width and takes no border or radius of its own, but the
 treatment insets its content — `spacing.size60` horizontally,
-`spacing.size20` vertically — and aligns that inset to the activity
-bar's own gutter where a rail is present. Its items round at the
-controls tier, so an item that paints a background reads as a pill
-rather than a rectangle.
+`spacing.size20` vertically. Its items round at the controls tier, so
+an item that paints a background reads as a pill rather than a
+rectangle. The bar's height is a fixed constant rather than a content
+box that grows, so the vertical inset comes out of the content: 18px,
+which still clears the status icon it has to hold. Upstream's variants
+of that horizontal inset — tightened to the activity bar's own gutter,
+or to the cluster perimeter at compact — key off states the package does
+not have: the activity bar's own compact *size setting* (not the Modern
+UI density) and a hidden activity bar. The shell always renders the
+rail, so the plain inset is the only branch reachable here.
 
 **A focus ring answers the keyboard, not the pointer.** Upstream's
 `keyboardFocusOnly` module hides the focus outline on
@@ -3200,30 +3220,28 @@ bar, keeping it for keyboard traversal. The editor and global widgets
 keep their rings either way.
 
 Flutter ships no `:focus-visible`, and `FocusManager.highlightMode` is
-not it: a mouse click and a key press both resolve to `traditional`,
-and a mouse pointer event does not update the mode at all
-(`_HighlightModeManager.handlePointerEvent`, Flutter 3.47.2). The
-distinction has to come from somewhere the shell already knows it.
-It does: a header takes focus either because its own tap handler
-requested it or because traversal moved there, and those are separate
-code paths (§spec:view-pane-focus). The pane records which one
-delivered the focus it holds and paints the ring only for the second.
+not a substitute: a click and a key press both resolve to
+`traditional`, and a mouse pointer event does not update the mode at
+all (`_HighlightModeManager.handlePointerEvent`, Flutter 3.47.2). The
+pane does not need one. It already knows which path delivered its
+focus — a tap focuses the header itself, where traversal moves focus
+through the focus system (§spec:view-pane-focus) — so recording that is
+enough to tell the two apart, and the record clears on blur so each
+focus episode answers for itself.
 
-**Rejected — suppressing the ring by not focusing on tap.** Dropping
-the `requestFocus` from the tap handler removes the ring and the
-bookkeeping together. It also breaks the sequence upstream preserves:
-click a header, then press Down, and focus shall move to the next
-header. Leaving the click unfocused sends that keypress to whatever
-held focus before, so the affordance the ring suppression is meant to
-tidy stops working.
+**Rejected — suppressing the ring by not focusing on tap.** The
+one-line version of the rule: drop the `requestFocus` from the tap
+handler and no ring can paint. It breaks the keyboard model
+§spec:view-pane-focus is built on — click a header, then drive the
+stack with Up/Down — because there is then nothing for Down to resume
+from. The click keeps the focus and loses only the ring.
 
-**Notification surfaces round at the card tier.** The toast, the
-center and the center's last row take `cornerRadius.large` — the
-radius the parts themselves take — where the package rounds them at
-the controls tier today. The treatment additionally drops the
-notification row height from 42 to 34, which the package has no
-analogue for: its cards size to their content rather than to a
-virtualized row, so there is no fixed height to tighten.
+**Notification surfaces round at the card tier.** The toast and the
+center take `cornerRadius.large` — the radius the parts themselves
+take — where the package rounds every notification surface at the
+controls tier off the treatment. The controls *inside* a card — the
+close button, the action buttons — stay at the controls tier under
+both, as upstream rounds them.
 
 **Rejected — excluding the font ramp as a renaming.** An earlier pass
 surveyed `baseSizes.ts`, found it registered `fontSize.heading1` …
@@ -3291,6 +3309,13 @@ excluded here, to be specified separately rather than absorbed:
   tint. The two agree wherever a theme leaves the header token equal to
   the surface — Dark Modern and Light Modern among them — and diverge
   where it does not, Monokai being the case in the bundled set.
+- *The notification row height.* One of the three metrics
+  `modernUI.contribution.ts` sets in code rather than CSS: it swaps
+  `DEFAULT_NOTIFICATION_ROW_HEIGHT` (42) for
+  `COMPACT_NOTIFICATION_ROW_HEIGHT` (34). Both size a row in the
+  notification center's virtualized list, which gives every row the same
+  height; the shell's cards size to their content and carry no row
+  constant to tighten. Excluded for want of the quantity, not on balance.
 - *Row insets inside a pane body.* Upstream insets list rows so a row's
   hover fill stops short of the pane edge. The shell ships no list or
   tree primitive and a pane body is host content
@@ -3337,11 +3362,15 @@ excluded here, to be specified separately rather than absorbed:
 - Each sash between two parts shows three dots at its midpoint, which
   fade out while the sash is hovered or dragged. A view-stack pane sash
   shows none, and compact density shows none.
-- Status bar items round at the controls tier, and the bar's content is
-  inset to line up with the cards above it.
-- Clicking a side bar, panel or status bar surface paints no focus
-  ring; reaching the same surface by keyboard paints one.
-- A notification card rounds at the same radius as a workbench part.
+- The side bar heading and the panel tab strip stand 32px tall, and the
+  activity bar's first and last icons sit clear of the rail's ends.
+- A status bar item that paints a background rounds at the controls
+  tier, and the bar's content is inset from the window edge.
+- Clicking a view pane header focuses it and paints no focus ring;
+  reaching the same header by keyboard paints one, and Down from a
+  clicked header still moves focus to the next.
+- A notification card rounds at the same radius as a workbench part,
+  while the buttons inside it keep the controls tier.
 
 ---
 
