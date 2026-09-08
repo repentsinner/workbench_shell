@@ -1,3 +1,19 @@
+# [0.36.0](https://github.com/repentsinner/workbench_shell/compare/v0.35.0...v0.36.0) (2026-09-08)
+
+
+### Bug Fixes
+
+* **content:** re-answer the focus ring on each gain of the header's focus ([75d1581](https://github.com/repentsinner/workbench_shell/commit/75d1581a303228d693165dcd18e27d5376ec0200))
+
+
+### Features
+
+* **content:** ring a pane header for keyboard focus only ([c92e6b9](https://github.com/repentsinner/workbench_shell/commit/c92e6b9763f895207c8c4ddf96c1ff716e576955))
+* **layout:** hold the activity bar's zones off the card edges ([b2ece99](https://github.com/repentsinner/workbench_shell/commit/b2ece996994e121a601da05b8777f2595a95ecfa))
+* **layout:** tighten the part title band to the treatment's 32px ([95b3516](https://github.com/repentsinner/workbench_shell/commit/95b3516c6d20d5e300c64763e70fd51b51e385ed))
+* **notifications:** round the card surfaces at the card tier ([e9ff5d4](https://github.com/repentsinner/workbench_shell/commit/e9ff5d4f8407554e0dba0c006b1aa0310ad14370))
+* **status-bar:** inset the rail and round its items as pills ([dd6b777](https://github.com/repentsinner/workbench_shell/commit/dd6b7771e7157824f5da796336571f8b16ce2526))
+
 # [0.35.0](https://github.com/repentsinner/workbench_shell/compare/v0.34.0...v0.35.0) (2026-09-08)
 
 
