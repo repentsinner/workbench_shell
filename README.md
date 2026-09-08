@@ -24,6 +24,9 @@ construction.
   surrounding `Shortcuts` widget.
 - `WorkbenchViewPane`, `WorkbenchViewWelcome` — structural primitives
   that encode the workbench's visual hierarchy.
+- `WorkbenchSplitButton` — VS Code's Commit control: a primary action, a
+  `button.separator` pipe, and a disclosure opening the shell's menu
+  surface.
 - `WorkbenchTheme` + `WorkbenchThemeController` — VS Code theme JSON
   loader, token map, and active theme state. Bundled themes: Dark/Light
   2026, Dark/Light Modern, Dark+/Light+ (Visual Studio), Monokai, and

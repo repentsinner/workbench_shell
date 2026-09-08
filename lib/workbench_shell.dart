@@ -22,6 +22,7 @@ export 'src/workbench_layout.dart';
 export 'src/workbench_layout_state.dart';
 export 'src/workbench_panel.dart';
 export 'src/workbench_panel_host.dart';
+export 'src/workbench_split_button.dart';
 export 'src/workbench_status_bar.dart';
 export 'src/workbench_tabbed_panel.dart';
 export 'src/workbench_theme.dart';

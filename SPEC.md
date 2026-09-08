@@ -1644,7 +1644,7 @@ warrant one.
 
 ## Split Button §spec:split-button
 
-*Status: not started*
+*Status: complete*
 
 A consuming app needs VS Code's Commit control: a primary action, a
 hairline pipe, and a disclosure that opens a menu of related actions.
@@ -1695,6 +1695,14 @@ and lets a host suppress it.
 satisfy the §spec:chrome-material-theming parity invariant — a themed
 family themes every member — which today it does not, since the
 package carries six of the nine registered `button.*` colours.
+
+**The control takes the secondary pair, not the chrome.** Flutter routes
+both filled variants through one `FilledButtonTheme` and keeps the variant
+private, so `applyWorkbenchChrome` cannot stroke or hover Material's tonal
+tier apart from the primary one; only the fill and label split, through the
+colour-scheme roles each variant reads. The shell renders this control's
+tiers itself and reads `button.secondaryBorder` and
+`button.secondaryHoverBackground` directly.
 
 **Rejected: a host-composed pair.** Two chrome-themed `FilledButton`s
 with a `Container` between them reaches the same pixels on one screen
@@ -2646,7 +2654,8 @@ target):
 
 - `FilledButton` (primary) / `FilledButton.tonal` (secondary) — fills
   driven through the `primary`/`onPrimary` and
-  `secondaryContainer`/`onSecondaryContainer` roles.
+  `secondaryContainer`/`onSecondaryContainer` roles. The tiers share a
+  stroke and a hover: see the carve-out below.
 - `TextButton` (text / link) — link-accent label.
 - `SegmentedButton` (single-select selectors) — neutral selected fill.
 - `IconButton` — foreground from a dedicated `iconForeground` token
@@ -2656,6 +2665,29 @@ target):
 The set is extensible: input decoration and other Material surfaces can
 join the contract without changing call sites. Each addition obeys
 parity — it themes the whole widget, not a subset of its states.
+
+**Carve-out: the secondary button's stroke and hover.** Parity holds
+across the button family with one exception the framework forces.
+Flutter routes `FilledButton` and `FilledButton.tonal` through a single
+`FilledButtonTheme` — `themeStyleOf` returns the same style for both
+variants, and the variant itself is private — so one `ThemeData` cannot
+give the tiers different borders or hover fills. Only the fill and label
+split, through the colour-scheme roles each variant reads.
+
+`button.secondaryBorder` and `button.secondaryHoverBackground`
+therefore fall outside the chrome-composable surface. A stock
+`FilledButton.tonal` under the chrome draws the primary tier's border
+and Material's computed hover overlay; both resolve from roles the
+chrome sets, so no member reads an unset role and the invariant's
+letter holds. A widget that renders the secondary tier to canon reads
+those two tokens from `WorkbenchTheme` directly, as
+§spec:split-button's control does.
+
+The consequence is worth stating plainly: a theme that customises
+either token sees it honoured by a control reading `WorkbenchTheme` and
+ignored by a plain `FilledButton.tonal` beside it. That divergence is
+the framework's, not a choice — but it is real, and a host that cares
+renders the tier through a control rather than the stock widget.
 
 **Owned surface: the menu and select family.** The chrome themes the
 Material widgets that draw a popup menu and a select, at the same flat
