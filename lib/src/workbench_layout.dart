@@ -62,6 +62,15 @@ enum WorkbenchLayoutDensity {
     required this.activityBarItemGap,
   });
 
+  /// Skirt the status bar carries below its content under the treatment
+  /// (§spec:modern-ui-surfaces). VS Code `statusbarPart.ts` reports
+  /// `HEIGHT + floatingBottomPadding` as the height the workbench reserves,
+  /// and the padding narrows with the density.
+  double get statusBarSkirt => switch (this) {
+    standard => WorkbenchLayoutConstants.statusBarFloatingSkirt,
+    compact => WorkbenchLayoutConstants.compactStatusBarFloatingSkirt,
+  };
+
   /// Gap a card reserves on a leading edge that faces another card. Zero at
   /// [compact], where the two meet edge-to-edge.
   final double cardGap;

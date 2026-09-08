@@ -134,6 +134,15 @@ class WorkbenchSurfaceTreatment extends InheritedWidget {
       ? WorkbenchLayoutConstants.outerRadius
       : WorkbenchLayoutConstants.controlsRadius;
 
+  /// The height the workbench reserves for the status bar at [context]: its
+  /// content plus the skirt the treatment adds below (§spec:modern-ui-surfaces).
+  /// Density-resolved, so a host-supplied bar reads the same number the layout
+  /// allocates.
+  static double statusBarHeight(BuildContext context) => of(context)
+      ? WorkbenchLayoutConstants.statusBarHeight +
+            WorkbenchLayoutConstants.statusBarFloatingSkirt
+      : WorkbenchLayoutConstants.statusBarHeight;
+
   /// The casing a chrome title renders in at [context]. The treatment's
   /// `fontRamp.css` swaps `text-transform: uppercase` for `capitalize`, and
   /// upstream's own strings are already cased — so `capitalize` is a no-op and
@@ -165,6 +174,12 @@ class WorkbenchSurfaceTreatment extends InheritedWidget {
   /// the panel tab label (§spec:chrome-typography-canon).
   static TextStyle partTitleStyle(BuildContext context, WorkbenchTheme theme) =>
       partTitleStyleFor(of(context), theme);
+
+  /// The panel tab label tier in force at [context]. Off the treatment it
+  /// falls back to the part title tier, which is where base VS Code leaves the
+  /// composite bar's labels (§spec:chrome-typography-canon).
+  static TextStyle panelTabLabelStyleFor(bool modernUI, WorkbenchTheme theme) =>
+      modernUI ? theme.panelTabLabel : theme.baseSidebarOrPanelHeading;
 
   /// [partTitleStyle] against an already-resolved treatment.
   static TextStyle partTitleStyleFor(bool modernUI, WorkbenchTheme theme) =>

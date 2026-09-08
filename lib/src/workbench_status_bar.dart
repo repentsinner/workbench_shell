@@ -37,11 +37,13 @@ class WorkbenchStatusBar extends StatelessWidget {
     // way — it is registered upstream and a host may read it.
     final modernUI = WorkbenchSurfaceTreatment.of(context);
     return Container(
-      height: WorkbenchLayoutConstants.statusBarHeight,
-      // The bar is a rail inside the cluster, not a card: no border or radius
-      // of its own, but `floatingPanels.css` insets its content. The height is
-      // fixed, so the vertical inset comes out of the content box — 18px, which
-      // still clears the 17px status icon (§spec:modern-ui-surfaces).
+      // `statusbarPart.ts` reports HEIGHT + floatingBottomPadding as the height
+      // the workbench reserves, so the bar keeps its 22px of content and gains
+      // a skirt below it — clearing the window edge the way the cards clear it
+      // with their perimeter gutter (§spec:modern-ui-surfaces).
+      height: WorkbenchSurfaceTreatment.statusBarHeight(context),
+      // A rail inside the cluster, not a card: no border or radius of its own,
+      // but `floatingPanels.css` insets its content.
       padding: WorkbenchSurfaceTreatment.statusBarInsetFor(modernUI),
       decoration: BoxDecoration(
         color: theme.statusBarBackground,

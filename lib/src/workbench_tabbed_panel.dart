@@ -61,6 +61,19 @@ class WorkbenchPanelTab {
 /// background uses `panelBackground`. The host installs the theme
 /// extension on the surrounding [ThemeData] — the primitive does not
 /// patch [Theme] locally.
+/// Insets that centre the treatment's tab indicator in a [stripHeight] band:
+/// `tabs.css` gives the indicator a fixed height and anchors it to the item's
+/// middle, which in a flex row is the band's spare space split evenly
+/// (§spec:modern-ui-surfaces).
+EdgeInsets _indicatorPadding(double stripHeight) {
+  final spare =
+      (stripHeight - WorkbenchLayoutConstants.panelTabIndicatorHeight) / 2;
+  return EdgeInsets.symmetric(
+    horizontal: WorkbenchLayoutConstants.panelTabIndicatorInset,
+    vertical: spare < 0 ? 0 : spare,
+  );
+}
+
 class WorkbenchTabbedPanel extends StatefulWidget {
   /// Tabs in display order. Must be non-empty.
   final List<WorkbenchPanelTab> tabs;
@@ -208,11 +221,15 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
     // One read of the treatment for the whole strip: the title tier, the tab
     // labels and the strip's own inset all turn on it.
     final modernUI = WorkbenchSurfaceTreatment.of(context);
-    final partTitle = WorkbenchSurfaceTreatment.partTitleStyleFor(
+    // The strip's own title tier and its tab labels are different roles: the
+    // treatment raises the part title to semiBold and leaves the composite
+    // bar's labels regular (§spec:chrome-typography-canon).
+    final tabLabel = WorkbenchSurfaceTreatment.panelTabLabelStyleFor(
       modernUI,
       theme,
     );
     final stripInset = WorkbenchSurfaceTreatment.panelTitleInsetFor(modernUI);
+    final stripHeight = WorkbenchSurfaceTreatment.partTitleHeightFor(modernUI);
     return ColoredBox(
       color: theme.panelBackground,
       child: Column(
@@ -223,7 +240,7 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
             // and the strip's own inset is the container's padding — one
             // widget, matching the side bar heading
             // (§spec:modern-ui-surfaces).
-            height: WorkbenchSurfaceTreatment.partTitleHeightFor(modernUI),
+            height: stripHeight,
             padding: stripInset,
             child: Row(
                 children: [
@@ -234,10 +251,10 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
                       tabAlignment: TabAlignment.start,
                       labelColor: theme.tabBarLabelColor,
                       unselectedLabelColor: theme.tabBarUnselectedLabelColor,
-                      labelStyle: partTitle.copyWith(
+                      labelStyle: tabLabel.copyWith(
                         color: theme.tabBarLabelColor,
                       ),
-                      unselectedLabelStyle: partTitle.copyWith(
+                      unselectedLabelStyle: tabLabel.copyWith(
                         color: theme.tabBarUnselectedLabelColor,
                       ),
                       dividerColor: theme.tabBarDividerColor,
@@ -247,18 +264,40 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
                       overlayColor: const WidgetStatePropertyAll(
                         Colors.transparent,
                       ),
-                      indicator: UnderlineTabIndicator(
-                        borderSide: BorderSide(
-                          color: theme.tabBarIndicatorColor,
-                        ),
-                      ),
+                      // The treatment marks the active tab with a filled
+                      // rounded target rather than a rule along one edge:
+                      // `tabs.css` re-anchors the composite bar's
+                      // `active-item-indicator` to the item's middle, sizes it
+                      // to spacing.size240 and rounds it at the controls tier
+                      // (§spec:modern-ui-surfaces). Base VS Code keeps the
+                      // underline.
+                      // The pill spans the tab, where the underline spans the
+                      // label; both take the tab's own box here so the two
+                      // branches differ only in what they paint.
+                      indicatorSize: TabBarIndicatorSize.tab,
+                      indicatorPadding: modernUI
+                          ? _indicatorPadding(stripHeight)
+                          : EdgeInsets.zero,
+                      indicator: modernUI
+                          ? BoxDecoration(
+                              color: theme.panelTabActiveBackground,
+                              borderRadius:
+                                  WorkbenchLayoutConstants.controlsRadius,
+                            )
+                          : UnderlineTabIndicator(
+                              borderSide: BorderSide(
+                                color: theme.tabBarIndicatorColor,
+                              ),
+                            ),
                       tabs: [
                         for (var i = 0; i < widget.tabs.length; i++)
                           Tab(
                             child: _HoverableTabLabel(
                               controller: _tabController,
                               tabIndex: i,
-                              activeColor: theme.tabBarLabelColor,
+                              activeColor: modernUI
+                                  ? theme.panelTabActiveForeground
+                                  : theme.tabBarLabelColor,
                               inactiveColor: theme.tabBarUnselectedLabelColor,
                               // Hover tints inactive labels toward the
                               // active-tab text colour (the
@@ -268,7 +307,15 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
                               // signal, while hover is "if you click this
                               // tab will become active" — visually closer
                               // to the active text colour.
-                              inactiveHoverColor: theme.tabBarLabelColor,
+                              inactiveHoverColor: modernUI
+                                  ? theme.panelTabHoverForeground
+                                  : theme.tabBarLabelColor,
+                              inactiveHoverBackground: modernUI
+                                  ? theme.panelTabHoverBackground
+                                  : null,
+                              hoverInset: modernUI
+                                  ? _indicatorPadding(stripHeight)
+                                  : EdgeInsets.zero,
                               child: _buildTabLabel(
                                 context,
                                 theme,
@@ -399,6 +446,17 @@ class _HoverableTabLabel extends StatefulWidget {
   final Color activeColor;
   final Color inactiveColor;
   final Color inactiveHoverColor;
+
+  /// Fill a hovered inactive tab paints behind its label, in the same shape
+  /// the active tab's indicator takes — `tabs.css` gives both the composite
+  /// bar's `active-item-indicator`, one on `.checked` and one on `:hover`
+  /// (§spec:modern-ui-surfaces). Null off the treatment, where hover is a
+  /// label-colour change only (§spec:tab-strip-canon).
+  final Color? inactiveHoverBackground;
+
+  /// Insets the hover fill to the indicator's shape, so a hovered tab and an
+  /// active one mark the same box.
+  final EdgeInsets hoverInset;
   final Widget child;
 
   const _HoverableTabLabel({
@@ -407,6 +465,8 @@ class _HoverableTabLabel extends StatefulWidget {
     required this.activeColor,
     required this.inactiveColor,
     required this.inactiveHoverColor,
+    required this.inactiveHoverBackground,
+    required this.hoverInset,
     required this.child,
   });
 
@@ -451,16 +511,31 @@ class _HoverableTabLabelState extends State<_HoverableTabLabel> {
     final color = isActive
         ? widget.activeColor
         : (_hovering ? widget.inactiveHoverColor : widget.inactiveColor);
+    final Widget label = DefaultTextStyle.merge(
+      style: TextStyle(color: color),
+      child: IconTheme.merge(
+        data: IconThemeData(color: color),
+        child: widget.child,
+      ),
+    );
+    // The active tab's fill is the TabBar's own indicator, so only a hovered
+    // *inactive* tab paints one here — the two would otherwise stack.
+    final fill = widget.inactiveHoverBackground;
     return MouseRegion(
       onEnter: (_) => setState(() => _hovering = true),
       onExit: (_) => setState(() => _hovering = false),
-      child: DefaultTextStyle.merge(
-        style: TextStyle(color: color),
-        child: IconTheme.merge(
-          data: IconThemeData(color: color),
-          child: widget.child,
-        ),
-      ),
+      child: (_hovering && !isActive && fill != null)
+          ? Padding(
+              padding: widget.hoverInset,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: fill,
+                  borderRadius: WorkbenchLayoutConstants.controlsRadius,
+                ),
+                child: label,
+              ),
+            )
+          : label,
     );
   }
 }

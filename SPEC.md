@@ -3231,14 +3231,53 @@ the full width and takes no border or radius of its own, but the
 treatment insets its content — `spacing.size60` horizontally,
 `spacing.size20` vertically. Its items round at the controls tier, so
 an item that paints a background reads as a pill rather than a
-rectangle. The bar's height is a fixed constant rather than a content
-box that grows, so the vertical inset comes out of the content: 18px,
-which still clears the status icon it has to hold. Upstream's variants
+rectangle. Upstream's variants
 of that horizontal inset — tightened to the activity bar's own gutter,
 or to the cluster perimeter at compact — key off states the package does
 not have: the activity bar's own compact *size setting* (not the Modern
 UI density) and a hidden activity bar. The shell always renders the
 rail, so the plain inset is the only branch reachable here.
+
+**The bar also grows.** `StatusbarPart` reports
+`HEIGHT + floatingBottomPadding` as the height the workbench reserves,
+where the padding is 6 at the default density, 4 at compact, and zero
+off the treatment. The bar keeps its 22px of content and gains a skirt
+below it, clearing the window edge the way the cards clear it with
+their perimeter gutter. An earlier pass reasoned the opposite — that a
+fixed height meant the vertical inset had to come out of the content —
+and shipped a bar six pixels short.
+
+This is a fourth metric the treatment sets in code rather than CSS, and
+unlike the pane header size, the scrollbar size and the notification row
+height it lives in `statusbarPart.ts` rather than
+`modernUI.contribution.ts`. An audit that reads the contribution and the
+stylesheets does not see it; §spec:layout-constants-canon pins it
+instead.
+
+**A panel tab marks itself with a pill, not an underline.** Base VS
+Code draws the active composite's `active-item-indicator` as a bar
+along one edge; `tabs.css` re-anchors it to the item's middle, gives it
+`spacing.size240` of height and the controls-tier radius, and insets it
+`spacing.size20` from each end, so the active tab reads as a filled
+rounded target behind its label. The item itself takes
+`spacing.size320` of height and `spacing.size100` of horizontal
+padding.
+
+Only the composite-bar half of that module applies here: the shell
+renders no editor tab strip, so the rest of `tabs.css` has no surface
+(§spec:tab-strip-canon).
+
+**A tab label is not a part title.** `fontRamp.css` raises the pane
+header and the part title to `fontSize.label1` semiBold, and `tabs.css`
+then gives the composite bar's own labels `fontSize.body1` regular. The
+two rules carry equal specificity and `tabs.css` is imported second, so
+the tab label is 13px regular where the heading beside it is 12px
+semiBold. Reading the ramp alone gets the weight right and the size
+wrong; the cascade order is the deciding fact, and it lives in the
+contribution's import list rather than in either stylesheet.
+
+The two therefore need separate tokens. Sharing one shipped tabs both a
+weight too heavy and a size too small.
 
 **A focus ring answers the keyboard, not the pointer.** Upstream's
 `keyboardFocusOnly` module hides the focus outline on
@@ -3318,10 +3357,12 @@ excluded here, to be specified separately rather than absorbed:
 - *The command center.* `commandCenter.css` styles a surface the
   package does not render and §spec:capability-boundary keeps in the
   host.
-- *Editor tabs.* `tabs.css` restyles the editor group's tab strip. The
-  shell renders no editor tab strip — the editor is host content — so
-  only the bottom panel's strip has an analogue, and that lands with
-  §spec:tab-strip-canon rather than here.
+- *Editor tabs.* `tabs.css` restyles the editor group's tab strip as
+  well as the composite bar. The shell renders no editor tab strip —
+  the editor is host content — so that half has no surface. The
+  composite-bar half is specified above; an earlier pass excluded the
+  module whole and shipped a panel strip that still underlined its
+  active tab.
 - *Scroll shadows.* The `scrollShadows` module carries no stylesheet of
   its own and the package ships no scroll-shadow affordance to
   suppress.
