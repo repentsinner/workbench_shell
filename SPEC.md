@@ -114,15 +114,14 @@ extensions, and value types.
 
 **Canon enforcement, not canon description**. When the spec
 calls a treatment "canonical" or "VS Code-style" — text-only
-tab labels, uppercase tab and section heading text, fixed
-status bar height, the panel-toggle living in the View menu
+tab labels, fixed status bar height, the panel-toggle living in the
+View menu
 rather than the status bar — the API surface enforces it at
 the type level or in the shell's rendering layer. The shell
 does not accept a permissive `Widget` field and document that
-consumers shouldn't put icons in it; does not accept a `String`
-field and document that consumers should `.toUpperCase()` first;
-does not expose a "panel visibility action" slot in the status
-bar that consumers are asked not to use. The renderable belongs
+consumers shouldn't put icons in it; does not expose a "panel
+visibility action" slot in the status bar that consumers are asked
+not to use. The renderable belongs
 to the shell. Consumers that need richer expression than the
 canon allows get a typed structured primitive (e.g., a
 `PanelTabBadge(count)` field for the count badge case) rather
@@ -130,13 +129,15 @@ than a widget escape hatch. This invariant prevents
 cross-consumer drift — the failure mode that `workbench_shell`
 exists to remove (§spec:problem-statement).
 
-The precedent is in the codebase: `WorkbenchViewPane` titles render
-uppercase regardless of how the consumer cases the input string,
-matching VS Code's pane header (§spec:chrome-typography-canon); `WorkbenchTabbedPanel` does
-the same for tab labels and renders the inline count badge from
-a typed `PanelTabBadge` payload, painting the pill in VS Code's
-generic badge accent (`badge.background`). Every new chrome
-surface follows the same model.
+The precedent is in the codebase: `WorkbenchTabbedPanel` pins its
+tab label to `String` and renders the tab itself, taking the inline
+count badge from a typed `PanelTabBadge` payload and painting the
+pill in VS Code's generic badge accent (`badge.background`). Every
+new chrome surface follows the same model. Casing is the
+counter-example that bounds the rule: the shell once uppercased a
+title to enforce a canon, and retired the transform when upstream
+stopped rendering one (§spec:chrome-typography-canon). The rule
+enforces the canon that holds, not the canon that held.
 §spec:view-stack applies the rule to the sidebar body itself: the host
 supplies typed view descriptors, not a free-form sidebar `Widget`,
 removing the last whole-surface escape hatch in the chrome. It also
@@ -169,7 +170,7 @@ primitives exist to prevent.
 
 | Widget | Purpose |
 |---|---|
-| `WorkbenchViewPane` | Top-level view pane in a sidebar or panel body. Title renders uppercase per §spec:chrome-typography-canon (VS Code pane-header canon), padded for pane framing |
+| `WorkbenchViewPane` | Top-level view pane in a sidebar or panel body. Title renders in the casing the host supplies, at the pane-header tier per §spec:chrome-typography-canon, padded for pane framing |
 | `WorkbenchViewWelcome` | Canonical empty-view content: stacked paragraphs and full-width buttons |
 
 **Observable behavior**: every sidebar and bottom panel renders
@@ -748,7 +749,7 @@ merged under `mergeSingleView` hides the title strip regardless, so `title`
 governs the multi-view and the unmerged single-view cases (reported in #93).
 
 **Problem**: the sidebar heading (§spec:workbench-layout) renders only the
-active container's uppercase label — a bare title row with an empty right
+active container's label — a bare title row with an empty right
 zone. A user cannot hide a view they don't want and re-show it later; the
 stack is fixed to the descriptors the host declared. VS Code makes view
 membership a user choice through the title overflow, so every host that wants
@@ -1190,12 +1191,12 @@ patch `Theme.of(context).copyWith(tabBarTheme: …)` around the
 primitive.
 
 **Canonical tab strip rendering**. Per §spec:capability-boundary enforcement, the tab
-strip is text-only and labels render uppercase. The shell applies
-both invariants in its rendering — consumers pass `String` labels
-in natural case (`'Output'`, `'Debug Console'`) and the shell
-renders `'OUTPUT'`, `'DEBUG CONSOLE'`. Consumers needing the VS
+strip is text-only. The shell applies that invariant in its
+rendering, and renders the label in the casing the host supplies —
+`'Output'`, `'Debug Console'` — which is what the Modern UI
+treatment shows (§spec:modern-ui-surfaces). Consumers needing the VS
 Code "Problems (3)" pattern supply a typed `PanelTabBadge` (count
-only) which the shell renders inline next to the uppercased label,
+only) which the shell renders inline next to the label,
 painting the pill in VS Code's generic badge accent
 (`badge.background` / `badge.foreground`) — a separate slot from
 the panel-active underline. The badge does not vary by severity:
@@ -1450,7 +1451,7 @@ handler (`intent.tabId as BottomPanelTabIds`) and switch
 exhaustively from there.
 
 **Why `label` is `String`, not `Widget`**. VS Code's bottom panel
-tab strip is canonically text-only — uppercase label, optional
+tab strip is canonically text-only — a text label, optional
 inline numeric badge ("Problems (3)" pattern), no icons stacked
 above text. A `Widget`-typed label leaves the canon to consumer
 discipline and admits non-canonical surfaces by accident or
@@ -2436,8 +2437,8 @@ workbench CSS:
 
 | Surface | VS Code source | Size / weight |
 |---|---|---|
-| Sidebar / panel part title ("EXPLORER") | `part.css` — `.title-label h2` | 11 / w400 |
-| Sidebar pane header / `WorkbenchViewPane` | `paneview.css` — `.pane-header` | 11 / w700, uppercase |
+| Sidebar / panel part title ("Explorer") | `fontRamp.css` — `.part > .title > .title-label h2` | 12 / w600 |
+| Sidebar pane header / `WorkbenchViewPane` | `fontRamp.css` — `.pane-header .title` | 12 / w600 |
 | Workbench body content | `part.css` — `.part > .content` | 13 / w400 |
 | Settings label / form label | `settingsEditor2.css` — `.setting-item-category` | 13 / w500 |
 | Status bar item | `statusbarpart.css` | 12 / w400 |
@@ -2455,9 +2456,31 @@ workbench CSS:
 **`sectionTitle` adopts pane-header semantics.** The token's role —
 top-level grouping inside a sidebar or panel body, per
 `WorkbenchViewPane` (§spec:structural-primitives) — maps onto VS
-Code's pane header (`.pane-header`, `11 / bold / uppercase`).
-`WorkbenchViewPane.title` renders uppercase in the shell regardless
-of input casing, parallel to the §spec:tabbed-panel tab-label canon.
+Code's pane header, which the Modern UI treatment renders at
+`fontSize.label1` semiBold (§spec:modern-ui-surfaces).
+
+**The shell no longer transforms the casing of a title it is given.**
+`WorkbenchViewPane.title`, the composite title, and a panel tab label
+each render the string the host supplies. Upstream reached the same
+place from the opposite direction: its strings were always properly
+cased and the ALL-CAPS was a `text-transform` the treatment drops, so
+a shell that uppercases renders a string no build of the editor shows.
+
+This retires a canon-enforcement rule rather than relaxing one. The
+shell owned the transform so a host could not diverge from a canon
+that no longer holds; with upstream deferring to the supplied string,
+owning the transform is what diverges. A host wanting ALL-CAPS passes
+an ALL-CAPS title, which is how upstream's own
+`modernUIUppercaseViewHeaders` escape hatch behaves.
+
+**Rejected — a `uppercaseViewHeaders` flag mirroring upstream's.**
+Upstream needs the setting because `text-transform` is not something a
+caller can express: its view titles come from extension contributions
+it does not control. The shell's titles come from a host that already
+controls the string, so the same escape hatch is a second way to spell
+`title.toUpperCase()`. The one case the flag would serve — flipping
+every title at once without touching each call site — is a host
+concern, not a shell property (§spec:capability-boundary).
 
 **`smallText` is the badge tier.** Internal token the panel-tab
 badge pill paints in, and the host analogue for dense numeric
@@ -2478,8 +2501,9 @@ consumer-equivalent default and the canonically correct one.
   `WorkbenchTheme.fromVscodeColorMap(...)` with no font override
   renders every chrome surface in the platform's default UI sans at
   VS Code's literal pixel values.
-- `WorkbenchViewPane.title` renders uppercase regardless of input
-  casing; the shell applies the transform internally.
+- `WorkbenchViewPane.title`, the composite title and a panel tab
+  label each render the string the host supplies; the shell applies
+  no casing transform.
 - Setting `chromeFontFamily` on the factory flips every chrome
   surface in the next frame.
 - `WorkbenchTabbedPanel`, `WorkbenchStatusBar`, `WorkbenchMenuBar`,
@@ -3105,6 +3129,100 @@ is what a host sees, not how the work is divided. It is also the
 mitigation this section already names — a dialed-back experiment is a
 flag flip for a host rather than a wait for a release.
 
+**The treatment is fifteen modules, not one stylesheet.**
+`modernUI.contribution.ts` registers a fixed catalog —
+`activityBar`, `commandCenter`, `editorBorder`, `fontRamp`,
+`keyboardFocusOnly`, `notificationsDialogs`, `padding`,
+`paneHeaders`, `roundedCorners`, `sashHandles`, `scrollShadows`,
+`shadows`, `statusBar`, `tabs`, `titlebar` — enabled together by the
+one setting, plus three metrics the contribution sets in code rather
+than CSS. Reading the card framing alone understates the treatment by
+an order of magnitude, which is how the first pass through this
+section shipped four modules and recorded none of the rest. The
+catalog is the audit unit: a module either has a package analogue, or
+this section records why it has none.
+
+**Casing follows upstream's default, which is no longer uppercase.**
+`fontRamp.css` renders view pane headers, part titles and composite
+tab labels `capitalize` at `fontSize.label1` (12px) semiBold. Base VS
+Code's ALL-CAPS returns only under
+`workbench.experimental.modernUIUppercaseViewHeaders`, which declares
+`default: false` and carries no `experiment` override — so unlike
+`workbench.experimental.modernUI` itself, the declared default is the
+shipped behavior. The shell therefore renders these surfaces in the
+casing its host supplies and stops transforming them
+(§spec:chrome-typography-canon).
+
+**A part title keeps its height and loses two thirds of its inset.**
+`part.css` sizes `.part > .title` at 35px and no module overrides it,
+so the side bar heading and the panel tab strip stay where they are.
+What the treatment moves is the inset: `padding.css` takes the part's
+horizontal padding from 8px to one spacing step and the title label's
+leading padding from 12px to two, so the label sits closer to the
+card edge and the trailing action sits against it. The package pads
+the row a flat four steps and matches neither.
+
+**Sashes carry a persistent grip.** With the parts separated by a gap,
+an invisible-until-hovered sash leaves no sign of where one part ends
+and the next begins. `sashHandles.css` marks each boundary with three
+2px dots, 5px apart along the seam, painted `foreground` mixed to 30%
+alpha with the whole grip at `opacity: 0.75`, and faded out on hover
+and drag so the existing full-length highlight takes over unchanged. Grips mark boundaries *between* parts only:
+upstream suppresses them for sashes inside a part, which in this
+package is every view-stack pane sash. Compact closes the gaps, so the
+grips retire with the space they occupied.
+
+**The status bar is a rail inside the cluster, not a card.** It spans
+the full width and takes no border or radius of its own, but the
+treatment insets its content — `spacing.size60` horizontally,
+`spacing.size20` vertically — and aligns that inset to the activity
+bar's own gutter where a rail is present. Its items round at the
+controls tier, so an item that paints a background reads as a pill
+rather than a rectangle.
+
+**A focus ring answers the keyboard, not the pointer.** Upstream's
+`keyboardFocusOnly` module hides the focus outline on
+`:focus:not(:focus-visible)` across the side bars, panel and status
+bar, keeping it for keyboard traversal. The editor and global widgets
+keep their rings either way.
+
+Flutter ships no `:focus-visible`, and `FocusManager.highlightMode` is
+not it: a mouse click and a key press both resolve to `traditional`,
+and a mouse pointer event does not update the mode at all
+(`_HighlightModeManager.handlePointerEvent`, Flutter 3.47.2). The
+distinction has to come from somewhere the shell already knows it.
+It does: a header takes focus either because its own tap handler
+requested it or because traversal moved there, and those are separate
+code paths (§spec:view-pane-focus). The pane records which one
+delivered the focus it holds and paints the ring only for the second.
+
+**Rejected — suppressing the ring by not focusing on tap.** Dropping
+the `requestFocus` from the tap handler removes the ring and the
+bookkeeping together. It also breaks the sequence upstream preserves:
+click a header, then press Down, and focus shall move to the next
+header. Leaving the click unfocused sends that keypress to whatever
+held focus before, so the affordance the ring suppression is meant to
+tidy stops working.
+
+**Notification surfaces round at the card tier.** The toast, the
+center and the center's last row take `cornerRadius.large` — the
+radius the parts themselves take — where the package rounds them at
+the controls tier today. The treatment additionally drops the
+notification row height from 42 to 34, which the package has no
+analogue for: its cards size to their content rather than to a
+virtualized row, so there is no fixed height to tighten.
+
+**Rejected — excluding the font ramp as a renaming.** An earlier pass
+surveyed `baseSizes.ts`, found it registered `fontSize.heading1` …
+`fontSize.label3` against literals the package already pinned, and
+excluded the ramp on the grounds that adopting it renamed the canon
+without changing what renders. That reading stopped at `baseSizes.ts`.
+`fontRamp.css` is where the module does its work, and it moves the
+pane header from 11px bold ALL-CAPS to 12px semiBold title case — a
+change to three properties on the package's most repeated chrome
+surface. The exclusion is withdrawn and the casing decision above
+replaces it.
+
 **Rejected — choosing the card gap independently.** The gap looks like
 a free choice among nearby spacing steps. Upstream keeps the margin
 its layout code subtracts and the margin its CSS draws deliberately in
@@ -3126,11 +3244,28 @@ off-by-a-margin errors the upstream comment warns about.
 **Scope boundary.** These adjacent upstream changes are surveyed and
 excluded here, to be specified separately rather than absorbed:
 
-- *The font ramp.* `baseSizes.ts` registers `fontSize.heading1` …
-  `fontSize.label3` and deprecates `bodyFontSize` in their favor.
-  §spec:chrome-typography-canon pins typography to per-surface CSS
-  literals, which remain accurate; adopting the ramp is a renaming of
-  that canon, not a change to what renders.
+- *The title bar.* `titlebar.css` pads the macOS title-bar containers
+  by one spacing step. Flutter exposes no seam onto native window
+  chrome, so the package has nothing to pad
+  (§spec:custom-window-chrome). Excluded for want of a surface, not on
+  balance — it returns if Flutter grows one.
+- *The command center.* `commandCenter.css` styles a surface the
+  package does not render and §spec:capability-boundary keeps in the
+  host.
+- *Editor tabs.* `tabs.css` restyles the editor group's tab strip. The
+  shell renders no editor tab strip — the editor is host content — so
+  only the bottom panel's strip has an analogue, and that lands with
+  §spec:tab-strip-canon rather than here.
+- *Scroll shadows.* The `scrollShadows` module carries no stylesheet of
+  its own and the package ships no scroll-shadow affordance to
+  suppress.
+- *Scrollbars.* The contribution narrows the global default scrollbar
+  to 8px and `roundedCorners.css` rounds the slider. The package
+  themes no scrollbar at all — it registers none of the
+  `scrollbarSlider.*` tokens and leaves the Material default in place —
+  so the treatment has no surface to narrow. The gap is against base VS
+  Code rather than against the treatment, and closing it is a
+  scrollbar-theming section, not a Modern UI metric.
 - *Part shadows.* `workbench.shadows` defaults to `true` and is not
   experimental, and carries its own `--vscode-shadow-*` token family.
   The Modern UI look suppresses part shadows for a flat surface while
@@ -3148,10 +3283,6 @@ excluded here, to be specified separately rather than absorbed:
   tree primitive and a pane body is host content
   (§spec:capability-boundary), so there is no shell surface to inset.
   This is a boundary consequence, not deferred work.
-- *Part title height.* The treatment tightens the side bar heading and
-  panel tab strip; both still render at the base height. The change is
-  part chrome rather than pane chrome, so it belongs with the parts
-  rather than here.
 - *Restored corners on the compact cluster's perimeter.* Upstream
   squares every card corner at compact and then paints the four corners
   of the *cluster* back at the card radius, from a radial-gradient
@@ -3188,6 +3319,16 @@ excluded here, to be specified separately rather than absorbed:
   each part's own canonical seam, returns the activity bar to its
   left-border indicator and the view-pane header to the base band;
   turning it back on restores the cards.
+- Pane headers, part titles and panel tab labels render in the casing
+  the host supplies rather than uppercased.
+- Each sash between two parts shows three dots at its midpoint, which
+  fade out while the sash is hovered or dragged. A view-stack pane sash
+  shows none, and compact density shows none.
+- Status bar items round at the controls tier, and the bar's content is
+  inset to line up with the cards above it.
+- Clicking a side bar, panel or status bar surface paints no focus
+  ring; reaching the same surface by keyboard paints one.
+- A notification card rounds at the same radius as a workbench part.
 
 ---
 
