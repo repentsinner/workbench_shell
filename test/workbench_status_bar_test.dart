@@ -92,6 +92,68 @@ void main() {
       final size = tester.getSize(find.byType(WorkbenchStatusBar));
       expect(size.height, WorkbenchLayoutConstants.statusBarHeight);
     });
+
+    testWidgets('insets its item row at the part tier', (tester) async {
+      // `floatingPanels.css`: `size60` horizontally, `size20` vertically
+      // (§spec:modern-ui-surfaces).
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const WorkbenchStatusBar(
+            leading: [WorkbenchStatusBarItem(label: 'Left')],
+          ),
+        ),
+      );
+      expect(
+        _barContainer(tester).padding,
+        const EdgeInsets.symmetric(
+          horizontal: WorkbenchLayoutConstants.spacingSize60,
+          vertical: WorkbenchLayoutConstants.spacingSize20,
+        ),
+      );
+    });
+
+    testWidgets('drops the part inset with the treatment off', (tester) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const WorkbenchStatusBar(
+            leading: [WorkbenchStatusBarItem(label: 'Left')],
+          ),
+          modernUI: false,
+        ),
+      );
+      expect(_barContainer(tester).padding, EdgeInsets.zero);
+    });
+
+    testWidgets('the inset content box still holds an icon and its label', (
+      tester,
+    ) async {
+      // The bar is a fixed 22px, so the vertical inset shrinks the content box
+      // to 18px. Neither the 17px status icon nor the 12px label may outgrow
+      // it (§spec:modern-ui-surfaces).
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const WorkbenchStatusBar(
+            leading: [
+              WorkbenchStatusBarItem(
+                icon: Symbols.wifi_rounded,
+                label: 'Ln 1, Col 1',
+              ),
+            ],
+          ),
+        ),
+      );
+      const content =
+          WorkbenchLayoutConstants.statusBarHeight -
+          2 * WorkbenchLayoutConstants.spacingSize20;
+      expect(
+        tester.getSize(find.byIcon(Symbols.wifi_rounded)).height,
+        lessThanOrEqualTo(content),
+      );
+      expect(
+        tester.getSize(find.text('Ln 1, Col 1')).height,
+        lessThanOrEqualTo(content),
+      );
+    });
   });
 
   group('WorkbenchStatusBarItem', () {
@@ -147,5 +209,40 @@ void main() {
       );
       expect(find.byType(Tooltip), findsOneWidget);
     });
+
+    testWidgets('rounds its ink response at the controls tier', (tester) async {
+      // `statusBar.css` rounds `.statusbar-item` at `cornerRadius.small`, so a
+      // tapped or hovered item reads as a pill (§spec:modern-ui-surfaces).
+      await tester.pumpWidget(
+        wrapWithTheme(
+          WorkbenchStatusBarAction(label: 'Tasks', onTap: () {}),
+        ),
+      );
+      expect(
+        tester.widget<InkWell>(find.byType(InkWell)).borderRadius,
+        WorkbenchLayoutConstants.controlsRadius,
+      );
+    });
+
+    testWidgets('leaves the ink response square with the treatment off', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          WorkbenchStatusBarAction(label: 'Tasks', onTap: () {}),
+          modernUI: false,
+        ),
+      );
+      expect(
+        tester.widget<InkWell>(find.byType(InkWell)).borderRadius,
+        isNull,
+      );
+    });
   });
 }
+
+/// The bar's own chrome container — the `Container` carrying its fill, its
+/// base-treatment top border and the treatment's part inset.
+Container _barContainer(WidgetTester tester) => tester.widget<Container>(
+  find.ancestor(of: find.byType(Row), matching: find.byType(Container)).first,
+);

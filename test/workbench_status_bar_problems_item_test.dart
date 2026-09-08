@@ -34,6 +34,29 @@ void main() {
       },
     );
 
+    testWidgets('rounds its ink response at the controls tier, and not with '
+        'the treatment off', (tester) async {
+      // `statusBar.css` rounds `.statusbar-item` at `cornerRadius.small`; base
+      // VS Code rounds it not at all (§spec:modern-ui-surfaces).
+      Widget harness({required bool modernUI}) => wrapWithTheme(
+        WorkbenchStatusBarProblemsItem(
+          errorCount: 2,
+          warningCount: 1,
+          infoCount: 0,
+          onTap: () {},
+        ),
+        modernUI: modernUI,
+      );
+      BorderRadius? radius() =>
+          tester.widget<InkWell>(find.byType(InkWell)).borderRadius;
+
+      await tester.pumpWidget(harness(modernUI: true));
+      expect(radius(), WorkbenchLayoutConstants.controlsRadius);
+
+      await tester.pumpWidget(harness(modernUI: false));
+      expect(radius(), isNull);
+    });
+
     testWidgets('renders the info segment when infoCount is positive', (
       tester,
     ) async {
