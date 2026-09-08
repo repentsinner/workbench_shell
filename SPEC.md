@@ -2453,6 +2453,17 @@ workbench CSS:
 `sidebarOrPanelHeading`, `captionText`, `helperStyle`, and
 `smallText` tokens carry these literals.
 
+**The two tiers the treatment moves are registered twice.** The pane
+header and the part title each read one tier under the treatment and
+another before it, so `baseSectionTitle` and `baseSidebarOrPanelHeading`
+carry the base literals alongside them. Registering the pair rather than
+deriving one from the other keeps a host that overrides one tier from
+silently moving the other, and matches how `baseViewPaneHeaderHeight`
+already stands beside `viewPaneHeaderHeight` (§spec:modern-ui-surfaces).
+`WorkbenchTheme` is a `ThemeExtension` resolved without a `BuildContext`
+while the casing that travels with the tier is a per-widget decision, so
+the widget reads the treatment once and picks both.
+
 **`sectionTitle` adopts pane-header semantics.** The token's role —
 top-level grouping inside a sidebar or panel body, per
 `WorkbenchViewPane` (§spec:structural-primitives) — maps onto VS
