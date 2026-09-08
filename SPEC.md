@@ -3183,12 +3183,26 @@ rather than a rectangle.
 **A focus ring answers the keyboard, not the pointer.** Upstream's
 `keyboardFocusOnly` module hides the focus outline on
 `:focus:not(:focus-visible)` across the side bars, panel and status
-bar, keeping it for keyboard traversal. Flutter draws the same
-distinction through `FocusNode.hasPrimaryFocus` paired with the
-highlight mode `FocusManager` already tracks, so the package expresses
-the rule through the framework's own traversal signal rather than
-re-deriving it from gesture history. The editor and global widgets
+bar, keeping it for keyboard traversal. The editor and global widgets
 keep their rings either way.
+
+Flutter ships no `:focus-visible`, and `FocusManager.highlightMode` is
+not it: a mouse click and a key press both resolve to `traditional`,
+and a mouse pointer event does not update the mode at all
+(`_HighlightModeManager.handlePointerEvent`, Flutter 3.47.2). The
+distinction has to come from somewhere the shell already knows it.
+It does: a header takes focus either because its own tap handler
+requested it or because traversal moved there, and those are separate
+code paths (§spec:view-pane-focus). The pane records which one
+delivered the focus it holds and paints the ring only for the second.
+
+**Rejected — suppressing the ring by not focusing on tap.** Dropping
+the `requestFocus` from the tap handler removes the ring and the
+bookkeeping together. It also breaks the sequence upstream preserves:
+click a header, then press Down, and focus shall move to the next
+header. Leaving the click unfocused sends that keypress to whatever
+held focus before, so the affordance the ring suppression is meant to
+tidy stops working.
 
 **Notification surfaces round at the card tier.** The toast, the
 center and the center's last row take `cornerRadius.large` — the
