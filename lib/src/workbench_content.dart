@@ -155,7 +155,9 @@ class WorkbenchViewPane extends StatefulWidget {
 /// Keys the focus-ring [DecoratedBox] drawn over every view-pane header
 /// (§spec:view-pane-focus). The ring reserves a constant 1px border — painted
 /// [WorkbenchTheme.focusBorder] while focused, transparent at rest — so
-/// gaining or losing focus never reflows the header.
+/// gaining or losing focus never reflows the header. Under the Modern UI
+/// treatment it paints for keyboard-delivered focus only; base VS Code paints
+/// it for any focus (§spec:modern-ui-surfaces).
 @visibleForTesting
 const Key viewPaneHeaderFocusRingKey = ValueKey('view-pane-header-focus-ring');
 
@@ -191,6 +193,23 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
   // additionally tints the header surface (§spec:modern-ui-surfaces).
   bool _hovered = false;
   bool _focused = false;
+
+  // Whether a pointer tap delivered the focus the header holds. Flutter ships
+  // no `:focus-visible` and `FocusManager.highlightMode` is not it — a click
+  // and a key press both resolve to `traditional`, and a mouse pointer event
+  // never updates the mode at all. The pane does not need it: a tap is the one
+  // path on which the pane focuses itself ([_handleHeaderTap]), and traversal
+  // moves focus through the focus system, so raising this flag before
+  // requesting focus is what tells the two apart (§spec:modern-ui-surfaces).
+  bool _focusFromPointer = false;
+
+  /// Whether the treatment paints the header's focus ring. Upstream's
+  /// `keyboardFocusOnly` module hides the outline on
+  /// `:focus:not(:focus-visible)` across the side bars and panel, so a click
+  /// focuses without ringing and traversal rings. Base VS Code rings any focus,
+  /// so [_withBaseHeaderChrome] reads [_focused] instead
+  /// (§spec:modern-ui-surfaces).
+  bool get _ringVisible => _focused && !_focusFromPointer;
 
   @override
   void dispose() {
@@ -233,7 +252,12 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
   /// A pointer click focuses the header; on a collapsible header it also
   /// toggles the pane (§spec:view-pane-focus). The InkWell paints its splash;
   /// this wires the focus + toggle behind it.
+  ///
+  /// The click keeps the focus and loses only the ring. Not focusing at all
+  /// would be the simpler suppression and is rejected: Down from a clicked
+  /// header shall still walk to the next one (§spec:view-pane-focus).
   void _handleHeaderTap() {
+    if (!_focusFromPointer) setState(() => _focusFromPointer = true);
     _headerFocusNode.requestFocus();
     if (widget.collapsible) _handleToggle();
   }
@@ -371,7 +395,7 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
                     key: viewPaneHeaderFocusRingKey,
                     decoration: BoxDecoration(
                       border: Border.all(
-                        color: _focused
+                        color: _ringVisible
                             ? theme.focusBorder
                             : Colors.transparent,
                       ),
@@ -516,7 +540,15 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
         child: Focus(
           focusNode: _headerFocusNode,
           onFocusChange: (focused) {
-            if (focused != _focused) setState(() => _focused = focused);
+            if (focused == _focused) return;
+            setState(() {
+              _focused = focused;
+              // A tap raises [_focusFromPointer] before requesting focus;
+              // every other path — Tab, the container's Up/Down traversal —
+              // leaves it down. Lowering it on blur is what keeps the next
+              // focus episode's answer its own.
+              if (!focused) _focusFromPointer = false;
+            });
           },
           onKeyEvent: _handleHeaderKey,
           child: headerSurface,

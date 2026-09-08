@@ -319,7 +319,14 @@ void main() {
 
     Color ringColor(WidgetTester tester) => ringBorder(tester).top.color;
 
-    testWidgets('a click focuses a collapsible header and paints the ring', (
+    /// Whether the header owns focus. The treatment's ring answers the keyboard
+    /// only (§spec:modern-ui-surfaces), so a click's effect on focus is read
+    /// from the focus system rather than from the ring.
+    bool headerFocused(WidgetTester tester) =>
+        FocusManager.instance.primaryFocus?.debugLabel ==
+        'WorkbenchViewPane header';
+
+    testWidgets('a click focuses a collapsible header without ringing it', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -334,25 +341,67 @@ void main() {
       await tester.tap(find.text('Hello'));
       await tester.pumpAndSettle();
 
-      // Click focused the header → ring paints the focusBorder accent.
-      expect(ringColor(tester), testWorkbenchTheme.focusBorder);
+      // The click took focus; the ring stayed down — upstream's
+      // `keyboardFocusOnly` hides the outline on `:focus:not(:focus-visible)`.
+      expect(headerFocused(tester), isTrue);
+      expect(ringColor(tester), Colors.transparent);
       expect(ringBorder(tester).top.width, 1.0);
     });
 
+    testWidgets('traversal rings the header a click left unringed', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const WorkbenchViewPane(title: 'Hello', child: Text('body')),
+        ),
+      );
+      await tester.tap(find.text('Hello'));
+      await tester.pumpAndSettle();
+      expect(ringColor(tester), Colors.transparent);
+
+      // Blur, then reach the same header by keyboard: the ring paints.
+      FocusManager.instance.primaryFocus!.unfocus();
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      expect(headerFocused(tester), isTrue);
+      expect(ringColor(tester), testWorkbenchTheme.focusBorder);
+    });
+
+    testWidgets('the base treatment rings a click too', (tester) async {
+      // `keyboardFocusOnly` is the treatment's module; base VS Code paints its
+      // focus outline on any focus (§spec:modern-ui-surfaces).
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const WorkbenchViewPane(title: 'Hello', child: Text('body')),
+          modernUI: false,
+        ),
+      );
+      expect(ringColor(tester), Colors.transparent);
+
+      // Base `paneview.css` uppercases the header
+      // (§spec:chrome-typography-canon).
+      await tester.tap(find.text('HELLO'));
+      await tester.pumpAndSettle();
+
+      expect(ringColor(tester), testWorkbenchTheme.focusBorder);
+    });
+
     testWidgets(
-      'a click focuses a non-collapsible header and paints the ring',
+      'a click focuses a non-collapsible header',
       (tester) async {
         await tester.pumpWidget(
           wrapWithTheme(
             const WorkbenchViewPane(title: 'Hello', child: Text('body')),
           ),
         );
-        expect(ringColor(tester), Colors.transparent);
+        expect(headerFocused(tester), isFalse);
 
         await tester.tap(find.text('Hello'));
         await tester.pumpAndSettle();
 
-        expect(ringColor(tester), testWorkbenchTheme.focusBorder);
+        expect(headerFocused(tester), isTrue);
       },
     );
 
@@ -369,8 +418,8 @@ void main() {
       await tester.tap(find.text('Hello'));
       await tester.pumpAndSettle();
 
-      // Focused (ring) and toggled (body hidden).
-      expect(ringColor(tester), testWorkbenchTheme.focusBorder);
+      // Focused and toggled (body hidden).
+      expect(headerFocused(tester), isTrue);
       expect(find.text('body'), findsNothing);
     });
 
@@ -395,7 +444,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('body'), findsNothing);
-      expect(ringColor(tester), testWorkbenchTheme.focusBorder);
+      expect(headerFocused(tester), isTrue);
     });
 
     testWidgets('clicking a non-collapsible header focuses without toggling', (
@@ -412,7 +461,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Focused but body unaffected (a non-collapsible pane has no disclosure).
-      expect(ringColor(tester), testWorkbenchTheme.focusBorder);
+      expect(headerFocused(tester), isTrue);
       expect(find.text('body'), findsOneWidget);
     });
 
@@ -488,7 +537,7 @@ void main() {
         );
         await tester.tap(find.text('Hello'));
         await tester.pumpAndSettle();
-        expect(ringColor(tester), testWorkbenchTheme.focusBorder);
+        expect(headerFocused(tester), isTrue);
 
         // None of these touch the always-shown body — and none throw.
         for (final key in [
@@ -510,7 +559,7 @@ void main() {
           const WorkbenchViewPane(title: 'Hello', child: Text('body')),
         ),
       );
-      await tester.tap(find.text('Hello'));
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pumpAndSettle();
       expect(ringColor(tester), equals(testWorkbenchTheme.focusBorder));
       // Sanity: focusBorder is not transparent, so the assertion is meaningful.
