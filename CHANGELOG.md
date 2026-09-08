@@ -1,3 +1,12 @@
+# [0.37.0](https://github.com/repentsinner/workbench_shell/compare/v0.36.3...v0.37.0) (2026-09-08)
+
+
+### Features
+
+* add the split button control ([c64b8ca](https://github.com/repentsinner/workbench_shell/commit/c64b8caff60ad861b63e4acd7e6ef546dd72fea9))
+* **example:** demonstrate both split-button tiers ([466f258](https://github.com/repentsinner/workbench_shell/commit/466f258f93ea4adf99b955bfe45907a91c85dd6e))
+* **theme:** carry the three missing button.* colours ([947f18e](https://github.com/repentsinner/workbench_shell/commit/947f18e724e916c017ac96220891eaaacc700540))
+
 ## [0.36.3](https://github.com/repentsinner/workbench_shell/compare/v0.36.2...v0.36.3) (2026-09-08)
 
 
