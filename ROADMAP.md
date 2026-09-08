@@ -17,6 +17,14 @@ closes one surveyed module or metric, expresses its geometry through
 the shipped size ladders (§spec:design-size-ladders), and renders its
 base behavior when the `modernUI` flag is off.
 
+### Part title height §road:part-title-height
+
+Tighten the side bar heading and panel tab strip to the treatment's
+band, updating `sidebarHeadingHeight` and `panelTabStripHeight` in
+`lib/src/layout_constants.dart` and their rows in
+§spec:layout-constants-canon's source table
+(§spec:modern-ui-surfaces).
+
 ### Status bar treatment §road:status-bar-treatment
 
 Inset the status bar's content and round its items at the controls

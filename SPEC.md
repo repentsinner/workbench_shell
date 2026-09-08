@@ -3164,14 +3164,15 @@ shipped behavior. The shell therefore renders these surfaces in the
 casing its host supplies and stops transforming them
 (§spec:chrome-typography-canon).
 
-**A part title keeps its height and loses two thirds of its inset.**
-`part.css` sizes `.part > .title` at 35px and no module overrides it,
-so the side bar heading and the panel tab strip stay where they are.
-What the treatment moves is the inset: `padding.css` takes the part's
-horizontal padding from 8px to one spacing step and the title label's
-leading padding from 12px to two, so the label sits closer to the
-card edge and the trailing action sits against it. The package pads
-the row a flat four steps and matches neither.
+**A part title tightens and loses two thirds of its inset.**
+`padding.css` takes `.part > .title` from `part.css`'s 35px to 32px,
+carrying the label's line height and the action row with it, and
+keeps that value in sync with `PartLayout.AREA_HEIGHT_MODERN_UI` in
+`part.ts`. It also moves the inset: the part's horizontal padding
+drops from 8px to one spacing step and the title label's leading
+padding from 12px to two, so the label sits closer to the card edge
+and the trailing action sits against it. The package pads the row a
+flat four steps and matches neither.
 
 **Sashes carry a persistent grip.** With the parts separated by a gap,
 an invisible-until-hovered sash leaves no sign of where one part ends
