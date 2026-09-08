@@ -1,3 +1,10 @@
+# [0.34.0](https://github.com/repentsinner/workbench_shell/compare/v0.33.4...v0.34.0) (2026-09-08)
+
+
+### Features
+
+* **layout:** gate the Modern UI treatment behind a host flag ([8a89bca](https://github.com/repentsinner/workbench_shell/commit/8a89bcaa8ce123780fd720db3d0dab848b26da15))
+
 ## [0.33.4](https://github.com/repentsinner/workbench_shell/compare/v0.33.3...v0.33.4) (2026-09-06)
 
 
