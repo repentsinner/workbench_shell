@@ -47,6 +47,20 @@ class WorkbenchSurfaceTreatment extends InheritedWidget {
       ? WorkbenchLayoutConstants.viewPaneHeaderHeight
       : WorkbenchLayoutConstants.baseViewPaneHeaderHeight;
 
+  /// The band the side bar heading occupies against an already-resolved
+  /// treatment. `padding.css` tightens `.part > .title` from base `part.css`'s
+  /// 35px to 32px (§spec:modern-ui-surfaces).
+  static double partTitleHeightFor(bool modernUI) => modernUI
+      ? WorkbenchLayoutConstants.modernPartTitleHeight
+      : WorkbenchLayoutConstants.sidebarHeadingHeight;
+
+  /// The band the panel's tab strip occupies. The same `.part > .title` rule
+  /// governs both surfaces, but each names its own base constant
+  /// (§spec:layout-constants-canon).
+  static double panelTabStripHeightFor(bool modernUI) => modernUI
+      ? WorkbenchLayoutConstants.modernPartTitleHeight
+      : WorkbenchLayoutConstants.panelTabStripHeight;
+
   /// The inset `.part > .title` pads its row by at [context]. `padding.css`
   /// takes it from base `part.css`'s 8px to one spacing step
   /// (§spec:modern-ui-surfaces).

@@ -218,11 +218,12 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
       child: Column(
         children: [
           Container(
-            // Single 35px container (VS Code's `.part > .title`); the Row
-            // flex-centres its children vertically, and the strip's own inset
-            // is the container's padding — one widget, matching the side bar
-            // heading (§spec:modern-ui-surfaces).
-            height: WorkbenchLayoutConstants.panelTabStripHeight,
+            // Single `.part > .title` container — 32px under the treatment,
+            // 35px without it; the Row flex-centres its children vertically,
+            // and the strip's own inset is the container's padding — one
+            // widget, matching the side bar heading
+            // (§spec:modern-ui-surfaces).
+            height: WorkbenchSurfaceTreatment.panelTabStripHeightFor(modernUI),
             padding: stripInset,
             child: Row(
                 children: [

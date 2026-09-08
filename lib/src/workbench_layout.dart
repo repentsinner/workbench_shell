@@ -2307,7 +2307,7 @@ class _Sidebar extends StatelessWidget {
       modernUI,
     );
     return Container(
-      height: WorkbenchLayoutConstants.sidebarHeadingHeight,
+      height: WorkbenchSurfaceTreatment.partTitleHeightFor(modernUI),
       padding: WorkbenchSurfaceTreatment.partTitleInsetFor(modernUI),
       child: Row(
         children: [

@@ -112,6 +112,10 @@ void main() {
       expect(WorkbenchLayoutConstants.floatingCardRadius, 8.0);
     });
 
+    test('modernPartTitleHeight matches padding.css .part > .title (32px)', () {
+      expect(WorkbenchLayoutConstants.modernPartTitleHeight, 32.0);
+    });
+
     test('activity bar rail metrics match activitybarPart.ts', () {
       // FLOATING_ACTIVITYBAR_WIDTH / FLOATING_LANE / FLOATING_ACTION_HEIGHT /
       // FLOATING_ACTION_GAP.

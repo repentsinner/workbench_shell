@@ -104,8 +104,22 @@ class WorkbenchLayoutConstants {
   /// optical balance in the 22px-tall status bar).
   static const double iconStatusBar = 17.0;
 
-  /// Sidebar heading row height.
+  /// Sidebar heading row height with the Modern UI treatment off — VS Code
+  /// `part.css` `.part > .title { height: 35px }`, the band
+  /// [modernPartTitleHeight] tightens under the treatment
+  /// (§spec:modern-ui-surfaces).
   static const double sidebarHeadingHeight = 35.0;
+
+  /// The `.part > .title` band under the Modern UI treatment — the side bar
+  /// heading and the panel tab strip alike. VS Code
+  /// [`padding.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/padding.css)
+  /// takes the row from base `part.css`'s 35px to 32px, carrying the label's
+  /// line height and the trailing action row with it, and keeps the value in
+  /// sync with `part.ts` `PartLayout.AREA_HEIGHT_MODERN_UI`
+  /// (§spec:modern-ui-surfaces).
+  ///
+  /// Read at VS Code 1.138.0 (§spec:layout-constants-canon).
+  static const double modernPartTitleHeight = 32.0;
 
   /// View-pane header row height — the band each stacked view pane header
   /// occupies. VS Code's Modern UI treatment raises the base
@@ -138,9 +152,10 @@ class WorkbenchLayoutConstants {
   /// fit at this floor, scrolls the whole stack as the overflow fallback.
   static const double viewPaneMinBodyHeight = 120.0;
 
-  /// Tab strip row height inside the bottom panel. Shares VS Code's
-  /// `.part > .title { height: 35px }` (`part.css`) with
-  /// [sidebarHeadingHeight]. The strip's `Row` flex-centres its children
+  /// Tab strip row height inside the bottom panel with the Modern UI treatment
+  /// off. Shares VS Code's `.part > .title { height: 35px }` (`part.css`) with
+  /// [sidebarHeadingHeight], and the treatment's [modernPartTitleHeight] with
+  /// it too. The strip's `Row` flex-centres its children
   /// inside this single container — VS Code lays the tab strip out the
   /// same way, with no separate vertical padding constants.
   static const double panelTabStripHeight = 35.0;

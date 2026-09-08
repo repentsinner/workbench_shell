@@ -113,6 +113,13 @@ Widget _buildApp({
   );
 }
 
+/// The composite title's own band — the `.part > .title` container the side bar
+/// heading occupies, found as the nearest [Container] above its label
+/// (§spec:modern-ui-surfaces).
+Finder _titleBand(String label) => find
+    .ancestor(of: find.text(label), matching: find.byType(Container))
+    .first;
+
 /// The horizontal sash resizes the sidebar width; the vertical sash resizes the
 /// panel height. Each seam's live dimension is the sash's [value]
 /// (§spec:workbench-layout).
@@ -2697,6 +2704,19 @@ void main() {
       );
     });
 
+    testWidgets('tightens the composite title to the treatment band', (
+      tester,
+    ) async {
+      // `padding.css`: `.part > .title { height: 32px }`, kept in sync with
+      // `part.ts` `PartLayout.AREA_HEIGHT_MODERN_UI`
+      // (§spec:modern-ui-surfaces).
+      await tester.pumpWidget(_buildApp());
+      expect(
+        tester.getSize(_titleBand('Explorer')).height,
+        WorkbenchLayoutConstants.modernPartTitleHeight,
+      );
+    });
+
     testWidgets('paints the ground behind the cards from the workbench '
         'backdrop, not the editor', (tester) async {
       await tester.pumpWidget(_buildApp(theme: backdropTheme));
@@ -3417,6 +3437,19 @@ void main() {
               WorkbenchLayoutConstants.spacingSize120,
           0.001,
         ),
+      );
+    });
+
+    testWidgets('keeps the composite title in the base 35px band', (
+      tester,
+    ) async {
+      // Base `part.css`: `.part > .title { height: 35px }`.
+      await tester.pumpWidget(
+        _buildApp(initialModernUI: false, theme: baseTheme),
+      );
+      expect(
+        tester.getSize(_titleBand('EXPLORER')).height,
+        WorkbenchLayoutConstants.sidebarHeadingHeight,
       );
     });
 
