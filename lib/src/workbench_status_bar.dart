@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'layout_constants.dart';
+import 'workbench_surface_treatment.dart';
 import 'workbench_theme.dart';
 
 /// Container for status-bar items at the bottom of the workbench.
@@ -29,15 +30,20 @@ class WorkbenchStatusBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
-    // No top hairline: `floatingPanels.css` hides the classic
-    // `status-border-top` rule under the floating-panels treatment, so the bar
-    // meets the band above it on its own fill (§spec:modern-ui-surfaces).
-    // `statusBar.border` stays on [WorkbenchTheme] — it is a registered token a
-    // host may read, and base VS Code still draws it — but nothing paints it
-    // while the package renders the Modern UI treatment.
+    // `floatingPanels.css` hides the classic `status-border-top` rule under the
+    // floating-panels treatment, so the bar meets the band above it on its own
+    // fill; base VS Code rules the two apart with `statusBar.border`
+    // (§spec:modern-ui-surfaces). The token stays on [WorkbenchTheme] either
+    // way — it is registered upstream and a host may read it.
+    final modernUI = WorkbenchSurfaceTreatment.of(context);
     return Container(
       height: WorkbenchLayoutConstants.statusBarHeight,
-      decoration: BoxDecoration(color: theme.statusBarBackground),
+      decoration: BoxDecoration(
+        color: theme.statusBarBackground,
+        border: modernUI
+            ? null
+            : Border(top: BorderSide(color: theme.statusBarBorder)),
+      ),
       child: Row(children: [...leading, const Spacer(), ...trailing]),
     );
   }

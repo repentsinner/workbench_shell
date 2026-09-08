@@ -5,6 +5,7 @@ import 'activity_bar_item.dart';
 import 'layout_constants.dart';
 import 'workbench_layout_state.dart';
 import 'workbench_sash.dart';
+import 'workbench_surface_treatment.dart';
 import 'workbench_theme.dart';
 import 'workbench_view_container.dart';
 import 'workbench_view_menu.dart';
@@ -139,12 +140,13 @@ typedef _CardEdges = ({
   _CardEdgeKind bottom,
 });
 
-/// A workbench part framed as a Modern UI floating card
-/// (§spec:modern-ui-surfaces): a hairline border, rounded corners and a fill,
-/// all drawn *inside* the gutter, which is itself consumed from the space the
-/// layout already assigned to the part. Nothing is added outside, so the grid
-/// keeps measuring the same quantities (§spec:resize-geometry,
-/// §spec:layout-constants).
+/// The frame a workbench part draws around itself (§spec:modern-ui-surfaces).
+///
+/// Under the Modern UI treatment ([modernUI]) the part is a floating card: a
+/// hairline border, rounded corners and a fill, all drawn *inside* the gutter,
+/// which is itself consumed from the space the layout already assigned to the
+/// part. Nothing is added outside, so the grid keeps measuring the same
+/// quantities (§spec:resize-geometry, §spec:layout-constants).
 ///
 /// [edges] names what each side faces, and the card derives both its gutter and
 /// its strokes from that one declaration. A [_CardEdgeKind.seam] edge squares
@@ -157,20 +159,30 @@ typedef _CardEdges = ({
 /// the cards abut, so a seam drawn by both neighbours would read two pixels
 /// wide: each card then draws its trailing edges and the cluster's perimeter
 /// only, which is the rule upstream's compact background stack encodes.
-class _FloatingCard extends StatelessWidget {
+///
+/// With the treatment off the part packs flush against its neighbours and draws
+/// [baseBorder] instead — the single canonical seam base VS Code gives it, from
+/// that part's own border token. A [Container] rather than a bare
+/// [DecoratedBox], so the border insets the child and a part that fills its own
+/// rect cannot overdraw the seam.
+class _PartFrame extends StatelessWidget {
+  final bool modernUI;
   final _CardEdges edges;
   final WorkbenchLayoutDensity density;
   final Color background;
   final Color borderColor;
+  final Border? baseBorder;
   final bool cedesSeam;
   final Widget child;
 
-  const _FloatingCard({
+  const _PartFrame({
+    required this.modernUI,
     required this.edges,
     required this.density,
     required this.background,
     required this.borderColor,
     required this.child,
+    this.baseBorder,
     this.cedesSeam = false,
   });
 
@@ -289,6 +301,12 @@ class _FloatingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!modernUI) {
+      return Container(
+        decoration: BoxDecoration(color: background, border: baseBorder),
+        child: child,
+      );
+    }
     final border = _border;
     final radius = _outerRadius;
     final faceRadius = _faceRadius;
@@ -550,6 +568,33 @@ class WorkbenchLayout extends StatefulWidget {
   /// the shell raises no change of its own today.
   final ValueChanged<WorkbenchLayoutDensity>? onLayoutDensityChanged;
 
+  /// Initial surface treatment. Used only in uncontrolled mode (when
+  /// [modernUI] is null); ignored otherwise. Defaults to true — the treatment
+  /// upstream's experimentation service serves on stable builds
+  /// (§spec:modern-ui-surfaces).
+  final bool initialModernUI;
+
+  /// Externally controlled surface treatment (§spec:modern-ui-surfaces),
+  /// mirroring VS Code's `workbench.experimental.modernUI` setting. When
+  /// non-null, the shell frames every part per this value and delegates changes
+  /// to [onModernUIChanged]; the host owns the state. When null, the shell
+  /// tracks it internally (uncontrolled), seeded from [initialModernUI].
+  ///
+  /// True frames the parts as bordered, rounded, gapped cards, fills the active
+  /// activity bar item behind its icon, and raises the view-pane header band.
+  /// False packs them flush and square, draws each part's own canonical seam,
+  /// and returns the activity bar to its left-border indicator — the layout the
+  /// package rendered before the treatment.
+  ///
+  /// [layoutDensity] resolves the gaps and radii *within* the treatment, so it
+  /// has no effect while this is false.
+  final bool? modernUI;
+
+  /// Called when the surface treatment changes. Required when [modernUI] is
+  /// non-null. See [onZenModeChanged] for why the callback exists even though
+  /// the shell raises no change of its own today.
+  final ValueChanged<bool>? onModernUIChanged;
+
   /// Ordered membership of the secondary side bar (§spec:secondary-sidebar).
   /// Each id resolves through [containerBuilder]; the bar's title row renders
   /// one compact text-label tab per member — labeled by the spec's `title`
@@ -666,6 +711,9 @@ class WorkbenchLayout extends StatefulWidget {
     this.initialLayoutDensity = WorkbenchLayoutDensity.standard,
     this.layoutDensity,
     this.onLayoutDensityChanged,
+    this.initialModernUI = true,
+    this.modernUI,
+    this.onModernUIChanged,
     this.secondaryViewContainerIds = const [],
     this.initialSecondaryActiveViewContainerId,
     this.secondaryActiveViewContainerId,
@@ -710,6 +758,10 @@ class WorkbenchLayout extends StatefulWidget {
        assert(
          layoutDensity == null || onLayoutDensityChanged != null,
          'onLayoutDensityChanged is required when layoutDensity is provided',
+       ),
+       assert(
+         modernUI == null || onModernUIChanged != null,
+         'onModernUIChanged is required when modernUI is provided',
        ),
        assert(
          secondaryActiveViewContainerId == null ||
@@ -989,12 +1041,19 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   WorkbenchLayoutDensity get _layoutDensity =>
       widget.layoutDensity ?? _internalLayoutDensity;
 
+  // The surface treatment follows the same seam. Density resolves quantities
+  // inside the treatment; this chooses whether the treatment applies at all
+  // (§spec:modern-ui-surfaces).
+  late bool _internalModernUI;
+  bool get _modernUI => widget.modernUI ?? _internalModernUI;
+
   @override
   void initState() {
     super.initState();
     _internalSidebarPosition = widget.initialSidebarPosition;
     _internalPanelAlignment = widget.initialPanelAlignment;
     _internalLayoutDensity = widget.initialLayoutDensity;
+    _internalModernUI = widget.initialModernUI;
     _internalActiveViewContainerId =
         widget.initialViewContainerId ??
         (widget.activityBarItems.isNotEmpty
@@ -1140,9 +1199,12 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     // composition choice, not a separate layout: the same editorContent renders
     // bare, so the two modes compose without special-casing.
     if (_zenMode) {
-      return Scaffold(
-        backgroundColor: theme.editorBackground,
-        body: SafeArea(child: editorContent),
+      return WorkbenchSurfaceTreatment(
+        modernUI: _modernUI,
+        child: Scaffold(
+          backgroundColor: theme.editorBackground,
+          body: SafeArea(child: editorContent),
+        ),
       );
     }
 
@@ -1169,6 +1231,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     // density and diverge under compact. Every gutter is consumed from the
     // part's own allocation, so nothing here reflows the grid.
     final density = _layoutDensity;
+    final modernUI = _modernUI;
 
     // Whether a visible card sits either side of the editor, and so supplies
     // the gap from its own leading edge.
@@ -1196,6 +1259,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       position: _sidebarPosition,
       theme: theme,
       density: density,
+      modernUI: modernUI,
       // With the side bar collapsed there is no card to connect to, so the
       // rail closes up as a standalone card — every corner rounded, and on the
       // right it supplies the gap the missing side bar used to lead with.
@@ -1226,6 +1290,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       onChangeEnd: widget.onSidebarWidthChangeEnd,
       theme: theme,
       density: density,
+      modernUI: modernUI,
       // Flush against the rail: no gap on the facing edge, square facing
       // corners, and the stroke ceded to the rail, which draws the single
       // seam (§spec:modern-ui-surfaces). The editor is on the other side and
@@ -1236,7 +1301,10 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
         right: onRight ? _CardEdgeKind.seam : _CardEdgeKind.led,
         bottom: groupBottomEdge(primaryInside),
       ),
-      background: theme.surfaceBackground,
+      // Upstream fills the primary side bar's card with the shared
+      // `surface.background`; base VS Code fills it with its own
+      // `sideBar.background` (`floatingPanels.css`).
+      background: modernUI ? theme.surfaceBackground : theme.sideBarBackground,
       cedesSeam: true,
     );
 
@@ -1260,6 +1328,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       onChangeEnd: widget.onSecondarySideBarWidthChangeEnd,
       theme: theme,
       density: density,
+      modernUI: modernUI,
       // No rail beside it, so the card is rounded all round. Upstream keys
       // the auxiliary bar's fill to `sideBar.background` rather than the
       // shared `surface.background` (`floatingPanels.css`). It takes the
@@ -1281,8 +1350,11 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     // sets `box-sizing: border-box` for the same reason, so no relayout
     // follows (§spec:modern-ui-surfaces).
     final editorArea = Expanded(
-      child: _FloatingCard(
+      child: _PartFrame(
         density: density,
+        // Base VS Code frames the editor with nothing: `editorBorder.css` is
+        // the treatment's own stylesheet (§spec:modern-ui-surfaces).
+        modernUI: modernUI,
         edges: (
           left: leadingCard ? _CardEdgeKind.gap : _CardEdgeKind.perimeter,
           top: _CardEdgeKind.perimeter,
@@ -1316,8 +1388,14 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
               // insets the child past the stroke, so the panel's own opaque
               // background widget cannot overdraw the hairline
               // (§spec:modern-ui-surfaces).
-              child: _FloatingCard(
+              child: _PartFrame(
                 density: density,
+                modernUI: modernUI,
+                // Base VS Code rules the panel off from the editor with its own
+                // `panel.border` top seam, suppressed when the theme omits it.
+                baseBorder: theme.panelBorder == null
+                    ? null
+                    : Border(top: BorderSide(color: theme.panelBorder!)),
                 // A bar group lifted into the band sits above the panel rather
                 // than beside it, so that side of the panel faces the window
                 // and takes the perimeter gutter instead of an inter-card gap.
@@ -1400,16 +1478,22 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       if (!rightInside) ...rightGroup,
     ];
 
-    return Scaffold(
-      backgroundColor: theme.editorBackground,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(child: Row(children: rowChildren)),
-            // Hidden status bar yields its strip to the workbench above; Zen
-            // mode (handled earlier) hides it wholesale alongside all chrome.
-            if (_statusBarVisible) widget.statusBar,
-          ],
+    // The treatment reaches parts the layout does not build — the host's status
+    // bar and its view pane bodies — through the element tree rather than a
+    // constructor argument (§spec:modern-ui-surfaces).
+    return WorkbenchSurfaceTreatment(
+      modernUI: modernUI,
+      child: Scaffold(
+        backgroundColor: theme.editorBackground,
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(child: Row(children: rowChildren)),
+              // Hidden status bar yields its strip to the workbench above; Zen
+              // mode (handled earlier) hides it wholesale alongside all chrome.
+              if (_statusBarVisible) widget.statusBar,
+            ],
+          ),
         ),
       ),
     );
@@ -1442,6 +1526,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     required ValueChanged<double>? onChangeEnd,
     required WorkbenchTheme theme,
     required WorkbenchLayoutDensity density,
+    required bool modernUI,
     required _CardEdges edges,
     required Color background,
     bool cedesSeam = false,
@@ -1459,6 +1544,8 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
             _Sidebar(
               width: width,
               density: density,
+              modernUI: modernUI,
+              position: position,
               edges: edges,
               background: background,
               cedesSeam: cedesSeam,
@@ -1683,6 +1770,11 @@ class _ActivityBar extends StatelessWidget {
   /// the lane and the rhythm; the icon column keeps its own width.
   final WorkbenchLayoutDensity density;
 
+  /// Whether the rail renders as a card with filled item indicators, or as base
+  /// VS Code's flush bar with a left-border indicator
+  /// (§spec:modern-ui-surfaces).
+  final bool modernUI;
+
   const _ActivityBar({
     super.key,
     required this.mainItems,
@@ -1694,10 +1786,12 @@ class _ActivityBar extends StatelessWidget {
     required this.theme,
     required this.edges,
     required this.density,
+    required this.modernUI,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (!modernUI) return _buildBaseBar();
     // The rail is a card like every other part; its border is the shared
     // `surface.border` (upstream's `modernActivityBar.border` resolves to it),
     // so the canonical `activityBar.border` single seam no longer applies.
@@ -1716,9 +1810,10 @@ class _ActivityBar extends StatelessWidget {
       width:
           density.activityBarWidth +
           (reservesLeadingGap ? density.cardGap : 0.0),
-      child: _FloatingCard(
+      child: _PartFrame(
         edges: edges,
         density: density,
+        modernUI: modernUI,
         background: theme.activityBarBackground,
         borderColor: theme.surfaceBorder,
         child: Padding(
@@ -1748,11 +1843,110 @@ class _ActivityBar extends StatelessWidget {
   }
 
   Widget _buildIcon(ActivityBarItem item) {
-    return _ActivityBarIcon(
-      item: item,
-      active: sidebarVisible && activeViewContainerId == item.id,
-      onTap: () => onViewContainerSelected(item.id),
-      theme: theme,
+    final active = sidebarVisible && activeViewContainerId == item.id;
+    void onTap() => onViewContainerSelected(item.id);
+    return modernUI
+        ? _ActivityBarIcon(
+            item: item,
+            active: active,
+            onTap: onTap,
+            theme: theme,
+          )
+        : _BaseActivityBarIcon(
+            item: item,
+            active: active,
+            onTap: onTap,
+            position: position,
+            theme: theme,
+          );
+  }
+
+  /// Base VS Code's activity bar: a flush, full-allocation column with one
+  /// canonical `activityBar.border` seam facing the side bar — the right edge
+  /// when the bar is on the left, the left edge when on the right
+  /// (§spec:sidebar-position). Items pack without a gap and fill the whole
+  /// width, which is what the treatment's lane and item rhythm replaced.
+  /// A null `activityBar.border` means the theme suppresses the seam.
+  Widget _buildBaseBar() {
+    final onRight = position == WorkbenchSidebarPosition.right;
+    final seam = theme.activityBarBorder == null
+        ? null
+        : BorderSide(color: theme.activityBarBorder!);
+    return Container(
+      width: WorkbenchLayoutConstants.activityBarWidth,
+      decoration: BoxDecoration(
+        color: theme.activityBarBackground,
+        border: seam == null
+            ? null
+            : Border(
+                left: onRight ? seam : BorderSide.none,
+                right: onRight ? BorderSide.none : seam,
+              ),
+      ),
+      child: Column(
+        children: [
+          Expanded(
+            child: Column(
+              children: [for (final item in mainItems) _buildIcon(item)],
+            ),
+          ),
+          for (final item in bottomItems) _buildIcon(item),
+        ],
+      ),
+    );
+  }
+}
+
+/// One activity bar target with the treatment off (§spec:modern-ui-surfaces):
+/// a square cell at the bar's full width marked by a border on the bar's outer
+/// edge — away from the side bar, VS Code's mirrored `activeBorder`. The stripe
+/// is reserved transparently on every item, so selecting one never reflows the
+/// column, and the affordance carries no hover state of its own.
+class _BaseActivityBarIcon extends StatelessWidget {
+  final ActivityBarItem item;
+  final bool active;
+  final VoidCallback onTap;
+  final WorkbenchSidebarPosition position;
+  final WorkbenchTheme theme;
+
+  const _BaseActivityBarIcon({
+    required this.item,
+    required this.active,
+    required this.onTap,
+    required this.position,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final indicator = BorderSide(
+      color: active ? theme.activityBarForeground : Colors.transparent,
+      width: WorkbenchLayoutConstants.activityBarIndicatorWidth,
+    );
+    final onRight = position == WorkbenchSidebarPosition.right;
+    return Tooltip(
+      message: item.label,
+      preferBelow: false,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: WorkbenchLayoutConstants.activityBarWidth,
+          height: WorkbenchLayoutConstants.activityBarWidth,
+          decoration: BoxDecoration(
+            border: Border(
+              left: onRight ? BorderSide.none : indicator,
+              right: onRight ? indicator : BorderSide.none,
+            ),
+          ),
+          child: Icon(
+            item.icon,
+            color: active
+                ? theme.activityBarForeground
+                : theme.activityBarInactiveForeground,
+            size: WorkbenchLayoutConstants.iconActivityBar,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1862,8 +2056,14 @@ class _Sidebar extends StatelessWidget {
   /// (§spec:modern-ui-surfaces).
   final _CardEdges edges;
   final WorkbenchLayoutDensity density;
+  final bool modernUI;
   final Color background;
   final bool cedesSeam;
+
+  /// Which editor edge this bar sits on (§spec:sidebar-position). With the
+  /// treatment off it decides which side the canonical `sideBar.border` seam
+  /// faces; the card framing derives it from [edges] instead.
+  final WorkbenchSidebarPosition position;
 
   final String activeLabel;
   final String activeContainerId;
@@ -1914,8 +2114,10 @@ class _Sidebar extends StatelessWidget {
     required this.width,
     required this.edges,
     required this.density,
+    required this.modernUI,
     required this.background,
     required this.cedesSeam,
+    required this.position,
     required this.activeLabel,
     required this.activeContainerId,
     required this.openedContainerIds,
@@ -1937,13 +2139,28 @@ class _Sidebar extends StatelessWidget {
     // — upstream's `floatingPanels.css` overrides the part's inline border
     // colour for the same reason. The resize sash still overlays the
     // editor-facing edge transparently.
+    // With the treatment off the bar draws only the canonical `sideBar.border`
+    // seam on its editor-facing edge — the right edge when the bar is on the
+    // left, the left edge when on the right (§spec:sidebar-position). Null
+    // `sideBar.border` means the theme suppresses the seam.
+    final seam = theme.sideBarBorder == null
+        ? null
+        : BorderSide(color: theme.sideBarBorder!);
+    final onRight = position == WorkbenchSidebarPosition.right;
     return SizedBox(
       width: width,
-      child: _FloatingCard(
+      child: _PartFrame(
         edges: edges,
         density: density,
+        modernUI: modernUI,
         background: background,
         borderColor: theme.surfaceBorder,
+        baseBorder: seam == null
+            ? null
+            : Border(
+                left: onRight ? seam : BorderSide.none,
+                right: onRight ? BorderSide.none : seam,
+              ),
         cedesSeam: cedesSeam,
         child: Column(
           children: [

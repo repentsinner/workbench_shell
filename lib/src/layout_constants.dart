@@ -123,6 +123,14 @@ class WorkbenchLayoutConstants {
   /// (§spec:layout-constants-canon).
   static const double viewPaneHeaderHeight = spacingSize280;
 
+  /// View-pane header row height with the Modern UI treatment off
+  /// (§spec:modern-ui-surfaces). VS Code `paneview.ts`
+  /// `DEFAULT_PANE_HEADER_SIZE = 22` — the band the treatment raises to
+  /// [viewPaneHeaderHeight]. The full-width top rule the base treatment draws
+  /// is absorbed within this height (`box-sizing: border-box`), so a header
+  /// sits at this height, not this height + 1.
+  static const double baseViewPaneHeaderHeight = 22.0;
+
   /// View-pane minimum body height. The floor below which an expanded pane's
   /// apportioned body never shrinks (§spec:view-stack). VS Code's view pane
   /// registers `minimumBodySize = 120` (`viewPane.ts`); the splitview keeps an
@@ -144,6 +152,13 @@ class WorkbenchLayoutConstants {
   /// Cross-axis thickness of a sash's hover/drag highlight band, centered in
   /// the hit target — VS Code's `--vscode-sash-hover-size`.
   static const double sashHoverSize = 4.0;
+
+  /// Active-indicator border width on activity bar icons with the Modern UI
+  /// treatment off (§spec:modern-ui-surfaces). VS Code `activitybarpart.css`
+  /// `.action-item.checked .active-item-indicator:before { border-left-width:
+  /// 2px }`; `activityBar.css` drops it for the filled background
+  /// [activityBarItemIndicatorSize] names.
+  static const double activityBarIndicatorWidth = 2.0;
 
   // ==================== CORNER RADIUS LADDER ====================
   //

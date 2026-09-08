@@ -73,6 +73,9 @@ Widget _buildApp({
   WorkbenchLayoutDensity initialLayoutDensity = WorkbenchLayoutDensity.standard,
   WorkbenchLayoutDensity? layoutDensity,
   ValueChanged<WorkbenchLayoutDensity>? onLayoutDensityChanged,
+  bool initialModernUI = true,
+  bool? modernUI,
+  ValueChanged<bool>? onModernUIChanged,
   WorkbenchTheme? theme,
 }) {
   return MaterialApp(
@@ -103,6 +106,9 @@ Widget _buildApp({
       initialLayoutDensity: initialLayoutDensity,
       layoutDensity: layoutDensity,
       onLayoutDensityChanged: onLayoutDensityChanged,
+      initialModernUI: initialModernUI,
+      modernUI: modernUI,
+      onModernUIChanged: onModernUIChanged,
     ),
   );
 }
@@ -3068,6 +3074,229 @@ void main() {
           throwsAssertionError,
         );
       });
+    });
+  });
+
+  group('Base surface treatment (§spec:modern-ui-surfaces)', () {
+    // Base VS Code draws each part's seam from its own border token, which the
+    // treatment suppresses in favour of the shared card hairline. The fixture
+    // leaves those tokens null, so the tests set them to read a colour rather
+    // than an absence.
+    const sideBarSeam = Color(0xFF101010);
+    const activityBarSeam = Color(0xFF202020);
+    const panelSeam = Color(0xFF303030);
+    final baseTheme = _testTheme.copyWith(
+      sideBarBorder: sideBarSeam,
+      activityBarBorder: activityBarSeam,
+      panelBorder: panelSeam,
+    );
+
+    /// The nearest ancestor [Container] of [of] painting [color] on any edge —
+    /// how base VS Code draws a part seam, and what the card ring replaced.
+    Finder seamBox(Finder of, Color color) => find.ancestor(
+      of: of,
+      matching: find.byWidgetPredicate((w) {
+        if (w is! Container) return false;
+        final decoration = w.decoration;
+        if (decoration is! BoxDecoration) return false;
+        final border = decoration.border;
+        if (border is! Border) return false;
+        return [
+          border.left,
+          border.top,
+          border.right,
+          border.bottom,
+        ].any((side) => side.width > 0 && side.color == color);
+      }),
+    );
+
+    /// Anything painting the treatment's shared card hairline.
+    Finder cardHairline() => find.byWidgetPredicate((w) {
+      if (w is! DecoratedBox) return false;
+      final decoration = w.decoration;
+      if (decoration is! BoxDecoration) return false;
+      if (decoration.color == baseTheme.surfaceBorder) return true;
+      final border = decoration.border;
+      if (border is! Border) return false;
+      return [
+        border.left,
+        border.top,
+        border.right,
+        border.bottom,
+      ].any((side) => side.width > 0 && side.color == baseTheme.surfaceBorder);
+    });
+
+    Rect editorRect(WidgetTester tester) => tester.getRect(
+      find.ancestor(of: find.text('Editor'), matching: find.byType(Center)).first,
+    );
+
+    testWidgets('packs the parts flush — no card gutter, stroke or radius', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildApp(
+          initialModernUI: false,
+          theme: baseTheme,
+          secondaryViewContainerIds: const ['outline'],
+          secondarySideBarVisible: true,
+          onSecondarySideBarVisibilityChanged: (_) {},
+        ),
+      );
+
+      expect(cardHairline(), findsNothing);
+
+      final rail = tester.getRect(seamBox(
+        find.byIcon(Symbols.folder_rounded),
+        activityBarSeam,
+      ));
+      final sidebar = tester.getRect(
+        seamBox(find.text('EXPLORER'), sideBarSeam),
+      );
+      final editor = editorRect(tester);
+      final panel = tester.getRect(seamBox(find.text('Panel'), panelSeam));
+
+      expect(rail.right, closeTo(sidebar.left, 0.001));
+      expect(sidebar.right, closeTo(editor.left, 0.001));
+      expect(editor.bottom, closeTo(panel.top, 0.001));
+    });
+
+    testWidgets('draws each part seam from its own border token', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildApp(initialModernUI: false, theme: baseTheme),
+      );
+
+      // The seam faces the neighbour it separates: the rail and the side bar
+      // both draw on their editor-facing edge, the panel on its top edge
+      // (§spec:sidebar-position).
+      BoxDecoration decorationOf(Finder finder) =>
+          tester.widget<Container>(finder).decoration! as BoxDecoration;
+
+      final rail = decorationOf(
+        seamBox(find.byIcon(Symbols.folder_rounded), activityBarSeam),
+      );
+      expect((rail.border! as Border).right.color, activityBarSeam);
+      expect(rail.color, baseTheme.activityBarBackground);
+
+      final sidebar = decorationOf(seamBox(find.text('EXPLORER'), sideBarSeam));
+      expect((sidebar.border! as Border).right.color, sideBarSeam);
+      // Base fills the primary side bar from its own token, not the shared
+      // card surface the treatment introduced.
+      expect(sidebar.color, baseTheme.sideBarBackground);
+
+      final panel = decorationOf(seamBox(find.text('Panel'), panelSeam));
+      expect((panel.border! as Border).top.color, panelSeam);
+    });
+
+    testWidgets('marks the active activity bar item with the base left-border '
+        'indicator', (tester) async {
+      // The fixture theme leaves `activityBar.border` null, so the bar draws no
+      // seam and an item measures the full allocation rather than the
+      // allocation less a hairline.
+      await tester.pumpWidget(_buildApp(initialModernUI: false));
+
+      Container itemOf(IconData icon) => tester.widget<Container>(
+        find
+            .ancestor(of: find.byIcon(icon), matching: find.byType(Container))
+            .first,
+      );
+
+      final active = itemOf(Symbols.folder_rounded);
+      final indicator = (active.decoration! as BoxDecoration).border! as Border;
+      expect(indicator.left.color, _testTheme.activityBarForeground);
+      expect(
+        indicator.left.width,
+        WorkbenchLayoutConstants.activityBarIndicatorWidth,
+      );
+
+      // An inactive item reserves the same stripe transparently, so selecting
+      // one never reflows the column.
+      final inactive = itemOf(Symbols.search_rounded);
+      expect(
+        ((inactive.decoration! as BoxDecoration).border! as Border).left.color,
+        Colors.transparent,
+      );
+
+      // The square item box the stripe rides on, at the rail's full width.
+      expect(
+        tester.getSize(
+          find
+              .ancestor(
+                of: find.byIcon(Symbols.folder_rounded),
+                matching: find.byType(Container),
+              )
+              .first,
+        ),
+        const Size(
+          WorkbenchLayoutConstants.activityBarWidth,
+          WorkbenchLayoutConstants.activityBarWidth,
+        ),
+      );
+
+      // No filled background behind the icon — that is the treatment's
+      // affordance, and it is the one this replaces.
+      expect(
+        find.byWidgetPredicate((w) {
+          if (w is! DecoratedBox) return false;
+          final decoration = w.decoration;
+          return decoration is BoxDecoration &&
+              decoration.color == _testTheme.activityBarItemActiveBackground;
+        }),
+        findsNothing,
+      );
+    });
+
+    testWidgets('restores the cards when the host switches the treatment back '
+        'on', (tester) async {
+      var modernUI = false;
+      late StateSetter setOuter;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [baseTheme]),
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              setOuter = setState;
+              return WorkbenchLayout(
+                activityBarItems: _testItems,
+                editor: const Center(child: Text('Editor')),
+                containerBuilder: _sidebarSpec,
+                bottomPanel: const Center(child: Text('Panel')),
+                statusBar: const SizedBox(height: 22, child: Text('Status')),
+                modernUI: modernUI,
+                onModernUIChanged: (next) => setState(() => modernUI = next),
+              );
+            },
+          ),
+        ),
+      );
+
+      expect(cardHairline(), findsNothing);
+
+      setOuter(() => modernUI = true);
+      await tester.pumpAndSettle();
+      expect(cardHairline(), findsWidgets);
+    });
+
+    testWidgets('ships the treatment on', (tester) async {
+      await tester.pumpWidget(_buildApp(theme: baseTheme));
+      expect(cardHairline(), findsWidgets);
+    });
+
+    testWidgets('asserts onModernUIChanged is required in controlled mode', (
+      tester,
+    ) async {
+      expect(
+        () => WorkbenchLayout(
+          activityBarItems: _testItems,
+          editor: const SizedBox(),
+          containerBuilder: _sidebarSpec,
+          bottomPanel: const SizedBox(),
+          statusBar: const SizedBox(),
+          modernUI: false,
+        ),
+        throwsAssertionError,
+      );
     });
   });
 }
