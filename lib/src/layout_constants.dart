@@ -357,6 +357,17 @@ class WorkbenchLayoutConstants {
   static const double activityBarIconInset =
       (activityBarLane - 2 * strokeThickness) / 2;
 
+  /// Margin above the activity bar's item column and below its trailing zone,
+  /// on top of [activityBarIconInset]. VS Code
+  /// [`padding.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/padding.css)
+  /// gives the vertical rail's `.composite-bar` a `margin-top` and its trailing
+  /// `:last-child` a `margin-bottom` of
+  /// `calc(var(--vscode-spacing-size20) + var(--vscode-strokeThickness))`, so
+  /// the icons sit consistently above the window edge and line up with the pane
+  /// header margins (§spec:modern-ui-surfaces). The rule is not
+  /// density-qualified, so both densities carry it.
+  static const double activityBarZoneMargin = spacingSize20 + strokeThickness;
+
   /// [activityBarIconInset] for an arbitrary lane, so a density that narrows
   /// the lane derives its inset from the same rule rather than restating it.
   static double iconInsetForLane(double lane) =>

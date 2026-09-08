@@ -61,6 +61,17 @@ class WorkbenchSurfaceTreatment extends InheritedWidget {
       ? WorkbenchLayoutConstants.modernPartTitleHeight
       : WorkbenchLayoutConstants.panelTabStripHeight;
 
+  /// The margin holding the vertical activity bar's item column off the top of
+  /// its card, and its trailing zone off the bottom (§spec:modern-ui-surfaces).
+  /// The treatment owns both: base VS Code runs the items flush from edge to
+  /// edge, so the base bar takes neither.
+  static const EdgeInsets activityBarItemColumnMargin = EdgeInsets.only(
+    top: WorkbenchLayoutConstants.activityBarZoneMargin,
+  );
+  static const EdgeInsets activityBarBottomZoneMargin = EdgeInsets.only(
+    bottom: WorkbenchLayoutConstants.activityBarZoneMargin,
+  );
+
   /// The inset `.part > .title` pads its row by at [context]. `padding.css`
   /// takes it from base `part.css`'s 8px to one spacing step
   /// (§spec:modern-ui-surfaces).

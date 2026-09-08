@@ -1894,10 +1894,24 @@ class _ActivityBar extends StatelessWidget {
         borderColor: theme.surfaceBorder,
         child: Padding(
           padding: EdgeInsets.all(inset),
+          // Each zone is held off the card edge it faces, so the icons sit
+          // consistently above the window edge and line up with the pane
+          // header margins (§spec:modern-ui-surfaces).
           child: Column(
             children: [
-              Expanded(child: Column(children: _iconColumn(mainItems))),
-              ..._iconColumn(bottomItems),
+              Expanded(
+                child: Padding(
+                  padding: WorkbenchSurfaceTreatment.activityBarItemColumnMargin,
+                  child: Column(children: _iconColumn(mainItems)),
+                ),
+              ),
+              Padding(
+                padding: WorkbenchSurfaceTreatment.activityBarBottomZoneMargin,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: _iconColumn(bottomItems),
+                ),
+              ),
             ],
           ),
         ),
