@@ -2532,6 +2532,51 @@ void main() {
       ),
     );
 
+    // A theme whose title bar and editor differ, which is the only way to see
+    // which one the gutters paint. Themes that leave the two equal — most of
+    // the bundled set — hide the difference entirely.
+    final backdropTheme = _testTheme.copyWith(
+      workbenchBackdrop: const Color(0xFF191A1B),
+      editorBackground: const Color(0xFF121314),
+    );
+
+    Color scaffoldFill(WidgetTester tester) => tester
+        .widget<Scaffold>(
+          find.descendant(
+            of: find.byType(WorkbenchLayout),
+            matching: find.byType(Scaffold),
+          ),
+        )
+        .backgroundColor!;
+
+    testWidgets('paints the ground behind the cards from the workbench '
+        'backdrop, not the editor', (tester) async {
+      await tester.pumpWidget(_buildApp(theme: backdropTheme));
+      expect(scaffoldFill(tester), backdropTheme.workbenchBackdrop);
+      expect(scaffoldFill(tester), isNot(backdropTheme.editorBackground));
+    });
+
+    testWidgets('zen mode keeps the backdrop behind the bare editor', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [backdropTheme]),
+          home: WorkbenchLayout(
+            activityBarItems: _testItems,
+            editor: const Center(child: Text('Editor')),
+            containerBuilder: _sidebarSpec,
+            bottomPanel: const Center(child: Text('Panel')),
+            statusBar: const SizedBox(height: 22, child: Text('Status')),
+            initialZenMode: true,
+          ),
+        ),
+      );
+
+      expect(find.text('Panel'), findsNothing);
+      expect(scaffoldFill(tester), backdropTheme.workbenchBackdrop);
+    });
+
     testWidgets('the side bars, panel and editor each render as a bordered, '
         'rounded card', (tester) async {
       await tester.pumpWidget(
@@ -3158,6 +3203,27 @@ void main() {
       expect(rail.right, closeTo(sidebar.left, 0.001));
       expect(sidebar.right, closeTo(editor.left, 0.001));
       expect(editor.bottom, closeTo(panel.top, 0.001));
+    });
+
+    testWidgets('grounds the workbench on the editor background', (
+      tester,
+    ) async {
+      // No card gutters to show a backdrop through, so the pre-treatment
+      // ground stands: base VS Code has no `floatingPanels.css` shell colour.
+      final theme = baseTheme.copyWith(
+        workbenchBackdrop: const Color(0xFF191A1B),
+        editorBackground: const Color(0xFF121314),
+      );
+      await tester.pumpWidget(
+        _buildApp(initialModernUI: false, theme: theme),
+      );
+      final scaffold = tester.widget<Scaffold>(
+        find.descendant(
+          of: find.byType(WorkbenchLayout),
+          matching: find.byType(Scaffold),
+        ),
+      );
+      expect(scaffold.backgroundColor, theme.editorBackground);
     });
 
     testWidgets('draws each part seam from its own border token', (

@@ -565,6 +565,33 @@ void main() {
       expect(explicit.activityBarItemActiveForeground, const Color(0xFFFFFFFF));
     });
 
+    test('workbenchBackdrop reads titleBar.activeBackground', () {
+      // `floatingPanels.css` paints the ground behind the cards from
+      // `titleBar.activeBackground`, which a theme may set two shades apart
+      // from `editor.background` — the shade the gutters showed before.
+      final map = loader.parse('''
+        {
+          "name": "Backdrop Test",
+          "type": "vs-dark",
+          "colors": {
+            "editor.background": "#121314",
+            "titleBar.activeBackground": "#191A1B"
+          }
+        }
+        ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.workbenchBackdrop, const Color(0xFF191A1B));
+      expect(theme.workbenchBackdrop, isNot(theme.editorBackground));
+    });
+
+    test('workbenchBackdrop falls back to the title bar strip default', () {
+      final theme = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+      );
+      // Same key the menu bar strip already resolves, so the two cannot drift.
+      expect(theme.workbenchBackdrop, theme.menuBarBackground);
+    });
+
     test('copyWith and lerp carry the Modern UI tokens', () {
       final base = WorkbenchTheme.fromVscodeColorMap(
         const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),

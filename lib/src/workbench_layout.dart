@@ -1047,6 +1047,15 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   late bool _internalModernUI;
   bool get _modernUI => widget.modernUI ?? _internalModernUI;
 
+  /// The ground the workbench paints behind its parts. Under the treatment the
+  /// cards float a gutter apart and `floatingPanels.css` fills what shows
+  /// through from `titleBar.activeBackground`, which is also the status bar's
+  /// band — so the two read as one surface. Base VS Code leaves no gutter to
+  /// show anything through, and the pre-treatment ground stands
+  /// (§spec:modern-ui-surfaces).
+  Color _backdrop(WorkbenchTheme theme) =>
+      _modernUI ? theme.workbenchBackdrop : theme.editorBackground;
+
   @override
   void initState() {
     super.initState();
@@ -1202,7 +1211,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       return WorkbenchSurfaceTreatment(
         modernUI: _modernUI,
         child: Scaffold(
-          backgroundColor: theme.editorBackground,
+          backgroundColor: _backdrop(theme),
           body: SafeArea(child: editorContent),
         ),
       );
@@ -1484,7 +1493,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     return WorkbenchSurfaceTreatment(
       modernUI: modernUI,
       child: Scaffold(
-        backgroundColor: theme.editorBackground,
+        backgroundColor: _backdrop(theme),
         body: SafeArea(
           child: Column(
             children: [

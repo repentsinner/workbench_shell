@@ -72,6 +72,16 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   /// `modernActivityBar.border` both resolve to it upstream.
   final Color surfaceBorder;
 
+  /// Ground the cards float above — what shows through the gutters between
+  /// them and around the cluster. VS Code `titleBar.activeBackground`, per
+  /// `src/vs/workbench/browser/media/floatingPanels.css`:
+  /// `.monaco-workbench.floating-panels { background-color:
+  /// var(--modern-ui-shell-background, var(--vscode-titleBar-activeBackground)) }`
+  /// (§spec:modern-ui-surfaces). Distinct from [editorBackground]: a theme may
+  /// set the two shades apart, and then the gutters and the status bar read as
+  /// one band only if the backdrop follows the title bar.
+  final Color workbenchBackdrop;
+
   // ---- Sidebar ----
   final Color sideBarBackground;
 
@@ -443,6 +453,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.activityBarItemHoverForeground,
     required this.surfaceBackground,
     required this.surfaceBorder,
+    required this.workbenchBackdrop,
     required this.sideBarBackground,
     required this.sideBarBorder,
     required this.sideBarForeground,
@@ -685,6 +696,14 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       'surface.border',
       Color.alphaBlend(fg.withValues(alpha: 0.1), surfaceBg),
     );
+    // The title bar's active fill. Two surfaces read it — the workbench
+    // backdrop the cards float above (`floatingPanels.css`) and the
+    // Windows/Linux menu bar strip — so it resolves once here rather than
+    // twice below, where the two could drift apart.
+    final titleBarActiveBg = map.resolve(
+      'titleBar.activeBackground',
+      dl(const Color(0xFF3C3C3C), const Color(0xFFDDDDDD)),
+    );
     // Activity bar item states. Upstream chains each key through the modern
     // tab family to the list colours, so a theme that styles only its tabs
     // still gets a coherent rail.
@@ -772,6 +791,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // Framed container surfaces
       surfaceBackground: surfaceBg,
       surfaceBorder: surfaceBorder,
+      workbenchBackdrop: titleBarActiveBg,
       // Sidebar
       sideBarBackground: sideBarBg,
       // Null by the same registry semantics as activityBar.border.
@@ -917,10 +937,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // Menu bar (Windows/Linux in-window strip).
       // VS Code stops at `titleBar.activeBackground` for the strip
       // itself; individual menu items read `menubar.*` and `menu.*`.
-      menuBarBackground: map.resolve(
-        'titleBar.activeBackground',
-        dl(const Color(0xFF3C3C3C), const Color(0xFFDDDDDD)),
-      ),
+      menuBarBackground: titleBarActiveBg,
       menuBarForeground: map.resolve(
         'titleBar.activeForeground',
         dl(const Color(0xFFCCCCCC), const Color(0xFF333333)),
@@ -1118,6 +1135,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? activityBarItemHoverForeground,
     Color? surfaceBackground,
     Color? surfaceBorder,
+    Color? workbenchBackdrop,
     Color? sideBarBackground,
     Color? sideBarBorder,
     Color? sideBarForeground,
@@ -1251,6 +1269,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           activityBarItemHoverForeground ?? this.activityBarItemHoverForeground,
       surfaceBackground: surfaceBackground ?? this.surfaceBackground,
       surfaceBorder: surfaceBorder ?? this.surfaceBorder,
+      workbenchBackdrop: workbenchBackdrop ?? this.workbenchBackdrop,
       sideBarBackground: sideBarBackground ?? this.sideBarBackground,
       sideBarBorder: sideBarBorder ?? this.sideBarBorder,
       sideBarForeground: sideBarForeground ?? this.sideBarForeground,
@@ -1449,6 +1468,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       ),
       surfaceBackground: c(surfaceBackground, other.surfaceBackground),
       surfaceBorder: c(surfaceBorder, other.surfaceBorder),
+      workbenchBackdrop: c(workbenchBackdrop, other.workbenchBackdrop),
       sideBarBackground: c(sideBarBackground, other.sideBarBackground),
       sideBarBorder: cn(sideBarBorder, other.sideBarBorder),
       sideBarForeground: c(sideBarForeground, other.sideBarForeground),
@@ -1695,6 +1715,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
               other.activityBarItemHoverForeground &&
           surfaceBackground == other.surfaceBackground &&
           surfaceBorder == other.surfaceBorder &&
+          workbenchBackdrop == other.workbenchBackdrop &&
           sideBarBackground == other.sideBarBackground &&
           sideBarBorder == other.sideBarBorder &&
           sideBarForeground == other.sideBarForeground &&
@@ -1824,6 +1845,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     activityBarItemHoverForeground,
     surfaceBackground,
     surfaceBorder,
+    workbenchBackdrop,
     sideBarBackground,
     sideBarBorder,
     sideBarForeground,
