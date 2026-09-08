@@ -155,7 +155,9 @@ class WorkbenchViewPane extends StatefulWidget {
 /// Keys the focus-ring [DecoratedBox] drawn over every view-pane header
 /// (§spec:view-pane-focus). The ring reserves a constant 1px border — painted
 /// [WorkbenchTheme.focusBorder] while focused, transparent at rest — so
-/// gaining or losing focus never reflows the header.
+/// gaining or losing focus never reflows the header. Under the Modern UI
+/// treatment it paints for keyboard-delivered focus only; base VS Code paints
+/// it for any focus (§spec:modern-ui-surfaces).
 @visibleForTesting
 const Key viewPaneHeaderFocusRingKey = ValueKey('view-pane-header-focus-ring');
 
@@ -192,10 +194,71 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
   bool _hovered = false;
   bool _focused = false;
 
+  // Whether a pointer tap delivered the focus the header holds. Flutter ships
+  // no `:focus-visible` and `FocusManager.highlightMode` is not it — a click
+  // and a key press both resolve to `traditional`, and a mouse pointer event
+  // never updates the mode at all. The pane does not need it: a tap is the one
+  // path on which the pane focuses itself ([_handleHeaderTap]), and traversal
+  // moves focus through the focus system, so raising this flag before
+  // requesting focus is what tells the two apart (§spec:modern-ui-surfaces).
+  bool _focusFromPointer = false;
+
+  // Raised by the tap immediately before it requests focus, and consumed by the
+  // focus gain that follows. A pending answer rather than a held level: a tap
+  // whose focus never lands leaves nothing raised for the next episode to read.
+  bool _pointerFocusPending = false;
+
+  // Whether the header node itself holds focus, as opposed to an action inside
+  // it. Tracked from a node listener rather than read live in build: the
+  // enclosing [Focus] reports the *descendant-inclusive* value, so Tab from the
+  // header to one of its own actions changes primary focus without rebuilding
+  // this widget and the ring would paint a state that had moved on.
+  bool _hasPrimaryFocus = false;
+
+  /// Whether the treatment paints the header's focus ring. Upstream's
+  /// `keyboardFocusOnly` module hides the outline on
+  /// `:focus:not(:focus-visible)` across the side bars and panel, so a click
+  /// focuses without ringing and traversal rings. Base VS Code rings any focus,
+  /// so [_withBaseHeaderChrome] reads [_focused] instead
+  /// (§spec:modern-ui-surfaces).
+  ///
+  /// [_focused] is descendant-inclusive so a focused action reveals the action
+  /// row (§spec:section-header-actions), but the ring belongs to the header
+  /// itself. A host action that takes focus from a pointer — a filter field in
+  /// a header, as VS Code's Search view has — would otherwise ring a header the
+  /// user never focused.
+  bool get _ringVisible => _hasPrimaryFocus && !_focusFromPointer;
+
+  @override
+  void initState() {
+    super.initState();
+    _headerFocusNode.addListener(_handleNodeFocusChanged);
+  }
+
+  /// Track the header node's own focus, and answer each gain of it separately.
+  ///
+  /// A tap leaves a pending answer that this consumes; every other arrival —
+  /// Tab, the container's Up/Down traversal, Shift+Tab back from an action —
+  /// leaves none and reads as keyboard. Re-answering on every gain is what
+  /// upstream's `:focus-visible` does, which re-evaluates per focus event
+  /// rather than holding one verdict for as long as focus stays in the subtree.
+  void _handleNodeFocusChanged() {
+    final primary = _headerFocusNode.hasPrimaryFocus;
+    if (primary == _hasPrimaryFocus) return;
+    setState(() {
+      _hasPrimaryFocus = primary;
+      if (primary) _focusFromPointer = _pointerFocusPending;
+      _pointerFocusPending = false;
+    });
+  }
+
   @override
   void dispose() {
+    // The listener comes off whether or not this pane owns the node — an
+    // injected one outlives the pane (§spec:view-pane-focus).
+    _headerFocusNode.removeListener(_handleNodeFocusChanged);
     // Dispose only the node this pane created; an injected node is owned and
-    // disposed by the container (§spec:view-pane-focus).
+    // disposed by the container.
     if (_ownsFocusNode) _headerFocusNode.dispose();
     super.dispose();
   }
@@ -233,7 +296,12 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
   /// A pointer click focuses the header; on a collapsible header it also
   /// toggles the pane (§spec:view-pane-focus). The InkWell paints its splash;
   /// this wires the focus + toggle behind it.
+  ///
+  /// The click keeps the focus and loses only the ring. Not focusing at all
+  /// would be the simpler suppression and is rejected: Down from a clicked
+  /// header shall still walk to the next one (§spec:view-pane-focus).
   void _handleHeaderTap() {
+    _pointerFocusPending = true;
     _headerFocusNode.requestFocus();
     if (widget.collapsible) _handleToggle();
   }
@@ -371,7 +439,7 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
                     key: viewPaneHeaderFocusRingKey,
                     decoration: BoxDecoration(
                       border: Border.all(
-                        color: _focused
+                        color: _ringVisible
                             ? theme.focusBorder
                             : Colors.transparent,
                       ),
@@ -516,7 +584,11 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
         child: Focus(
           focusNode: _headerFocusNode,
           onFocusChange: (focused) {
-            if (focused != _focused) setState(() => _focused = focused);
+            // Descendant-inclusive: a focused action reveals the action row
+            // (§spec:section-header-actions). The ring answers the header's
+            // own focus instead, from [_handleNodeFocusChanged].
+            if (focused == _focused) return;
+            setState(() => _focused = focused);
           },
           onKeyEvent: _handleHeaderKey,
           child: headerSurface,

@@ -38,6 +38,11 @@ class WorkbenchStatusBar extends StatelessWidget {
     final modernUI = WorkbenchSurfaceTreatment.of(context);
     return Container(
       height: WorkbenchLayoutConstants.statusBarHeight,
+      // The bar is a rail inside the cluster, not a card: no border or radius
+      // of its own, but `floatingPanels.css` insets its content. The height is
+      // fixed, so the vertical inset comes out of the content box — 18px, which
+      // still clears the 17px status icon (§spec:modern-ui-surfaces).
+      padding: WorkbenchSurfaceTreatment.statusBarInsetFor(modernUI),
       decoration: BoxDecoration(
         color: theme.statusBarBackground,
         border: modernUI
@@ -117,7 +122,13 @@ class WorkbenchStatusBarAction extends StatelessWidget {
         textStyle: textStyle,
       ),
     );
-    final tappable = InkWell(onTap: onTap, child: child);
+    // The ink response is the only background this item paints, so the pill
+    // radius lands on it (§spec:modern-ui-surfaces).
+    final tappable = InkWell(
+      onTap: onTap,
+      borderRadius: WorkbenchSurfaceTreatment.statusBarItemRadius(context),
+      child: child,
+    );
     if (tooltip != null) {
       return Tooltip(message: tooltip!, child: tappable);
     }
@@ -185,7 +196,11 @@ class WorkbenchStatusBarProblemsItem extends StatelessWidget {
     return Tooltip(
       message:
           tooltip ?? '$errorCount errors, $warningCount warnings$infoSuffix',
-      child: InkWell(onTap: onTap, child: child),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: WorkbenchSurfaceTreatment.statusBarItemRadius(context),
+        child: child,
+      ),
     );
   }
 }

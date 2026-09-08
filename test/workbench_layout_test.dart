@@ -113,6 +113,29 @@ Widget _buildApp({
   );
 }
 
+/// The composite title's own band — the `.part > .title` container the side bar
+/// heading occupies, found as the nearest [Container] above its label
+/// (§spec:modern-ui-surfaces).
+Finder _titleBand(String label) => find
+    .ancestor(of: find.text(label), matching: find.byType(Container))
+    .first;
+
+/// One activity bar item's whole target cell under the treatment — the
+/// `activityBarItemHeight` box the icon is centred in, not the icon's own
+/// intrinsic rect.
+Rect _itemCell(WidgetTester tester, IconData icon) => tester.getRect(
+  find
+      .ancestor(
+        of: find.byIcon(icon),
+        matching: find.byWidgetPredicate(
+          (w) =>
+              w is SizedBox &&
+              w.height == WorkbenchLayoutConstants.activityBarItemHeight,
+        ),
+      )
+      .first,
+);
+
 /// The horizontal sash resizes the sidebar width; the vertical sash resizes the
 /// panel height. Each seam's live dimension is the sash's [value]
 /// (§spec:workbench-layout).
@@ -2697,6 +2720,19 @@ void main() {
       );
     });
 
+    testWidgets('tightens the composite title to the treatment band', (
+      tester,
+    ) async {
+      // `padding.css`: `.part > .title { height: 32px }`, kept in sync with
+      // `part.ts` `PartLayout.AREA_HEIGHT_MODERN_UI`
+      // (§spec:modern-ui-surfaces).
+      await tester.pumpWidget(_buildApp());
+      expect(
+        tester.getSize(_titleBand('Explorer')).height,
+        WorkbenchLayoutConstants.modernPartTitleHeight,
+      );
+    });
+
     testWidgets('paints the ground behind the cards from the workbench '
         'backdrop, not the editor', (tester) async {
       await tester.pumpWidget(_buildApp(theme: backdropTheme));
@@ -2799,6 +2835,29 @@ void main() {
       expect(
         icon.left - railRect.left,
         closeTo(railRect.right - icon.right, 0.001),
+      );
+    });
+
+    testWidgets('the rail holds its zones off the window edge', (tester) async {
+      // `padding.css` gives the vertical rail's item column a top margin and
+      // its trailing zone a bottom margin, each `size20 + strokeThickness`, so
+      // the icons sit consistently above the window edge and line up with the
+      // pane header margins (§spec:modern-ui-surfaces).
+      await tester.pumpWidget(_buildApp());
+
+      final rail = tester.getRect(cardRing(find.byIcon(Symbols.folder_rounded)));
+      // The card's own hairline, the lane inset, then the zone margin.
+      final expected =
+          WorkbenchLayoutConstants.strokeThickness +
+          WorkbenchLayoutConstants.activityBarIconInset +
+          WorkbenchLayoutConstants.activityBarZoneMargin;
+      expect(
+        _itemCell(tester, Symbols.folder_rounded).top - rail.top,
+        closeTo(expected, 0.001),
+      );
+      expect(
+        rail.bottom - _itemCell(tester, Symbols.settings_rounded).bottom,
+        closeTo(expected, 0.001),
       );
     });
 
@@ -3417,6 +3476,38 @@ void main() {
               WorkbenchLayoutConstants.spacingSize120,
           0.001,
         ),
+      );
+    });
+
+    testWidgets('packs the activity bar zones against the bar edges', (
+      tester,
+    ) async {
+      // The zone margins are the treatment's; base VS Code's bar runs its
+      // items flush from edge to edge (§spec:modern-ui-surfaces).
+      await tester.pumpWidget(
+        _buildApp(initialModernUI: false, theme: baseTheme),
+      );
+      final bar = tester.getRect(
+        seamBox(find.byIcon(Symbols.folder_rounded), activityBarSeam),
+      );
+      // A base item's cell takes the bar's full width, and the Icon's own box
+      // stretches to it, so the cell's edges are the icon's.
+      final first = tester.getRect(find.byIcon(Symbols.folder_rounded));
+      final last = tester.getRect(find.byIcon(Symbols.settings_rounded));
+      expect(first.top - bar.top, closeTo(0.0, 0.001));
+      expect(bar.bottom - last.bottom, closeTo(0.0, 0.001));
+    });
+
+    testWidgets('keeps the composite title in the base 35px band', (
+      tester,
+    ) async {
+      // Base `part.css`: `.part > .title { height: 35px }`.
+      await tester.pumpWidget(
+        _buildApp(initialModernUI: false, theme: baseTheme),
+      );
+      expect(
+        tester.getSize(_titleBand('EXPLORER')).height,
+        WorkbenchLayoutConstants.sidebarHeadingHeight,
       );
     });
 

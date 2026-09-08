@@ -1413,10 +1413,11 @@ void main() {
   });
 
   group('WorkbenchViewContainer header focus traversal (§spec:view-pane-focus)', () {
-    // The container moves focus between header focus stops on Down/Up. Each
-    // pane carries one focus-ring DecoratedBox, painted focusBorder while
-    // focused; the ring inside pane [id]'s keyed subtree reports which header
-    // owns focus.
+    // The container moves focus between header focus stops on Down/Up. Under
+    // the treatment the ring answers the keyboard only
+    // (§spec:modern-ui-surfaces), so which header owns focus is read from the
+    // focus system and the ring is asserted separately. Each pane's own slot
+    // key scopes both reads to one header.
     const paneRingKey = ValueKey('view-pane-header-focus-ring');
 
     Color ringColorOf(WidgetTester tester, String id) {
@@ -1429,8 +1430,13 @@ void main() {
       return ((box.decoration as BoxDecoration).border! as Border).top.color;
     }
 
-    bool isFocused(WidgetTester tester, String id) =>
+    bool isRinged(WidgetTester tester, String id) =>
         ringColorOf(tester, id) == testWorkbenchTheme.focusBorder;
+
+    bool isFocused(WidgetTester tester, String id) => viewPaneHeaderFocused(
+      tester,
+      of: find.byKey(ValueKey('workbench-view-pane-$id')),
+    );
 
     Future<void> pumpStack(
       WidgetTester tester,
@@ -1516,12 +1522,34 @@ void main() {
       expect(isFocused(tester, 'c'), isTrue);
     });
 
-    testWidgets('a tap outside a focused header clears its ring', (
+    testWidgets('a clicked header keeps focus, so Down still walks on', (
+      tester,
+    ) async {
+      // §spec:view-pane-focus rejects suppressing the ring by simply not
+      // focusing on tap: the click keeps the focus and loses only the ring, so
+      // Down from a clicked header still reaches the next one — and the header
+      // it lands on rings, because traversal delivered that focus
+      // (§spec:modern-ui-surfaces).
+      await pumpStack(tester, threeViews());
+
+      await tester.tap(find.text('Alpha'));
+      await tester.pumpAndSettle();
+      expect(isFocused(tester, 'a'), isTrue);
+      expect(isRinged(tester, 'a'), isFalse);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(isFocused(tester, 'b'), isTrue);
+      expect(isRinged(tester, 'b'), isTrue);
+      expect(isRinged(tester, 'a'), isFalse);
+    });
+
+    testWidgets('a tap outside a focused header clears its focus', (
       tester,
     ) async {
       // §spec:view-pane-focus: focus does not linger. Flutter keeps focus until
-      // another control claims it; the header drops it on a tap outside so the
-      // ring does not stay on a header the user has left.
+      // another control claims it; the header drops it on a tap outside so it
+      // does not stay on a header the user has left.
       await pumpStack(tester, threeViews());
 
       // Focus Beta by clicking it (also collapses it; focus stays on its header).
@@ -1529,8 +1557,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(isFocused(tester, 'b'), isTrue);
 
-      // Tap a non-header surface — Alpha's still-visible body — and Beta's ring
-      // clears.
+      // Tap a non-header surface — Alpha's still-visible body — and Beta's
+      // header drops focus.
       await tester.tap(find.text('body-a'));
       await tester.pumpAndSettle();
       expect(isFocused(tester, 'b'), isFalse);

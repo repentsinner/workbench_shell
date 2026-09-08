@@ -51,3 +51,38 @@ Material popupPanelOf(WidgetTester tester, String rowLabel) {
         .first,
   );
 }
+
+/// Whether a view-pane header holds primary focus, scoped to [of] when a test
+/// has several panes.
+///
+/// Reads the header's own [Focus] node out of the tree rather than matching a
+/// `debugLabel`: a label is a debug-only diagnostic, and a predicate that
+/// compares against one answers `false` for everything the moment the label
+/// changes — which would let every negative focus assertion pass vacuously.
+/// The header's node is the one [Focus] carrying an `onKeyEvent` handler (the
+/// per-pane key bindings), which distinguishes it from the ink surfaces'
+/// internal nodes without naming anything.
+bool viewPaneHeaderFocused(WidgetTester tester, {Finder? of}) {
+  final headerFocus = find.byWidgetPredicate(
+    (w) => w is Focus && w.onKeyEvent != null && w.focusNode != null,
+  );
+  final finder = of == null
+      ? headerFocus
+      : find.descendant(of: of, matching: headerFocus);
+  return tester
+      .widgetList<Focus>(finder)
+      .any((f) => f.focusNode!.hasPrimaryFocus);
+}
+
+/// The view-pane header's own [FocusNode], scoped to [of] when a test has
+/// several panes. Identified the same way [viewPaneHeaderFocused] identifies
+/// it — by the key handler only the header carries.
+FocusNode headerFocusNodeOf(WidgetTester tester, {Finder? of}) {
+  final headerFocus = find.byWidgetPredicate(
+    (w) => w is Focus && w.onKeyEvent != null && w.focusNode != null,
+  );
+  final finder = of == null
+      ? headerFocus
+      : find.descendant(of: of, matching: headerFocus);
+  return tester.widgetList<Focus>(finder).first.focusNode!;
+}

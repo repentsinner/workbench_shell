@@ -269,7 +269,7 @@ class _PartFrame extends StatelessWidget {
     WorkbenchLayoutConstants.floatingCardRadius - _stroke,
   );
 
-  static const _outerAll = BorderRadius.all(_corner);
+  static const _outerAll = WorkbenchLayoutConstants.outerRadius;
   static const _outerFlushLeft = BorderRadius.only(
     topRight: _corner,
     bottomRight: _corner,
@@ -1892,8 +1892,18 @@ class _ActivityBar extends StatelessWidget {
         modernUI: modernUI,
         background: theme.activityBarBackground,
         borderColor: theme.surfaceBorder,
+        // Upstream states the zone margins as two rules — a `margin-top` on
+        // the item column and a `margin-bottom` on the trailing zone — but the
+        // column is the only flexible child and the trailing zone is the last,
+        // so the pair sums to one vertical inset on the whole rail. Holding it
+        // here keeps the icons off the card edges (so they line up with the
+        // pane header margins) without two more widgets per frame
+        // (§spec:modern-ui-surfaces).
         child: Padding(
-          padding: EdgeInsets.all(inset),
+          padding: EdgeInsets.symmetric(
+            horizontal: inset,
+            vertical: inset + WorkbenchLayoutConstants.activityBarZoneMargin,
+          ),
           child: Column(
             children: [
               Expanded(child: Column(children: _iconColumn(mainItems))),
@@ -2307,7 +2317,7 @@ class _Sidebar extends StatelessWidget {
       modernUI,
     );
     return Container(
-      height: WorkbenchLayoutConstants.sidebarHeadingHeight,
+      height: WorkbenchSurfaceTreatment.partTitleHeightFor(modernUI),
       padding: WorkbenchSurfaceTreatment.partTitleInsetFor(modernUI),
       child: Row(
         children: [

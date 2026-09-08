@@ -5,16 +5,17 @@ import 'package:flutter/scheduler.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../layout_constants.dart';
+import '../workbench_surface_treatment.dart';
 import '../workbench_theme.dart';
 import 'notification.dart';
 import 'notification_service.dart';
 
-/// The corner-radius ladder's 4px tier, as a `BorderRadius`. Every
-/// notification surface — card, summary card, action button and their ink
-/// wells — takes this tier (§spec:design-size-ladders); VS Code's
-/// `notificationsToasts.css` rounds the toast with the same
-/// `var(--vscode-cornerRadius-small)`. Named for the tier rather than for
-/// a role, because the cards it rounds are not controls.
+/// The corner-radius ladder's 4px tier, as a `BorderRadius`. Every notification
+/// *control* — the action buttons, the close button, the Clear All affordance —
+/// takes this tier under both treatments (§spec:design-size-ladders). The card
+/// surfaces themselves do not: they read
+/// `WorkbenchSurfaceTreatment.notificationSurfaceRadius`, which is this tier off
+/// the treatment and the card tier under it (§spec:modern-ui-surfaces).
 const BorderRadius _smallRadius = WorkbenchLayoutConstants.controlsRadius;
 
 /// Overlay anchored to the bottom-right of the workbench that
@@ -509,10 +510,16 @@ class _SummaryCard extends StatelessWidget {
     final caret = expanded
         ? Symbols.expand_less_rounded
         : Symbols.expand_more_rounded;
+    // The summary card is a card surface, and the header's ink response covers
+    // its top corners — so both follow the card tier, or the ripple would cut
+    // the corner the card rounds (§spec:modern-ui-surfaces).
+    final surfaceRadius = WorkbenchSurfaceTreatment.notificationSurfaceRadius(
+      context,
+    );
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.notificationBackground,
-        borderRadius: _smallRadius,
+        borderRadius: surfaceRadius,
         border: Border.all(color: theme.notificationBorder),
       ),
       child: Column(
@@ -523,7 +530,7 @@ class _SummaryCard extends StatelessWidget {
             color: Colors.transparent,
             child: InkWell(
               onTap: onTap,
-              borderRadius: _smallRadius,
+              borderRadius: surfaceRadius,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: WorkbenchLayoutConstants.spacingSize120,
@@ -637,6 +644,12 @@ class _NotificationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final severityColor = theme.severityForeground(notification.severity);
+    // The card is a card surface: the treatment rounds it at the same tier a
+    // workbench part takes (§spec:modern-ui-surfaces). The clip and the fill
+    // share the value so the severity stripe follows the same curve.
+    final cardRadius = WorkbenchSurfaceTreatment.notificationSurfaceRadius(
+      context,
+    );
     // Severity accent renders as a leading stripe positioned inside
     // the rounded card. Flutter forbids mixing a non-uniform Border
     // with borderRadius, so the stripe is a sibling Positioned widget
@@ -653,11 +666,11 @@ class _NotificationCard extends StatelessWidget {
         onEnter: (_) => onHoverChanged(true),
         onExit: (_) => onHoverChanged(false),
         child: ClipRRect(
-          borderRadius: _smallRadius,
+          borderRadius: cardRadius,
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: theme.notificationBackground,
-              borderRadius: _smallRadius,
+              borderRadius: cardRadius,
               border: Border.all(color: theme.notificationBorder),
             ),
             child: IntrinsicHeight(

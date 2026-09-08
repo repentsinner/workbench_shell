@@ -415,7 +415,10 @@ void main() {
 
       // Each Explorer pane carries one focus-ring DecoratedBox; the ring
       // inside pane [id]'s keyed subtree paints the focusBorder accent (a
-      // non-transparent color) while that header holds focus.
+      // non-transparent color). Under the treatment it answers the keyboard
+      // only (§spec:modern-ui-surfaces), so which header owns focus is read
+      // from the focus system — the container names each header node after its
+      // view.
       Color ringColorOf(String id) {
         final box = tester.widget<DecoratedBox>(
           find.descendant(
@@ -426,7 +429,11 @@ void main() {
         return ((box.decoration as BoxDecoration).border! as Border).top.color;
       }
 
-      bool isFocused(String id) => ringColorOf(id) != Colors.transparent;
+      bool isRinged(String id) => ringColorOf(id) != Colors.transparent;
+
+      bool isFocused(String id) =>
+          FocusManager.instance.primaryFocus?.debugLabel ==
+          'WorkbenchViewPane header $id';
 
       // Focus the first visible Explorer header (Folders; Open Editors is
       // hidden by default). Clicking a collapsible header also toggles it, so
@@ -436,11 +443,15 @@ void main() {
       await tester.tap(find.text('workbench_shell'));
       await tester.pumpAndSettle();
       expect(isFocused('folders'), isTrue);
+      // The click took the focus and left the ring down.
+      expect(isRinged('folders'), isFalse);
 
-      // Down walks forward through the three visible headers.
+      // Down walks forward through the three visible headers, and the header
+      // it lands on rings because traversal delivered that focus.
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pumpAndSettle();
       expect(isFocused('outline'), isTrue);
+      expect(isRinged('outline'), isTrue);
       expect(isFocused('folders'), isFalse);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);

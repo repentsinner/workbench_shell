@@ -47,6 +47,18 @@ class WorkbenchSurfaceTreatment extends InheritedWidget {
       ? WorkbenchLayoutConstants.viewPaneHeaderHeight
       : WorkbenchLayoutConstants.baseViewPaneHeaderHeight;
 
+  /// The band the side bar heading occupies against an already-resolved
+  /// treatment. `padding.css` tightens `.part > .title` from base `part.css`'s
+  /// 35px to 32px (§spec:modern-ui-surfaces).
+  /// One accessor serves the side bar heading and the panel tab strip: base
+  /// `part.css` sizes both from the same `.part > .title` rule, so
+  /// [WorkbenchLayoutConstants.panelTabStripHeight] and
+  /// [WorkbenchLayoutConstants.sidebarHeadingHeight] are the same number and a
+  /// test asserts it (§spec:layout-constants-canon).
+  static double partTitleHeightFor(bool modernUI) => modernUI
+      ? WorkbenchLayoutConstants.modernPartTitleHeight
+      : WorkbenchLayoutConstants.sidebarHeadingHeight;
+
   /// The inset `.part > .title` pads its row by at [context]. `padding.css`
   /// takes it from base `part.css`'s 8px to one spacing step
   /// (§spec:modern-ui-surfaces).
@@ -89,6 +101,38 @@ class WorkbenchSurfaceTreatment extends InheritedWidget {
     left: WorkbenchLayoutConstants.spacingSize20,
     right: WorkbenchLayoutConstants.spacingSize40,
   );
+
+  /// The inset the status bar pads its item row by. The bar is a rail inside
+  /// the cluster rather than a card, so it takes no border or radius of its
+  /// own, but `floatingPanels.css` insets its content —
+  /// `spacing.size60` horizontally, `spacing.size20` vertically. Base VS Code's
+  /// `statusbarpart.css` pads the part not at all (§spec:modern-ui-surfaces).
+  static EdgeInsets statusBarInsetFor(bool modernUI) =>
+      modernUI ? _modernStatusBarInset : EdgeInsets.zero;
+
+  static const _modernStatusBarInset = EdgeInsets.symmetric(
+    horizontal: WorkbenchLayoutConstants.spacingSize60,
+    vertical: WorkbenchLayoutConstants.spacingSize20,
+  );
+
+  /// The radius a status bar item rounds its fill at, so an item that paints a
+  /// background or an ink response reads as a pill rather than a rectangle.
+  /// `statusBar.css` rounds `.statusbar-item` and its label at
+  /// `cornerRadius.small` — the controls tier. Null off the treatment: base VS
+  /// Code rounds neither (§spec:modern-ui-surfaces).
+  static BorderRadius? statusBarItemRadius(BuildContext context) =>
+      of(context) ? WorkbenchLayoutConstants.controlsRadius : null;
+
+  /// The radius a notification *surface* rounds at — the toast card and the
+  /// center's summary card. `notificationsDialogs.css` takes them to
+  /// `cornerRadius.large`, the tier a workbench part takes, where base VS
+  /// Code's `notificationsToasts.css` rounds them at `cornerRadius.small`. The
+  /// controls inside a card — close button, action buttons — keep the controls
+  /// tier under both (§spec:modern-ui-surfaces).
+  static BorderRadius notificationSurfaceRadius(BuildContext context) =>
+      of(context)
+      ? WorkbenchLayoutConstants.outerRadius
+      : WorkbenchLayoutConstants.controlsRadius;
 
   /// The casing a chrome title renders in at [context]. The treatment's
   /// `fontRamp.css` swaps `text-transform: uppercase` for `capitalize`, and

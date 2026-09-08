@@ -100,6 +100,46 @@ void main() {
       );
     });
 
+    testWidgets('tightens the tab strip to the treatment band', (tester) async {
+      // `padding.css`: `.part > .title { height: 32px }`
+      // (§spec:modern-ui-surfaces).
+      await tester.pumpWidget(
+        wrapWithTheme(
+          SizedBox(
+            width: 400,
+            height: 300,
+            child: WorkbenchTabbedPanel(tabs: tabs(), onTogglePanel: () {}),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        tester.getSize(_stripBand()).height,
+        WorkbenchLayoutConstants.modernPartTitleHeight,
+      );
+    });
+
+    testWidgets('keeps the tab strip in the base 35px band', (tester) async {
+      // Base `part.css`: `.part > .title { height: 35px }`.
+      await tester.pumpWidget(
+        wrapWithTheme(
+          SizedBox(
+            width: 400,
+            height: 300,
+            child: WorkbenchTabbedPanel(tabs: tabs(), onTogglePanel: () {}),
+          ),
+          modernUI: false,
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        tester.getSize(_stripBand()).height,
+        WorkbenchLayoutConstants.panelTabStripHeight,
+      );
+    });
+
     testWidgets('uppercases tab labels with the treatment off', (
       tester,
     ) async {
@@ -524,3 +564,10 @@ void main() {
     });
   });
 }
+
+/// The tab strip's own band — the `.part > .title` container the strip
+/// occupies, found as the nearest [Container] above the `TabBar`
+/// (§spec:modern-ui-surfaces).
+Finder _stripBand() => find
+    .ancestor(of: find.byType(TabBar), matching: find.byType(Container))
+    .first;

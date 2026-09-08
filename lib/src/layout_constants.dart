@@ -104,8 +104,22 @@ class WorkbenchLayoutConstants {
   /// optical balance in the 22px-tall status bar).
   static const double iconStatusBar = 17.0;
 
-  /// Sidebar heading row height.
+  /// Sidebar heading row height with the Modern UI treatment off — VS Code
+  /// `part.css` `.part > .title { height: 35px }`, the band
+  /// [modernPartTitleHeight] tightens under the treatment
+  /// (§spec:modern-ui-surfaces).
   static const double sidebarHeadingHeight = 35.0;
+
+  /// The `.part > .title` band under the Modern UI treatment — the side bar
+  /// heading and the panel tab strip alike. VS Code
+  /// [`padding.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/padding.css)
+  /// takes the row from base `part.css`'s 35px to 32px, carrying the label's
+  /// line height and the trailing action row with it, and keeps the value in
+  /// sync with `part.ts` `PartLayout.AREA_HEIGHT_MODERN_UI`
+  /// (§spec:modern-ui-surfaces).
+  ///
+  /// Read at VS Code 1.138.0 (§spec:layout-constants-canon).
+  static const double modernPartTitleHeight = 32.0;
 
   /// View-pane header row height — the band each stacked view pane header
   /// occupies. VS Code's Modern UI treatment raises the base
@@ -138,9 +152,10 @@ class WorkbenchLayoutConstants {
   /// fit at this floor, scrolls the whole stack as the overflow fallback.
   static const double viewPaneMinBodyHeight = 120.0;
 
-  /// Tab strip row height inside the bottom panel. Shares VS Code's
-  /// `.part > .title { height: 35px }` (`part.css`) with
-  /// [sidebarHeadingHeight]. The strip's `Row` flex-centres its children
+  /// Tab strip row height inside the bottom panel with the Modern UI treatment
+  /// off. Shares VS Code's `.part > .title { height: 35px }` (`part.css`) with
+  /// [sidebarHeadingHeight], and the treatment's [modernPartTitleHeight] with
+  /// it too. The strip's `Row` flex-centres its children
   /// inside this single container — VS Code lays the tab strip out the
   /// same way, with no separate vertical padding constants.
   static const double panelTabStripHeight = 35.0;
@@ -342,6 +357,22 @@ class WorkbenchLayoutConstants {
   static const double activityBarIconInset =
       (activityBarLane - 2 * strokeThickness) / 2;
 
+  /// Margin above the activity bar's item column and below its trailing zone,
+  /// on top of [activityBarIconInset]. VS Code
+  /// [`padding.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/padding.css)
+  /// gives the vertical rail's `.composite-bar` a `margin-top` and its trailing
+  /// `:last-child` a `margin-bottom` of
+  /// `calc(var(--vscode-spacing-size20) + var(--vscode-strokeThickness))`, so
+  /// the icons sit consistently above the window edge and line up with the pane
+  /// header margins (§spec:modern-ui-surfaces). The rule is not
+  /// density-qualified, so both densities carry it.
+  ///
+  /// Upstream's own comment above those two rules says "a 4px bottom margin",
+  /// which its `calc` does not produce — 2 + 1 is 3. The declaration is the
+  /// canon and the comment is stale; a re-audit reading the prose alone would
+  /// move this to 4 and diverge (§spec:layout-constants-canon).
+  static const double activityBarZoneMargin = spacingSize20 + strokeThickness;
+
   /// [activityBarIconInset] for an arbitrary lane, so a density that narrows
   /// the lane derives its inset from the same rule rather than restating it.
   static double iconInsetForLane(double lane) =>
@@ -358,8 +389,8 @@ class WorkbenchLayoutConstants {
   // ==================== BUTTONS ====================
 
   /// The controls tier as a `BorderRadius`. Every all-corners surface on that
-  /// tier — pane headers, notification cards, the ink splash behind a header —
-  /// composes the same shape from [cornerRadiusSmall], so it is named once
+  /// tier — pane headers, status bar items, notification buttons — composes the
+  /// same shape from [cornerRadiusSmall], so it is named once
   /// here. The ladder itself stays scalar because upstream assigns tiers per
   /// corner (§spec:design-size-ladders); this is the all-corners case that
   /// every current call site actually wants, and `BorderRadius.circular` is
@@ -368,13 +399,21 @@ class WorkbenchLayoutConstants {
     Radius.circular(cornerRadiusSmall),
   );
 
+  /// The outer tier as a `BorderRadius` — the shape a prominent surface takes:
+  /// a workbench card, or a notification card under the Modern UI treatment.
+  /// Named here for the same reason as [controlsRadius]
+  /// (§spec:design-size-ladders).
+  static const BorderRadius outerRadius = BorderRadius.all(
+    Radius.circular(cornerRadiusLarge),
+  );
+
   /// Button shape — applied to the app-level Material button themes
   /// (Filled/Text, §spec:chrome-material-theming). De-pills Material 3's
   /// default `StadiumBorder` to match VS Code's rectangular buttons. A
   /// button is an interactable control, so it takes the controls tier;
   /// upstream's `button.css` renders `.monaco-text-button` at the same 4px.
   static const RoundedRectangleBorder buttonShape = RoundedRectangleBorder(
-    borderRadius: BorderRadius.all(Radius.circular(cornerRadiusSmall)),
+    borderRadius: controlsRadius,
   );
 
   /// 32px — button height. VS Code's `.monaco-button` is a compact

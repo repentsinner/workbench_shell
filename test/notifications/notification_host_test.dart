@@ -7,14 +7,33 @@ import 'package:workbench_shell/workbench_shell.dart';
 
 import '../test_theme.dart';
 
-Widget _host(NotificationService service, {Widget? child}) {
-  return MaterialApp(
-    theme: ThemeData.dark().copyWith(extensions: [testWorkbenchTheme]),
-    home: Scaffold(
-      body: NotificationHost(service: service, child: child),
-    ),
+Widget _host(NotificationService service, {Widget? child, bool modernUI = true}) {
+  return wrapWithTheme(
+    NotificationHost(service: service, child: child),
+    modernUI: modernUI,
   );
 }
+
+/// The card's own rounded box — the `DecoratedBox` filled with
+/// `notificationBackground` above [text].
+BoxDecoration _cardDecoration(WidgetTester tester, String text) =>
+    tester
+            .widget<DecoratedBox>(
+              find
+                  .ancestor(
+                    of: find.text(text),
+                    matching: find.byWidgetPredicate((w) {
+                      if (w is! DecoratedBox) return false;
+                      final decoration = w.decoration;
+                      return decoration is BoxDecoration &&
+                          decoration.color ==
+                              testWorkbenchTheme.notificationBackground;
+                    }),
+                  )
+                  .first,
+            )
+            .decoration
+        as BoxDecoration;
 
 void main() {
   group('NotificationHost rendering', () {
@@ -38,6 +57,65 @@ void main() {
       expect(find.text('Saved.'), findsOneWidget);
       // Single card, no Clear All control.
       expect(find.text('Clear All'), findsNothing);
+    });
+
+    testWidgets('rounds the card at the card tier and its buttons at the '
+        'controls tier', (tester) async {
+      // `notificationsDialogs.css` takes the toast to `cornerRadius.large` —
+      // the radius a workbench part takes — while the controls inside keep
+      // `cornerRadius.small` (§spec:modern-ui-surfaces).
+      final service = NotificationService();
+      service.show(
+        severity: NotificationSeverity.info,
+        message: 'Saved.',
+        actions: [NotificationAction(label: 'Undo', onInvoke: () {})],
+      );
+      await tester.pumpWidget(_host(service));
+      await tester.pump();
+
+      expect(
+        _cardDecoration(tester, 'Saved.').borderRadius,
+        WorkbenchLayoutConstants.outerRadius,
+      );
+      expect(
+        tester
+            .widget<ClipRRect>(
+              find
+                  .ancestor(
+                    of: find.text('Saved.'),
+                    matching: find.byType(ClipRRect),
+                  )
+                  .first,
+            )
+            .borderRadius,
+        WorkbenchLayoutConstants.outerRadius,
+      );
+      expect(
+        tester
+            .widget<InkWell>(
+              find
+                  .ancestor(of: find.text('Undo'), matching: find.byType(InkWell))
+                  .first,
+            )
+            .borderRadius,
+        WorkbenchLayoutConstants.controlsRadius,
+      );
+    });
+
+    testWidgets('rounds the card at the controls tier with the treatment off', (
+      tester,
+    ) async {
+      // Base VS Code's `notificationsToasts.css` rounds the toast at
+      // `cornerRadius.small` (§spec:modern-ui-surfaces).
+      final service = NotificationService();
+      service.show(severity: NotificationSeverity.info, message: 'Saved.');
+      await tester.pumpWidget(_host(service, modernUI: false));
+      await tester.pump();
+
+      expect(
+        _cardDecoration(tester, 'Saved.').borderRadius,
+        WorkbenchLayoutConstants.controlsRadius,
+      );
     });
 
     testWidgets('renders Clear All when at least two cards exist', (
