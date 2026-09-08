@@ -7,44 +7,85 @@ design decisions live in the cited spec sections, not here.
 
 ## Modern UI Surface Treatment §road:modern-ui-surfaces
 
-Render the workbench parts as the bordered, rounded cards VS Code
-now ships (§spec:modern-ui-surfaces). Every workstream in this section
-expresses its geometry through the shipped size ladders
-(§spec:design-size-ladders).
-
-### Part title height §road:part-title-height
-
-Tighten the side bar heading and panel tab strip from the base
-`.part > .title` height to the treatment's, updating
-`sidebarHeadingHeight` and `panelTabStripHeight` in
-`lib/src/layout_constants.dart` and their row in
-§spec:layout-constants-canon's source table
-(§spec:modern-ui-surfaces). The canon table still cites the base value,
-so a version-pinned re-audit reads the constants as current and the
-drift stays invisible.
+Render the workbench as VS Code's Modern UI treatment ships it
+(§spec:modern-ui-surfaces). Upstream enables fifteen modules from one
+setting; the package has landed the card framing, the editor frame,
+the activity bar and the pane header metrics. Every workstream below
+closes one surveyed module or metric, expresses its geometry through
+the shipped size ladders (§spec:design-size-ladders), and renders its
+base behavior when the `modernUI` flag is off.
 
 ### Workbench backdrop §road:workbench-backdrop
 
 Paint the ground behind the cards from VS Code's
 `titleBar.activeBackground` rather than reusing `editorBackground`,
 adding the token to `lib/src/workbench_theme.dart` and applying it in
-`lib/src/workbench_layout.dart` (§spec:modern-ui-surfaces). The card
-framing made this visible: the gutters it introduced expose a colour
-that previously rendered nowhere, and on a dark theme it resolves close
-enough to the editor card that the treatment reads as a hairline grid
-rather than as floating cards.
+`lib/src/workbench_layout.dart` (§spec:modern-ui-surfaces).
 
-**Verify:** Run the example app beside VS Code at the same density.
-The side bars, panel and editor each read as a separate bordered card
-with a visible gap; one hairline separates the activity bar from the
-primary side bar with no gap between them and the rail's icons
-optically centred; selecting an activity bar item fills a rounded
-background behind its icon rather than drawing a left border; a
-stacked view pane shows an inset rule above it and the first pane in
-the stack shows none. Switch the example's density control to compact
-and confirm the gaps and corner radii disappear and the parts meet
-edge-to-edge. Drag a side bar to its minimum width and confirm it
-still collapses at the documented floor.
+### Workbench casing §road:workbench-casing
+
+Drop the `.toUpperCase()` transform from the view-pane header, the
+composite title, the secondary tab labels and the panel tab strip
+(`lib/src/workbench_content.dart`, `lib/src/workbench_layout.dart`,
+`lib/src/workbench_tabbed_panel.dart`) and move `sectionTitle` and
+`sidebarOrPanelHeading` to the treatment's 12px semiBold tier in
+`lib/src/workbench_theme.dart` (§spec:chrome-typography-canon,
+§spec:modern-ui-surfaces).
+
+### Sash grips §road:sash-grips
+
+Draw the three-dot grip on every inter-part sash in
+`lib/src/workbench_sash.dart`, suppressed on the view-stack pane
+sashes, at compact density, and while the sash is hovered or dragged
+(§spec:modern-ui-surfaces).
+
+### Part title metrics §road:part-title-metrics
+
+Tighten the side bar heading and panel tab strip to the treatment's
+height and replace the composite title's flat inset with upstream's
+part and label padding, updating `sidebarHeadingHeight` and
+`panelTabStripHeight` in `lib/src/layout_constants.dart`, their row in
+§spec:layout-constants-canon's source table, and the title row in
+`lib/src/workbench_layout.dart` (§spec:modern-ui-surfaces).
+
+### Status bar treatment §road:status-bar-treatment
+
+Inset the status bar's content and round its items at the controls
+tier in `lib/src/workbench_status_bar.dart`, aligning the horizontal
+inset to the activity bar's gutter (§spec:modern-ui-surfaces).
+
+### Keyboard-only focus rings §road:keyboard-focus-rings
+
+Paint the view-pane header's focus ring only for keyboard-originated
+focus in `lib/src/workbench_content.dart`, reading the highlight mode
+`FocusManager` tracks rather than gesture history
+(§spec:modern-ui-surfaces, §spec:view-pane-focus).
+
+### Notification surface treatment §road:notification-treatment
+
+Round the notification card at the card tier and adopt the
+treatment's row insets in `lib/src/notifications/notification_host.dart`
+(§spec:modern-ui-surfaces, §spec:notification-center).
+
+### Activity bar zone margins §road:activity-bar-zone-margins
+
+Give the activity bar's item column its leading margin and its
+trailing zone the matching bottom margin in
+`lib/src/workbench_layout.dart` (§spec:modern-ui-surfaces).
+
+**Verify:** Run the example app beside VS Code at the same density and
+on the same theme. The side bars, panel and editor each read as a
+separate bordered card with a visible gap, against a ground the same
+colour as the status bar. Pane headers, the side bar title and the
+panel tabs read in title case at the same size VS Code renders. Each
+boundary between two parts shows three dots at its midpoint that
+vanish while dragging, and a pane sash inside the Explorer shows none.
+Status bar items round when they paint a background. Click a pane
+header — no focus ring; Tab to it — a ring. Post a notification from
+the Explorer header action and confirm its corner radius matches a
+card's. Switch density to compact and confirm the gaps, the corner
+radii and the sash grips all disappear. Untick View ▸ Appearance ▸
+Modern UI and confirm every surface returns to the base treatment.
 
 ## Split Button §road:split-button
 
