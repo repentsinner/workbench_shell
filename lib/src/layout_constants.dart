@@ -366,6 +366,11 @@ class WorkbenchLayoutConstants {
   /// the icons sit consistently above the window edge and line up with the pane
   /// header margins (§spec:modern-ui-surfaces). The rule is not
   /// density-qualified, so both densities carry it.
+  ///
+  /// Upstream's own comment above those two rules says "a 4px bottom margin",
+  /// which its `calc` does not produce — 2 + 1 is 3. The declaration is the
+  /// canon and the comment is stale; a re-audit reading the prose alone would
+  /// move this to 4 and diverge (§spec:layout-constants-canon).
   static const double activityBarZoneMargin = spacingSize20 + strokeThickness;
 
   /// [activityBarIconInset] for an arbitrary lane, so a density that narrows
