@@ -1,3 +1,13 @@
+# [0.35.0](https://github.com/repentsinner/workbench_shell/compare/v0.34.0...v0.35.0) (2026-09-08)
+
+
+### Features
+
+* **chrome:** render chrome titles in the host's casing ([f4c3a80](https://github.com/repentsinner/workbench_shell/commit/f4c3a806cc03b070fc599f8aea5237415997b88d))
+* **layout:** inset part titles at the canon part and label tiers ([aedd6dd](https://github.com/repentsinner/workbench_shell/commit/aedd6dda6a76aebddf70a910e4c1da096c2b6f7d))
+* **layout:** mark inter-part sashes with the canon grip ([a5747a7](https://github.com/repentsinner/workbench_shell/commit/a5747a732fe033df9cabd7c5ee3de2af17809d0c))
+* **theme:** ground the workbench on the title bar backdrop ([a045f0d](https://github.com/repentsinner/workbench_shell/commit/a045f0dfe6a86d39b4190aa4f1b8b6ddd8f214ab))
+
 # [0.34.0](https://github.com/repentsinner/workbench_shell/compare/v0.33.4...v0.34.0) (2026-09-08)
 
 
