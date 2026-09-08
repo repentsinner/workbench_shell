@@ -203,13 +203,25 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
   // requesting focus is what tells the two apart (§spec:modern-ui-surfaces).
   bool _focusFromPointer = false;
 
+  // Raised by the tap immediately before it requests focus, and consumed by the
+  // focus gain that follows. A pending answer rather than a held level: a tap
+  // whose focus never lands leaves nothing raised for the next episode to read.
+  bool _pointerFocusPending = false;
+
   /// Whether the treatment paints the header's focus ring. Upstream's
   /// `keyboardFocusOnly` module hides the outline on
   /// `:focus:not(:focus-visible)` across the side bars and panel, so a click
   /// focuses without ringing and traversal rings. Base VS Code rings any focus,
   /// so [_withBaseHeaderChrome] reads [_focused] instead
   /// (§spec:modern-ui-surfaces).
-  bool get _ringVisible => _focused && !_focusFromPointer;
+  ///
+  /// [_focused] is descendant-inclusive so a focused action reveals the action
+  /// row (§spec:section-header-actions), but the ring belongs to the header
+  /// itself. A host action that takes focus from a pointer — a filter field in
+  /// a header, as VS Code's Search view has — would otherwise ring a header the
+  /// user never focused.
+  bool get _ringVisible =>
+      _focused && _headerFocusNode.hasPrimaryFocus && !_focusFromPointer;
 
   @override
   void dispose() {
@@ -257,7 +269,7 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
   /// would be the simpler suppression and is rejected: Down from a clicked
   /// header shall still walk to the next one (§spec:view-pane-focus).
   void _handleHeaderTap() {
-    if (!_focusFromPointer) setState(() => _focusFromPointer = true);
+    _pointerFocusPending = true;
     _headerFocusNode.requestFocus();
     if (widget.collapsible) _handleToggle();
   }
@@ -543,11 +555,12 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
             if (focused == _focused) return;
             setState(() {
               _focused = focused;
-              // A tap raises [_focusFromPointer] before requesting focus;
-              // every other path — Tab, the container's Up/Down traversal —
-              // leaves it down. Lowering it on blur is what keeps the next
-              // focus episode's answer its own.
-              if (!focused) _focusFromPointer = false;
+              // A tap leaves a pending answer; every other path — Tab, the
+              // container's Up/Down traversal — leaves none, and reads as
+              // keyboard. Consuming it here ties each answer to the focus gain
+              // it belongs to.
+              _focusFromPointer = focused && _pointerFocusPending;
+              _pointerFocusPending = false;
             });
           },
           onKeyEvent: _handleHeaderKey,

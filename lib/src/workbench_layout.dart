@@ -269,7 +269,7 @@ class _PartFrame extends StatelessWidget {
     WorkbenchLayoutConstants.floatingCardRadius - _stroke,
   );
 
-  static const _outerAll = BorderRadius.all(_corner);
+  static const _outerAll = WorkbenchLayoutConstants.outerRadius;
   static const _outerFlushLeft = BorderRadius.only(
     topRight: _corner,
     bottomRight: _corner,
@@ -1892,26 +1892,22 @@ class _ActivityBar extends StatelessWidget {
         modernUI: modernUI,
         background: theme.activityBarBackground,
         borderColor: theme.surfaceBorder,
+        // Upstream states the zone margins as two rules — a `margin-top` on
+        // the item column and a `margin-bottom` on the trailing zone — but the
+        // column is the only flexible child and the trailing zone is the last,
+        // so the pair sums to one vertical inset on the whole rail. Holding it
+        // here keeps the icons off the card edges (so they line up with the
+        // pane header margins) without two more widgets per frame
+        // (§spec:modern-ui-surfaces).
         child: Padding(
-          padding: EdgeInsets.all(inset),
-          // Each zone is held off the card edge it faces, so the icons sit
-          // consistently above the window edge and line up with the pane
-          // header margins (§spec:modern-ui-surfaces).
+          padding: EdgeInsets.symmetric(
+            horizontal: inset,
+            vertical: inset + WorkbenchLayoutConstants.activityBarZoneMargin,
+          ),
           child: Column(
             children: [
-              Expanded(
-                child: Padding(
-                  padding: WorkbenchSurfaceTreatment.activityBarItemColumnMargin,
-                  child: Column(children: _iconColumn(mainItems)),
-                ),
-              ),
-              Padding(
-                padding: WorkbenchSurfaceTreatment.activityBarBottomZoneMargin,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: _iconColumn(bottomItems),
-                ),
-              ),
+              Expanded(child: Column(children: _iconColumn(mainItems))),
+              ..._iconColumn(bottomItems),
             ],
           ),
         ),

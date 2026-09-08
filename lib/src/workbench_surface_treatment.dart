@@ -50,27 +50,14 @@ class WorkbenchSurfaceTreatment extends InheritedWidget {
   /// The band the side bar heading occupies against an already-resolved
   /// treatment. `padding.css` tightens `.part > .title` from base `part.css`'s
   /// 35px to 32px (§spec:modern-ui-surfaces).
+  /// One accessor serves the side bar heading and the panel tab strip: base
+  /// `part.css` sizes both from the same `.part > .title` rule, so
+  /// [WorkbenchLayoutConstants.panelTabStripHeight] and
+  /// [WorkbenchLayoutConstants.sidebarHeadingHeight] are the same number and a
+  /// test asserts it (§spec:layout-constants-canon).
   static double partTitleHeightFor(bool modernUI) => modernUI
       ? WorkbenchLayoutConstants.modernPartTitleHeight
       : WorkbenchLayoutConstants.sidebarHeadingHeight;
-
-  /// The band the panel's tab strip occupies. The same `.part > .title` rule
-  /// governs both surfaces, but each names its own base constant
-  /// (§spec:layout-constants-canon).
-  static double panelTabStripHeightFor(bool modernUI) => modernUI
-      ? WorkbenchLayoutConstants.modernPartTitleHeight
-      : WorkbenchLayoutConstants.panelTabStripHeight;
-
-  /// The margin holding the vertical activity bar's item column off the top of
-  /// its card, and its trailing zone off the bottom (§spec:modern-ui-surfaces).
-  /// The treatment owns both: base VS Code runs the items flush from edge to
-  /// edge, so the base bar takes neither.
-  static const EdgeInsets activityBarItemColumnMargin = EdgeInsets.only(
-    top: WorkbenchLayoutConstants.activityBarZoneMargin,
-  );
-  static const EdgeInsets activityBarBottomZoneMargin = EdgeInsets.only(
-    bottom: WorkbenchLayoutConstants.activityBarZoneMargin,
-  );
 
   /// The inset `.part > .title` pads its row by at [context]. `padding.css`
   /// takes it from base `part.css`'s 8px to one spacing step

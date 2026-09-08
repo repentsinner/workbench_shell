@@ -1416,8 +1416,8 @@ void main() {
     // The container moves focus between header focus stops on Down/Up. Under
     // the treatment the ring answers the keyboard only
     // (§spec:modern-ui-surfaces), so which header owns focus is read from the
-    // focus system and the ring is asserted separately. The container names
-    // each header node after its view, which is what identifies the owner.
+    // focus system and the ring is asserted separately. Each pane's own slot
+    // key scopes both reads to one header.
     const paneRingKey = ValueKey('view-pane-header-focus-ring');
 
     Color ringColorOf(WidgetTester tester, String id) {
@@ -1433,9 +1433,10 @@ void main() {
     bool isRinged(WidgetTester tester, String id) =>
         ringColorOf(tester, id) == testWorkbenchTheme.focusBorder;
 
-    bool isFocused(WidgetTester tester, String id) =>
-        FocusManager.instance.primaryFocus?.debugLabel ==
-        'WorkbenchViewPane header $id';
+    bool isFocused(WidgetTester tester, String id) => viewPaneHeaderFocused(
+      tester,
+      of: find.byKey(ValueKey('workbench-view-pane-$id')),
+    );
 
     Future<void> pumpStack(
       WidgetTester tester,

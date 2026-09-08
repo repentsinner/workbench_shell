@@ -223,7 +223,7 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
             // and the strip's own inset is the container's padding — one
             // widget, matching the side bar heading
             // (§spec:modern-ui-surfaces).
-            height: WorkbenchSurfaceTreatment.panelTabStripHeightFor(modernUI),
+            height: WorkbenchSurfaceTreatment.partTitleHeightFor(modernUI),
             padding: stripInset,
             child: Row(
                 children: [

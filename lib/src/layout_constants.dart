@@ -413,7 +413,7 @@ class WorkbenchLayoutConstants {
   /// button is an interactable control, so it takes the controls tier;
   /// upstream's `button.css` renders `.monaco-text-button` at the same 4px.
   static const RoundedRectangleBorder buttonShape = RoundedRectangleBorder(
-    borderRadius: BorderRadius.all(Radius.circular(cornerRadiusSmall)),
+    borderRadius: controlsRadius,
   );
 
   /// 32px — button height. VS Code's `.monaco-button` is a compact

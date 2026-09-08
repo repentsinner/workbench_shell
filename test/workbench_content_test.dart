@@ -323,8 +323,7 @@ void main() {
     /// only (§spec:modern-ui-surfaces), so a click's effect on focus is read
     /// from the focus system rather than from the ring.
     bool headerFocused(WidgetTester tester) =>
-        FocusManager.instance.primaryFocus?.debugLabel ==
-        'WorkbenchViewPane header';
+        viewPaneHeaderFocused(tester);
 
     testWidgets('a click focuses a collapsible header without ringing it', (
       tester,
