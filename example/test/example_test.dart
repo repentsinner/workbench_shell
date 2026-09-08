@@ -750,6 +750,35 @@ void main() {
     expect(panel().top, closeTo(standard.top, 0.001));
   });
 
+  testWidgets('Modern UI intent returns the workbench to base VS Code chrome '
+      'and back', (tester) async {
+    await tester.pumpWidget(const WorkbenchExampleApp());
+    await tester.pumpAndSettle();
+
+    // With the treatment off the parts pack flush, so the panel reaches the
+    // window edge its card used to hold a perimeter gutter clear of
+    // (§spec:modern-ui-surfaces).
+    Rect panel() => tester.getRect(find.byType(WorkbenchTabbedPanel));
+
+    final treated = panel();
+    final context = tester.element(find.byType(WorkbenchLayout));
+
+    Actions.invoke(context, const ToggleModernUIIntent());
+    await tester.pumpAndSettle();
+    expect(
+      treated.left - panel().left,
+      closeTo(
+        WorkbenchLayoutConstants.floatingCardPerimeter +
+            WorkbenchLayoutConstants.strokeThickness,
+        0.001,
+      ),
+    );
+
+    Actions.invoke(context, const ToggleModernUIIntent());
+    await tester.pumpAndSettle();
+    expect(panel().left, closeTo(treated.left, 0.001));
+  });
+
   testWidgets('seeded WorkbenchLayoutState restores the Explorer arrangement '
       '(§spec:layout-state-persistence)', (tester) async {
     // Rehydrate a persisted arrangement that hides the Timeline pane and

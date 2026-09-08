@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:workbench_shell/src/workbench_surface_treatment.dart';
 import 'package:workbench_shell/workbench_shell.dart';
 
 import 'test_theme.dart';
@@ -29,6 +30,42 @@ void main() {
               as BoxDecoration;
       expect(decoration.border, isNull);
       expect(decoration.color, isNotNull);
+    });
+
+    testWidgets('draws the top border again with the treatment off', (
+      tester,
+    ) async {
+      // Base VS Code rules the bar off from the band above it with
+      // `statusBar.border`; the treatment hides that rule, not the token
+      // (§spec:modern-ui-surfaces).
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark().copyWith(extensions: [testWorkbenchTheme]),
+          home: const Scaffold(
+            body: WorkbenchSurfaceTreatment(
+              modernUI: false,
+              child: WorkbenchStatusBar(),
+            ),
+          ),
+        ),
+      );
+
+      final decoration =
+          tester
+                  .widget<Container>(
+                    find
+                        .ancestor(
+                          of: find.byType(Row),
+                          matching: find.byType(Container),
+                        )
+                        .first,
+                  )
+                  .decoration
+              as BoxDecoration;
+      expect(
+        (decoration.border! as Border).top.color,
+        testWorkbenchTheme.statusBarBorder,
+      );
     });
 
     testWidgets('renders leading and trailing items with spacer between', (

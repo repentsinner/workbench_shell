@@ -6,6 +6,7 @@ import 'layout_constants.dart';
 import 'workbench_content.dart';
 import 'workbench_layout_state.dart';
 import 'workbench_sash.dart';
+import 'workbench_surface_treatment.dart';
 import 'workbench_theme.dart';
 import 'workbench_view_menu.dart';
 
@@ -977,6 +978,12 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
           child: _ViewStack(
             key: _stackKey,
             availableHeight: constraints.maxHeight,
+            // The band each header occupies follows the surface treatment
+            // (§spec:modern-ui-surfaces), so the pane that renders it and the
+            // stack that apportions height around it read one value.
+            headerHeight: WorkbenchSurfaceTreatment.viewPaneHeaderHeight(
+              context,
+            ),
             children: children,
           ),
         );
@@ -1096,19 +1103,28 @@ class _ViewStackChild extends ParentDataWidget<_ViewStackParentData> {
 class _ViewStack extends MultiChildRenderObjectWidget {
   final double availableHeight;
 
+  /// The fixed band every pane header occupies, resolved from the surface
+  /// treatment in force (§spec:modern-ui-surfaces).
+  final double headerHeight;
+
   const _ViewStack({
     super.key,
     required this.availableHeight,
+    required this.headerHeight,
     required super.children,
   });
 
   @override
-  RenderObject createRenderObject(BuildContext context) =>
-      _RenderViewStack(availableHeight: availableHeight);
+  RenderObject createRenderObject(BuildContext context) => _RenderViewStack(
+    availableHeight: availableHeight,
+    headerHeight: headerHeight,
+  );
 
   @override
   void updateRenderObject(BuildContext context, _RenderViewStack renderObject) {
-    renderObject.availableHeight = availableHeight;
+    renderObject
+      ..availableHeight = availableHeight
+      ..headerHeight = headerHeight;
   }
 }
 
@@ -1116,14 +1132,25 @@ class _RenderViewStack extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, _ViewStackParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, _ViewStackParentData> {
-  _RenderViewStack({required double availableHeight})
-    : _availableHeight = availableHeight;
+  _RenderViewStack({
+    required double availableHeight,
+    required double headerHeight,
+  }) : _availableHeight = availableHeight,
+       _headerHeight = headerHeight;
 
   double _availableHeight;
   double get availableHeight => _availableHeight;
   set availableHeight(double value) {
     if (_availableHeight == value) return;
     _availableHeight = value;
+    markNeedsLayout();
+  }
+
+  double _headerHeight;
+  double get headerHeight => _headerHeight;
+  set headerHeight(double value) {
+    if (_headerHeight == value) return;
+    _headerHeight = value;
     markNeedsLayout();
   }
 
@@ -1152,7 +1179,7 @@ class _RenderViewStack extends RenderBox
   @override
   void performLayout() {
     final width = constraints.maxWidth;
-    const header = WorkbenchLayoutConstants.viewPaneHeaderHeight;
+    final header = _headerHeight;
     const minBody = WorkbenchLayoutConstants.viewPaneMinBodyHeight;
 
     // Count every pane (collapsed panes still take a header) and the expanded

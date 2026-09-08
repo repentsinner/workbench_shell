@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:workbench_shell/src/workbench_surface_treatment.dart';
 import 'package:workbench_shell/workbench_shell.dart';
 
 import 'test_theme.dart';
@@ -1035,6 +1036,101 @@ void main() {
         tester.getSize(find.byKey(buttonKey)).width,
         paneWidth - 2 * WorkbenchLayoutConstants.spacingSize160,
       );
+    });
+  });
+
+  group('WorkbenchViewPane header chrome, treatment off '
+      '(§spec:modern-ui-surfaces)', () {
+    // Base VS Code fills the header with `sideBarSectionHeader.background` and
+    // separates stacked panes with a full-width `border-top`, at the
+    // `splitview` HEADER_SIZE band. Each is what the treatment replaced.
+    const band = Color(0xFF181818);
+    const rule = Color(0xFF2B2B2B);
+
+    final theme = WorkbenchTheme.fromVscodeColorMap(
+      const VscodeColorMap(
+        name: 'Header',
+        baseType: 'vs-dark',
+        colors: {
+          'sideBarSectionHeader.background': band,
+          'sideBarSectionHeader.border': rule,
+        },
+      ),
+    );
+
+    Widget wrapBase(Widget child) => MaterialApp(
+      theme: ThemeData.dark().copyWith(extensions: [theme]),
+      home: Scaffold(
+        body: WorkbenchSurfaceTreatment(modernUI: false, child: child),
+      ),
+    );
+
+    /// The band box the base treatment draws around the header — the
+    /// innermost [Container] enclosing the title.
+    Finder chrome() => find
+        .ancestor(of: find.text('HELLO'), matching: find.byType(Container))
+        .first;
+
+    BoxDecoration chromeDecoration(WidgetTester tester) =>
+        tester.widget<Container>(chrome()).decoration! as BoxDecoration;
+
+    testWidgets('fills the band and draws a full-width top border', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapBase(
+          const SizedBox(
+            width: 300,
+            child: WorkbenchViewPane(title: 'Hello', child: Text('body')),
+          ),
+        ),
+      );
+
+      final decoration = chromeDecoration(tester);
+      expect(decoration.color, band);
+      expect(decoration.borderRadius, isNull);
+      expect((decoration.border! as Border).top.color, rule);
+
+      // The border spans the header rather than insetting from its ends, so
+      // there is no separate rule box.
+      expect(find.byKey(viewPaneHeaderRuleKey), findsNothing);
+      expect(find.byKey(viewPaneHeaderSurfaceKey), findsNothing);
+    });
+
+    testWidgets('sits at the base splitview header height', (tester) async {
+      await tester.pumpWidget(
+        wrapBase(
+          const SizedBox(
+            width: 300,
+            child: WorkbenchViewPane(title: 'Hello', child: Text('body')),
+          ),
+        ),
+      );
+
+      expect(
+        tester.getSize(chrome()).height,
+        WorkbenchLayoutConstants.baseViewPaneHeaderHeight,
+      );
+    });
+
+    testWidgets('suppresses the rule above the first pane in a stack', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapBase(
+          const SizedBox(
+            width: 300,
+            child: WorkbenchViewPane.inContainer(
+              title: 'Hello',
+              collapsible: true,
+              showTopRule: false,
+              child: Text('body'),
+            ),
+          ),
+        ),
+      );
+
+      expect(chromeDecoration(tester).border, isNull);
     });
   });
 }

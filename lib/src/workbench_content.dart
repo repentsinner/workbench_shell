@@ -4,6 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:meta/meta.dart';
 
 import 'layout_constants.dart';
+import 'workbench_surface_treatment.dart';
 import 'workbench_theme.dart';
 
 /// Structural primitives for sidebars and bottom panels.
@@ -293,6 +294,42 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
   /// The focus ring sits one [WorkbenchLayoutConstants.spacingSize20] inside
   /// the header box: upstream negates that step as the focus outline's offset
   /// so the ring's top stroke clears the separator instead of overprinting it.
+  /// The header chrome base VS Code draws (§spec:modern-ui-surfaces): the
+  /// `sideBarSectionHeader.background` band at the base `splitview` header
+  /// height, ruled off from the pane above by a full-width
+  /// `sideBarSectionHeader.border`. Either token may be null, and a header with
+  /// neither — on a pane that cannot even be clicked to collapse — needs no box
+  /// at all.
+  ///
+  /// The focus ring is a plain border around the header rather than the
+  /// treatment's inset overlay: with no separator inside the header box there
+  /// is nothing for it to clear (§spec:view-pane-focus).
+  Widget _withBaseHeaderChrome(WorkbenchTheme theme, Widget header) {
+    // Reserved either way, so gaining or losing focus never reflows the header.
+    final ringed = DecoratedBox(
+      key: viewPaneHeaderFocusRingKey,
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: _focused ? theme.focusBorder : Colors.transparent,
+        ),
+      ),
+      child: header,
+    );
+    final band = theme.sideBarSectionHeaderBackground;
+    final rule = theme.sideBarSectionHeaderBorder;
+    if (band == null && rule == null && !widget.collapsible) return ringed;
+    return Container(
+      height: WorkbenchLayoutConstants.baseViewPaneHeaderHeight,
+      decoration: BoxDecoration(
+        color: band,
+        border: (rule == null || !widget.showTopRule)
+            ? null
+            : Border(top: BorderSide(color: rule)),
+      ),
+      child: ringed,
+    );
+  }
+
   Widget _withHeaderChrome(WorkbenchTheme theme, Widget header) {
     final rule = theme.sideBarSectionHeaderBorder;
     const inset = WorkbenchLayoutConstants.spacingSize40;
@@ -354,16 +391,18 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
   @override
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
+    final modernUI = WorkbenchSurfaceTreatment.of(context);
     // Header order follows VS Code's pane header: twisty → title → metadata
     // (infoTooltip) → actions (rightmost). Metadata hugs the title;
     // operations hug the right edge (§spec:section-header-actions). Upstream's
     // `padding.css` pads the header's leading edge by one spacing step and
     // leaves the trailing edge flush, so the rightmost action sits against the
-    // header box (§spec:modern-ui-surfaces).
-    final header = Padding(
-      padding: const EdgeInsets.only(
-        left: WorkbenchLayoutConstants.spacingSize40,
-      ),
+    // header box; base VS Code leaves both edges flush
+    // (§spec:modern-ui-surfaces).
+    final Widget header = Padding(
+      padding: modernUI
+          ? const EdgeInsets.only(left: WorkbenchLayoutConstants.spacingSize40)
+          : EdgeInsets.zero,
       child: Row(
         children: [
           // The twisty space is always reserved so titles align whether or not
@@ -479,8 +518,11 @@ class _WorkbenchViewPaneState extends State<WorkbenchViewPane> {
       ),
     );
 
-    // Section-header chrome (§spec:view-stack); see _withHeaderChrome.
-    headerSurface = _withHeaderChrome(theme, headerSurface);
+    // Section-header chrome (§spec:view-stack); see _withHeaderChrome and
+    // _withBaseHeaderChrome.
+    headerSurface = modernUI
+        ? _withHeaderChrome(theme, headerSurface)
+        : _withBaseHeaderChrome(theme, headerSurface);
 
     // The container may make the chromed header a drag handle for pane reorder
     // (§spec:view-stack). VS Code's `draggable` attribute sits on the whole

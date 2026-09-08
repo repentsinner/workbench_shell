@@ -2794,6 +2794,7 @@ and makes a stale row visible on inspection.
 |---|---|---|---|
 | `activityBarWidth` | 48 | [`activitybarPart.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/activitybar/activitybarPart.ts) — `static readonly ACTIVITYBAR_WIDTH = 48`, applied by [`activitybarpart.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/activitybar/media/activitybarpart.css) as `width: var(--activity-bar-width, 48px)` | 1.138.0 |
 | `activityBarIndicatorWidth` | 2 | activity bar item left-border indicator (same CSS file); cross-confirmed by [`activityBar.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/activityBar.css), whose override is commented "Drop the 2px left border indicator on the active item" | 1.138.0 |
+| `baseViewPaneHeaderHeight` | 22 | [`paneview.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/base/browser/ui/splitview/paneview.ts) — `DEFAULT_PANE_HEADER_SIZE = 22`, the band `viewPaneHeaderHeight` raises under the treatment (§spec:modern-ui-surfaces) | 1.138.0 |
 | `sidebarHeadingHeight` | 35 | [`part.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/media/part.css) — `.part > .title { height: 35px }` | 1.138.0 |
 | `panelTabStripHeight` | 35 | shared `.part > .title` (same file) | 1.138.0 |
 | `statusBarHeight` | 22 | [`statusbarpart.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/statusbar/media/statusbarpart.css) — `height: 22px`. Cross-confirmed by inline comment in `notificationsToasts.css`: `bottom: 25px; /* 22px status bar height + 3px */` | 1.138.0 |
@@ -3073,13 +3074,36 @@ developers run the cards on unmodified stable installations. A spec
 that defers work until a flag flips would leave the package diverging
 from its reference for the whole rollout.
 
-**Rejected — a package-local "modern" boolean covering all of it.**
-One flag would make the treatment atomic and easy to describe. It also
-bundles independently observable changes — card framing, activity bar
-affordance, pane header metrics — behind a single switch, so a
-consumer wanting canonical pane headers would have to adopt the card
-framing too. The changes are specified as separate observable
-behaviors and land as separate workstreams.
+**The treatment is gated on one flag, as upstream gates it.** VS Code
+declares one boolean, `workbench.experimental.modernUI`, covering card
+framing, activity bar affordance, pane header metrics and the
+suppressed status bar rule together. The package mirrors it as
+`modernUI` on the shell, through the controlled/uncontrolled pattern
+every other layout choice already uses
+(§spec:layout-customization), defaulting on. Density resolves
+quantities *within* the treatment, so it has no effect while the flag
+is off.
+
+Turned off, the workbench renders what it rendered before the
+treatment: parts packed flush and square, each drawing its own
+canonical seam — `sideBar.border`, `activityBar.border`,
+`panel.border`, `statusBar.border` — the activity bar's 2px
+left-border indicator, and the base `splitview` pane header band. Those
+seams are why the package keeps the tokens registered rather than
+retiring them with the affordances they drew.
+
+**Rejected — no flag at all, the treatment always on.** This was the
+initial reading, on the grounds that one flag bundles independently
+observable changes — card framing, activity bar affordance, pane
+header metrics — so a host wanting canonical pane headers would have
+to adopt the card framing too. It fails on the same evidence the
+rollout rests on: upstream bundles them behind exactly one setting, so
+a host taking three-quarters of the treatment matches no build of the
+editor, and §req:quality-attributes measures fidelity against what VS
+Code renders. Separate workstreams remain the unit of work; the flag
+is what a host sees, not how the work is divided. It is also the
+mitigation this section already names — a dialed-back experiment is a
+flag flip for a host rather than a wait for a release.
 
 **Rejected — choosing the card gap independently.** The gap looks like
 a free choice among nearby spacing steps. Upstream keeps the margin
@@ -3160,6 +3184,10 @@ excluded here, to be specified separately rather than absorbed:
   two, inside an unchanged perimeter gutter.
 - Side by side with VS Code at the same density, card margins, border
   thickness, corner radii and pane header heights match to the pixel.
+- Turning `modernUI` off packs every part flush and square, restores
+  each part's own canonical seam, returns the activity bar to its
+  left-border indicator and the view-pane header to the base band;
+  turning it back on restores the cards.
 
 ---
 

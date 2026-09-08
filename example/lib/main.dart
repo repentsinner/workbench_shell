@@ -298,6 +298,14 @@ class SetLayoutDensityIntent extends Intent {
   final WorkbenchLayoutDensity density;
 }
 
+/// Host-defined intent to toggle VS Code's Modern UI surface treatment
+/// (§spec:modern-ui-surfaces). The shell exposes the `modernUI` property and
+/// the host owns the state and the menu affordance, mirroring VS Code's
+/// `workbench.experimental.modernUI` setting.
+class ToggleModernUIIntent extends Intent {
+  const ToggleModernUIIntent();
+}
+
 class WorkbenchHome extends StatefulWidget {
   const WorkbenchHome({
     super.key,
@@ -351,6 +359,11 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   // into the shell's controlled `layoutDensity` property. Standard is VS Code's
   // `default`; compact closes the gaps between the cards and squares them.
   WorkbenchLayoutDensity _layoutDensity = WorkbenchLayoutDensity.standard;
+  // Surface treatment, driven from the View ▸ Appearance ▸ Modern UI checkbox
+  // into the shell's controlled `modernUI` property. On is what upstream's
+  // experimentation service serves on stable builds; unticking it returns the
+  // workbench to base VS Code's flush, square parts.
+  bool _modernUI = true;
   void Function(Object id)? _focusPanelById;
   final NotificationService _notificationService = NotificationService();
 
@@ -448,6 +461,10 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
 
   void _setLayoutDensity(WorkbenchLayoutDensity density) {
     setState(() => _layoutDensity = density);
+  }
+
+  void _toggleModernUI() {
+    setState(() => _modernUI = !_modernUI);
   }
 
   /// Persist the shell's arrangement snapshot to the host store
@@ -657,6 +674,12 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                     return null;
                   },
                 ),
+                ToggleModernUIIntent: CallbackAction<ToggleModernUIIntent>(
+                  onInvoke: (_) {
+                    _toggleModernUI();
+                    return null;
+                  },
+                ),
               },
               child: WorkbenchMenuBar(
                 // VS Code's View menu structure built from the §spec:menu-model
@@ -750,6 +773,14 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                             ),
                         ],
                       ),
+                      // The treatment Density resolves within. Unticking it
+                      // returns every part to base VS Code's flush, square
+                      // chrome (§spec:modern-ui-surfaces).
+                      WorkbenchMenuCheckbox(
+                        intent: const ToggleModernUIIntent(),
+                        label: 'Modern UI',
+                        checked: _modernUI,
+                      ),
                     ],
                   ),
                   const WorkbenchMenuSeparator(),
@@ -800,6 +831,12 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                     layoutDensity: _layoutDensity,
                     onLayoutDensityChanged: (next) =>
                         setState(() => _layoutDensity = next),
+                    // Controlled surface treatment (§spec:modern-ui-surfaces):
+                    // the host owns the flag and the shell reframes every part
+                    // to match, mirroring the layout density property above.
+                    modernUI: _modernUI,
+                    onModernUIChanged: (next) =>
+                        setState(() => _modernUI = next),
                     // Controlled primary side-bar visibility
                     // (§spec:layout-customization): the host owns the flag; the
                     // shell renders it and also raises onSidebarVisibilityChanged
