@@ -1,3 +1,10 @@
+## [0.36.3](https://github.com/repentsinner/workbench_shell/compare/v0.36.2...v0.36.3) (2026-09-08)
+
+
+### Bug Fixes
+
+* **theme:** refresh the bundled themes and two registry defaults ([e79c706](https://github.com/repentsinner/workbench_shell/commit/e79c706c7ea6f417ff323d5f155c3b273c6a6513)), closes [#00222c](https://github.com/repentsinner/workbench_shell/issues/00222c) [#000000](https://github.com/repentsinner/workbench_shell/issues/000000) [#616161](https://github.com/repentsinner/workbench_shell/issues/616161)
+
 ## [0.36.2](https://github.com/repentsinner/workbench_shell/compare/v0.36.1...v0.36.2) (2026-09-08)
 
 
