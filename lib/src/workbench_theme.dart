@@ -390,6 +390,25 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   /// `.title-label h2` at 11px regular, uppercased by its part
   /// (§spec:modern-ui-surfaces).
   final TextStyle baseSidebarOrPanelHeading;
+
+  /// A panel tab's label under the treatment — the composite bar's
+  /// `.action-label`. Registered apart from [sidebarOrPanelHeading] because
+  /// `tabs.css` gives it its own tier (§spec:chrome-typography-canon).
+  final TextStyle panelTabLabel;
+
+  /// Fill behind the active panel tab under the treatment — VS Code
+  /// `modernTab.activeBackground` (§spec:modern-ui-surfaces).
+  final Color panelTabActiveBackground;
+
+  /// Label colour on the active panel tab — `modernTab.activeForeground`.
+  final Color panelTabActiveForeground;
+
+  /// Fill behind a hovered inactive panel tab — `modernTab.hoverBackground`.
+  final Color panelTabHoverBackground;
+
+  /// Label colour on a hovered inactive panel tab —
+  /// `modernTab.hoverForeground`.
+  final Color panelTabHoverForeground;
   final TextStyle loglineMessage;
 
   // ---- Syntax token theme ----
@@ -568,6 +587,11 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.valueText,
     required this.sidebarOrPanelHeading,
     required this.baseSidebarOrPanelHeading,
+    required this.panelTabLabel,
+    required this.panelTabActiveBackground,
+    required this.panelTabActiveForeground,
+    required this.panelTabHoverBackground,
+    required this.panelTabHoverForeground,
     required this.loglineMessage,
     required this.tokenTheme,
     required this.notificationBackground,
@@ -806,6 +830,29 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         'modernTab.hoverForeground',
         'list.hoverForeground',
         fg,
+      ),
+      // Filled rounded indicator behind the selected/hovered panel tab
+      // (§spec:modern-ui-surfaces). `tabs.css` paints the composite bar's
+      // `active-item-indicator` from the same `modernTab.*` family the rail
+      // chains through, so the two surfaces cannot drift.
+      panelTabActiveBackground: map.resolve(
+        'modernTab.activeBackground',
+        map.resolve(
+          'list.inactiveSelectionBackground',
+          dl(const Color(0xFF37373D), const Color(0xFFE4E6F1)),
+        ),
+      ),
+      panelTabActiveForeground: map.resolve(
+        'modernTab.activeForeground',
+        map.resolve('list.inactiveSelectionForeground', fg),
+      ),
+      panelTabHoverBackground: map.resolve(
+        'modernTab.hoverBackground',
+        map.resolve('list.hoverBackground', listHoverBg),
+      ),
+      panelTabHoverForeground: map.resolve(
+        'modernTab.hoverForeground',
+        map.resolve('list.hoverForeground', fg),
       ),
       // Framed container surfaces
       surfaceBackground: surfaceBg,
@@ -1066,6 +1113,11 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // The same title before the treatment — part.css `.title-label h2`,
       // uppercased by `.part > .title` (§spec:modern-ui-surfaces).
       baseSidebarOrPanelHeading: t(11, FontWeight.w400),
+      // panel tab label — the composite bar's `.action-label`. `tabs.css`
+      // gives it `fontSize.body1` regular, and it loads after `fontRamp.css`
+      // at equal specificity, so it wins the label1 the ramp would otherwise
+      // set (§spec:chrome-typography-canon).
+      panelTabLabel: t(13, FontWeight.w400),
       // pane header / WorkbenchViewPane title — fontRamp.css
       // `.pane-header .title`, label1 semiBold.
       sectionTitle: t(12, FontWeight.w600),
@@ -1260,6 +1312,11 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     TextStyle? statusBarTextStyle,
     TextStyle? valueText,
     TextStyle? sidebarOrPanelHeading,
+    TextStyle? panelTabLabel,
+    Color? panelTabActiveBackground,
+    Color? panelTabActiveForeground,
+    Color? panelTabHoverBackground,
+    Color? panelTabHoverForeground,
     TextStyle? baseSidebarOrPanelHeading,
     TextStyle? loglineMessage,
     TokenTheme? tokenTheme,
@@ -1425,6 +1482,15 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       valueText: valueText ?? this.valueText,
       sidebarOrPanelHeading:
           sidebarOrPanelHeading ?? this.sidebarOrPanelHeading,
+      panelTabLabel: panelTabLabel ?? this.panelTabLabel,
+      panelTabActiveBackground:
+          panelTabActiveBackground ?? this.panelTabActiveBackground,
+      panelTabActiveForeground:
+          panelTabActiveForeground ?? this.panelTabActiveForeground,
+      panelTabHoverBackground:
+          panelTabHoverBackground ?? this.panelTabHoverBackground,
+      panelTabHoverForeground:
+          panelTabHoverForeground ?? this.panelTabHoverForeground,
       baseSidebarOrPanelHeading:
           baseSidebarOrPanelHeading ?? this.baseSidebarOrPanelHeading,
       loglineMessage: loglineMessage ?? this.loglineMessage,
@@ -1686,6 +1752,23 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         sidebarOrPanelHeading,
         other.sidebarOrPanelHeading,
       ),
+      panelTabLabel: ts(panelTabLabel, other.panelTabLabel),
+      panelTabActiveBackground: c(
+        panelTabActiveBackground,
+        other.panelTabActiveBackground,
+      ),
+      panelTabActiveForeground: c(
+        panelTabActiveForeground,
+        other.panelTabActiveForeground,
+      ),
+      panelTabHoverBackground: c(
+        panelTabHoverBackground,
+        other.panelTabHoverBackground,
+      ),
+      panelTabHoverForeground: c(
+        panelTabHoverForeground,
+        other.panelTabHoverForeground,
+      ),
       baseSidebarOrPanelHeading: ts(
         baseSidebarOrPanelHeading,
         other.baseSidebarOrPanelHeading,
@@ -1853,6 +1936,11 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           statusBarTextStyle == other.statusBarTextStyle &&
           valueText == other.valueText &&
           sidebarOrPanelHeading == other.sidebarOrPanelHeading &&
+          panelTabLabel == other.panelTabLabel &&
+          panelTabActiveBackground == other.panelTabActiveBackground &&
+          panelTabActiveForeground == other.panelTabActiveForeground &&
+          panelTabHoverBackground == other.panelTabHoverBackground &&
+          panelTabHoverForeground == other.panelTabHoverForeground &&
           baseSidebarOrPanelHeading == other.baseSidebarOrPanelHeading &&
           loglineMessage == other.loglineMessage &&
           tokenTheme == other.tokenTheme &&
