@@ -3207,8 +3207,10 @@ tidy stops working.
 **Notification surfaces round at the card tier.** The toast, the
 center and the center's last row take `cornerRadius.large` — the
 radius the parts themselves take — where the package rounds them at
-the controls tier today, and the treatment tightens a notification row
-to its compact height.
+the controls tier today. The treatment additionally drops the
+notification row height from 42 to 34, which the package has no
+analogue for: its cards size to their content rather than to a
+virtualized row, so there is no fixed height to tighten.
 
 **Rejected — excluding the font ramp as a renaming.** An earlier pass
 surveyed `baseSizes.ts`, found it registered `fontSize.heading1` …

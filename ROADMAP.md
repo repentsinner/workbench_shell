@@ -61,8 +61,9 @@ focus in `lib/src/workbench_content.dart`, reading the highlight mode
 
 ### Notification surface treatment §road:notification-treatment
 
-Round the notification card at the card tier and adopt the
-treatment's row insets in `lib/src/notifications/notification_host.dart`
+Round the notification card, the summary card and the close and action
+controls at the card tier in
+`lib/src/notifications/notification_host.dart`
 (§spec:modern-ui-surfaces, §spec:notification-center).
 
 ### Activity bar zone margins §road:activity-bar-zone-margins
