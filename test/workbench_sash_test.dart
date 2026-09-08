@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workbench_shell/src/workbench_sash.dart';
+import 'package:workbench_shell/workbench_shell.dart';
 
 import 'test_theme.dart';
 
@@ -135,6 +136,133 @@ void main() {
     await tester.pump();
     expect(bandColor(), sashColor);
     await drag.up();
+  });
+
+  group('grip (§spec:modern-ui-surfaces)', () {
+    Widget buildGripped({
+      required bool grip,
+      Axis axis = Axis.horizontal,
+      EdgeInsets highlightInset = EdgeInsets.zero,
+    }) => MaterialApp(
+      theme: ThemeData.dark().copyWith(extensions: [testWorkbenchTheme]),
+      home: Scaffold(
+        body: Center(
+          child: SizedBox(
+            width: 200,
+            height: 200,
+            child: WorkbenchSash(
+              key: const Key('sash'),
+              axis: axis,
+              growSign: 1,
+              value: 200,
+              min: 100,
+              max: 300,
+              grip: grip,
+              highlightInset: highlightInset,
+              onChanged: (_) {},
+              child: const SizedBox.expand(),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    testWidgets('a seam between two parts paints three dots at its midpoint', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildGripped(grip: true));
+      expect(find.byKey(sashGripKey), findsOneWidget);
+
+      // `sashHandles.css`: three 2px dots, 5px apart along the seam, centred.
+      final grip = tester.getRect(find.byKey(sashGripKey));
+      final sash = tester.getRect(find.byKey(const Key('sash')));
+      expect(grip.center.dy, closeTo(sash.center.dy, 0.001));
+      expect(
+        grip.height,
+        closeTo(
+          2 * WorkbenchLayoutConstants.sashGripDotSpacing +
+              WorkbenchLayoutConstants.sashGripDotSize,
+          0.001,
+        ),
+      );
+      expect(
+        grip.width,
+        closeTo(WorkbenchLayoutConstants.sashGripDotSize, 0.001),
+      );
+    });
+
+    testWidgets('a horizontal seam lays its dots along the seam', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildGripped(grip: true, axis: Axis.vertical));
+      final grip = tester.getRect(find.byKey(sashGripKey));
+      expect(
+        grip.width,
+        closeTo(
+          2 * WorkbenchLayoutConstants.sashGripDotSpacing +
+              WorkbenchLayoutConstants.sashGripDotSize,
+          0.001,
+        ),
+      );
+      expect(
+        grip.height,
+        closeTo(WorkbenchLayoutConstants.sashGripDotSize, 0.001),
+      );
+    });
+
+    testWidgets('a seam inside a part paints none', (tester) async {
+      await tester.pumpWidget(buildGripped(grip: false));
+      expect(find.byKey(sashGripKey), findsNothing);
+    });
+
+    testWidgets('the grip yields to the highlight on hover and drag', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildGripped(grip: true));
+      expect(find.byKey(sashGripKey), findsOneWidget);
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(tester.getCenter(find.byKey(const Key('sash'))));
+      await tester.pump();
+      expect(find.byKey(sashGripKey), findsNothing);
+
+      final drag = await tester.startGesture(
+        tester.getCenter(find.byKey(const Key('sash'))),
+      );
+      await drag.moveBy(const Offset(10, 0));
+      await tester.pump();
+      expect(find.byKey(sashGripKey), findsNothing);
+      await drag.up();
+    });
+
+    testWidgets('the highlight stops short of the card gutters', (
+      tester,
+    ) async {
+      // `floatingPanels.css` anchors the highlight with top/bottom rather than
+      // height, so it does not overshoot into the gaps the cards leave.
+      const inset = EdgeInsets.only(top: 4, bottom: 6);
+      await tester.pumpWidget(
+        buildGripped(grip: true, highlightInset: inset),
+      );
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(tester.getCenter(find.byKey(const Key('sash'))));
+      await tester.pump();
+
+      final sash = tester.getRect(find.byKey(const Key('sash')));
+      final band = tester.getRect(
+        find.descendant(
+          of: find.byKey(const Key('sash')),
+          matching: find.byType(ColoredBox),
+        ),
+      );
+      expect(band.top - sash.top, closeTo(inset.top, 0.001));
+      expect(sash.bottom - band.bottom, closeTo(inset.bottom, 0.001));
+    });
   });
 
   testWidgets('drag is absolute-anchored: overshoot parks at the clamp, then '

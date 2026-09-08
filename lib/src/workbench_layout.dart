@@ -140,6 +140,17 @@ typedef _CardEdges = ({
   _CardEdgeKind bottom,
 });
 
+/// The gutter one edge reserves at [density]. Shared by the card that draws the
+/// frame and by the sash that runs alongside it: a seam's highlight is inset by
+/// the same gutters its two cards leave, so both read the answer from here
+/// (§spec:modern-ui-surfaces).
+double _cardGutter(_CardEdgeKind kind, WorkbenchLayoutDensity density) =>
+    switch (kind) {
+      _CardEdgeKind.perimeter => density.cardPerimeter,
+      _CardEdgeKind.gap => density.cardGap,
+      _CardEdgeKind.led || _CardEdgeKind.seam => 0.0,
+    };
+
 /// The frame a workbench part draws around itself (§spec:modern-ui-surfaces).
 ///
 /// Under the Modern UI treatment ([modernUI]) the part is a floating card: a
@@ -195,17 +206,11 @@ class _PartFrame extends StatelessWidget {
     _ => null,
   };
 
-  double _gutterFor(_CardEdgeKind kind) => switch (kind) {
-    _CardEdgeKind.perimeter => density.cardPerimeter,
-    _CardEdgeKind.gap => density.cardGap,
-    _CardEdgeKind.led || _CardEdgeKind.seam => 0.0,
-  };
-
   EdgeInsets get _gutter => EdgeInsets.fromLTRB(
-    _gutterFor(edges.left),
-    _gutterFor(edges.top),
-    _gutterFor(edges.right),
-    _gutterFor(edges.bottom),
+    _cardGutter(edges.left, density),
+    _cardGutter(edges.top, density),
+    _cardGutter(edges.right, density),
+    _cardGutter(edges.bottom, density),
   );
 
   /// Whether one edge draws a stroke. Cards that stand clear of their
@@ -1382,6 +1387,22 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     // subtree (and any State it owns — timers, scroll positions, fetched data)
     // survives hide/show cycles. Without this, toggling showBottomPanel disposes
     // the entire panel tree and discards content state every cycle.
+    // Named once: the card draws its frame from these and the sash alongside
+    // it insets its highlight by the same gutters (§spec:modern-ui-surfaces).
+    // A bar group lifted into the band sits above the panel rather than beside
+    // it, so that side of the panel faces the window and takes the perimeter
+    // gutter instead of an inter-card gap.
+    final _CardEdges panelEdges = (
+      left: !leftInside && leadingCard
+          ? _CardEdgeKind.gap
+          : _CardEdgeKind.perimeter,
+      top: _CardEdgeKind.gap,
+      right: !rightInside && trailingCard
+          ? _CardEdgeKind.led
+          : _CardEdgeKind.perimeter,
+      bottom: _CardEdgeKind.perimeter,
+    );
+
     final panel = Visibility(
       visible: widget.showBottomPanel,
       maintainState: true,
@@ -1405,19 +1426,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
                 baseBorder: theme.panelBorder == null
                     ? null
                     : Border(top: BorderSide(color: theme.panelBorder!)),
-                // A bar group lifted into the band sits above the panel rather
-                // than beside it, so that side of the panel faces the window
-                // and takes the perimeter gutter instead of an inter-card gap.
-                edges: (
-                  left: !leftInside && leadingCard
-                      ? _CardEdgeKind.gap
-                      : _CardEdgeKind.perimeter,
-                  top: _CardEdgeKind.gap,
-                  right: !rightInside && trailingCard
-                      ? _CardEdgeKind.led
-                      : _CardEdgeKind.perimeter,
-                  bottom: _CardEdgeKind.perimeter,
-                ),
+                edges: panelEdges,
                 background: theme.panelBackground,
                 borderColor: theme.surfaceBorder,
                 child: widget.bottomPanel,
@@ -1433,7 +1442,13 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
               top: 0,
               left: 0,
               right: 0,
-              child: _buildHorizontalResizer(theme),
+              child: _buildHorizontalResizer(
+                grip: modernUI && !density.cardsAbut,
+                highlightInset: EdgeInsets.only(
+                  left: _cardGutter(panelEdges.left, density),
+                  right: _cardGutter(panelEdges.right, density),
+                ),
+              ),
             ),
           ],
         ),
@@ -1580,6 +1595,17 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
                 width: width,
                 onWidth: onWidth,
                 onChangeEnd: onChangeEnd,
+                // A boundary between two parts, so it carries the grip — but
+                // only while the cards stand a gap apart. Compact closes the
+                // gap and `sashHandles.css` retires the grip with it
+                // (§spec:modern-ui-surfaces).
+                grip: modernUI && !density.cardsAbut,
+                // The bar's own card leaves these gutters at the seam's two
+                // ends, so the highlight stops where the card does.
+                highlightInset: EdgeInsets.only(
+                  top: _cardGutter(edges.top, density),
+                  bottom: _cardGutter(edges.bottom, density),
+                ),
               ),
             ),
           ],
@@ -1603,6 +1629,8 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     required double width,
     required ValueChanged<double> onWidth,
     required ValueChanged<double>? onChangeEnd,
+    bool grip = false,
+    EdgeInsets highlightInset = EdgeInsets.zero,
   }) {
     return WorkbenchSash(
       axis: Axis.horizontal,
@@ -1610,6 +1638,8 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       min: WorkbenchLayoutConstants.sidebarMinWidth,
       max: WorkbenchLayoutConstants.sidebarMaxWidth,
       growSign: growSign,
+      grip: grip,
+      highlightInset: highlightInset,
       onChanged: onWidth,
       onChangeEnd: onChangeEnd,
       // Double-click resets the seam to its default and commits it through the
@@ -1624,16 +1654,21 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     );
   }
 
-  Widget _buildHorizontalResizer(WorkbenchTheme theme) {
+  Widget _buildHorizontalResizer({
+    bool grip = false,
+    EdgeInsets highlightInset = EdgeInsets.zero,
+  }) {
     // The panel sits at the bottom, so dragging the seam up grows its height
     // (growSign -1: moving the pointer down shrinks the panel). Same canonical
-    // sash, highlight included (§spec:workbench-layout).
+    // sash, highlight and grip included (§spec:workbench-layout).
     return WorkbenchSash(
       axis: Axis.vertical,
       value: _panelHeight,
       min: WorkbenchLayoutConstants.panelMinHeight,
       max: WorkbenchLayoutConstants.panelMaxHeight,
       growSign: -1,
+      grip: grip,
+      highlightInset: highlightInset,
       // Shell-owned, mirroring the sidebar resizer above (§spec:resize-geometry).
       onChanged: (next) => setState(() => _panelHeight = next),
       onChangeEnd: widget.onPanelHeightChangeEnd,

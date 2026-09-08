@@ -2573,6 +2573,73 @@ void main() {
         )
         .backgroundColor!;
 
+    testWidgets('marks each boundary between two parts with a grip, and no '
+        'seam inside one', (tester) async {
+      await tester.pumpWidget(
+        _buildApp(
+          secondaryViewContainerIds: const ['outline'],
+          secondarySideBarVisible: true,
+          onSecondarySideBarVisibilityChanged: (_) {},
+          containerBuilder: (id) => WorkbenchViewContainerSpec(
+            views: [
+              WorkbenchViewDescriptor(
+                id: '$id-a',
+                title: '$id A',
+                bodyBuilder: (_) => const SizedBox.shrink(),
+              ),
+              WorkbenchViewDescriptor(
+                id: '$id-b',
+                title: '$id B',
+                bodyBuilder: (_) => const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      // Three inter-part seams: the primary side bar, the secondary side bar
+      // and the bottom panel. The Explorer's own view-stack sash lives inside
+      // a part, so it draws none (§spec:modern-ui-surfaces).
+      expect(find.byKey(sashGripKey), findsNWidgets(3));
+      expect(
+        find.byWidgetPredicate((w) => w is WorkbenchSash && w.grip),
+        findsNWidgets(3),
+      );
+      expect(
+        find.byWidgetPredicate((w) => w is WorkbenchSash && !w.grip),
+        findsWidgets,
+      );
+    });
+
+    testWidgets('compact density retires the grips with the gaps', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _buildApp(initialLayoutDensity: WorkbenchLayoutDensity.compact),
+      );
+      expect(find.byKey(sashGripKey), findsNothing);
+    });
+
+    testWidgets('insets the side bar sash highlight by the card gutters', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_buildApp());
+      final sash = tester.widget<WorkbenchSash>(
+        _sashFinder(Axis.horizontal),
+      );
+      // At the default centre alignment the bar runs full height, so its card
+      // faces window chrome at both ends and the highlight stops at the
+      // cluster's perimeter gutter either way (§spec:modern-ui-surfaces).
+      expect(
+        sash.highlightInset.top,
+        WorkbenchLayoutConstants.floatingCardPerimeter,
+      );
+      expect(
+        sash.highlightInset.bottom,
+        WorkbenchLayoutConstants.floatingCardPerimeter,
+      );
+    });
+
     testWidgets('renders the composite title in the host casing at the '
         'part-title tier', (tester) async {
       await tester.pumpWidget(_buildApp());
@@ -3277,6 +3344,15 @@ void main() {
       expect(rail.right, closeTo(sidebar.left, 0.001));
       expect(sidebar.right, closeTo(editor.left, 0.001));
       expect(editor.bottom, closeTo(panel.top, 0.001));
+    });
+
+    testWidgets('draws no sash grips', (tester) async {
+      // `sashHandles.css` is a treatment stylesheet; base VS Code's sashes are
+      // invisible until hovered (§spec:modern-ui-surfaces).
+      await tester.pumpWidget(
+        _buildApp(initialModernUI: false, theme: baseTheme),
+      );
+      expect(find.byKey(sashGripKey), findsNothing);
     });
 
     testWidgets('uppercases the composite title and the secondary tabs', (

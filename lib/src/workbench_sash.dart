@@ -4,6 +4,12 @@ import 'package:flutter/material.dart';
 import 'layout_constants.dart';
 import 'workbench_theme.dart';
 
+/// Keys the three-dot grip an inter-part sash paints at its midpoint under the
+/// Modern UI treatment (§spec:modern-ui-surfaces). Absent on a seam inside a
+/// part, at compact density, and while the sash is hovered or dragged.
+@visibleForTesting
+const Key sashGripKey = ValueKey('workbench-sash-grip');
+
 /// Canonical resize sash for the workbench's resizable seams — the sidebar
 /// width, the bottom-panel height, and the view-stack pane boundaries
 /// (§spec:workbench-layout, §spec:view-stack). Drives a single [value] between
@@ -27,6 +33,10 @@ import 'workbench_theme.dart';
 ///   delay, active immediately); the hover/drag opacity split gives that
 ///   two-level feel.
 ///
+/// - **Persistent grip**: a seam *between* two parts carries three dots at its
+///   midpoint under the Modern UI treatment ([grip]), so the boundary reads
+///   even while the sash is invisible (§spec:modern-ui-surfaces).
+///
 /// Internal — not exported. Shared by `WorkbenchLayout`'s resizers and the
 /// view-stack pane sashes.
 class WorkbenchSash extends StatefulWidget {
@@ -43,6 +53,8 @@ class WorkbenchSash extends StatefulWidget {
     this.hoverCursor,
     this.onChangeEnd,
     this.onReset,
+    this.grip = false,
+    this.highlightInset = EdgeInsets.zero,
   });
 
   /// The drag axis. [Axis.horizontal] resizes a width (the sidebar);
@@ -90,6 +102,24 @@ class WorkbenchSash extends StatefulWidget {
   /// The visible sash strip (hairline, hit target).
   final Widget child;
 
+  /// Whether this seam carries the treatment's persistent three-dot grip
+  /// (§spec:modern-ui-surfaces). Resolved by the call site, not inferred here:
+  /// `sashHandles.css` suppresses the grip for a sash inside a part, at compact
+  /// density, and for a collapsed part whose reveal sash has no gap to sit in —
+  /// three facts the seam's owner knows and the sash does not.
+  /// [WorkbenchLayoutDensity] and the treatment flag both live with that owner,
+  /// so taking the resolved answer keeps this leaf free of a dependency on the
+  /// layout that composes it.
+  final bool grip;
+
+  /// Insets the hover/drag highlight from the ends of the seam, leaving the hit
+  /// region untouched. The cards a seam divides are themselves inset from it by
+  /// their gutters, so an uninset highlight overshoots into the gaps —
+  /// `floatingPanels.css` anchors it with `top`/`bottom` (a vertical seam) or
+  /// `left`/`right` (a horizontal one) for exactly that reason
+  /// (§spec:modern-ui-surfaces).
+  final EdgeInsets highlightInset;
+
   @override
   State<WorkbenchSash> createState() => _WorkbenchSashState();
 }
@@ -135,6 +165,7 @@ class _WorkbenchSashState extends State<WorkbenchSash> {
     _lastDownTime = event.timeStamp;
     _lastDownPosition = event.position;
   }
+
   OverlayEntry? _overlay;
   final ValueNotifier<MouseCursor> _overlayCursor = ValueNotifier(
     SystemMouseCursors.basic,
@@ -243,11 +274,60 @@ class _WorkbenchSashState extends State<WorkbenchSash> {
     const band = WorkbenchLayoutConstants.sashHoverSize;
     return Positioned.fill(
       child: IgnorePointer(
+        child: Padding(
+          padding: widget.highlightInset,
+          child: Align(
+            child: SizedBox(
+              width: widget.axis == Axis.horizontal ? band : double.infinity,
+              height: widget.axis == Axis.horizontal ? double.infinity : band,
+              child: ColoredBox(color: color),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The persistent grip: three dots at the seam's midpoint, spaced along it.
+  /// Null while hovered or dragged — `sashHandles.css` fades the grip to
+  /// `opacity: 0` in both states so the full-length highlight takes over — and
+  /// null on a seam that carries no grip (§spec:modern-ui-surfaces).
+  Widget? _grip(BuildContext context) {
+    if (!widget.grip || _hovering || _dragging) return null;
+    final foreground = Theme.of(
+      context,
+    ).extension<WorkbenchTheme>()?.foreground;
+    if (foreground == null) return null;
+    const dot = WorkbenchLayoutConstants.sashGripDotSize;
+    const spacing = WorkbenchLayoutConstants.sashGripDotSpacing;
+    const span = 2 * spacing + dot;
+    final along = widget.axis == Axis.horizontal
+        ? Axis.vertical
+        : Axis.horizontal;
+    final pip = SizedBox(
+      width: dot,
+      height: dot,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: foreground.withValues(
+            alpha: foreground.a * WorkbenchLayoutConstants.sashGripAlpha,
+          ),
+          shape: BoxShape.circle,
+        ),
+      ),
+    );
+    return Positioned.fill(
+      child: IgnorePointer(
         child: Align(
           child: SizedBox(
-            width: widget.axis == Axis.horizontal ? band : double.infinity,
-            height: widget.axis == Axis.horizontal ? double.infinity : band,
-            child: ColoredBox(color: color),
+            key: sashGripKey,
+            width: along == Axis.vertical ? dot : span,
+            height: along == Axis.vertical ? span : dot,
+            child: Flex(
+              direction: along,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [pip, pip, pip],
+            ),
           ),
         ),
       ),
@@ -257,6 +337,7 @@ class _WorkbenchSashState extends State<WorkbenchSash> {
   @override
   Widget build(BuildContext context) {
     final highlight = _highlight(context);
+    final grip = _grip(context);
     final strip = MouseRegion(
       cursor:
           widget.hoverCursor ??
@@ -274,9 +355,9 @@ class _WorkbenchSashState extends State<WorkbenchSash> {
           onPanUpdate: _onUpdate,
           onPanEnd: (_) => _onEnd(),
           onPanCancel: _onEnd,
-          child: highlight == null
+          child: (highlight == null && grip == null)
               ? widget.child
-              : Stack(children: [widget.child, highlight]),
+              : Stack(children: [widget.child, ?grip, ?highlight]),
         ),
       ),
     );

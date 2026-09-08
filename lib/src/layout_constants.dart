@@ -153,6 +153,24 @@ class WorkbenchLayoutConstants {
   /// the hit target — VS Code's `--vscode-sash-hover-size`.
   static const double sashHoverSize = 4.0;
 
+  /// Diameter of one dot in an inter-part sash's persistent grip
+  /// (§spec:modern-ui-surfaces). VS Code `sashHandles.css`
+  /// `.modern-ui .monaco-sash:not(.disabled)::after { width: 2px; height: 2px;
+  /// border-radius: 50% }`.
+  static const double sashGripDotSize = 2.0;
+
+  /// Centre-to-centre spacing of the grip's three dots along the seam. VS Code
+  /// `sashHandles.css` draws the outer two from the centre dot's
+  /// `box-shadow: 0 -5px currentColor, 0 5px currentColor`
+  /// (§spec:modern-ui-surfaces). Off the spacing ladder: it is a shadow offset
+  /// upstream, not a spacing token.
+  static const double sashGripDotSpacing = 5.0;
+
+  /// Alpha the grip paints `foreground` at: `sashHandles.css` mixes the token
+  /// to 30% and sets `opacity: 0.75` on the element, and the two compose
+  /// (§spec:modern-ui-surfaces).
+  static const double sashGripAlpha = 0.3 * 0.75;
+
   /// Active-indicator border width on activity bar icons with the Modern UI
   /// treatment off (§spec:modern-ui-surfaces). VS Code `activitybarpart.css`
   /// `.action-item.checked .active-item-indicator:before { border-left-width:
