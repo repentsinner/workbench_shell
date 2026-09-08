@@ -3,6 +3,10 @@
   "type": "vs",
   "colors": {
     "focusBorder": "#b49471",
+    "agentsPanel.border": "#DDD6C1",
+    "agentsChatInput.border": "#DDD6C1",
+    "agentsChatInput.focusBorder": "#b49471",
+    "agentsNewSessionButton.border": "#DDD6C1",
     "input.background": "#DDD6C1",
     "input.foreground": "#586E75",
     "input.placeholderForeground": "#586E75AA",
@@ -85,7 +89,10 @@
     "terminal.ansiBrightCyan": "#93a1a1",
     "terminal.ansiBrightWhite": "#fdf6e3",
     "terminal.background": "#FDF6E3",
-    "walkThrough.embeddedEditorBackground": "#00000014"
+    "walkThrough.embeddedEditorBackground": "#00000014",
+    "surface.border": "#ddd6c1",
+    "modernActivityBarItem.activeBackground": "#DFCA88",
+    "modernActivityBar.background": "#00000000"
   },
   "tokenColors": [
     {

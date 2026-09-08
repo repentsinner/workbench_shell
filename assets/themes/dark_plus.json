@@ -2,35 +2,6 @@
   "name": "Dark+ (Visual Studio)",
   "type": "dark",
   "colors": {
-    "foreground": "#CCCCCC",
-    "descriptionForeground": "#969696",
-    "focusBorder": "#007ACC",
-    "activityBar.background": "#333333",
-    "activityBar.foreground": "#FFFFFF",
-    "activityBar.inactiveForeground": "#FFFFFF66",
-    "sideBar.background": "#252526",
-    "sideBar.foreground": "#CCCCCC",
-    "panel.background": "#1E1E1E",
-    "panel.border": "#80808059",
-    "panelTitle.activeForeground": "#CCCCCC",
-    "panelTitle.inactiveForeground": "#969696",
-    "statusBar.background": "#007ACC",
-    "statusBar.foreground": "#FFFFFF",
-    "statusBar.border": "#007ACC",
-    "input.background": "#3C3C3C",
-    "input.border": "#3C3C3C",
-    "input.foreground": "#CCCCCC",
-    "button.background": "#0E639C",
-    "button.foreground": "#FFFFFF",
-    "button.hoverBackground": "#1177BB",
-    "dropdown.background": "#3C3C3C",
-    "dropdown.foreground": "#CCCCCC",
-    "tab.activeBackground": "#1E1E1E",
-    "tab.activeForeground": "#FFFFFF",
-    "tab.inactiveBackground": "#2D2D2D",
-    "tab.inactiveForeground": "#969696",
-    "tab.border": "#252526",
-    "errorForeground": "#F85149",
     "checkbox.border": "#6B6B6B",
     "editor.background": "#1E1E1E",
     "editor.foreground": "#D4D4D4",
@@ -52,13 +23,22 @@
     "ports.iconRunningProcessForeground": "#369432",
     "sideBarSectionHeader.background": "#0000",
     "sideBarSectionHeader.border": "#ccc3",
-    "tab.selectedBackground": "#222222",
-    "tab.selectedForeground": "#ffffffa0",
+    "tab.selectedBackground": "#37373D",
+    "tab.selectedForeground": "#FFFFFF",
     "tab.lastPinnedBorder": "#ccc3",
     "list.activeSelectionIconForeground": "#FFF",
     "terminal.inactiveSelectionBackground": "#3A3D41",
     "widget.border": "#303031",
-    "actionBar.toggledBackground": "#383a49"
+    "actionBar.toggledBackground": "#383a49",
+    "agentsPanel.border": "#303031",
+    "agentsCard.border": "#00000000",
+    "agentsChatInput.border": "#303031",
+    "agentsChatInput.focusBorder": "#007ACC",
+    "agentsNewSessionButton.border": "#303031",
+    "surface.border": "#252526",
+    "modernActivityBarItem.activeBackground": "#1E1E1E",
+    "modernActivityBarItem.hoverBackground": "#1E1E1E66",
+    "modernActivityBar.border": "#00000000"
   },
   "tokenColors": [
     {
@@ -623,11 +603,5 @@
       }
     }
   ],
-  "semanticTokenColors": {
-    "newOperator": "#C586C0",
-    "stringLiteral": "#ce9178",
-    "customLiteral": "#DCDCAA",
-    "numberLiteral": "#b5cea8"
-  },
   "semanticHighlighting": true
 }

@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:workbench_shell/workbench_shell.dart';
@@ -256,6 +259,69 @@ void main() {
         map.resolvedTokenTheme.resolve('comment').foreground,
         const Color(0xFF6A9955),
       );
+    });
+  });
+
+  group('bundled theme assets (§spec:vscode-theme-format)', () {
+    // The bundled themes are flattened snapshots of upstream's include chains,
+    // so they go stale silently: a token upstream adds is simply absent here
+    // and the shell falls back to a computed value instead. That is how
+    // Solarized Dark came to draw a card hairline lighter than its fill, where
+    // upstream's own `surface.border` is darker.
+    const bundled = [
+      '2026_dark',
+      '2026_light',
+      'dark_modern',
+      'light_modern',
+      'dark_plus',
+      'light_plus',
+      'monokai',
+      'solarized_dark',
+      'solarized_light',
+    ];
+
+    Map<String, dynamic> colorsOf(String name) {
+      final json =
+          jsonDecode(File('assets/themes/$name.json').readAsStringSync())
+              as Map<String, dynamic>;
+      return json['colors'] as Map<String, dynamic>;
+    }
+
+    test('every bundled theme carries the Modern UI surface tokens', () {
+      // Upstream sets these on every theme the package bundles. A missing one
+      // means the asset predates the token and the treatment renders a
+      // computed approximation (§spec:modern-ui-surfaces).
+      for (final name in bundled) {
+        expect(
+          colorsOf(name),
+          contains('surface.border'),
+          reason: '$name is stale against upstream',
+        );
+      }
+    });
+
+    test('Solarized Dark draws its hairline darker than the editor it frames', () {
+      // The reported symptom, pinned as an ordering rather than a literal.
+      // The editor is the card the seam reads against; upstream's own
+      // `surface.border` sits below it, where the fallback the shell computes
+      // when the token is absent — `foreground` at 10% over the surface — sits
+      // above it and reads as a light rule on a dark theme.
+      final colors = colorsOf('solarized_dark');
+      Color at(String key) =>
+          VscodeColorThemeLoader.parseHexColor(colors[key] as String)!;
+      double luma(Color c) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+
+      final border = at('surface.border');
+      expect(luma(border), lessThan(luma(at('editor.background'))));
+
+      // And the fallback would not have been: this is the comparison that
+      // makes the token's presence load-bearing rather than cosmetic.
+      final surface = at('sideBar.background');
+      final fallback = Color.alphaBlend(
+        at('editor.foreground').withValues(alpha: 0.1),
+        surface,
+      );
+      expect(luma(fallback), greaterThan(luma(at('editor.background'))));
     });
   });
 }

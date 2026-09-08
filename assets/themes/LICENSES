@@ -35,3 +35,38 @@ solarized_dark.json / solarized_light.json
   Solarized color scheme by Ethan Schoonover.
   License: MIT
   URL: https://github.com/microsoft/vscode
+
+
+Refreshing these snapshots
+==========================
+
+Last refreshed against microsoft/vscode `main` on 2026-09-08.
+
+Each file is a *flattened* snapshot: the loader does not resolve VS
+Code's `include:` directives, so an upstream theme's whole chain is
+merged before it is written here. The chains, deepest first:
+
+  dark_vs  <- dark_plus  <- dark_modern  <- 2026-dark
+  light_vs <- light_plus <- light_modern <- 2026-light
+
+Colors merge with the includer winning; `tokenColors` concatenate,
+base first. Only the include chain is flattened — VS Code's color
+*registry* defaults are not, because `WorkbenchTheme.fromVscodeColorMap`
+is this package's registry and owns them (§spec:vscode-theme-format).
+A key upstream drops from a theme file therefore drops from here too,
+and the fallback supplies it.
+
+Upstream sources:
+
+  2026_dark.json        extensions/theme-defaults/themes/2026-dark.json
+  2026_light.json       extensions/theme-defaults/themes/2026-light.json
+  dark_modern.json      extensions/theme-defaults/themes/dark_modern.json
+  light_modern.json     extensions/theme-defaults/themes/light_modern.json
+  dark_plus.json        extensions/theme-defaults/themes/dark_plus.json
+  light_plus.json       extensions/theme-defaults/themes/light_plus.json
+  monokai.json          extensions/theme-monokai/themes/monokai-color-theme.json
+  solarized_dark.json   extensions/theme-solarized-dark/themes/solarized-dark-color-theme.json
+  solarized_light.json  extensions/theme-solarized-light/themes/solarized-light-color-theme.json
+
+These are JSONC upstream (comments and trailing commas) and JSON here.
+
