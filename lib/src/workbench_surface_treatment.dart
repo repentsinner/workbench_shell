@@ -136,6 +136,17 @@ class WorkbenchSurfaceTreatment extends InheritedWidget {
   static BorderRadius? statusBarItemRadius(BuildContext context) =>
       of(context) ? WorkbenchLayoutConstants.controlsRadius : null;
 
+  /// The radius a notification *surface* rounds at — the toast card and the
+  /// center's summary card. `notificationsDialogs.css` takes them to
+  /// `cornerRadius.large`, the tier a workbench part takes, where base VS
+  /// Code's `notificationsToasts.css` rounds them at `cornerRadius.small`. The
+  /// controls inside a card — close button, action buttons — keep the controls
+  /// tier under both (§spec:modern-ui-surfaces).
+  static BorderRadius notificationSurfaceRadius(BuildContext context) =>
+      of(context)
+      ? WorkbenchLayoutConstants.outerRadius
+      : WorkbenchLayoutConstants.controlsRadius;
+
   /// The casing a chrome title renders in at [context]. The treatment's
   /// `fontRamp.css` swaps `text-transform: uppercase` for `capitalize`, and
   /// upstream's own strings are already cased — so `capitalize` is a no-op and

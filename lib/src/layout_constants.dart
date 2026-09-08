@@ -384,14 +384,22 @@ class WorkbenchLayoutConstants {
   // ==================== BUTTONS ====================
 
   /// The controls tier as a `BorderRadius`. Every all-corners surface on that
-  /// tier — pane headers, notification cards, the ink splash behind a header —
-  /// composes the same shape from [cornerRadiusSmall], so it is named once
+  /// tier — pane headers, status bar items, notification buttons — composes the
+  /// same shape from [cornerRadiusSmall], so it is named once
   /// here. The ladder itself stays scalar because upstream assigns tiers per
   /// corner (§spec:design-size-ladders); this is the all-corners case that
   /// every current call site actually wants, and `BorderRadius.circular` is
   /// not a const constructor, so composing it inline allocates per rebuild.
   static const BorderRadius controlsRadius = BorderRadius.all(
     Radius.circular(cornerRadiusSmall),
+  );
+
+  /// The outer tier as a `BorderRadius` — the shape a prominent surface takes:
+  /// a workbench card, or a notification card under the Modern UI treatment.
+  /// Named here for the same reason as [controlsRadius]
+  /// (§spec:design-size-ladders).
+  static const BorderRadius outerRadius = BorderRadius.all(
+    Radius.circular(cornerRadiusLarge),
   );
 
   /// Button shape — applied to the app-level Material button themes
