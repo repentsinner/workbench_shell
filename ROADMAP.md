@@ -39,14 +39,12 @@ Draw the three-dot grip on every inter-part sash in
 sashes, at compact density, and while the sash is hovered or dragged
 (§spec:modern-ui-surfaces).
 
-### Part title metrics §road:part-title-metrics
+### Part title padding §road:part-title-padding
 
-Tighten the side bar heading and panel tab strip to the treatment's
-height and replace the composite title's flat inset with upstream's
-part and label padding, updating `sidebarHeadingHeight` and
-`panelTabStripHeight` in `lib/src/layout_constants.dart`, their row in
-§spec:layout-constants-canon's source table, and the title row in
-`lib/src/workbench_layout.dart` (§spec:modern-ui-surfaces).
+Replace the composite title row's flat inset with upstream's part and
+label padding in `lib/src/workbench_layout.dart`, and do the same for
+the panel tab strip in `lib/src/workbench_tabbed_panel.dart`
+(§spec:modern-ui-surfaces).
 
 ### Status bar treatment §road:status-bar-treatment
 
