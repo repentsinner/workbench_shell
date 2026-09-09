@@ -16,8 +16,16 @@ topics:
   - desktop
 
 environment:
-  sdk: ^3.10.0
-  flutter: ">=3.27.0"
+  # The floor is set by the dependency graph, not by a language-feature
+  # choice. Flutter pins `material_color_utilities` transitively, so the
+  # `^0.13.0` below is only resolvable from Flutter 3.41.0 on — 3.38 ships
+  # 0.11.1 and fails to resolve. 3.41.0 bundles Dart 3.11.0, which is what
+  # sets the `sdk:` bound; neither line is independently chosen, and the
+  # two must agree because a Flutter release bundles exactly one Dart SDK.
+  # `quality.yml` builds this floor on every PR, so it stays a tested
+  # property rather than a claim.
+  sdk: ^3.11.0
+  flutter: ">=3.41.0"
 
 dependencies:
   flutter:
