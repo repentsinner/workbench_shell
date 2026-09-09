@@ -8,6 +8,18 @@
 # `needs:` cannot cross workflow files, so anything that should gate merges
 # lives here. Adding a job means adding it to the aggregate's `needs` — the
 # ruleset never changes.
+#
+# Every job runs twice, against two SDKs that answer different questions:
+#
+#   pinned — the `.fvmrc` version, the toolchain this repo develops on.
+#            Catches lints and deprecations the newest analyzer reports.
+#   floor  — the oldest Flutter `pubspec.yaml` claims to support. A library
+#            floor no build exercises is a claim, not a property; consumers
+#            resolve against it, so it is verified like anything else.
+#
+# Neither version is written here. `floor` is read from the `environment:`
+# block and `pinned` from `.fvmrc`, so each value keeps one home and the
+# matrix follows a bump automatically.
 name: quality
 on:
   pull_request:
@@ -16,6 +28,12 @@ on:
 jobs:
   analyze:
     runs-on: ubuntu-latest
+    strategy:
+      # Report both SDKs. Cancelling the floor build because the pinned one
+      # failed (or the reverse) hides half of what the matrix exists to say.
+      fail-fast: false
+      matrix:
+        sdk: [floor, pinned]
     steps:
       # Classify the triggering commit/PR so Flywheel-emitted commits
       # (chore(release):, back-merge) skip the suite. A step-level `if:`
@@ -25,13 +43,17 @@ jobs:
         uses: point-source/flywheel/classify@v2
       - uses: actions/checkout@v6
         if: steps.classify.outputs.derived_release_commit != 'true'
+      - id: sdk
+        name: Resolve SDK version
+        if: steps.classify.outputs.derived_release_commit != 'true'
+        env:
+          MATRIX_SDK: ${{ matrix.sdk }}
+        run: .github/scripts/resolve-sdk.sh
       - uses: subosito/flutter-action@v2
         if: steps.classify.outputs.derived_release_commit != 'true'
         with:
           channel: stable
-          # Single source of truth for the toolchain: the same .fvmrc the
-          # local fvm pin reads, so CI and a developer machine cannot drift.
-          flutter-version-file: .fvmrc
+          flutter-version: ${{ steps.sdk.outputs.version }}
           cache: true
       - name: Analyze
         if: steps.classify.outputs.derived_release_commit != 'true'
@@ -41,18 +63,26 @@ jobs:
 
   test-package:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sdk: [floor, pinned]
     steps:
       - id: classify
         uses: point-source/flywheel/classify@v2
       - uses: actions/checkout@v6
         if: steps.classify.outputs.derived_release_commit != 'true'
+      - id: sdk
+        name: Resolve SDK version
+        if: steps.classify.outputs.derived_release_commit != 'true'
+        env:
+          MATRIX_SDK: ${{ matrix.sdk }}
+        run: .github/scripts/resolve-sdk.sh
       - uses: subosito/flutter-action@v2
         if: steps.classify.outputs.derived_release_commit != 'true'
         with:
           channel: stable
-          # Single source of truth for the toolchain: the same .fvmrc the
-          # local fvm pin reads, so CI and a developer machine cannot drift.
-          flutter-version-file: .fvmrc
+          flutter-version: ${{ steps.sdk.outputs.version }}
           cache: true
       - name: Test (package)
         if: steps.classify.outputs.derived_release_commit != 'true'
@@ -62,18 +92,26 @@ jobs:
 
   test-example:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sdk: [floor, pinned]
     steps:
       - id: classify
         uses: point-source/flywheel/classify@v2
       - uses: actions/checkout@v6
         if: steps.classify.outputs.derived_release_commit != 'true'
+      - id: sdk
+        name: Resolve SDK version
+        if: steps.classify.outputs.derived_release_commit != 'true'
+        env:
+          MATRIX_SDK: ${{ matrix.sdk }}
+        run: .github/scripts/resolve-sdk.sh
       - uses: subosito/flutter-action@v2
         if: steps.classify.outputs.derived_release_commit != 'true'
         with:
           channel: stable
-          # Single source of truth for the toolchain: the same .fvmrc the
-          # local fvm pin reads, so CI and a developer machine cannot drift.
-          flutter-version-file: .fvmrc
+          flutter-version: ${{ steps.sdk.outputs.version }}
           cache: true
       # workbench_shell is a path dependency, so this resolves from source
       # and does not need the package's pub get to have run first.
@@ -92,8 +130,9 @@ jobs:
     steps:
       # A required check has to report on every run, and a skipped job
       # reports nothing — so the ruleset names this aggregate rather than
-      # the jobs above. Results arrive through env so the script stays
-      # quoting-safe.
+      # the jobs above. A matrixed job reports one result for the whole
+      # matrix, so a floor-only failure still lands here. Results arrive
+      # through env so the script stays quoting-safe.
       - name: Check results
         env:
           ANALYZE: ${{ needs.analyze.result }}
