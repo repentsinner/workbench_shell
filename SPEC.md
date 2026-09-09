@@ -1689,12 +1689,11 @@ caller opts out, so a pointer that reaches the menu can still invoke the
 default without closing it and re-aiming. The shell keeps that default
 and lets a host suppress it.
 
-**Tokens.** The control needs `button.separator`, which
-`WorkbenchTheme` does not yet carry. The secondary tier needs
-`button.secondaryBorder` and `button.secondaryHoverBackground` to
-satisfy the §spec:chrome-material-theming parity invariant — a themed
-family themes every member — which today it does not, since the
-package carries six of the nine registered `button.*` colours.
+**Tokens.** The control reads `button.separator` for the pipe, and
+`button.secondaryBorder` and `button.secondaryHoverBackground` for the
+secondary tier. `WorkbenchTheme` carries all nine registered `button.*`
+colours, satisfying the §spec:chrome-material-theming parity invariant
+— a themed family themes every member.
 
 **The control takes the secondary pair, not the chrome.** Flutter routes
 both filled variants through one `FilledButtonTheme` and keeps the variant
