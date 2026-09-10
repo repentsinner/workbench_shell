@@ -158,8 +158,11 @@ class WorkbenchLayoutState {
         final view = byId[viewId];
         if (view == null) return;
         final maxBody = view.maximumBodySize ?? double.infinity;
-        // A cap below the floor wins (VS Code max-over-min, §spec:view-pane-max-body).
-        final floor = maxBody < minBody ? maxBody : minBody;
+        // Each pane's own floor, defaulting to the uniform minimum
+        // (§spec:view-pane-min-body). A cap below the floor wins (VS Code
+        // max-over-min, §spec:view-pane-max-body).
+        final viewMin = view.minimumBodySize ?? minBody;
+        final floor = maxBody < viewMin ? maxBody : viewMin;
         resolvedSizes[viewId] = value.clamp(floor, maxBody);
       });
       if (resolvedSizes.isNotEmpty) newSizes[containerId] = resolvedSizes;

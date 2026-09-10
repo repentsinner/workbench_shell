@@ -488,10 +488,8 @@ uniform minimum body height (§spec:layout-constants) and no maximum.
 unbounded.** It is the per-pane cap mirroring VS Code's `maximumBodySize`
 (`paneview.ts`, default `Number.POSITIVE_INFINITY`). An unset value is
 unbounded, so the existing fill-and-distribute behavior is unchanged for every
-pane that does not opt in. The minimum body height stays a uniform constant
-(§spec:layout-constants), not per-descriptor: the floor is the same for every
-pane, while a meaningful maximum is content-specific (a hug-to-content panel
-versus a tree that should fill), so only the maximum moves to the descriptor.
+pane that does not opt in. The floor is per-descriptor too
+(§spec:view-pane-min-body).
 
 **The clamp is VS Code canon: maximum wins over minimum when they invert.**
 Each expanded pane's apportioned body is clamped to `[minBody, maxBody]` using
@@ -558,6 +556,53 @@ host opts into the gap by capping panes. VS Code behaves identically —
   pane.
 - Rebuilding a descriptor with a different `maximumBodySize` re-lays the stack
   out against the new cap; the value is not captured at first build.
+
+---
+
+## View Pane Minimum Body Size §spec:view-pane-min-body
+
+*Status: complete*
+
+**Problem**: the floor was a single constant for every pane
+(§spec:layout-constants), so a host could cap a pane
+(§spec:view-pane-max-body) but could not reserve room for one. VS Code's
+`OpenEditorsView` does exactly that — it holds a minimum number of rows
+visible while the container is crowded — and no arrangement of a uniform
+floor and a per-pane cap expresses it.
+
+**A view descriptor carries an optional `minimumBodySize` (pixels), default
+the uniform minimum.** VS Code's floor is per-pane and mutable: `Pane`
+defaults `_minimumBodySize` to 120 for a vertical orientation and 200 for a
+horizontal one, and its setter fires the change event that makes the splitview
+re-read bounds (`paneview.ts`). The shell stacks view panes vertically, so the
+uniform constant already equals canon's vertical default; an unset descriptor
+therefore keeps the previous floor exactly, and only a host that opts in sees
+a change.
+
+**The maximum still wins when the two invert.** A descriptor setting both
+resolves to `min(max(value, minimumBodySize), maximumBodySize)` — the same
+argument order §spec:view-pane-max-body fixes for the uniform floor — so a cap
+below the floor renders at the cap. Hug-to-content stays reachable on a pane
+that also raises its floor.
+
+**A raised floor pins the pane and re-divides the remainder.** The stack
+apportions by weight and pins any pane whose share falls below its floor,
+re-dividing what is left among the unpinned panes. Pinning changes both the
+pool and the unpinned weight sum, so each pin re-derives that pair before the
+next pane is measured; dividing a reduced pool by a stale sum understates
+every later share and pins panes that should have absorbed the remainder. When
+every pane pins at its floor the stack overflows and scrolls, unchanged from
+the uniform-floor fallback (§spec:view-stack).
+
+**Observable behavior**:
+
+- A view descriptor may set `minimumBodySize`; unset takes the uniform minimum
+  body height, leaving every existing pane's floor unchanged.
+- An expanded pane never renders a body shorter than its `minimumBodySize`,
+  except where its `maximumBodySize` is lower, which wins.
+- A pane pinned at a raised floor leaves the remaining height to its unpinned
+  siblings rather than shrinking them below their own floors.
+- A sash drag stops at each pane's own floor, not the uniform one.
 
 ---
 

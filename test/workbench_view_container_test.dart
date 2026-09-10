@@ -356,6 +356,109 @@ void main() {
       expect(fill.height, closeTo(containerHeight - (header + cap), 1.0));
     });
 
+    testWidgets('a pane raises its own floor with minimumBodySize; the '
+        'sibling absorbs the remainder', (tester) async {
+      const containerHeight = 600.0;
+      const header = WorkbenchLayoutConstants.viewPaneHeaderHeight;
+      const floor = 320.0; // above the 120 uniform default
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const SizedBox(
+            height: containerHeight,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'tall',
+                  title: 'Tall',
+                  minimumBodySize: floor,
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'rest',
+                  title: 'Rest',
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // The even share (600 - 2*header) / 2 sits below the raised floor, so the
+      // pane pins at its own minimum and the sibling takes what is left.
+      final tall = paneRect(tester, 'tall');
+      final rest = paneRect(tester, 'rest');
+      expect(tall.height, closeTo(header + floor, 1.0));
+      expect(tall.height + rest.height, closeTo(containerHeight, 1.0));
+    });
+
+    testWidgets('a per-view maximum below a per-view minimum still lets the '
+        'maximum win (canon clamp order)', (tester) async {
+      const containerHeight = 600.0;
+      const header = WorkbenchLayoutConstants.viewPaneHeaderHeight;
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const SizedBox(
+            height: containerHeight,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'inverted',
+                  title: 'Inverted',
+                  minimumBodySize: 300,
+                  maximumBodySize: 80,
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'fill',
+                  title: 'Fill',
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // min(max(value, minBody), maxBody): the outer maximum dominates, so the
+      // pane renders at 80 despite the 300 floor (§spec:view-pane-min-body).
+      expect(paneRect(tester, 'inverted').height, closeTo(header + 80, 1.0));
+    });
+
+    testWidgets('an unset minimumBodySize keeps the uniform default floor',
+        (tester) async {
+      // Pool = 250 - 2*28 = 194; an even share of 97 sits below the 120 floor.
+      const containerHeight = 250.0;
+      const header = WorkbenchLayoutConstants.viewPaneHeaderHeight;
+      const minBody = WorkbenchLayoutConstants.viewPaneMinBodyHeight;
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const SizedBox(
+            height: containerHeight,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'a',
+                  title: 'Alpha',
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'b',
+                  title: 'Beta',
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // Both pin at the uniform floor and the stack overflows, exactly as
+      // before the per-view minimum existed.
+      expect(paneRect(tester, 'a').height, closeTo(header + minBody, 1.0));
+      expect(paneRect(tester, 'b').height, closeTo(header + minBody, 1.0));
+    });
+
     testWidgets('when every expanded pane is capped below the pool the slack '
         'pools as a trailing gap (canon)', (tester) async {
       const containerHeight = 600.0;
@@ -674,6 +777,53 @@ void main() {
         paneRect(tester, 'b').height,
         closeTo(containerHeight - (header + minBody), 1.0),
       );
+    });
+
+    testWidgets('the sash drag clamps at each pane\'s own minimumBodySize',
+        (tester) async {
+      const header = WorkbenchLayoutConstants.viewPaneHeaderHeight;
+      const containerHeight = 600.0;
+      const aFloor = 200.0;
+      const bFloor = 260.0;
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const SizedBox(
+            height: containerHeight,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'a',
+                  title: 'Alpha',
+                  minimumBodySize: aFloor,
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'b',
+                  title: 'Beta',
+                  minimumBodySize: bFloor,
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // Shrinking the lower pane stops at its own floor, not the uniform one.
+      await tester.drag(
+        find.byKey(const ValueKey('workbench-view-sash-b')),
+        const Offset(0, 1000),
+      );
+      await tester.pumpAndSettle();
+      expect(paneRect(tester, 'b').height, closeTo(header + bFloor, 1.0));
+
+      // And the upper pane stops at its own, larger-than-uniform floor.
+      await tester.drag(
+        find.byKey(const ValueKey('workbench-view-sash-b')),
+        const Offset(0, -1000),
+      );
+      await tester.pumpAndSettle();
+      expect(paneRect(tester, 'a').height, closeTo(header + aFloor, 1.0));
     });
 
     testWidgets('the sash stays locked to the cursor after overshooting a '
