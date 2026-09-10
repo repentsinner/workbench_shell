@@ -10,6 +10,7 @@ WorkbenchViewDescriptor _view(
   bool initiallyExpanded = true,
   bool? expanded,
   double? maximumBodySize,
+  double? minimumBodySize,
   ValueChanged<bool>? onVisibleChanged,
 }) {
   return WorkbenchViewDescriptor(
@@ -19,6 +20,7 @@ WorkbenchViewDescriptor _view(
     initiallyExpanded: initiallyExpanded,
     expanded: expanded,
     maximumBodySize: maximumBodySize,
+    minimumBodySize: minimumBodySize,
     onVisibleChanged: onVisibleChanged,
     bodyBuilder: (_) => const SizedBox.shrink(),
   );
@@ -140,6 +142,32 @@ void main() {
         'explorer': [_view('capped', maximumBodySize: 200.0)],
       });
       expect(reconciled.sizes['explorer'], {'capped': 200.0});
+    });
+
+    test('clamps a persisted size up to a per-view minimum', () {
+      const persisted = WorkbenchLayoutState(
+        sizes: {
+          'explorer': {'tall': 140.0},
+        },
+      );
+      final reconciled = persisted.reconcile({
+        'explorer': [_view('tall', minimumBodySize: 260.0)],
+      });
+      expect(reconciled.sizes['explorer'], {'tall': 260.0});
+    });
+
+    test('a per-view maximum below a per-view minimum wins the clamp', () {
+      const persisted = WorkbenchLayoutState(
+        sizes: {
+          'explorer': {'inverted': 400.0},
+        },
+      );
+      final reconciled = persisted.reconcile({
+        'explorer': [
+          _view('inverted', minimumBodySize: 300.0, maximumBodySize: 80.0),
+        ],
+      });
+      expect(reconciled.sizes['explorer'], {'inverted': 80.0});
     });
 
     test('excludes controlled-visibility views from the hidden store', () {
