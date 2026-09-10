@@ -511,6 +511,31 @@ pane no larger than its `maximumBodySize` (mirroring VS Code's `resizeView`
 clamp to `min(maximumSize, available)`); the sash's lower limit remains the
 minimum body height. A pane with no maximum is unchanged.
 
+**The cap is re-read on every rebuild, so it carries changing content.** A
+descriptor is a value the host rebuilds, and the stack reads
+`maximumBodySize` from the current descriptor each build; a host that
+recomputes the cap as its content changes gets a re-layout with no further
+API. This mirrors VS Code, where `maximumBodySize` is a settable property
+whose setter fires the pane's change event and the splitview re-reads its
+bounds (`paneview.ts`). The Flutter rebuild is that event.
+
+**Canon derives the height from the view's own model, never by measuring
+it.** Neither `PaneView` nor `SplitView` measures a child's natural height,
+and no sizing mode asks them to. VS Code's content-sized view —
+`OpenEditorsView` — multiplies its item count by a fixed row height and
+re-asserts the cap whenever the count, the configuration, or the container's
+visible view set changes. A host hugging content here does the same: it
+counts what it renders rather than measuring it. A body whose height no host
+arithmetic can predict is the case this cap does not serve, and such a pane
+stays unbounded and fills.
+
+**A view sharing the stack hugs; a view alone in it fills.**
+`OpenEditorsView` reports an unbounded maximum while it is the only visible
+view in its container, so a lone pane never strands the side bar behind a
+short cap. The rule lives in the view rather than the container, so a host
+reproduces it by leaving `maximumBodySize` null while its view is the only
+one shown.
+
 **Trailing dead space is the deliberate consequence, matching canon.** When the
 expanded panes' maxima sum to less than the body pool, the slack has no pane to
 flow into and pools as a gap below the last pane. This is the explicit
@@ -531,6 +556,8 @@ host opts into the gap by capping panes. VS Code behaves identically —
 - When the expanded panes' maxima cannot consume the body pool, the unfilled
   slack appears as a gap below the last pane rather than stretching any capped
   pane.
+- Rebuilding a descriptor with a different `maximumBodySize` re-lays the stack
+  out against the new cap; the value is not captured at first build.
 
 ---
 

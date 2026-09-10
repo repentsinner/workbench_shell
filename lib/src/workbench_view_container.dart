@@ -85,6 +85,16 @@ class WorkbenchViewDescriptor {
   /// (`min(max(value, minBody), maxBody)`), so a value below
   /// [WorkbenchLayoutConstants.viewPaneMinBodyHeight] wins over the floor and
   /// the pane renders below it (hug-to-content).
+  ///
+  /// The stack re-reads this on every build, so it is not a value fixed at
+  /// first layout: rebuild the descriptor with a new cap and the pane
+  /// re-lays out. To hug changing content, derive the cap the way VS Code's
+  /// `OpenEditorsView` does — count the rows the body renders and multiply by
+  /// their height — rather than measuring the built widget, which neither
+  /// this container nor VS Code's splitview does. Leave it null while the
+  /// view is the only one shown, mirroring the unbounded maximum
+  /// `OpenEditorsView` reports in that case, so a lone pane fills the bar
+  /// instead of stranding it behind a short cap.
   final double? maximumBodySize;
 
   /// Builds the view body. The host owns body content (§spec:scope); the
