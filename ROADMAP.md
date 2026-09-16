@@ -9,54 +9,22 @@ design decisions live in the cited spec sections, not here.
 
 Closes the gap between the single `editor` slot and §spec:editor-tabs.
 Reported in #140; the workstream that completes the section closes it.
-Each workstream extends the example app so its slice is exercisable
-there.
-
-### Editor tab strip skeleton §road:editor-tab-skeleton
-
-Add the `WorkbenchEditorTab` descriptor and `WorkbenchLayout.editorTabs`
-with the base-treatment strip (icon, label, `tab.*` and
-`editorGroupHeader.*` theme tokens), click activation through the
-controlled/uncontrolled active-tab seam, lazily built retained tab
-content, tab semantics, and the empty-list fallback to `editor`, in
-`lib/src/workbench_layout.dart`, a new editor-tabs source file,
-`lib/src/workbench_theme.dart`, `lib/src/layout_constants.dart`, and
-`example/lib/main.dart` (§spec:editor-tabs, §spec:editor-tab-rendering,
-§spec:editor-tab-interaction).
+The base strip, the shell-owned order with close and unsaved state, and
+the keyboard bindings have landed. Each workstream extends the example
+app so its slice is exercisable there.
 
 ### Connected editor tabs under Modern UI §road:editor-tab-connected
 
 Render the strip in upstream's `connected` style when `modernUI` is on,
-following the treatment's density, in the editor-tabs source file,
+following the treatment's density, in `lib/src/workbench_editor_tabs.dart`,
 `lib/src/workbench_theme.dart`, and `lib/src/layout_constants.dart`
-(§spec:editor-tab-rendering, §spec:modern-ui-surfaces). Depends on
-§road:editor-tab-skeleton.
-
-### Open, close, and unsaved state §road:editor-tab-lifecycle
-
-Make tab order shell-owned (open to the right of the active tab,
-`onEditorTabOrderChanged`), activate the most recently active tab when
-the active one leaves, and add `onEditorTabCloseRequested` with the
-close button's visibility rules, the dirty dot, and no close affordance
-without a handler, in the editor-tabs source file and
-`example/lib/main.dart` (§spec:editor-tab-state,
-§spec:editor-tab-rendering). Depends on §road:editor-tab-skeleton.
+(§spec:editor-tab-rendering, §spec:modern-ui-surfaces).
 
 ### Drag to reorder §road:editor-tab-reorder
 
 Add drag reordering with the `tab.dragAndDropBorder` drop indicator,
-reporting the new order through `onEditorTabOrderChanged`, in the
-editor-tabs source file (§spec:editor-tab-interaction). Depends on
-§road:editor-tab-lifecycle.
-
-### Editor tab keyboard bindings §road:editor-tab-keyboard
-
-Publish the editor-tab intents and bind VS Code's per-platform defaults
-while the layout has tabs (close only while tabs are closable), in
-`lib/src/workbench_intents.dart`, `lib/src/workbench_layout.dart`, and
-`example/lib/main.dart` (§spec:editor-tab-interaction,
-§spec:action-dispatch, §spec:shortcuts). Depends on
-§road:editor-tab-lifecycle.
+reporting the new order through `onEditorTabOrderChanged`, in
+`lib/src/workbench_editor_tabs.dart` (§spec:editor-tab-interaction).
 
 **Verify:** Run the example app, which starts with Modern UI on, and
 open its editor tabs.
@@ -72,7 +40,7 @@ open its editor tabs.
 3. **Open.** Open a new tab from the example's host control. Confirm
    it appears right of the active tab and becomes active.
 4. **Unsaved state.** Mark a tab dirty. Confirm a dot replaces its
-   close button, and that hovering the tab shows the button again.
+   close button, and that hovering the dot shows the button again.
 5. **Close.** Close the active tab with its button. Confirm the most
    recently active remaining tab activates. Close the last tab and
    confirm the example's empty-editor surface shows with no strip.
