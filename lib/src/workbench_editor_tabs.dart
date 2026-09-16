@@ -1,5 +1,6 @@
 import 'dart:ui' show SemanticsRole;
 
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -120,11 +121,314 @@ Map<ShortcutActivator, Intent> editorTabShortcuts({
   };
 }
 
-/// The editor part with tabs: the strip over a retained stack of opened tab
-/// content (§spec:editor-tab-rendering, §spec:editor-tab-interaction).
+/// Owns the editor tab state (§spec:editor-tab-state) and the editor-tab key
+/// bindings (§spec:editor-tab-interaction), and builds the workbench around
+/// the editor part through [builder].
 ///
-/// Internal: `WorkbenchLayout.editorTabs` is the host-facing surface, and the
-/// layout owns the state this widget renders.
+/// Internal: `WorkbenchLayout` passes its editor-tab properties through, and
+/// their docs there are the host-facing contract. The bindings wrap everything
+/// [builder] returns, because VS Code's editor-tab chords are workbench-wide
+/// rather than scoped to the editor.
+@internal
+class EditorTabsScope extends StatefulWidget {
+  /// The host's tabs, in the host's list order.
+  final List<WorkbenchEditorTab> tabs;
+
+  /// The empty-editor surface, the editor part while [tabs] is empty.
+  final Widget editor;
+
+  /// The active tab on first build when [activeId] is null.
+  final String? initialActiveId;
+
+  /// The controlled active tab. Null leaves the active tab to the scope.
+  final String? activeId;
+
+  /// Notified of every activation the scope originates or applies.
+  final ValueChanged<String>? onActiveChanged;
+
+  /// Notified with the full id order whenever the scope changes it.
+  final ValueChanged<List<String>>? onOrderChanged;
+
+  /// Requests a tab's close. Null renders no close buttons and leaves the
+  /// close chord to bindings above.
+  final ValueChanged<String>? onCloseRequested;
+
+  /// Builds the workbench around the editor part: the strip over tab content
+  /// while there are tabs, else [editor].
+  final Widget Function(BuildContext context, Widget editorPart) builder;
+
+  const EditorTabsScope({
+    super.key,
+    required this.tabs,
+    required this.editor,
+    required this.initialActiveId,
+    required this.activeId,
+    required this.onActiveChanged,
+    required this.onOrderChanged,
+    required this.onCloseRequested,
+    required this.builder,
+  });
+
+  @override
+  State<EditorTabsScope> createState() => _EditorTabsScopeState();
+}
+
+class _EditorTabsScopeState extends State<EditorTabsScope> {
+  // The active tab follows the controlled/uncontrolled seam as the secondary
+  // side bar's member does, and the scope raises its own change when a tab is
+  // clicked.
+  String? _internalActiveId;
+
+  /// The shell-owned tab order (§spec:editor-tab-state): list order on first
+  /// build, then maintained by [_reconcile] as the host adds and removes tabs.
+  final List<String> _order = [];
+
+  /// Tab ids by recency of activation, most recent last. The next tab to take
+  /// over when the active one leaves, matching VS Code's
+  /// `workbench.editor.focusRecentEditorAfterClose` default.
+  ///
+  /// It is also the retained set (§spec:editor-tab-interaction): only a tab
+  /// that has been active has built content, so a tab never shown costs
+  /// nothing.
+  final List<String> _recency = [];
+
+  /// The active tab, resolved against the live order. A controlled or
+  /// internal id that names no tab falls back to the most recently active
+  /// remaining tab, then to the first in order. Null only when there are no
+  /// tabs.
+  String? get _activeId {
+    if (_order.isEmpty) return null;
+    final id = widget.activeId ?? _internalActiveId;
+    if (id != null && _order.contains(id)) return id;
+    return _recency.lastOrNull ?? _order.first;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    FocusManager.instance.addListener(_adoptKeyFocus);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _adoptKeyFocus());
+    _internalActiveId = widget.initialActiveId;
+    _order.addAll(widget.tabs.map((tab) => tab.id));
+    _recordActive();
+  }
+
+  @override
+  void didUpdateWidget(covariant EditorTabsScope oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final hadTabs = _order.isNotEmpty;
+    if (!identical(oldWidget.tabs, widget.tabs)) _reconcile();
+    // Covers a controlled host's change as well as the reconcile's own.
+    _recordActive();
+    // Gaining tabs gains the bindings, which need focus to hear keys.
+    if (!hadTabs && _order.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _adoptKeyFocus());
+    }
+  }
+
+  @override
+  void dispose() {
+    FocusManager.instance.removeListener(_adoptKeyFocus);
+    _keysFocusNode.dispose();
+    super.dispose();
+  }
+
+  /// Move the active tab to the recent end of [_recency], which also retains
+  /// its content.
+  void _recordActive() {
+    final id = _activeId;
+    if (id == null || _recency.lastOrNull == id) return;
+    _recency
+      ..remove(id)
+      ..add(id);
+  }
+
+  /// Fold the host's tab list into the shell-owned order
+  /// (§spec:editor-tab-state). A removed id leaves the order and its retained
+  /// content; an added id opens to the right of the active tab — VS Code's
+  /// `workbench.editor.openPositioning` default — and becomes active, several
+  /// opening left to right in list order. When the active tab leaves without
+  /// an addition, the most recently active remaining tab takes over.
+  ///
+  /// The scope originates these changes, so it reports them, after the frame:
+  /// this runs during the host's build, where a host `setState` would throw.
+  void _reconcile() {
+    final ids = {for (final tab in widget.tabs) tab.id};
+    final previousActive = _activeId;
+    _order.removeWhere((id) => !ids.contains(id));
+    _recency.removeWhere((id) => !ids.contains(id));
+    final added = [
+      for (final id in ids)
+        if (!_order.contains(id)) id,
+    ];
+
+    String? nextActive;
+    if (added.isNotEmpty) {
+      var anchor = _activeId;
+      for (final id in added) {
+        final at = anchor == null ? _order.length : _order.indexOf(anchor) + 1;
+        _order.insert(at, id);
+        anchor = id;
+      }
+      nextActive = added.last;
+    } else if (previousActive != null && !_order.contains(previousActive)) {
+      nextActive = _activeId;
+    }
+    if (nextActive == null) return;
+
+    if (widget.activeId == null) _internalActiveId = nextActive;
+    final order = List<String>.unmodifiable(_order);
+    final reportOrder = added.isNotEmpty;
+    final activated = nextActive;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (reportOrder) widget.onOrderChanged?.call(order);
+      widget.onActiveChanged?.call(activated);
+    });
+  }
+
+  /// Activate a tab (§spec:editor-tab-state), mirroring the layout's
+  /// secondary side-bar activation: mutate internal state only in
+  /// uncontrolled mode, and always report so a controlled host can honor the
+  /// shell-originated change. No-op when the tab is already active.
+  void _setActive(String id) {
+    if (_activeId == id) return;
+    setState(() {
+      if (widget.activeId == null) _internalActiveId = id;
+      _recordActive();
+    });
+    widget.onActiveChanged?.call(id);
+  }
+
+  /// Receives key events for the editor-tab bindings. `Shortcuts` sees only
+  /// events that bubble up from the primary focus, so this node holds focus
+  /// whenever nothing inside the workbench does (see [_adoptKeyFocus]).
+  final FocusNode _keysFocusNode = FocusNode(
+    debugLabel: 'WorkbenchLayout editor tab keys',
+  );
+
+  /// Take primary focus when it rests above the workbench — on a wrapper such
+  /// as `WorkbenchShortcuts`, a route scope, or nowhere — so the editor-tab
+  /// chords reach the bindings without the user first clicking into the
+  /// workbench. Focus inside the workbench, or in another route, is left
+  /// alone, and bindings above still see every event because it bubbles
+  /// through them.
+  void _adoptKeyFocus() {
+    if (!mounted || _order.isEmpty) return;
+    final node = _keysFocusNode;
+    final primary = FocusManager.instance.primaryFocus;
+    if (primary == node || node.context == null) return;
+    if (primary == null || node.ancestors.contains(primary)) {
+      node.requestFocus();
+    }
+  }
+
+  /// The editor-tab command handlers (§spec:action-dispatch). Built once so a
+  /// listener's subscription outlives rebuilds; each reads live state when it
+  /// runs.
+  late final Map<Type, Action<Intent>> _actions = {
+    ActivateNextEditorTabIntent: _EditorTabAction<ActivateNextEditorTabIntent>(
+      enabled: () => _order.isNotEmpty,
+      onInvoke: (_) => _activateAdjacent(1),
+    ),
+    ActivatePreviousEditorTabIntent:
+        _EditorTabAction<ActivatePreviousEditorTabIntent>(
+          enabled: () => _order.isNotEmpty,
+          onInvoke: (_) => _activateAdjacent(-1),
+        ),
+    ActivateEditorTabAtIndexIntent:
+        _EditorTabAction<ActivateEditorTabAtIndexIntent>(
+          enabled: () => _order.isNotEmpty,
+          onInvoke: (intent) {
+            if (intent.index < 0 || intent.index >= _order.length) return;
+            _setActive(_order[intent.index]);
+          },
+        ),
+    ActivateLastEditorTabIntent: _EditorTabAction<ActivateLastEditorTabIntent>(
+      enabled: () => _order.isNotEmpty,
+      onInvoke: (_) => _setActive(_order.last),
+    ),
+    // Disabled without a close handler, so the chord passes to any binding
+    // above rather than closing nothing (§spec:editor-tab-rendering).
+    CloseActiveEditorTabIntent: _EditorTabAction<CloseActiveEditorTabIntent>(
+      enabled: () => _order.isNotEmpty && widget.onCloseRequested != null,
+      onInvoke: (_) => widget.onCloseRequested!(_activeId!),
+    ),
+  };
+
+  /// Step the active tab [step] places along the strip, wrapping at either
+  /// end as VS Code's `nextEditor` / `previousEditor` do within a single
+  /// group.
+  void _activateAdjacent(int step) {
+    final active = _activeId;
+    if (active == null) return;
+    _setActive(_order[(_order.indexOf(active) + step) % _order.length]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final activeId = _activeId;
+    final Widget editorPart;
+    if (activeId == null) {
+      editorPart = widget.editor;
+    } else {
+      final byId = {for (final tab in widget.tabs) tab.id: tab};
+      editorPart = EditorTabsPart(
+        tabs: [for (final id in _order) byId[id]!],
+        activeId: activeId,
+        retainedIds: _recency,
+        onSelected: _setActive,
+        onCloseRequested: widget.onCloseRequested,
+        theme: context.workbenchTheme,
+      );
+    }
+    // The wrappers stay in the tree whether or not there are tabs, so gaining
+    // or losing tabs never re-parents the workbench; with no tabs the map is
+    // empty and the node takes no focus.
+    final hasTabs = activeId != null;
+    return Actions(
+      actions: _actions,
+      child: Shortcuts(
+        shortcuts: hasTabs
+            ? editorTabShortcuts(
+                platform: defaultTargetPlatform,
+                closable: widget.onCloseRequested != null,
+              )
+            : const <ShortcutActivator, Intent>{},
+        child: Focus(
+          focusNode: _keysFocusNode,
+          canRequestFocus: hasTabs,
+          skipTraversal: true,
+          child: widget.builder(context, editorPart),
+        ),
+      ),
+    );
+  }
+}
+
+/// One editor-tab command handler (§spec:action-dispatch). `CallbackAction`
+/// reports itself always enabled, and a disabled action is what lets a chord
+/// the scope cannot serve fall through to a host binding above it.
+class _EditorTabAction<T extends Intent> extends Action<T> {
+  final bool Function() enabled;
+  final void Function(T intent) onInvoke;
+
+  _EditorTabAction({required this.enabled, required this.onInvoke});
+
+  @override
+  bool isEnabled(T intent) => enabled();
+
+  @override
+  Object? invoke(T intent) {
+    onInvoke(intent);
+    return null;
+  }
+}
+
+/// The editor part with tabs: the strip over a retained stack of tab content
+/// (§spec:editor-tab-rendering, §spec:editor-tab-interaction).
+///
+/// Internal: [EditorTabsScope] owns the state this widget renders.
 @internal
 class EditorTabsPart extends StatelessWidget {
   /// Tabs in display order.
@@ -133,9 +437,9 @@ class EditorTabsPart extends StatelessWidget {
   /// The active tab's id; one of [tabs].
   final String activeId;
 
-  /// Ids whose content has been built, in first-open order. Only these
-  /// contribute content, so a tab never shown costs nothing.
-  final List<String> openedIds;
+  /// Ids whose content has been built. Only these contribute content, so a
+  /// tab never shown costs nothing.
+  final List<String> retainedIds;
 
   /// Activates a tab from a click.
   final ValueChanged<String> onSelected;
@@ -149,7 +453,7 @@ class EditorTabsPart extends StatelessWidget {
     super.key,
     required this.tabs,
     required this.activeId,
-    required this.openedIds,
+    required this.retainedIds,
     required this.onSelected,
     required this.onCloseRequested,
     required this.theme,
@@ -157,7 +461,6 @@ class EditorTabsPart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final byId = {for (final tab in tabs) tab.id: tab};
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -169,24 +472,24 @@ class EditorTabsPart extends StatelessWidget {
           theme: theme,
         ),
         Expanded(
-          // One slot per opened tab, keyed by id so each keeps its element
-          // and State. Inactive slots stay in the tree offstage with tickers
-          // disabled, as retained view containers do
-          // (§spec:view-container-state).
+          // One slot per retained tab, keyed by id so each keeps its element
+          // and State whatever order the slots stand in. Inactive slots stay
+          // in the tree offstage with tickers disabled, as retained view
+          // containers do (§spec:view-container-state).
           child: Stack(
             fit: StackFit.expand,
             children: [
-              for (final id in openedIds)
-                if (byId[id] case final tab?)
+              for (final tab in tabs)
+                if (retainedIds.contains(tab.id))
                   Offstage(
-                    key: ValueKey(id),
-                    offstage: id != activeId,
+                    key: ValueKey(tab.id),
+                    offstage: tab.id != activeId,
                     child: TickerMode(
-                      enabled: id == activeId,
+                      enabled: tab.id == activeId,
                       // A hidden editor cannot keep focus, so keys never land
                       // in content the user cannot see.
                       child: ExcludeFocus(
-                        excluding: id != activeId,
+                        excluding: tab.id != activeId,
                         child: Builder(builder: tab.contentBuilder),
                       ),
                     ),
