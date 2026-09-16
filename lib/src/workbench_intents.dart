@@ -8,10 +8,11 @@ import 'package:flutter/widgets.dart';
 /// intent via `Actions.invoke`; hosts register `Action<Intent>` handlers
 /// at the widget that owns the underlying state.
 ///
-/// The shell publishes exactly one intent — [ToggleBottomPanelIntent].
-/// Host-specific commands (e.g. focusing a particular bottom-panel tab)
-/// use host-defined intents; `WorkbenchViewMenuTab` carries an arbitrary
-/// [Intent] so hosts can wire their own vocabulary through the menu.
+/// The shell publishes only commands that name nothing host-specific:
+/// [ToggleBottomPanelIntent] and the editor-tab commands. Host-specific
+/// commands (e.g. focusing a particular bottom-panel tab) use host-defined
+/// intents; `WorkbenchViewMenuTab` carries an arbitrary [Intent] so hosts can
+/// wire their own vocabulary through the menu.
 ///
 /// See package SPEC §spec:action-dispatch for rationale.
 
@@ -20,4 +21,43 @@ import 'package:flutter/widgets.dart';
 /// by `WorkbenchShortcuts`.
 class ToggleBottomPanelIntent extends Intent {
   const ToggleBottomPanelIntent();
+}
+
+// Editor tab commands (§spec:editor-tab-interaction). A `WorkbenchLayout`
+// with editor tabs handles each one and binds VS Code's per-platform default
+// chords to it. Each names no tab, so it means the same thing in every host.
+
+/// Activates the tab after the active editor tab, wrapping from the last to
+/// the first. VS Code `workbench.action.nextEditor`.
+class ActivateNextEditorTabIntent extends Intent {
+  const ActivateNextEditorTabIntent();
+}
+
+/// Activates the tab before the active editor tab, wrapping from the first to
+/// the last. VS Code `workbench.action.previousEditor`.
+class ActivatePreviousEditorTabIntent extends Intent {
+  const ActivatePreviousEditorTabIntent();
+}
+
+/// Requests the close of the active editor tab through
+/// `WorkbenchLayout.onEditorTabCloseRequested`. Disabled while the layout has
+/// no close handler. VS Code `workbench.action.closeActiveEditor`.
+class CloseActiveEditorTabIntent extends Intent {
+  const CloseActiveEditorTabIntent();
+}
+
+/// Activates the editor tab at [index] in strip order; an index past the last
+/// tab does nothing. VS Code `workbench.action.openEditorAtIndex1` through
+/// `openEditorAtIndex9`.
+class ActivateEditorTabAtIndexIntent extends Intent {
+  /// Zero-based position in the strip.
+  final int index;
+
+  const ActivateEditorTabAtIndexIntent(this.index);
+}
+
+/// Activates the last editor tab in the strip. VS Code
+/// `workbench.action.lastEditorInGroup`.
+class ActivateLastEditorTabIntent extends Intent {
+  const ActivateLastEditorTabIntent();
 }

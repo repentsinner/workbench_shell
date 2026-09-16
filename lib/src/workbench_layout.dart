@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import 'activity_bar_item.dart';
 import 'layout_constants.dart';
+import 'workbench_editor_tabs.dart';
 import 'workbench_layout_state.dart';
 import 'workbench_sash.dart';
 import 'workbench_surface_treatment.dart';
@@ -382,8 +383,51 @@ class WorkbenchLayout extends StatefulWidget {
   /// Activity bar items (icons in the left edge bar).
   final List<ActivityBarItem> activityBarItems;
 
-  /// Main editor/visualizer content.
+  /// Main editor/visualizer content. With [editorTabs] non-empty the tabs
+  /// take the editor area and this widget stands in as the empty-editor
+  /// surface, shown whenever the tab list is empty (§spec:editor-tabs).
   final Widget editor;
+
+  /// Host-supplied editors rendered as a VS Code editor tab strip over the
+  /// editor area (§spec:editor-tabs). The host owns which tabs exist: it opens
+  /// a tab by adding its descriptor and closes one by removing it. The shell
+  /// owns the strip, the active tab, the order, and each tab's retained
+  /// content (§spec:editor-tab-state).
+  ///
+  /// The tabs stand in list order on first build. After that the shell keeps
+  /// its own order: an added id opens to the right of the active tab and
+  /// becomes active, and a removed active tab gives way to the most recently
+  /// active remaining tab. Empty (the default) leaves the editor area to
+  /// [editor] unchanged. Ids shall be unique.
+  final List<WorkbenchEditorTab> editorTabs;
+
+  /// Notified with the full id order whenever the shell changes the tab order,
+  /// as it does when an added tab opens (§spec:editor-tab-state). A host that
+  /// persists open tabs stores this list and hands it back as its list order
+  /// at startup.
+  final ValueChanged<List<String>>? onEditorTabOrderChanged;
+
+  /// Called with a tab's id when the user asks to close it
+  /// (§spec:editor-tab-state). The tab stays until the host removes it, so the
+  /// host can ask whether to save first. Null (the default) renders no close
+  /// button: a button that does nothing is an affordance the canon lacks.
+  final ValueChanged<String>? onEditorTabCloseRequested;
+
+  /// Initial active editor tab. Used only in uncontrolled mode (when
+  /// [activeEditorTabId] is null). Null (the default) activates the first tab.
+  final String? initialActiveEditorTabId;
+
+  /// Externally controlled active editor tab (§spec:editor-tab-state). When
+  /// non-null, the shell shows this tab and delegates changes to
+  /// [onActiveEditorTabChanged]; the host owns the state. Mirrors
+  /// [secondaryActiveViewContainerId].
+  final String? activeEditorTabId;
+
+  /// Called when the active editor tab changes — including the shell's own
+  /// change when a tab is clicked. Required when [activeEditorTabId] is
+  /// non-null. The shell both originates the change and reports it, so a
+  /// controlled host shall honor it to keep the strip functional.
+  final ValueChanged<String>? onActiveEditorTabChanged;
 
   /// Maps the active view-container id to its typed
   /// [WorkbenchViewContainerSpec] (§spec:view-stack). The shell renders the
@@ -695,6 +739,12 @@ class WorkbenchLayout extends StatefulWidget {
     required this.containerBuilder,
     required this.bottomPanel,
     required this.statusBar,
+    this.editorTabs = const [],
+    this.initialActiveEditorTabId,
+    this.activeEditorTabId,
+    this.onActiveEditorTabChanged,
+    this.onEditorTabOrderChanged,
+    this.onEditorTabCloseRequested,
     this.initialStatusBarVisible = true,
     this.statusBarVisible,
     this.onStatusBarVisibilityChanged,
@@ -743,6 +793,16 @@ class WorkbenchLayout extends StatefulWidget {
          activeViewContainerId == null || onViewContainerChanged != null,
          'onViewContainerChanged is required when activeViewContainerId is '
          'provided',
+       ),
+       assert(
+         activeEditorTabId == null || onActiveEditorTabChanged != null,
+         'onActiveEditorTabChanged is required when activeEditorTabId is '
+         'provided',
+       ),
+       // The shell keys the active tab and each tab's retained content by id.
+       assert(
+         editorTabs.length == editorTabs.map((tab) => tab.id).toSet().length,
+         'editorTabs ids must be unique',
        ),
        assert(
          sidebarVisible == null || onSidebarVisibilityChanged != null,
@@ -1012,6 +1072,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
 
   String get _secondaryActiveId =>
       widget.secondaryActiveViewContainerId ?? _internalSecondaryActiveId;
+
   bool get _secondarySideBarVisible =>
       widget.secondarySideBarVisible ?? _internalSecondarySideBarVisible;
 
@@ -1193,8 +1254,27 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     widget.onSecondaryActiveViewContainerChanged?.call(containerId);
   }
 
+  /// Hands the editor-tab properties to the scope that owns their state and
+  /// key bindings (§spec:editor-tab-state), which builds the editor part and
+  /// wraps the workbench [_buildWorkbench] composes around it.
   @override
   Widget build(BuildContext context) {
+    return EditorTabsScope(
+      tabs: widget.editorTabs,
+      editor: widget.editor,
+      initialActiveId: widget.initialActiveEditorTabId,
+      activeId: widget.activeEditorTabId,
+      onActiveChanged: widget.onActiveEditorTabChanged,
+      onOrderChanged: widget.onEditorTabOrderChanged,
+      onCloseRequested: widget.onEditorTabCloseRequested,
+      builder: _buildWorkbench,
+    );
+  }
+
+  /// The workbench around [editorPart]: the editor part with or without tabs
+  /// (§spec:editor-tabs). Centered layout and Zen wrap the whole part, so the
+  /// strip and content move together (§spec:editing-modes).
+  Widget _buildWorkbench(BuildContext context, Widget editorPart) {
     final theme = context.workbenchTheme;
 
     // Mark the active container opened on every build — the single point that
@@ -1214,8 +1294,8 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     // keeps spanning the editor column (§spec:editing-modes /
     // §spec:panel-alignment default).
     final editorContent = _centeredLayout
-        ? _buildCenteredEditor(theme)
-        : widget.editor;
+        ? _buildCenteredEditor(theme, editorPart)
+        : editorPart;
 
     // Zen mode hides all chrome — activity bar, side bar, panel, status bar —
     // leaving the editor (centered when centered layout also applies). It is a
@@ -1279,8 +1359,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     // reserves nothing, so every card lands where it did
     // (§spec:modern-ui-surfaces).
     final primaryOwnsSeam = modernUI && !onRight && _sidebarVisible;
-    final secondaryOwnsSeam =
-        modernUI && onRight && _secondarySideBarVisible;
+    final secondaryOwnsSeam = modernUI && onRight && _secondarySideBarVisible;
 
     // Whether the card on the editor's leading side already reserved the gap
     // between them. When it did, the editor — and a panel running beneath the
@@ -1544,8 +1623,9 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
           child: Column(
             children: [
               Expanded(child: Row(children: rowChildren)),
-              // Hidden status bar yields its strip to the workbench above; Zen
-              // mode (handled earlier) hides it wholesale alongside all chrome.
+              // Hidden status bar yields its strip to the workbench above;
+              // Zen mode (handled earlier) hides it wholesale alongside all
+              // chrome.
               if (_statusBarVisible) widget.statusBar,
             ],
           ),
@@ -1767,14 +1847,14 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   /// golden-ratio default. The margins are the bare editor background. Below
   /// [WorkbenchLayoutConstants.centeredLayoutMinEditorWidth] the column is too
   /// narrow to center, so the editor fills it (VS Code's auto-resize).
-  Widget _buildCenteredEditor(WorkbenchTheme theme) {
+  Widget _buildCenteredEditor(WorkbenchTheme theme, Widget editor) {
     final border = theme.editorGroupBorder;
     const minEditor = WorkbenchLayoutConstants.centeredLayoutMinEditorWidth;
     const sashSize = WorkbenchLayoutConstants.sashSize;
     return LayoutBuilder(
       builder: (context, constraints) {
         final w = constraints.maxWidth;
-        if (!w.isFinite || w <= minEditor) return widget.editor;
+        if (!w.isFinite || w <= minEditor) return editor;
 
         // One margin width, equal on both sides (the editor stays centered),
         // clamped so the editor keeps its minimum width.
@@ -1801,7 +1881,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
                       ? null
                       : Border.symmetric(vertical: BorderSide(color: border)),
                 ),
-                child: widget.editor,
+                child: editor,
               ),
             ),
             // Draggable margin sashes overlay the two hairlines (transparent at

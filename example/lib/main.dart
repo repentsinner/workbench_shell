@@ -8,6 +8,12 @@
 // pattern for pub.dev consumers: host owns its tab vocabulary and focus
 // intent; the shell owns chrome and the panel-toggle default.
 //
+// The editor area opens host-supplied editors as tabs. The host adds,
+// marks unsaved and closes editors; the shell owns the strip, the tab
+// order and the active tab, and binds VS Code's editor-tab chords
+// (Cmd+Alt+Right/Left, Ctrl+1–9, Cmd+W on macOS; Ctrl+PageDown/PageUp,
+// Alt+1–9, Ctrl+W elsewhere) without any host wiring.
+//
 // The Output panel observes its `PanelLifecycle.isFocused` to drive
 // a once-per-second counter that pauses while the tab is blurred or
 // the bottom panel is hidden — the canonical focus-aware-content
@@ -375,6 +381,70 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   bool _modernUI = true;
   void Function(Object id)? _focusPanelById;
   final NotificationService _notificationService = NotificationService();
+
+  /// Open editors (§spec:editor-tabs). The host owns which editors exist: it
+  /// opens one by adding it and closes one by removing it. The shell renders
+  /// the strip, places a new tab right of the active one, tracks the active
+  /// tab, and retains each tab's content across switches.
+  final List<_ExampleEditor> _editors = [
+    const _ExampleEditor(
+      id: _loremEditorId,
+      label: 'lorem-ipsum.txt',
+      icon: Symbols.description_rounded,
+    ),
+    const _ExampleEditor(
+      id: 'release-notes',
+      label: 'release-notes.md',
+      icon: Symbols.article_rounded,
+    ),
+  ];
+
+  /// Ids of the open editors with unsaved changes.
+  final Set<String> _dirtyEditorIds = {};
+
+  /// Numbers each editor the "New Editor" control opens.
+  int _untitledCount = 0;
+
+  /// Open an untitled editor. The host only adds it; the shell opens it to
+  /// the right of the active tab and activates it (§spec:editor-tab-state).
+  void _openNewEditor() {
+    setState(() {
+      _untitledCount++;
+      _editors.add(
+        _ExampleEditor(
+          id: 'untitled-$_untitledCount',
+          label: 'Untitled-$_untitledCount',
+          icon: Symbols.draft_rounded,
+        ),
+      );
+    });
+  }
+
+  void _toggleUnsaved(String id) {
+    setState(() {
+      if (!_dirtyEditorIds.remove(id)) _dirtyEditorIds.add(id);
+    });
+  }
+
+  /// Close an editor the user asked to close. A real host would ask whether
+  /// to save an unsaved editor first; the shell leaves the tab in place
+  /// until the host removes it (§spec:editor-tab-state).
+  void _closeEditor(String id) {
+    setState(() {
+      _editors.removeWhere((editor) => editor.id == id);
+      _dirtyEditorIds.remove(id);
+    });
+  }
+
+  /// Keep the host list in the order the shell reports, so a host persisting
+  /// open editors would restore them where the user left them.
+  void _recordEditorOrder(List<String> order) {
+    setState(
+      () => _editors.sort(
+        (a, b) => order.indexOf(a.id).compareTo(order.indexOf(b.id)),
+      ),
+    );
+  }
 
   /// Host-persisted sidebar width and panel height (§spec:resize-geometry).
   /// Dogfoods the seed-plus-commit `initialSidebarWidth`/`onSidebarWidthChangeEnd`
@@ -810,7 +880,24 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                   child: WorkbenchLayout(
                     activityBarItems: _activityBarItems,
                     containerBuilder: _buildContainerSpec,
-                    editor: const _EditorPlaceholder(),
+                    // Editor tabs (§spec:editor-tabs): the host supplies each
+                    // tab's label, icon, unsaved state and content, and
+                    // answers close requests; the shell renders the strip and
+                    // owns the active tab and the order. `editor` is the
+                    // empty-editor surface shown once no tab is open.
+                    editorTabs: [
+                      for (final editor in _editors)
+                        WorkbenchEditorTab(
+                          id: editor.id,
+                          label: editor.label,
+                          icon: editor.icon,
+                          isDirty: _dirtyEditorIds.contains(editor.id),
+                          contentBuilder: (_) => _buildEditorContent(editor),
+                        ),
+                    ],
+                    onEditorTabCloseRequested: _closeEditor,
+                    onEditorTabOrderChanged: _recordEditorOrder,
+                    editor: _EmptyEditorSurface(onNewEditor: _openNewEditor),
                     bottomPanel: scope.tabbedPanel,
                     showBottomPanel: _panelVisible,
                     // Cross-restart persistence (§spec:layout-state-persistence):
@@ -926,6 +1013,27 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
           ),
         );
       },
+    );
+  }
+
+  /// The content of one open editor under a row of host controls that drive
+  /// the tab lifecycle. The first editor carries the lorem body and the
+  /// chrome review select; every other editor is a scrolling notes document.
+  Widget _buildEditorContent(_ExampleEditor editor) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _EditorLifecycleControls(
+          isDirty: _dirtyEditorIds.contains(editor.id),
+          onNewEditor: _openNewEditor,
+          onToggleUnsaved: () => _toggleUnsaved(editor.id),
+        ),
+        Expanded(
+          child: editor.id == _loremEditorId
+              ? const _EditorPlaceholder()
+              : _NotesEditor(title: editor.label),
+        ),
+      ],
     );
   }
 
@@ -1576,6 +1684,108 @@ class _ThemeDropdownField extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// The id of the editor that carries the lorem body.
+const _loremEditorId = 'lorem';
+
+/// One editor the example host keeps open (§spec:editor-tabs). The host owns
+/// this list; the shell derives the tab strip from it.
+@immutable
+class _ExampleEditor {
+  const _ExampleEditor({
+    required this.id,
+    required this.label,
+    required this.icon,
+  });
+
+  final String id;
+  final String label;
+  final IconData icon;
+}
+
+/// The editor area with no tab open — the example's stand-in for VS Code's
+/// empty editor group watermark (§spec:editor-tab-rendering).
+class _EmptyEditorSurface extends StatelessWidget {
+  const _EmptyEditorSurface({required this.onNewEditor});
+
+  final VoidCallback onNewEditor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.workbenchTheme;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'No editor is open',
+            style: theme.bodyText.copyWith(color: theme.descriptionForeground),
+          ),
+          _DemoButton(label: 'New Editor', onTap: onNewEditor),
+        ],
+      ),
+    );
+  }
+}
+
+/// Host controls above each editor that exercise the tab lifecycle
+/// (§spec:editor-tab-state): open another editor, and flip this one's unsaved
+/// state so its tab trades the close button for the dirty dot.
+class _EditorLifecycleControls extends StatelessWidget {
+  const _EditorLifecycleControls({
+    required this.isDirty,
+    required this.onNewEditor,
+    required this.onToggleUnsaved,
+  });
+
+  final bool isDirty;
+  final VoidCallback onNewEditor;
+  final VoidCallback onToggleUnsaved;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: WorkbenchLayoutConstants.spacingSize240,
+        vertical: WorkbenchLayoutConstants.spacingSize80,
+      ),
+      child: Wrap(
+        spacing: WorkbenchLayoutConstants.spacingSize80,
+        children: [
+          _DemoButton(label: 'New Editor', onTap: onNewEditor),
+          _DemoButton(
+            label: isDirty ? 'Mark Saved' : 'Mark Unsaved',
+            onTap: onToggleUnsaved,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A second kind of editor: a scrolling document whose scroll offset shows
+/// the shell retaining a tab's widget state across switches
+/// (§spec:editor-tab-interaction).
+class _NotesEditor extends StatelessWidget {
+  const _NotesEditor({required this.title});
+
+  final String title;
+
+  static const int _lineCount = 80;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.workbenchTheme;
+    return ListView.builder(
+      padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingSize240),
+      itemCount: _lineCount,
+      itemBuilder: (context, index) => Text(
+        index == 0 ? '# $title' : '- Note line $index',
+        style: theme.editorStyle.copyWith(height: 1.6),
+      ),
     );
   }
 }

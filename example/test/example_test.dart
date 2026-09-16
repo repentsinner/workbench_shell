@@ -929,4 +929,190 @@ void main() {
     // persisted state marks it known and not hidden (reconcile honors it).
     expect(find.text('Open Editors'), findsOneWidget);
   });
+
+  group('Editor tabs (§spec:editor-tabs)', () {
+    testWidgets('the editor tabs switch and keep their scroll position', (
+      tester,
+    ) async {
+      await tester.pumpWidget(const WorkbenchExampleApp());
+      await tester.pumpAndSettle();
+
+      expect(find.text('lorem-ipsum.txt'), findsOneWidget);
+      expect(find.text('release-notes.md'), findsOneWidget);
+      expect(find.textContaining('Lorem ipsum'), findsOneWidget);
+
+      await tester.tap(find.text('release-notes.md'));
+      await tester.pumpAndSettle();
+      expect(find.text('# release-notes.md'), findsOneWidget);
+      expect(find.textContaining('Lorem ipsum'), findsNothing);
+
+      await tester.drag(find.text('- Note line 3'), const Offset(0, -300));
+      await tester.pumpAndSettle();
+      expect(find.text('# release-notes.md'), findsNothing);
+
+      await tester.tap(find.text('lorem-ipsum.txt'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('release-notes.md'));
+      await tester.pumpAndSettle();
+      // Still scrolled: the shell retained the tab's content.
+      expect(find.text('# release-notes.md'), findsNothing);
+    });
+
+    /// Widens the test window past the default 800px so every tab fits: the
+    /// strip clips tabs past its trailing edge until overflow scrolling lands
+    /// (§spec:editor-tab-interaction).
+    Future<void> pumpWide(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(2000, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(const WorkbenchExampleApp());
+      await tester.pumpAndSettle();
+    }
+
+    /// The tab labelled [label]: the nearest pointer region above its label.
+    Finder tabOf(String label) => find
+        .ancestor(of: find.text(label), matching: find.byType(MouseRegion))
+        .first;
+
+    /// The strip's labels, left to right.
+    List<String> tabOrder(WidgetTester tester, List<String> labels) {
+      final present = [
+        for (final label in labels)
+          if (find.text(label).evaluate().isNotEmpty) label,
+      ];
+      return present..sort(
+        (a, b) => tester
+            .getTopLeft(find.text(a))
+            .dx
+            .compareTo(tester.getTopLeft(find.text(b)).dx),
+      );
+    }
+
+    testWidgets('a new editor opens right of the active tab and activates', (
+      tester,
+    ) async {
+      await pumpWide(tester);
+
+      // lorem-ipsum.txt is active; the new editor lands between the two.
+      await tester.tap(find.text('New Editor'));
+      await tester.pumpAndSettle();
+      expect(
+        tabOrder(tester, [
+          'lorem-ipsum.txt',
+          'Untitled-1',
+          'release-notes.md',
+        ]),
+        ['lorem-ipsum.txt', 'Untitled-1', 'release-notes.md'],
+      );
+      expect(find.text('# Untitled-1'), findsOneWidget);
+    });
+
+    testWidgets('an unsaved editor shows a dot in place of its close button', (
+      tester,
+    ) async {
+      await pumpWide(tester);
+
+      Finder inLoremTab(IconData icon) => find.descendant(
+        of: tabOf('lorem-ipsum.txt'),
+        matching: find.byIcon(icon),
+      );
+      expect(inLoremTab(Symbols.close_rounded), findsOneWidget);
+
+      await tester.tap(find.text('Mark Unsaved'));
+      await tester.pumpAndSettle();
+      expect(inLoremTab(Symbols.fiber_manual_record), findsOneWidget);
+      expect(inLoremTab(Symbols.close_rounded), findsNothing);
+      expect(find.text('Mark Saved'), findsOneWidget);
+    });
+
+    testWidgets('closing the active editor activates the most recent one, and '
+        'closing the last shows the empty editor', (tester) async {
+      await pumpWide(tester);
+
+      await tester.tap(find.text('New Editor'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('release-notes.md'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Untitled-1'));
+      await tester.pumpAndSettle();
+
+      Finder closeOf(String label) => find.descendant(
+        of: tabOf(label),
+        matching: find.byIcon(Symbols.close_rounded),
+      );
+
+      // Untitled-1 is active; release-notes.md was active before it, so it
+      // takes over rather than a neighbour.
+      await tester.tap(closeOf('Untitled-1'));
+      await tester.pumpAndSettle();
+      expect(find.text('Untitled-1'), findsNothing);
+      expect(find.text('# release-notes.md'), findsOneWidget);
+
+      await tester.tap(closeOf('release-notes.md'));
+      await tester.pumpAndSettle();
+      await tester.tap(closeOf('lorem-ipsum.txt'));
+      await tester.pumpAndSettle();
+      expect(find.text('No editor is open'), findsOneWidget);
+      expect(find.text('lorem-ipsum.txt'), findsNothing);
+
+      // The empty surface can open an editor again.
+      await tester.tap(find.text('New Editor'));
+      await tester.pumpAndSettle();
+      expect(find.text('Untitled-2'), findsOneWidget);
+      expect(find.text('No editor is open'), findsNothing);
+    });
+
+    /// Presses [key] with the named modifiers held.
+    Future<void> chord(
+      WidgetTester tester,
+      LogicalKeyboardKey key, {
+      bool meta = false,
+      bool control = false,
+      bool alt = false,
+    }) async {
+      final modifiers = [
+        if (meta) LogicalKeyboardKey.metaLeft,
+        if (control) LogicalKeyboardKey.controlLeft,
+        if (alt) LogicalKeyboardKey.altLeft,
+      ];
+      for (final modifier in modifiers) {
+        await tester.sendKeyDownEvent(modifier);
+      }
+      await tester.sendKeyEvent(key);
+      for (final modifier in modifiers.reversed) {
+        await tester.sendKeyUpEvent(modifier);
+      }
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the macOS editor chords move between and close tabs', (
+      tester,
+    ) async {
+      await pumpWide(tester);
+      expect(find.textContaining('Lorem ipsum'), findsOneWidget);
+
+      await chord(tester, LogicalKeyboardKey.arrowRight, meta: true, alt: true);
+      expect(find.text('# release-notes.md'), findsOneWidget);
+      await chord(tester, LogicalKeyboardKey.digit1, control: true);
+      expect(find.textContaining('Lorem ipsum'), findsOneWidget);
+
+      await chord(tester, LogicalKeyboardKey.keyW, meta: true);
+      expect(find.text('lorem-ipsum.txt'), findsNothing);
+      expect(find.text('# release-notes.md'), findsOneWidget);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+    testWidgets('the Windows and Linux editor chords move between and close '
+        'tabs', (tester) async {
+      await pumpWide(tester);
+
+      await chord(tester, LogicalKeyboardKey.pageDown, control: true);
+      expect(find.text('# release-notes.md'), findsOneWidget);
+      await chord(tester, LogicalKeyboardKey.digit1, alt: true);
+      expect(find.textContaining('Lorem ipsum'), findsOneWidget);
+
+      await chord(tester, LogicalKeyboardKey.keyW, control: true);
+      expect(find.text('lorem-ipsum.txt'), findsNothing);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+  });
 }

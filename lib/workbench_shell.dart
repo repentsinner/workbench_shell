@@ -17,6 +17,9 @@ export 'src/theming/token_theme.dart';
 export 'src/theming/vscode_color_map.dart';
 export 'src/theming/workbench_chrome_theme.dart';
 export 'src/workbench_content.dart';
+// Only the descriptor is public; the strip is rendered by WorkbenchLayout
+// (§spec:editor-tabs).
+export 'src/workbench_editor_tabs.dart' show WorkbenchEditorTab;
 export 'src/workbench_intents.dart';
 export 'src/workbench_layout.dart';
 export 'src/workbench_layout_state.dart';

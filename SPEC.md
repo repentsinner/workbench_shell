@@ -1543,7 +1543,7 @@ model and do not participate in this contract.
 
 ## Editor Tabs §spec:editor-tabs
 
-*Status: not started*
+*Status: in progress*
 
 **Problem**: the editor area holds one host widget, so a host with two
 readings of one subject (a diagram and a table over the same

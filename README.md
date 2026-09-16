@@ -13,6 +13,9 @@ construction.
 
 - `WorkbenchLayout` — composes activity bar + sidebar + editor + bottom
   panel + status bar, with controlled or uncontrolled section navigation.
+  Its `editorTabs` render host-supplied editors under a VS Code editor tab
+  strip with shell-owned order, close and unsaved affordances, and the
+  editor-tab keyboard chords.
 - `WorkbenchTabbedPanel` — scrollable tab strip, close button, stable
   tab ids, View-menu and keyboard-shortcut focus contract.
 - `WorkbenchStatusBar` + `WorkbenchStatusBarProblemsItem` — canonical
@@ -135,9 +138,10 @@ for the current session only.
 | Window size and position | renders into the surface it is given | initial size, position, and persistence on every platform that is not fullscreen-only (desktop) |
 | Persistent storage | nothing — no storage dependency | the mechanism (`shared_preferences`, `path_provider` + a file, a database) |
 | Editor, sidebar bodies, panel tab content | builder slots | the widgets and their state |
+| Open editors | `editorTabs`, `onEditorTabOrderChanged`, `onEditorTabCloseRequested`, active tab props | which editors are open, saving before a close, restoring them across restarts |
 | Domain and business logic | nothing | all of it |
 | Theme choice | VS Code theme JSON loader + `WorkbenchThemeController` | which theme is active and when it switches |
-| Commands and shortcuts beyond the built-ins | `ToggleBottomPanelIntent`, Cmd/Ctrl+J | extra intents, key bindings, menu items |
+| Commands and shortcuts beyond the built-ins | `ToggleBottomPanelIntent`, Cmd/Ctrl+J, the editor-tab intents and chords | extra intents, key bindings, menu items |
 
 **Window management.** The shell never sizes, positions, or persists the
 host window; it fills whatever surface Flutter hands it. On desktop,

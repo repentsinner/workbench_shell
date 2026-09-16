@@ -15,4 +15,21 @@ void main() {
       expect(identical(a, b), isTrue);
     });
   });
+
+  group('Editor tab intents (§spec:editor-tab-interaction)', () {
+    test('are const-constructible public Intents', () {
+      const intents = <Intent>[
+        ActivateNextEditorTabIntent(),
+        ActivatePreviousEditorTabIntent(),
+        CloseActiveEditorTabIntent(),
+        ActivateEditorTabAtIndexIntent(0),
+        ActivateLastEditorTabIntent(),
+      ];
+      expect(intents, everyElement(isA<Intent>()));
+    });
+
+    test('the index intent carries its zero-based position', () {
+      expect(const ActivateEditorTabAtIndexIntent(3).index, 3);
+    });
+  });
 }
