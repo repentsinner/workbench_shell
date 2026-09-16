@@ -222,11 +222,10 @@ class _EditorTabsScopeState extends State<EditorTabsScope> {
   @override
   void initState() {
     super.initState();
-    FocusManager.instance.addListener(_adoptKeyFocus);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _adoptKeyFocus());
     _internalActiveId = widget.initialActiveId;
     _order.addAll(widget.tabs.map((tab) => tab.id));
     _recordActive();
+    _adoptKeyFocusAfterFrame();
   }
 
   @override
@@ -236,15 +235,11 @@ class _EditorTabsScopeState extends State<EditorTabsScope> {
     if (!identical(oldWidget.tabs, widget.tabs)) _reconcile();
     // Covers a controlled host's change as well as the reconcile's own.
     _recordActive();
-    // Gaining tabs gains the bindings, which need focus to hear keys.
-    if (!hadTabs && _order.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _adoptKeyFocus());
-    }
+    if (!hadTabs) _adoptKeyFocusAfterFrame();
   }
 
   @override
   void dispose() {
-    FocusManager.instance.removeListener(_adoptKeyFocus);
     _keysFocusNode.dispose();
     super.dispose();
   }
@@ -317,19 +312,35 @@ class _EditorTabsScopeState extends State<EditorTabsScope> {
     widget.onActiveChanged?.call(id);
   }
 
+  /// Activate a tab the user clicked, and take key focus as a click into the
+  /// workbench does.
+  void _selectFromStrip(String id) {
+    _adoptKeyFocus();
+    _setActive(id);
+  }
+
   /// Receives key events for the editor-tab bindings. `Shortcuts` sees only
-  /// events that bubble up from the primary focus, so this node holds focus
-  /// whenever nothing inside the workbench does (see [_adoptKeyFocus]).
+  /// events that bubble up from the primary focus, so this node takes focus
+  /// when nothing inside the workbench holds it (see [_adoptKeyFocus]).
   final FocusNode _keysFocusNode = FocusNode(
     debugLabel: 'WorkbenchLayout editor tab keys',
   );
 
+  /// Gaining tabs gains the bindings, which need focus to hear keys. The
+  /// adoption waits for the frame, once the node is attached and a wrapper's
+  /// autofocus has settled.
+  void _adoptKeyFocusAfterFrame() {
+    if (_order.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _adoptKeyFocus());
+  }
+
   /// Take primary focus when it rests above the workbench — on a wrapper such
   /// as `WorkbenchShortcuts`, a route scope, or nowhere — so the editor-tab
   /// chords reach the bindings without the user first clicking into the
-  /// workbench. Focus inside the workbench, or in another route, is left
-  /// alone, and bindings above still see every event because it bubbles
-  /// through them.
+  /// workbench. The scope adopts only when tabs first appear and when the user
+  /// clicks a tab, so a host that moves focus elsewhere keeps it there. Focus
+  /// inside the workbench, or in another route, is left alone, and bindings
+  /// above still see every event because it bubbles through them.
   void _adoptKeyFocus() {
     if (!mounted || _order.isEmpty) return;
     final node = _keysFocusNode;
@@ -403,7 +414,7 @@ class _EditorTabsScopeState extends State<EditorTabsScope> {
         tabs: [for (final id in _order) byId[id]!],
         activeId: activeId,
         content: {for (final id in _recency) id: _contentFor(byId[id]!)},
-        onSelected: _setActive,
+        onSelected: _selectFromStrip,
         onCloseRequested: widget.onCloseRequested,
         theme: context.workbenchTheme,
       );

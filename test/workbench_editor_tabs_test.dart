@@ -986,6 +986,24 @@ void main() {
       expect(shown(), 'a');
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
+    testWidgets('a host that clears focus keeps it cleared until a tab is '
+        'clicked', (tester) async {
+      await tester.pumpWidget(host());
+      await tester.pump();
+      await press(tester, LogicalKeyboardKey.arrowRight, meta: true, alt: true);
+      expect(shown(), 'b');
+
+      final scope = FocusManager.instance.primaryFocus!.enclosingScope!;
+      FocusManager.instance.primaryFocus!.unfocus();
+      await tester.pump();
+      expect(FocusManager.instance.primaryFocus, scope);
+
+      await tester.tap(find.text('Tab a'));
+      await tester.pump();
+      await press(tester, LogicalKeyboardKey.arrowRight, meta: true, alt: true);
+      expect(shown(), 'b');
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
     testWidgets('content inside a tab dispatches the published intents', (
       tester,
     ) async {
