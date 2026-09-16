@@ -3,6 +3,7 @@ import 'dart:ui' show SemanticsRole;
 
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show FlexParentData, RenderFlex;
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:meta/meta.dart';
@@ -616,19 +617,10 @@ class _EditorTabStripState extends State<EditorTabStrip> {
   /// the tabs alone.
   final ValueNotifier<_DropSlot?> _dropSlot = ValueNotifier(null);
 
-  /// The row of tabs, whose box the bar is positioned against.
+  /// The row of tabs. A drag reads each tab's box from the row's children to
+  /// find the one under the pointer, and the bar is positioned in the row's
+  /// space.
   final GlobalKey _rowKey = GlobalKey();
-
-  /// A key per tab, so a drag can read each tab's box to find the one under
-  /// the pointer and which half of it the pointer is over.
-  final Map<String, GlobalKey> _tabKeys = {};
-
-  @override
-  void didUpdateWidget(covariant EditorTabStrip oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final ids = {for (final tab in widget.tabs) tab.id};
-    _tabKeys.removeWhere((id, _) => !ids.contains(id));
-  }
 
   @override
   void dispose() {
@@ -646,27 +638,26 @@ class _EditorTabStripState extends State<EditorTabStrip> {
   /// on the last tab's trailing edge, paints the same pixels.
   void _updateDropSlot(Offset pointer) {
     final row = _rowKey.currentContext?.findRenderObject();
-    if (row is! RenderBox) return;
-    var slot = widget.tabs.length;
-    var left = 0.0;
-    for (final (index, tab) in widget.tabs.indexed) {
-      final box = _tabKeys[tab.id]?.currentContext?.findRenderObject();
-      if (box is! RenderBox || !box.hasSize) continue;
-      final dx = box.globalToLocal(pointer).dx;
-      final tabLeft = box.localToGlobal(Offset.zero, ancestor: row).dx;
-      left = tabLeft + box.size.width;
-      if (dx < box.size.width) {
+    if (row is! RenderFlex || !row.hasSize) return;
+    final x = row.globalToLocal(pointer).dx;
+    // One row child per tab, in tab order.
+    var index = 0;
+    var end = 0.0;
+    for (RenderBox? child = row.firstChild; child != null; index++) {
+      final data = child.parentData! as FlexParentData;
+      final start = data.offset.dx;
+      final width = child.size.width;
+      end = start + width;
+      if (x - start < width) {
         // `getTabDragOverLocation` counts the midpoint as the leading half.
-        if (dx <= box.size.width / 2) {
-          slot = index;
-          left = tabLeft;
-        } else {
-          slot = index + 1;
-        }
-        break;
+        _dropSlot.value = x - start <= width / 2
+            ? (index: index, left: start)
+            : (index: index + 1, left: end);
+        return;
       }
+      child = data.nextSibling;
     }
-    _dropSlot.value = (index: slot, left: left);
+    _dropSlot.value = (index: index, left: end);
   }
 
   void _clearDropSlot() => _dropSlot.value = null;
@@ -749,10 +740,7 @@ class _EditorTabStripState extends State<EditorTabStrip> {
                 ),
               ),
             ),
-            child: KeyedSubtree(
-              key: _tabKeys.putIfAbsent(tab.id, GlobalKey.new),
-              child: tabFor(index, tab, key: ValueKey('editor-tab-${tab.id}')),
-            ),
+            child: tabFor(index, tab, key: ValueKey('editor-tab-${tab.id}')),
           ),
       ],
     );
