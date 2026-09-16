@@ -49,6 +49,9 @@ typography, spacing, and theming.
 - Tabbed bottom panel (`WorkbenchTabbedPanel`,
   `WorkbenchPanelTab`) with host-supplied tab descriptors, stable
   ids, and a View-menu / keyboard-shortcut focus contract.
+- Editor tab strip (`WorkbenchEditorTab`, §spec:editor-tabs) over
+  host-supplied editors, with shell-owned order, activation and
+  editor-tab keyboard bindings.
 - Status bar container plus typed item variants
   (`WorkbenchStatusBarItem`, `WorkbenchStatusBarAction`,
   `WorkbenchStatusBarProblemsItem`).
@@ -1343,21 +1346,23 @@ promotion gate live in §spec:custom-window-chrome.
 
 ### WorkbenchShortcuts §spec:shortcuts
 
-`WorkbenchShortcuts` installs the one keyboard binding every
-workbench ships: Cmd+J and Ctrl+J both dispatch
+`WorkbenchShortcuts` installs the keyboard bindings every
+workbench ships. Cmd+J and Ctrl+J both dispatch
 `ToggleBottomPanelIntent` through Flutter's `Shortcuts`/`Actions`
 pair (§spec:action-dispatch). Both activators are registered so the same intent
 fires regardless of the platform the user is on; the macOS system
 menu bar renders the Cmd glyph separately via
-`WorkbenchMenuBar`'s `PlatformMenuItem` shortcut hint.
+`WorkbenchMenuBar`'s `PlatformMenuItem` shortcut hint. A layout with
+editor tabs also binds the editor-tab commands (§spec:editor-tabs).
 
 `WorkbenchShortcuts` takes no callback props. Host-specific
 shortcuts — a tab-focus vocabulary, a command palette, etc. —
 pass through `extraShortcuts`, which the host defines with its
 own intent types, or install via a surrounding `Shortcuts`
-widget. The shell deliberately does not ship any tab-focus
-bindings: which tabs exist is a host concern, so the host owns
-both the intents and their activators.
+widget. The shell deliberately does not ship any panel-tab focus
+bindings: which panel tabs exist is a host concern, so the host owns
+both the intents and their activators. Editor-tab navigation names no
+tab, so the shell binds it (§spec:editor-tabs).
 
 ### Action Dispatch §spec:action-dispatch
 
@@ -1365,8 +1370,8 @@ both the intents and their activators.
 
 Menu entries (§spec:menu-bar) and keyboard shortcuts (§spec:shortcuts) dispatch
 through Flutter's `Actions`/`Intent` machinery. The shell
-publishes exactly one public intent: `ToggleBottomPanelIntent`.
-Every other command is host-defined — each command-bearing
+publishes `ToggleBottomPanelIntent` and the editor-tab intents of
+§spec:editor-tabs. Every other command is host-defined — each command-bearing
 `WorkbenchMenuEntry` (§spec:menu-model) carries an arbitrary
 `Intent`, and hosts install their own `Shortcuts` bindings for
 host-specific activators. Hosts register `Action<Intent>`
@@ -1381,16 +1386,18 @@ responds. The pattern matches Cocoa's target/action responder
 chain — the same mental model VS Code users carry from the OS
 menu bar.
 
-**Why the shell publishes only one intent**. Shipping a
+**Why the shell publishes so few intents**. Shipping a
 pre-baked vocabulary (`FocusMdiIntent`, `FocusTasksIntent`, …)
 would bake host-specific command names into a reusable package.
 Hosts with different panel layouts would either import intents
 they don't use or define their own anyway. `WorkbenchViewMenuTab`
 taking an arbitrary `Intent` lets each host express its own
 vocabulary with compile-time type safety; the shell stays
-agnostic. `ToggleBottomPanelIntent` is the one exception — the
-bottom-panel toggle is universal enough to warrant a named
-intent so the Cmd+J binding can be installed in the shell.
+agnostic. The exceptions are commands that name nothing host-specific.
+The bottom-panel toggle is universal enough to warrant
+`ToggleBottomPanelIntent`, so the Cmd+J binding can be installed in the
+shell, and the editor-tab commands (§spec:editor-tabs) follow the same
+test.
 
 **Why public intent types**. `Actions` keys on `Type`; the
 host's `Action<Intent>` declaration names the intent at compile
@@ -1435,7 +1442,8 @@ to adopt another host's layout. Each host defines its own intents
 (for example `FocusBottomPanelTabIntent(MyTabId tab)`) and installs
 its own `Shortcuts` map around the shell.
 
-**Scope**. Covers the View menu + Cmd/Ctrl+J. Notification-center
+**Scope**. Covers the View menu, Cmd/Ctrl+J, and the editor-tab
+bindings of §spec:editor-tabs. Notification-center
 dispatch (§spec:notification-center) is out of scope — that section defines its own
 intents. Host-defined shortcuts continue to pass through
 `extraShortcuts` or a surrounding `Shortcuts` widget.
@@ -1530,6 +1538,230 @@ differently — single builder per activity-bar section, not a
 tabbed stack — and do not need a parallel lifecycle abstraction.
 Notification-center surfaces (§spec:notification-center) live outside the bottom-panel
 model and do not participate in this contract.
+
+---
+
+## Editor Tabs §spec:editor-tabs
+
+*Status: not started*
+
+**Problem**: the editor area holds one host widget, so a host with two
+readings of one subject (a diagram and a table over the same
+selection) spends an activity-bar container on each. The user then
+switches modes of work to change views of one thing. A host that
+builds its own tab strip over the editor re-creates the drift the
+package exists to remove: tab height, the active-tab treatment, close
+and unsaved affordances, and theme mapping each diverge per host
+(§req:editor-tabs, §req:problem-statement).
+
+**The editor area renders a VS Code-canonical editor tab strip over
+host-supplied editors.** `WorkbenchLayout` takes an ordered list of
+`WorkbenchEditorTab` descriptors alongside `editor`. Each descriptor
+carries a stable id, a `String` label, an optional `IconData` icon, an
+`isDirty` flag, and a content builder. The shell renders the strip,
+shows the active tab's content beneath it, and owns which tab is active
+and the order the tabs stand in. The host owns which tabs exist,
+because what an editor shows is domain content (§spec:capability-boundary).
+Omitting the list leaves the editor area exactly as §spec:workbench-layout
+describes, so adopting tabs is additive.
+
+### Ownership of tab state §spec:editor-tab-state
+
+The split follows the line §req:editor-tabs draws: the host supplies
+title, content and state, and the shell owns the mechanics.
+
+- **Membership is the host's.** The host opens a tab by adding its
+  descriptor and closes one by removing it. A close gesture is a
+  request, reported through `onEditorTabCloseRequested`, and the tab
+  stays until the host removes it. VS Code asks whether to save a
+  dirty editor before closing it; that question and its answer are
+  host domain, so the shell cannot complete a close on its own.
+- **Order is the shell's.** On first build the tabs stand in list
+  order. After that the shell keeps its own order: an id the host
+  removes leaves it, and an id the host adds opens to the right of the
+  active tab, matching VS Code's `workbench.editor.openPositioning`
+  default of `right`. The host's list order no longer moves tabs once
+  they are open. Every change to the order, whether from a drag or an
+  open, is reported as the full id order through
+  `onEditorTabOrderChanged`, so a host that persists open tabs stores
+  that list and hands it back as its list order at startup.
+- **The active tab follows the controlled/uncontrolled seam**
+  (§spec:layout-customization): `initialActiveEditorTabId`, or
+  `activeEditorTabId` plus `onActiveEditorTabChanged`. A tab the host
+  adds becomes active, because opening an editor in VS Code reveals
+  it. When the active tab leaves the list, the most recently active
+  remaining tab takes its place, matching VS Code's
+  `workbench.editor.focusRecentEditorAfterClose` default. As with the
+  secondary side bar's tabs (§spec:secondary-sidebar), the shell both
+  originates an activation (a click, a key, a close) and reports it,
+  and a controlled host shall honor it to keep the strip functional.
+
+**Why the host reports order as a list, not as a move.** A
+`(from, to)` callback asks the host to splice its own list, which is
+reordering logic the requirement keeps out of the host. The full order
+is a value the host stores without interpreting.
+
+**Why editor tab order stays out of `WorkbenchLayoutState`.** The
+aggregate (§spec:layout-state-persistence) reconciles arrangement of
+views the host declares at startup. Open editors are different: which
+editors exist after a restart is a host decision that depends on host
+data, so the host persists membership, and order travels with it.
+
+### Rendering §spec:editor-tab-rendering
+
+The shell renders two treatments and picks one by the Modern UI flag
+(§spec:modern-ui-surfaces), as upstream does.
+
+- **Base.** VS Code's classic multi-tab strip, per
+  `multiEditorTabsControl.css`: a 35px row in
+  `editorGroupHeader.tabsBackground`, each tab `fit`-sized with a
+  `tab.border` divider on its trailing edge. The active tab paints
+  `tab.activeBackground` and `tab.activeForeground` with a 1px top
+  border in `tab.activeBorderTop` and a bottom border in
+  `tab.activeBorder`, each drawn only when the theme sets it. Inactive
+  tabs paint `tab.inactiveBackground` and `tab.inactiveForeground`.
+- **Modern UI.** Upstream's `connected` editor-tab style, the default
+  of `workbench.experimental.modernUIEditorTabStyle`, per
+  `connectedEditorTabs.css` and `tabs.css`. The active tab takes the
+  editor background and joins the editor card with an outside stroke
+  and curved shoulders; the strip and inactive tabs sit on
+  `editorGroupHeader.tabsBackground`. Geometry reads from
+  §spec:design-size-ladders and follows the treatment's density.
+
+Both treatments share the rest of the canon:
+
+- A tab shows its icon, when the host supplies one, then its label in
+  the editor-tab tier of §spec:chrome-typography-canon, in the casing
+  the host supplies.
+- The close button sits at the trailing edge. It shows on the active
+  tab and on hover, and is hidden otherwise, per upstream's
+  `.tab-actions` rules.
+- A dirty tab replaces its close glyph with a filled dot while the
+  pointer is not over it, and hovering reveals the close button again.
+- When the host supplies no `onEditorTabCloseRequested`, tabs render
+  no close button and ignore close gestures. A button that does
+  nothing is an affordance the canon does not have.
+- A single tab still renders as a strip, matching VS Code's
+  `workbench.editor.showTabs` default of `multiple`.
+- An empty tab list renders no strip; the `editor` widget fills the
+  area as the empty-editor surface, standing in for VS Code's empty
+  group watermark.
+- Centered layout and Zen (§spec:editing-modes) apply to the strip
+  and content together, because both belong to the editor part.
+
+**Why a typed icon, when panel tabs are text-only.** The text-only rule
+(§spec:tabbed-panel) enforces what VS Code's panel strip shows; it is
+not a rule that tabs carry no icons. VS Code's editor tabs show a file
+icon by default (`workbench.editor.showIcons`), so the canon here
+includes one. Taking `IconData` rather than a `Widget` keeps the
+shell's hold on size and color (§spec:capability-boundary).
+
+**Why connected only under Modern UI.** Upstream offers `connected`
+and `pill` and defaults to `connected`. Rendering both means a host
+setting and a second token family for a style few users see, so the
+shell renders the default and leaves `pill` for a consumer that needs
+it.
+
+**Theme mapping.** `WorkbenchTheme` resolves each color above from the
+VS Code key of the same name, with upstream's registry defaults as
+fallbacks. The drop indicator reads `tab.dragAndDropBorder`.
+
+### Interaction §spec:editor-tab-interaction
+
+- Clicking a tab activates it.
+- Clicking a tab's close button requests its close.
+- Dragging a tab reorders it. While dragging, a 2px bar in
+  `tab.dragAndDropBorder` marks the drop position on the leading or
+  trailing edge of the tab under the pointer, by which half of that
+  tab the pointer is over, per VS Code's `computeDropTarget`.
+- Tab content is built the first time its tab becomes active and
+  retained while another tab is active, offstage with tickers
+  disabled, so a tab keeps its scroll position and other widget state
+  across switches. This follows §spec:view-container-state, for the
+  same reason: switching views of one subject shall not reset them,
+  and a tab never shown costs nothing.
+- The strip exposes each tab to assistive technology as a selectable
+  tab carrying its label, its selected state and, when dirty, its
+  unsaved state.
+
+**Keyboard.** The shell publishes intents for the editor-tab commands
+every VS Code user carries in muscle memory, and binds them to
+upstream's defaults (`editorCommands.ts`, `editorActions.ts`):
+
+| Intent | Windows / Linux | macOS |
+|---|---|---|
+| Next editor tab | Ctrl+PageDown | Cmd+Alt+Right, Cmd+Shift+] |
+| Previous editor tab | Ctrl+PageUp | Cmd+Alt+Left, Cmd+Shift+[ |
+| Close active editor tab | Ctrl+W; also Ctrl+F4 on Windows | Cmd+W |
+| Editor tab 1–9 | Alt+1…9 | Ctrl+1…9 |
+| Last editor tab | Alt+0 | Ctrl+0 |
+
+The bindings are active only while the layout has editor tabs, and the
+close binding only while tabs are closable. The intents are public, so
+a host's menu entries (§spec:menu-model) dispatch the same commands.
+
+**Why the shell binds these, when it binds no panel-tab keys.**
+§spec:action-dispatch keeps panel-tab focus bindings in the host
+because they name the host's own tabs. The editor-tab commands name no
+tab: "next", "previous" and "close active" mean the same thing in
+every host. They are generic like `ToggleBottomPanelIntent`, and
+leaving them to each host would let their activators drift.
+
+**Deferred.** Each of these is a separable addition that the model
+above admits without change:
+
+- *Overflow scrolling.* Upstream scrolls the strip horizontally,
+  reveals the active tab, and maps a vertical wheel to horizontal
+  scroll. Until it lands, tabs past the strip's width are clipped at
+  its trailing edge.
+- *Middle-click close*, and *moving a tab by keyboard*
+  (`moveEditorLeftInGroup` / `moveEditorRightInGroup`).
+- *Ctrl+Tab recent-editor navigation*, which needs a quick-pick
+  surface the package does not render.
+- *Preview tabs and sticky (pinned) tabs.* Both are editor-lifecycle
+  policy — whether a click replaces an editor, which tabs survive
+  close-all — that a host can express through membership today.
+- *The tab context menu, tab descriptions*, and the `single` and
+  `none` values of `workbench.editor.showTabs`.
+- *Editor groups* (split editors). A group is an ordered set of tabs
+  with its own active tab, which is exactly the state this section
+  gives the editor area. Groups add a grid of such sets without
+  changing the descriptor or the per-set ownership split.
+
+**Rejected alternatives**:
+
+- *A standalone widget in the `editor` slot*, like
+  `WorkbenchTabbedPanel` in the bottom panel. The layout already owns
+  the editor card, centered layout and Zen, and the shortcut scope; a
+  widget inside a `Widget` slot could be wrapped in anything and would
+  leave each of those to host wiring. Editor groups, a layout concern,
+  would also have no place to attach.
+- *Reusing `WorkbenchTabbedPanel`.* It renders panel chrome: a text
+  underline or pill, no icons, no dirty state, a panel close button.
+  Editor tabs share a tab model with it, not a rendering.
+- *A host-controlled order* (`onEditorTabReordered(from, to)` with the
+  host re-sorting its list). It moves reordering logic into every host,
+  which §req:editor-tabs rules out.
+
+**Observable behavior**:
+
+- A layout given editor tabs renders a strip over the active tab's
+  content; a layout given none renders `editor` unchanged.
+- Clicking a tab shows its content, and returning to an earlier tab
+  shows it with its widget state intact.
+- Adding a tab opens it to the right of the active tab and activates
+  it; removing the active tab activates the most recently active
+  remaining tab.
+- Dragging a tab to a new position moves it there and reports the full
+  new order.
+- A dirty tab shows a dot in place of its close button until hovered.
+- Without a close handler, no tab shows a close button, and Cmd/Ctrl+W
+  closes nothing.
+- The keyboard bindings in the table move between and close tabs on
+  each platform.
+- Switching the Modern UI flag switches the strip between the base
+  and connected treatments, and a VS Code theme's `tab.*` and
+  `editorGroupHeader.*` colors reach the strip without host wiring.
 
 ---
 
@@ -3321,9 +3553,9 @@ rounded target behind its label. The item itself takes
 `spacing.size320` of height and `spacing.size100` of horizontal
 padding.
 
-Only the composite-bar half of that module applies here: the shell
-renders no editor tab strip, so the rest of `tabs.css` has no surface
-(§spec:tab-strip-canon).
+The composite-bar half of that module applies here. Its editor-tab
+half applies to the editor tab strip, which renders upstream's
+`connected` style under the treatment (§spec:editor-tabs).
 
 **A tab label is not a part title.** `fontRamp.css` raises the pane
 header and the part title to `fontSize.label1` semiBold, and `tabs.css`
@@ -3415,12 +3647,10 @@ excluded here, to be specified separately rather than absorbed:
 - *The command center.* `commandCenter.css` styles a surface the
   package does not render and §spec:capability-boundary keeps in the
   host.
-- *Editor tabs.* `tabs.css` restyles the editor group's tab strip as
-  well as the composite bar. The shell renders no editor tab strip —
-  the editor is host content — so that half has no surface. The
-  composite-bar half is specified above; an earlier pass excluded the
-  module whole and shipped a panel strip that still underlined its
-  active tab.
+- *Pill editor tabs.* `tabs.css` restyles the editor strip as pills
+  when `modernUIEditorTabStyle` is `pill`. The shell renders only the
+  default `connected` style (§spec:editor-tabs), so the pill half has
+  no surface.
 - *Scroll shadows.* The `scrollShadows` module carries no stylesheet of
   its own and the package ships no scroll-shadow affordance to
   suppress.
