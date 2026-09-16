@@ -1,10 +1,12 @@
 import 'dart:ui' show SemanticsRole;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:meta/meta.dart';
 
 import 'layout_constants.dart';
+import 'workbench_intents.dart';
 import 'workbench_theme.dart';
 
 /// One editor the host offers as a tab in the editor area
@@ -45,6 +47,77 @@ class WorkbenchEditorTab {
     this.icon,
     this.isDirty = false,
   });
+}
+
+/// VS Code's default editor-tab chords for [platform]
+/// (§spec:editor-tab-interaction), from `editorCommands.ts` and
+/// `editorActions.ts`. Apple platforms take the macOS set; every other
+/// platform takes the Windows / Linux set, with Ctrl+F4 on Windows alone. The
+/// close chord is bound only when [closable].
+@internal
+Map<ShortcutActivator, Intent> editorTabShortcuts({
+  required TargetPlatform platform,
+  required bool closable,
+}) {
+  final apple =
+      platform == TargetPlatform.macOS || platform == TargetPlatform.iOS;
+  // Editor positions 1–9 in order; 0 selects the last editor.
+  const digits = [
+    LogicalKeyboardKey.digit1,
+    LogicalKeyboardKey.digit2,
+    LogicalKeyboardKey.digit3,
+    LogicalKeyboardKey.digit4,
+    LogicalKeyboardKey.digit5,
+    LogicalKeyboardKey.digit6,
+    LogicalKeyboardKey.digit7,
+    LogicalKeyboardKey.digit8,
+    LogicalKeyboardKey.digit9,
+  ];
+  SingleActivator position(LogicalKeyboardKey key) => apple
+      ? SingleActivator(key, control: true)
+      : SingleActivator(key, alt: true);
+  return {
+    if (apple) ...{
+      const SingleActivator(
+        LogicalKeyboardKey.arrowRight,
+        meta: true,
+        alt: true,
+      ): const ActivateNextEditorTabIntent(),
+      const SingleActivator(
+        LogicalKeyboardKey.bracketRight,
+        meta: true,
+        shift: true,
+      ): const ActivateNextEditorTabIntent(),
+      const SingleActivator(
+        LogicalKeyboardKey.arrowLeft,
+        meta: true,
+        alt: true,
+      ): const ActivatePreviousEditorTabIntent(),
+      const SingleActivator(
+        LogicalKeyboardKey.bracketLeft,
+        meta: true,
+        shift: true,
+      ): const ActivatePreviousEditorTabIntent(),
+      if (closable)
+        const SingleActivator(LogicalKeyboardKey.keyW, meta: true):
+            const CloseActiveEditorTabIntent(),
+    } else ...{
+      const SingleActivator(LogicalKeyboardKey.pageDown, control: true):
+          const ActivateNextEditorTabIntent(),
+      const SingleActivator(LogicalKeyboardKey.pageUp, control: true):
+          const ActivatePreviousEditorTabIntent(),
+      if (closable) ...{
+        const SingleActivator(LogicalKeyboardKey.keyW, control: true):
+            const CloseActiveEditorTabIntent(),
+        if (platform == TargetPlatform.windows)
+          const SingleActivator(LogicalKeyboardKey.f4, control: true):
+              const CloseActiveEditorTabIntent(),
+      },
+    },
+    for (final (index, key) in digits.indexed)
+      position(key): ActivateEditorTabAtIndexIntent(index),
+    position(LogicalKeyboardKey.digit0): const ActivateLastEditorTabIntent(),
+  };
 }
 
 /// The editor part with tabs: the strip over a retained stack of opened tab
@@ -110,7 +183,12 @@ class EditorTabsPart extends StatelessWidget {
                     offstage: id != activeId,
                     child: TickerMode(
                       enabled: id == activeId,
-                      child: Builder(builder: tab.contentBuilder),
+                      // A hidden editor cannot keep focus, so keys never land
+                      // in content the user cannot see.
+                      child: ExcludeFocus(
+                        excluding: id != activeId,
+                        child: Builder(builder: tab.contentBuilder),
+                      ),
                     ),
                   ),
             ],

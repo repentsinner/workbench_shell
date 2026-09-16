@@ -1062,5 +1062,57 @@ void main() {
       expect(find.text('Untitled-2'), findsOneWidget);
       expect(find.text('No editor is open'), findsNothing);
     });
+
+    /// Presses [key] with the named modifiers held.
+    Future<void> chord(
+      WidgetTester tester,
+      LogicalKeyboardKey key, {
+      bool meta = false,
+      bool control = false,
+      bool alt = false,
+    }) async {
+      final modifiers = [
+        if (meta) LogicalKeyboardKey.metaLeft,
+        if (control) LogicalKeyboardKey.controlLeft,
+        if (alt) LogicalKeyboardKey.altLeft,
+      ];
+      for (final modifier in modifiers) {
+        await tester.sendKeyDownEvent(modifier);
+      }
+      await tester.sendKeyEvent(key);
+      for (final modifier in modifiers.reversed) {
+        await tester.sendKeyUpEvent(modifier);
+      }
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the macOS editor chords move between and close tabs', (
+      tester,
+    ) async {
+      await pumpWide(tester);
+      expect(find.textContaining('Lorem ipsum'), findsOneWidget);
+
+      await chord(tester, LogicalKeyboardKey.arrowRight, meta: true, alt: true);
+      expect(find.text('# release-notes.md'), findsOneWidget);
+      await chord(tester, LogicalKeyboardKey.digit1, control: true);
+      expect(find.textContaining('Lorem ipsum'), findsOneWidget);
+
+      await chord(tester, LogicalKeyboardKey.keyW, meta: true);
+      expect(find.text('lorem-ipsum.txt'), findsNothing);
+      expect(find.text('# release-notes.md'), findsOneWidget);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+    testWidgets('the Windows and Linux editor chords move between and close '
+        'tabs', (tester) async {
+      await pumpWide(tester);
+
+      await chord(tester, LogicalKeyboardKey.pageDown, control: true);
+      expect(find.text('# release-notes.md'), findsOneWidget);
+      await chord(tester, LogicalKeyboardKey.digit1, alt: true);
+      expect(find.textContaining('Lorem ipsum'), findsOneWidget);
+
+      await chord(tester, LogicalKeyboardKey.keyW, control: true);
+      expect(find.text('lorem-ipsum.txt'), findsNothing);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
   });
 }

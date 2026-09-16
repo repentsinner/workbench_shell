@@ -8,6 +8,12 @@
 // pattern for pub.dev consumers: host owns its tab vocabulary and focus
 // intent; the shell owns chrome and the panel-toggle default.
 //
+// The editor area opens host-supplied editors as tabs. The host adds,
+// marks unsaved and closes editors; the shell owns the strip, the tab
+// order and the active tab, and binds VS Code's editor-tab chords
+// (Cmd+Alt+Right/Left, Ctrl+1–9, Cmd+W on macOS; Ctrl+PageDown/PageUp,
+// Alt+1–9, Ctrl+W elsewhere) without any host wiring.
+//
 // The Output panel observes its `PanelLifecycle.isFocused` to drive
 // a once-per-second counter that pauses while the tab is blurred or
 // the bottom panel is hidden — the canonical focus-aware-content

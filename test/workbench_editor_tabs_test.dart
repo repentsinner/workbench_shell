@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:workbench_shell/src/workbench_editor_tabs.dart';
@@ -672,4 +673,256 @@ void main() {
       handle.dispose();
     });
   });
+
+  group('Editor tab keyboard (§spec:editor-tab-interaction)', () {
+    /// Presses [key] with the named modifiers held.
+    Future<void> press(
+      WidgetTester tester,
+      LogicalKeyboardKey key, {
+      bool meta = false,
+      bool control = false,
+      bool alt = false,
+      bool shift = false,
+    }) async {
+      final modifiers = [
+        if (meta) LogicalKeyboardKey.metaLeft,
+        if (control) LogicalKeyboardKey.controlLeft,
+        if (alt) LogicalKeyboardKey.altLeft,
+        if (shift) LogicalKeyboardKey.shiftLeft,
+      ];
+      for (final modifier in modifiers) {
+        await tester.sendKeyDownEvent(modifier);
+      }
+      await tester.sendKeyEvent(key);
+      for (final modifier in modifiers.reversed) {
+        await tester.sendKeyUpEvent(modifier);
+      }
+      await tester.pump();
+    }
+
+    /// The id of the tab whose content shows.
+    String shown() {
+      for (final id in const ['a', 'b', 'c']) {
+        if (find.text('Content $id').evaluate().isNotEmpty) return id;
+      }
+      return '';
+    }
+
+    /// A host the way the example builds one: [WorkbenchShortcuts] above the
+    /// layout, holding focus through its own autofocus.
+    Widget host({
+      List<WorkbenchEditorTab>? tabs,
+      ValueChanged<String>? onEditorTabCloseRequested,
+      Map<ShortcutActivator, Intent>? extraShortcuts,
+      Map<Type, Action<Intent>>? actions,
+    }) {
+      return Actions(
+        actions: actions ?? const {},
+        child: WorkbenchShortcuts(
+          extraShortcuts: extraShortcuts,
+          child: _layout(
+            editorTabs: tabs ?? [_tab('a'), _tab('b'), _tab('c')],
+            onEditorTabCloseRequested: onEditorTabCloseRequested,
+          ),
+        ),
+      );
+    }
+
+    testWidgets('macOS binds next, previous, index, last and close', (
+      tester,
+    ) async {
+      final closed = <String>[];
+      await tester.pumpWidget(host(onEditorTabCloseRequested: closed.add));
+      await tester.pump();
+      expect(shown(), 'a');
+
+      await press(tester, LogicalKeyboardKey.arrowRight, meta: true, alt: true);
+      expect(shown(), 'b');
+      await press(
+        tester,
+        LogicalKeyboardKey.bracketRight,
+        meta: true,
+        shift: true,
+      );
+      expect(shown(), 'c');
+      // Next wraps from the last tab to the first.
+      await press(tester, LogicalKeyboardKey.arrowRight, meta: true, alt: true);
+      expect(shown(), 'a');
+      // Previous wraps from the first tab to the last.
+      await press(tester, LogicalKeyboardKey.arrowLeft, meta: true, alt: true);
+      expect(shown(), 'c');
+      await press(
+        tester,
+        LogicalKeyboardKey.bracketLeft,
+        meta: true,
+        shift: true,
+      );
+      expect(shown(), 'b');
+
+      await press(tester, LogicalKeyboardKey.digit1, control: true);
+      expect(shown(), 'a');
+      await press(tester, LogicalKeyboardKey.digit0, control: true);
+      expect(shown(), 'c');
+      await press(tester, LogicalKeyboardKey.digit2, control: true);
+      expect(shown(), 'b');
+      // An index past the last tab does nothing.
+      await press(tester, LogicalKeyboardKey.digit9, control: true);
+      expect(shown(), 'b');
+
+      await press(tester, LogicalKeyboardKey.keyW, meta: true);
+      expect(closed, ['b']);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+    testWidgets('Windows binds Ctrl+PageDown/PageUp, Alt+digits, Ctrl+W and '
+        'Ctrl+F4', (tester) async {
+      final closed = <String>[];
+      await tester.pumpWidget(host(onEditorTabCloseRequested: closed.add));
+      await tester.pump();
+
+      await press(tester, LogicalKeyboardKey.pageDown, control: true);
+      expect(shown(), 'b');
+      await press(tester, LogicalKeyboardKey.pageUp, control: true);
+      expect(shown(), 'a');
+      await press(tester, LogicalKeyboardKey.digit3, alt: true);
+      expect(shown(), 'c');
+      await press(tester, LogicalKeyboardKey.digit0, alt: true);
+      expect(shown(), 'c');
+      await press(tester, LogicalKeyboardKey.digit1, alt: true);
+      expect(shown(), 'a');
+
+      await press(tester, LogicalKeyboardKey.keyW, control: true);
+      await press(tester, LogicalKeyboardKey.f4, control: true);
+      expect(closed, ['a', 'a']);
+
+      // The macOS chords are not bound here.
+      await press(tester, LogicalKeyboardKey.arrowRight, meta: true, alt: true);
+      expect(shown(), 'a');
+    }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+
+    testWidgets('Linux binds the Windows set without Ctrl+F4', (tester) async {
+      final closed = <String>[];
+      await tester.pumpWidget(host(onEditorTabCloseRequested: closed.add));
+      await tester.pump();
+
+      await press(tester, LogicalKeyboardKey.pageDown, control: true);
+      expect(shown(), 'b');
+      await press(tester, LogicalKeyboardKey.f4, control: true);
+      expect(closed, isEmpty);
+      await press(tester, LogicalKeyboardKey.keyW, control: true);
+      expect(closed, ['b']);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+    testWidgets('without a close handler the close chord closes nothing and '
+        'reaches the host', (tester) async {
+      var hostHandled = 0;
+      await tester.pumpWidget(
+        host(
+          extraShortcuts: const {
+            SingleActivator(LogicalKeyboardKey.keyW, meta: true):
+                _HostCloseIntent(),
+          },
+          actions: {
+            _HostCloseIntent: CallbackAction<_HostCloseIntent>(
+              onInvoke: (_) => hostHandled++,
+            ),
+          },
+        ),
+      );
+      await tester.pump();
+      await press(tester, LogicalKeyboardKey.keyW, meta: true);
+      expect(hostHandled, 1);
+      expect(shown(), 'a');
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+    testWidgets('a layout without tabs binds nothing', (tester) async {
+      var hostHandled = 0;
+      await tester.pumpWidget(
+        host(
+          tabs: const [],
+          extraShortcuts: const {
+            SingleActivator(LogicalKeyboardKey.keyW, meta: true):
+                _HostCloseIntent(),
+          },
+          actions: {
+            _HostCloseIntent: CallbackAction<_HostCloseIntent>(
+              onInvoke: (_) => hostHandled++,
+            ),
+          },
+        ),
+      );
+      await tester.pump();
+      await press(tester, LogicalKeyboardKey.keyW, meta: true);
+      await press(tester, LogicalKeyboardKey.arrowRight, meta: true, alt: true);
+      expect(hostHandled, 1);
+      expect(find.text('Empty editor'), findsOneWidget);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+    testWidgets('the host bindings above the layout still fire', (
+      tester,
+    ) async {
+      var toggled = 0;
+      await tester.pumpWidget(
+        host(
+          actions: {
+            ToggleBottomPanelIntent: CallbackAction<ToggleBottomPanelIntent>(
+              onInvoke: (_) => toggled++,
+            ),
+          },
+        ),
+      );
+      await tester.pump();
+      await press(tester, LogicalKeyboardKey.keyJ, meta: true);
+      expect(toggled, 1);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+    testWidgets('a hidden tab gives up focus, and the bindings keep working', (
+      tester,
+    ) async {
+      final contentNode = FocusNode();
+      addTearDown(contentNode.dispose);
+      await tester.pumpWidget(
+        host(
+          tabs: [
+            _tab(
+              'a',
+              contentBuilder: (_) => Focus(
+                focusNode: contentNode,
+                child: const Text('Content a'),
+              ),
+            ),
+            _tab('b'),
+          ],
+        ),
+      );
+      await tester.pump();
+      contentNode.requestFocus();
+      await tester.pump();
+      expect(contentNode.hasPrimaryFocus, isTrue);
+
+      await press(tester, LogicalKeyboardKey.arrowRight, meta: true, alt: true);
+      expect(shown(), 'b');
+      expect(contentNode.hasFocus, isFalse);
+      // Focus did not strand in the hidden editor, so the next chord lands.
+      await press(tester, LogicalKeyboardKey.arrowLeft, meta: true, alt: true);
+      expect(shown(), 'a');
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+    testWidgets('content inside a tab dispatches the published intents', (
+      tester,
+    ) async {
+      await tester.pumpWidget(host());
+      await tester.pump();
+      Actions.invoke(
+        tester.element(find.text('Content a')),
+        const ActivateLastEditorTabIntent(),
+      );
+      await tester.pump();
+      expect(shown(), 'c');
+    });
+  });
+}
+
+/// A host's own command bound to the same chord as the shell's close.
+class _HostCloseIntent extends Intent {
+  const _HostCloseIntent();
 }

@@ -647,9 +647,11 @@ class _EnableAwareMenuEntryState extends State<_EnableAwareMenuEntry> {
 /// primitive; hosts register `Action<ToggleBottomPanelIntent>` at the
 /// widget that owns the panel-visibility flag.
 ///
-/// The shell ships only this single binding. Hosts install any other
-/// workbench shortcuts (tab-focus, command-palette, etc.) via a
-/// surrounding `Shortcuts` widget with their own intent vocabulary.
+/// This widget ships only this single binding. A `WorkbenchLayout` with
+/// editor tabs binds the editor-tab commands itself, because it owns the
+/// state they act on (§spec:shortcuts). Hosts install any other workbench
+/// shortcuts (tab-focus, command-palette, etc.) via a surrounding
+/// `Shortcuts` widget with their own intent vocabulary.
 /// Host-specific extras can also pass through [extraShortcuts], which
 /// merges into the default map.
 class WorkbenchShortcuts extends StatelessWidget {

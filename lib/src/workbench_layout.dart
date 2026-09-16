@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'activity_bar_item.dart';
 import 'layout_constants.dart';
 import 'workbench_editor_tabs.dart';
+import 'workbench_intents.dart';
 import 'workbench_layout_state.dart';
 import 'workbench_sash.dart';
 import 'workbench_surface_treatment.dart';
@@ -1172,6 +1174,8 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   @override
   void initState() {
     super.initState();
+    FocusManager.instance.addListener(_adoptKeyFocus);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _adoptKeyFocus());
     _internalSidebarPosition = widget.initialSidebarPosition;
     _internalPanelAlignment = widget.initialPanelAlignment;
     _internalLayoutDensity = widget.initialLayoutDensity;
@@ -1230,7 +1234,19 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     if (!identical(oldWidget.activityBarItems, widget.activityBarItems)) {
       _partitionActivityItems();
     }
+    final hadTabs = _editorTabOrder.isNotEmpty;
     _reconcileEditorTabs();
+    // Gaining tabs gains the bindings, which need focus to hear keys.
+    if (!hadTabs && _editorTabOrder.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _adoptKeyFocus());
+    }
+  }
+
+  @override
+  void dispose() {
+    FocusManager.instance.removeListener(_adoptKeyFocus);
+    _editorTabKeysFocusNode.dispose();
+    super.dispose();
   }
 
   /// Fold the host's tab list into the shell-owned order
@@ -1421,11 +1437,13 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     // composition choice, not a separate layout: the same editorContent renders
     // bare, so the two modes compose without special-casing.
     if (_zenMode) {
-      return WorkbenchSurfaceTreatment(
-        modernUI: _modernUI,
-        child: Scaffold(
-          backgroundColor: _backdrop(theme),
-          body: SafeArea(child: editorContent),
+      return _wrapEditorTabKeys(
+        WorkbenchSurfaceTreatment(
+          modernUI: _modernUI,
+          child: Scaffold(
+            backgroundColor: _backdrop(theme),
+            body: SafeArea(child: editorContent),
+          ),
         ),
       );
     }
@@ -1735,21 +1753,123 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     // The treatment reaches parts the layout does not build — the host's status
     // bar and its view pane bodies — through the element tree rather than a
     // constructor argument (§spec:modern-ui-surfaces).
-    return WorkbenchSurfaceTreatment(
-      modernUI: modernUI,
-      child: Scaffold(
-        backgroundColor: _backdrop(theme),
-        body: SafeArea(
-          child: Column(
-            children: [
-              Expanded(child: Row(children: rowChildren)),
-              // Hidden status bar yields its strip to the workbench above; Zen
-              // mode (handled earlier) hides it wholesale alongside all chrome.
-              if (_statusBarVisible) widget.statusBar,
-            ],
+    return _wrapEditorTabKeys(
+      WorkbenchSurfaceTreatment(
+        modernUI: modernUI,
+        child: Scaffold(
+          backgroundColor: _backdrop(theme),
+          body: SafeArea(
+            child: Column(
+              children: [
+                Expanded(child: Row(children: rowChildren)),
+                // Hidden status bar yields its strip to the workbench above;
+                // Zen mode (handled earlier) hides it wholesale alongside all
+                // chrome.
+                if (_statusBarVisible) widget.statusBar,
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  /// Bind the editor-tab commands around the whole workbench
+  /// (§spec:editor-tab-interaction). VS Code's editor-tab chords are
+  /// workbench-wide rather than scoped to the editor, so the bindings wrap
+  /// every part. The wrappers stay in the tree whether or not there are tabs,
+  /// so gaining or losing tabs never re-parents the workbench; with no tabs
+  /// the map is empty and the node takes no focus.
+  Widget _wrapEditorTabKeys(Widget child) {
+    final hasTabs = _editorTabOrder.isNotEmpty;
+    return Actions(
+      actions: _editorTabActions,
+      child: Shortcuts(
+        shortcuts: hasTabs
+            ? editorTabShortcuts(
+                platform: defaultTargetPlatform,
+                closable: widget.onEditorTabCloseRequested != null,
+              )
+            : const <ShortcutActivator, Intent>{},
+        child: Focus(
+          focusNode: _editorTabKeysFocusNode,
+          canRequestFocus: hasTabs,
+          skipTraversal: true,
+          child: child,
+        ),
+      ),
+    );
+  }
+
+  /// Receives key events for the editor-tab bindings. `Shortcuts` sees only
+  /// events that bubble up from the primary focus, so this node holds focus
+  /// whenever nothing inside the workbench does (see [_adoptKeyFocus]).
+  final FocusNode _editorTabKeysFocusNode = FocusNode(
+    debugLabel: 'WorkbenchLayout editor tab keys',
+  );
+
+  /// Take primary focus when it rests above the workbench — on a wrapper such
+  /// as `WorkbenchShortcuts`, a route scope, or nowhere — so the editor-tab
+  /// chords reach the bindings in [_wrapEditorTabKeys] without the user first
+  /// clicking into the workbench. Focus inside the workbench, or in another
+  /// route, is left alone, and bindings above still see every event because
+  /// it bubbles through them.
+  void _adoptKeyFocus() {
+    if (!mounted || _editorTabOrder.isEmpty) return;
+    final node = _editorTabKeysFocusNode;
+    final primary = FocusManager.instance.primaryFocus;
+    if (primary == node || node.context == null) return;
+    if (primary == null || node.ancestors.contains(primary)) {
+      node.requestFocus();
+    }
+  }
+
+  /// The editor-tab command handlers (§spec:action-dispatch). Built once so a
+  /// listener's subscription outlives rebuilds; each reads live state when it
+  /// runs.
+  late final Map<Type, Action<Intent>> _editorTabActions = {
+    ActivateNextEditorTabIntent: _EditorTabAction<ActivateNextEditorTabIntent>(
+      enabled: () => _editorTabOrder.isNotEmpty,
+      onInvoke: (_) => _activateAdjacentEditorTab(1),
+    ),
+    ActivatePreviousEditorTabIntent:
+        _EditorTabAction<ActivatePreviousEditorTabIntent>(
+          enabled: () => _editorTabOrder.isNotEmpty,
+          onInvoke: (_) => _activateAdjacentEditorTab(-1),
+        ),
+    ActivateEditorTabAtIndexIntent:
+        _EditorTabAction<ActivateEditorTabAtIndexIntent>(
+          enabled: () => _editorTabOrder.isNotEmpty,
+          onInvoke: (intent) {
+            if (intent.index < 0 || intent.index >= _editorTabOrder.length) {
+              return;
+            }
+            _setActiveEditorTab(_editorTabOrder[intent.index]);
+          },
+        ),
+    ActivateLastEditorTabIntent: _EditorTabAction<ActivateLastEditorTabIntent>(
+      enabled: () => _editorTabOrder.isNotEmpty,
+      onInvoke: (_) => _setActiveEditorTab(_editorTabOrder.last),
+    ),
+    // Disabled without a close handler, so the chord passes to any binding
+    // above rather than closing nothing (§spec:editor-tab-rendering).
+    CloseActiveEditorTabIntent: _EditorTabAction<CloseActiveEditorTabIntent>(
+      enabled: () =>
+          _editorTabOrder.isNotEmpty &&
+          widget.onEditorTabCloseRequested != null,
+      onInvoke: (_) => widget.onEditorTabCloseRequested!(_activeEditorTabId!),
+    ),
+  };
+
+  /// Step the active editor tab [step] places along the strip, wrapping at
+  /// either end as VS Code's `nextEditor` / `previousEditor` do within a
+  /// single group.
+  void _activateAdjacentEditorTab(int step) {
+    final active = _activeEditorTabId;
+    if (active == null) return;
+    final order = _editorTabOrder;
+    _setActiveEditorTab(
+      order[(order.indexOf(active) + step) % order.length],
     );
   }
 
@@ -2815,5 +2935,24 @@ class _RetainedContainer extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// One editor-tab command handler (§spec:action-dispatch). `CallbackAction`
+/// reports itself always enabled, and a disabled action is what lets a chord
+/// the layout cannot serve fall through to a host binding above it.
+class _EditorTabAction<T extends Intent> extends Action<T> {
+  final bool Function() enabled;
+  final void Function(T intent) onInvoke;
+
+  _EditorTabAction({required this.enabled, required this.onInvoke});
+
+  @override
+  bool isEnabled(T intent) => enabled();
+
+  @override
+  Object? invoke(T intent) {
+    onInvoke(intent);
+    return null;
   }
 }
