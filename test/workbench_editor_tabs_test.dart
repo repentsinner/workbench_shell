@@ -573,6 +573,22 @@ void main() {
       expect(actives, ['c', 'b', 'c']);
     });
 
+    testWidgets('a host that edits its tab list in place is reconciled', (
+      tester,
+    ) async {
+      final tabs = [_tab('a'), _tab('b')];
+      await tester.pumpWidget(
+        _layout(editorTabs: tabs, initialActiveEditorTabId: 'b'),
+      );
+      tabs.removeLast();
+      await tester.pumpWidget(
+        _layout(editorTabs: tabs, initialActiveEditorTabId: 'b'),
+      );
+      expect(tester.takeException(), isNull);
+      expect(find.text('Tab b'), findsNothing);
+      expect(find.text('Content a'), findsOneWidget);
+    });
+
     testWidgets('removing an inactive tab keeps the active tab', (
       tester,
     ) async {

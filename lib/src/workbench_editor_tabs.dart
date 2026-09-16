@@ -232,7 +232,9 @@ class _EditorTabsScopeState extends State<EditorTabsScope> {
   void didUpdateWidget(covariant EditorTabsScope oldWidget) {
     super.didUpdateWidget(oldWidget);
     final hadTabs = _order.isNotEmpty;
-    if (!identical(oldWidget.tabs, widget.tabs)) _reconcile();
+    // Always reconcile: a host that edits its list in place passes the same
+    // instance back, and skipping would leave the order naming a removed id.
+    _reconcile();
     // Covers a controlled host's change as well as the reconcile's own.
     _recordActive();
     if (!hadTabs) _adoptKeyFocusAfterFrame();
