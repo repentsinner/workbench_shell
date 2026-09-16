@@ -139,6 +139,21 @@ void main() {
       expect(decoration.border, isNull);
     });
 
+    testWidgets('the strip repaints apart from the editor content', (
+      tester,
+    ) async {
+      for (final modernUI in [false, true]) {
+        await tester.pumpWidget(
+          _layout(editorTabs: [_tab('a'), _tab('b')], modernUI: modernUI),
+        );
+        // Hover and drag feedback repaint the strip alone.
+        expect(
+          tester.renderObject(find.byType(EditorTabStrip)).isRepaintBoundary,
+          isTrue,
+        );
+      }
+    });
+
     testWidgets('a tab is fit-sized: at least 120px, growing with its label', (
       tester,
     ) async {

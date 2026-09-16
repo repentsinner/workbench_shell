@@ -769,32 +769,36 @@ class _EditorTabStripState extends State<EditorTabStrip> {
         ),
       ),
     );
-    return SizedBox(
-      height: metrics.stripHeight,
-      child: DecoratedBox(
-        key: const ValueKey('editor-tab-strip-background'),
-        decoration: BoxDecoration(
-          color: connected
-              ? ConnectedEditorTabPainter.stripBackground(theme)
-              : theme.editorGroupHeaderTabsBackground,
-          // Under Modern UI, the separator along the strip's foot, in the
-          // editor surface so the active tab and the editor read as one well.
-          // Inactive fills repaint it over themselves; the active tab covers
-          // it.
-          border: connected
-              ? Border(
-                  bottom: BorderSide(
-                    color: theme.editorBackground,
-                    // Stated so the separator tracks `strokeThickness` if
-                    // upstream moves it, rather than silently keeping
-                    // Flutter's 1px default.
-                    // ignore: avoid_redundant_argument_values
-                    width: WorkbenchLayoutConstants.strokeThickness,
-                  ),
-                )
-              : null,
+    // Hover fills and the drop bar repaint the strip alone, not the editor
+    // content beneath it.
+    return RepaintBoundary(
+      child: SizedBox(
+        height: metrics.stripHeight,
+        child: DecoratedBox(
+          key: const ValueKey('editor-tab-strip-background'),
+          decoration: BoxDecoration(
+            color: connected
+                ? ConnectedEditorTabPainter.stripBackground(theme)
+                : theme.editorGroupHeaderTabsBackground,
+            // Under Modern UI, the separator along the strip's foot, in the
+            // editor surface so the active tab and the editor read as one well.
+            // Inactive fills repaint it over themselves; the active tab covers
+            // it.
+            border: connected
+                ? Border(
+                    bottom: BorderSide(
+                      color: theme.editorBackground,
+                      // Stated so the separator tracks `strokeThickness` if
+                      // upstream moves it, rather than silently keeping
+                      // Flutter's 1px default.
+                      // ignore: avoid_redundant_argument_values
+                      width: WorkbenchLayoutConstants.strokeThickness,
+                    ),
+                  )
+                : null,
+          ),
+          child: content,
         ),
-        child: content,
       ),
     );
   }
