@@ -403,8 +403,8 @@ class WorkbenchLayout extends StatefulWidget {
   /// [editor] unchanged. Ids shall be unique.
   final List<WorkbenchEditorTab> editorTabs;
 
-  /// Notified with the full id order whenever the shell changes the tab order
-  /// (§spec:editor-tab-state) — today when an added tab opens. A host that
+  /// Notified with the full id order whenever the shell changes the tab order,
+  /// as it does when an added tab opens (§spec:editor-tab-state). A host that
   /// persists open tabs stores this list and hands it back as its list order
   /// at startup.
   final ValueChanged<List<String>>? onEditorTabOrderChanged;
@@ -1113,6 +1113,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     final byId = {for (final tab in widget.editorTabs) tab.id: tab};
     return [for (final id in _editorTabOrder) byId[id]!];
   }
+
   bool get _secondarySideBarVisible =>
       widget.secondarySideBarVisible ?? _internalSecondarySideBarVisible;
 
