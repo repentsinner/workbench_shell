@@ -128,15 +128,15 @@ void main() {
         WorkbenchLayoutConstants.editorTabHeight,
       );
       expect(WorkbenchLayoutConstants.editorTabHeight, 35);
-      final strip = tester.widget<ColoredBox>(
-        find
-            .descendant(
-              of: find.byType(EditorTabStrip),
-              matching: find.byType(ColoredBox),
-            )
-            .first,
+      final strip = tester.widget<DecoratedBox>(
+        find.byKey(const ValueKey('editor-tab-strip-background')),
       );
-      expect(strip.color, testWorkbenchTheme.editorGroupHeaderTabsBackground);
+      final decoration = strip.decoration as BoxDecoration;
+      expect(
+        decoration.color,
+        testWorkbenchTheme.editorGroupHeaderTabsBackground,
+      );
+      expect(decoration.border, isNull);
     });
 
     testWidgets('a tab is fit-sized: at least 120px, growing with its label', (

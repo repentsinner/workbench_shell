@@ -228,6 +228,12 @@ class WorkbenchLayoutConstants {
   /// is the 4px top and bottom padding `EDITOR_TAB_HEIGHT.modernUI` counts.
   static const double modernEditorTabRowInset = spacingSize40;
 
+  /// Inset below a Modern UI editor tab's content row: the lower band plus
+  /// the stroke the connected strip reserves for its separator (see
+  /// [connectedEditorTabStripHeight]).
+  static const double modernEditorTabRowInsetBottom =
+      modernEditorTabRowInset + strokeThickness;
+
   /// The connected strip's height: `EDITOR_TAB_HEIGHT.modernUI` (32px) plus
   /// the stroke `connectedEditorTabs.css` reserves for the separator below
   /// the tabs (`.tabs-container { padding-bottom: strokeThickness }`).
