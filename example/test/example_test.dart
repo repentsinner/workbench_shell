@@ -989,6 +989,31 @@ void main() {
       );
     }
 
+    testWidgets('the strip is connected under Modern UI and classic without '
+        'it', (tester) async {
+      await pumpWide(tester);
+      // The tab stretches to the strip's height, so it reads the row.
+      double stripHeight() => tester.getSize(tabOf('lorem-ipsum.txt')).height;
+
+      expect(
+        stripHeight(),
+        WorkbenchLayoutConstants.connectedEditorTabStripHeight,
+      );
+      expect(
+        find.byKey(const ValueKey('editor-tab-connected-fill')),
+        findsNWidgets(2),
+      );
+
+      final context = tester.element(find.byType(WorkbenchLayout));
+      Actions.invoke(context, const ToggleModernUIIntent());
+      await tester.pumpAndSettle();
+      expect(stripHeight(), WorkbenchLayoutConstants.editorTabHeight);
+      expect(
+        find.byKey(const ValueKey('editor-tab-connected-fill')),
+        findsNothing,
+      );
+    });
+
     testWidgets('a new editor opens right of the active tab and activates', (
       tester,
     ) async {

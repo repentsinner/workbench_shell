@@ -37,6 +37,7 @@ Widget _layout({
   bool? zenMode,
   bool? centeredLayout,
   bool modernUI = false,
+  WorkbenchLayoutDensity? layoutDensity,
   WorkbenchTheme? theme,
 }) {
   return MaterialApp(
@@ -60,6 +61,8 @@ Widget _layout({
       onCenteredLayoutChanged: centeredLayout == null ? null : (_) {},
       modernUI: modernUI,
       onModernUIChanged: (_) {},
+      layoutDensity: layoutDensity,
+      onLayoutDensityChanged: layoutDensity == null ? null : (_) {},
     ),
   );
 }
@@ -426,17 +429,6 @@ void main() {
       );
     });
 
-    testWidgets('the Modern UI flag renders the base strip until the '
-        'connected treatment lands', (tester) async {
-      await tester.pumpWidget(
-        _layout(editorTabs: [_tab('a'), _tab('b')], modernUI: true),
-      );
-      expect(
-        tester.getSize(find.byType(EditorTabStrip)).height,
-        WorkbenchLayoutConstants.editorTabHeight,
-      );
-    });
-
     testWidgets('exposes each tab as a selectable tab to assistive '
         'technology', (tester) async {
       final handle = tester.ensureSemantics();
@@ -464,6 +456,237 @@ void main() {
       handle.dispose();
     });
   });
+
+  group(
+    'Connected editor tabs under Modern UI (§spec:editor-tab-rendering)',
+    () {
+      /// The connected fill painter of the tab with [id].
+      ConnectedEditorTabPainter painterOf(WidgetTester tester, String id) {
+        final paint = tester.widget<CustomPaint>(
+          find.descendant(
+            of: find.byKey(ValueKey('editor-tab-$id')),
+            matching: find.byKey(const ValueKey('editor-tab-connected-fill')),
+          ),
+        );
+        return paint.painter! as ConnectedEditorTabPainter;
+      }
+
+      testWidgets('the strip is the 32px Modern UI row plus the separator '
+          'stroke, at either density', (tester) async {
+        // editorTabsControl.ts: EDITOR_TAB_HEIGHT.modernUI (24px tab + 4px
+        // above and below), plus one pixel connected tabs reserve for the
+        // separator.
+        expect(
+          WorkbenchLayoutConstants.connectedEditorTabStripHeight,
+          WorkbenchLayoutConstants.modernEditorTabHeight +
+              2 * WorkbenchLayoutConstants.modernEditorTabRowInset +
+              WorkbenchLayoutConstants.strokeThickness,
+        );
+        expect(WorkbenchLayoutConstants.connectedEditorTabStripHeight, 33);
+        for (final density in WorkbenchLayoutDensity.values) {
+          await tester.pumpWidget(
+            _layout(
+              editorTabs: [_tab('a'), _tab('b')],
+              modernUI: true,
+              layoutDensity: density,
+            ),
+          );
+          expect(
+            tester.getSize(find.byType(EditorTabStrip)).height,
+            WorkbenchLayoutConstants.connectedEditorTabStripHeight,
+          );
+        }
+      });
+
+      testWidgets(
+        'the strip sits on the tabs background over an editor-coloured '
+        'separator',
+        (tester) async {
+          await tester.pumpWidget(
+            _layout(editorTabs: [_tab('a'), _tab('b')], modernUI: true),
+          );
+          final theme = testWorkbenchTheme;
+          final strip = tester.widget<DecoratedBox>(
+            find.byKey(const ValueKey('editor-tab-strip-background')),
+          );
+          final decoration = strip.decoration as BoxDecoration;
+          expect(
+            decoration.color,
+            Color.alphaBlend(
+              theme.editorGroupHeaderTabsBackground,
+              theme.editorBackground,
+            ),
+          );
+          final border = decoration.border! as Border;
+          expect(border.bottom.color, theme.editorBackground);
+          expect(border.bottom.width, WorkbenchLayoutConstants.strokeThickness);
+        },
+      );
+
+      testWidgets('the active tab takes the editor background and joins the '
+          'editor with curved shoulders; the first tab has a straight left '
+          'edge', (tester) async {
+        Future<void> pumpActive(String id) => tester.pumpWidget(
+          _layout(
+            editorTabs: [_tab('a'), _tab('b'), _tab('c')],
+            initialActiveEditorTabId: id,
+            modernUI: true,
+          ),
+        );
+        final theme = testWorkbenchTheme;
+
+        await pumpActive('b');
+        final middle = painterOf(tester, 'b');
+        expect(middle.active, isTrue);
+        expect(middle.surface, theme.editorBackground);
+        expect(middle.leadingShoulder, isTrue);
+        expect(middle.trailingShoulderInside, isFalse);
+        // The next tab draws the trailing shoulder over its own fill.
+        expect(painterOf(tester, 'c').continuesShoulder, isTrue);
+        expect(painterOf(tester, 'a').continuesShoulder, isFalse);
+        expect(
+          find.byKey(const ValueKey('editor-tab-connected-fill')).at(1),
+          paints..path(color: theme.editorBackground),
+        );
+        // Cap and shoulder share one radius: cornerRadius.small plus a stroke.
+        expect(
+          WorkbenchLayoutConstants.connectedEditorTabCapRadius,
+          WorkbenchLayoutConstants.cornerRadiusSmall +
+              WorkbenchLayoutConstants.strokeThickness,
+        );
+
+        await tester.pumpWidget(const SizedBox());
+        await pumpActive('a');
+        expect(painterOf(tester, 'a').leadingShoulder, isFalse);
+
+        await tester.pumpWidget(const SizedBox());
+        await pumpActive('c');
+        // The last tab turns its trailing shoulder inside its own slot.
+        expect(painterOf(tester, 'c').trailingShoulderInside, isTrue);
+      });
+
+      testWidgets('inactive tabs sit on the strip, fill on hover from '
+          'foreground, and label in tab.inactiveForeground', (tester) async {
+        await tester.pumpWidget(
+          _layout(editorTabs: [_tab('a'), _tab('b')], modernUI: true),
+        );
+        final theme = testWorkbenchTheme;
+        expect(painterOf(tester, 'b').fill, isNull);
+        expect(
+          tester.widget<Text>(find.text('Tab b')).style!.color,
+          theme.tabInactiveForeground,
+        );
+        expect(
+          tester.widget<Text>(find.text('Tab a')).style!.color,
+          theme.tabActiveForeground,
+        );
+
+        final pointer = await tester.createGesture(
+          kind: PointerDeviceKind.mouse,
+        );
+        await pointer.addPointer(location: Offset.zero);
+        addTearDown(pointer.removePointer);
+        await pointer.moveTo(tester.getCenter(find.text('Tab b')));
+        await tester.pump();
+        final strip = Color.alphaBlend(
+          theme.editorGroupHeaderTabsBackground,
+          theme.editorBackground,
+        );
+        expect(
+          painterOf(tester, 'b').fill,
+          Color.alphaBlend(
+            theme.foreground.withValues(
+              alpha: ConnectedEditorTabPainter.hoverForegroundOpacity,
+            ),
+            strip,
+          ),
+        );
+        expect(
+          tester.widget<Text>(find.text('Tab b')).style!.color,
+          theme.panelTabHoverForeground,
+        );
+      });
+
+      testWidgets('tabs are content-sized, with the action column inset by the '
+          'shoulder', (tester) async {
+        await tester.pumpWidget(
+          _layout(
+            editorTabs: [_tab('a'), _tab('b')],
+            modernUI: true,
+            onEditorTabCloseRequested: (_) {},
+          ),
+        );
+        final tab = find.byKey(const ValueKey('editor-tab-a'));
+        // `.sizing-fit` drops the base 120px floor under the treatment.
+        expect(
+          tester.getSize(tab).width,
+          lessThan(WorkbenchLayoutConstants.editorTabMinWidth),
+        );
+        final actions = find.descendant(
+          of: tab,
+          matching: find.byKey(const ValueKey('editor-tab-actions')),
+        );
+        expect(
+          tester.getSize(actions).width,
+          WorkbenchLayoutConstants.modernEditorTabActionsWidth,
+        );
+        expect(
+          tester.getTopRight(tab).dx - tester.getTopRight(actions).dx,
+          WorkbenchLayoutConstants.connectedEditorTabCapRadius +
+              WorkbenchLayoutConstants.spacingSize20,
+        );
+      });
+
+      testWidgets('a dirty tab shows its close button while the tab is '
+          'hovered', (tester) async {
+        await tester.pumpWidget(
+          _layout(
+            editorTabs: [_tab('a'), _tab('b', isDirty: true)],
+            modernUI: true,
+            onEditorTabCloseRequested: (_) {},
+          ),
+        );
+        Finder inB(IconData icon) => find.descendant(
+          of: find.byKey(const ValueKey('editor-tab-b')),
+          matching: find.byIcon(icon),
+        );
+        expect(inB(Symbols.fiber_manual_record), findsOneWidget);
+
+        final pointer = await tester.createGesture(
+          kind: PointerDeviceKind.mouse,
+        );
+        await pointer.addPointer(location: Offset.zero);
+        addTearDown(pointer.removePointer);
+        // Over the label, not the dot: `tabs.css` swaps the glyph on
+        // `.tab.dirty:hover`.
+        await pointer.moveTo(tester.getCenter(find.text('Tab b')));
+        await tester.pump();
+        expect(inB(Symbols.close_rounded), findsOneWidget);
+        expect(inB(Symbols.fiber_manual_record), findsNothing);
+      });
+
+      testWidgets('turning Modern UI off returns the base strip', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          _layout(editorTabs: [_tab('a'), _tab('b')], modernUI: true),
+        );
+        expect(
+          find.byKey(const ValueKey('editor-tab-connected-fill')),
+          findsNWidgets(2),
+        );
+        await tester.pumpWidget(_layout(editorTabs: [_tab('a'), _tab('b')]));
+        expect(
+          find.byKey(const ValueKey('editor-tab-connected-fill')),
+          findsNothing,
+        );
+        expect(
+          tester.getSize(find.byType(EditorTabStrip)).height,
+          WorkbenchLayoutConstants.editorTabHeight,
+        );
+      });
+    },
+  );
 
   group('Editor tab lifecycle (§spec:editor-tab-state)', () {
     /// Pumps a layout whose tab list a test replaces through the returned
@@ -980,10 +1203,8 @@ void main() {
           tabs: [
             _tab(
               'a',
-              contentBuilder: (_) => Focus(
-                focusNode: contentNode,
-                child: const Text('Content a'),
-              ),
+              contentBuilder: (_) =>
+                  Focus(focusNode: contentNode, child: const Text('Content a')),
             ),
             _tab('b'),
           ],

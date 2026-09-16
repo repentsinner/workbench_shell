@@ -215,6 +215,49 @@ class WorkbenchLayoutConstants {
   /// unsaved dot. `.tab > .tab-actions { width: 28px }`.
   static const double editorTabActionsWidth = spacingSize280;
 
+  /// Height of an editor tab's content row under the Modern UI treatment
+  /// (§spec:editor-tab-rendering). `tabs.css` sets
+  /// `--editor-group-tab-height: 24px`. Upstream shrinks it to 20px only for
+  /// `window.density.editorTabHeight: compact`, a setting separate from the
+  /// layout density the shell exposes, so the row holds at either
+  /// `WorkbenchLayoutDensity`.
+  static const double modernEditorTabHeight = spacingSize240;
+
+  /// Transparent band above and below that row. `tabs.css` gives each tab
+  /// `border-block: var(--vscode-spacing-size40) solid transparent`, which
+  /// is the 4px top and bottom padding `EDITOR_TAB_HEIGHT.modernUI` counts.
+  static const double modernEditorTabRowInset = spacingSize40;
+
+  /// The connected strip's height: `EDITOR_TAB_HEIGHT.modernUI` (32px) plus
+  /// the stroke `connectedEditorTabs.css` reserves for the separator below
+  /// the tabs (`.tabs-container { padding-bottom: strokeThickness }`).
+  static const double connectedEditorTabStripHeight =
+      modernEditorTabHeight + 2 * modernEditorTabRowInset + strokeThickness;
+
+  /// Radius of the connected active tab's top corners and of the shoulders
+  /// that curve it into the editor. `connectedEditorTabs.css`
+  /// `--modern-ui-connected-tab-cap-radius: calc(cornerRadius.small +
+  /// strokeThickness)`, which the shoulder radius reuses.
+  static const double connectedEditorTabCapRadius =
+      cornerRadiusSmall + strokeThickness;
+
+  /// Leading inset of a Modern UI editor tab that shows an icon.
+  /// `tabs.css` `.tab { padding: 0 spacing.size80 0 spacing.size60 }`.
+  static const double modernEditorTabPaddingStart = spacingSize60;
+
+  /// Leading inset of a Modern UI editor tab without an icon, and the
+  /// trailing inset of one that reserves no action column.
+  /// `.title.tabs:not(.show-file-icons) .tab { padding-left: spacing.size80 }`.
+  static const double modernEditorTabPadding = spacingSize80;
+
+  /// Width of a Modern UI editor tab's action column.
+  /// `tabs.css` `.tab > .tab-actions { width: 24px }`.
+  static const double modernEditorTabActionsWidth = spacingSize240;
+
+  /// Horizontal margin either side of that column.
+  /// `.tab > .tab-actions { margin: 0 spacing.size20 }`.
+  static const double modernEditorTabActionsMargin = spacingSize20;
+
   /// Cross-axis thickness of a resize sash's hit target — VS Code's
   /// `--vscode-sash-size`. Owned by `WorkbenchSash` so every seam is identical.
   static const double sashSize = 4.0;
