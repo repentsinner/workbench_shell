@@ -1114,6 +1114,42 @@ void main() {
         tab.top + WorkbenchLayoutConstants.modernEditorTabRowInset,
       );
       expect(bar.height, WorkbenchLayoutConstants.modernEditorTabHeight);
+      expect(bar.left, tab.left);
+
+      // Past the last tab the bar keeps the row's span, just past its edge.
+      await gesture.moveTo(over(tester, 'c', 0.75));
+      await tester.pump();
+      final end = tester.getRect(indicator);
+      expect(end.left, tab.right);
+      expect(end.width, WorkbenchLayoutConstants.editorTabDropIndicatorWidth);
+      expect(
+        end.top,
+        tab.top + WorkbenchLayoutConstants.modernEditorTabRowInset,
+      );
+      expect(end.height, WorkbenchLayoutConstants.modernEditorTabHeight);
+      await gesture.up();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('moving the drop bar keeps every tab mounted', (tester) async {
+      await pumpHost(tester);
+      final gesture = await dragTo(tester, 'a', over(tester, 'b', 0.25));
+      // Scoped to the strip's tab: the drag image carries a label of its own.
+      Element label(String id) => tester.element(
+        find.descendant(of: tabOf(id), matching: find.text('Tab $id')),
+      );
+      final labels = [
+        for (final id in ['a', 'b', 'c']) label(id),
+      ];
+      for (final (id, fraction) in [('b', 0.75), ('c', 0.75), ('a', 0.25)]) {
+        await gesture.moveTo(over(tester, id, fraction));
+        await tester.pump();
+        expect(indicator, findsOneWidget);
+        // A slot change leaves each tab's subtree in place.
+        expect([
+          for (final id in ['a', 'b', 'c']) label(id),
+        ], labels);
+      }
       await gesture.up();
       await tester.pumpAndSettle();
     });
