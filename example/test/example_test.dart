@@ -1014,6 +1014,38 @@ void main() {
       );
     });
 
+    testWidgets('dragging a tab shows the drop bar and reorders the strip', (
+      tester,
+    ) async {
+      await pumpWide(tester);
+      final target = tester.getRect(tabOf('lorem-ipsum.txt'));
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(tabOf('release-notes.md')),
+        kind: PointerDeviceKind.mouse,
+      );
+      await gesture.moveBy(const Offset(-20, 0));
+      await tester.pump();
+      // The leading half of lorem-ipsum.txt: the bar marks its leading edge.
+      await gesture.moveTo(
+        Offset(target.left + target.width / 4, target.center.dy),
+      );
+      await tester.pump();
+      final bar = find.byKey(const ValueKey('editor-tab-drop-indicator'));
+      expect(bar, findsOneWidget);
+      expect(tester.getRect(bar).left, target.left);
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(bar, findsNothing);
+      expect(tabOrder(tester, ['lorem-ipsum.txt', 'release-notes.md']), [
+        'release-notes.md',
+        'lorem-ipsum.txt',
+      ]);
+      // The dragged tab came forward, as pressing it does.
+      expect(find.text('# release-notes.md'), findsOneWidget);
+    });
+
     testWidgets('a new editor opens right of the active tab and activates', (
       tester,
     ) async {

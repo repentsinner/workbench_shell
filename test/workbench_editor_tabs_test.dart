@@ -943,6 +943,182 @@ void main() {
     });
   });
 
+  group('Editor tab drag reorder (§spec:editor-tab-interaction)', () {
+    Finder tabOf(String id) => find.byKey(ValueKey('editor-tab-$id'));
+    final indicator = find.byKey(const ValueKey('editor-tab-drop-indicator'));
+
+    /// Pumps a host that keeps its tab list and records what the shell
+    /// reports.
+    Future<void> pumpHost(
+      WidgetTester tester, {
+      List<List<String>>? orders,
+      List<String>? actives,
+      bool modernUI = false,
+    }) {
+      return tester.pumpWidget(
+        _layout(
+          editorTabs: [_tab('a'), _tab('b'), _tab('c')],
+          onEditorTabOrderChanged: orders?.add,
+          onActiveEditorTabChanged: actives?.add,
+          modernUI: modernUI,
+        ),
+      );
+    }
+
+    /// Starts dragging the tab with [id] and moves the pointer to [to].
+    Future<TestGesture> dragTo(
+      WidgetTester tester,
+      String id,
+      Offset to,
+    ) async {
+      final gesture = await tester.startGesture(
+        tester.getCenter(tabOf(id)),
+        kind: PointerDeviceKind.mouse,
+      );
+      // Past the drag slop, then onto the target.
+      await gesture.moveBy(const Offset(20, 0));
+      await tester.pump();
+      await gesture.moveTo(to);
+      await tester.pump();
+      return gesture;
+    }
+
+    /// A point over [id] at [fraction] of its width from its leading edge.
+    Offset over(WidgetTester tester, String id, double fraction) {
+      final rect = tester.getRect(tabOf(id));
+      return Offset(rect.left + rect.width * fraction, rect.center.dy);
+    }
+
+    /// The labels in the order the strip renders them, left to right.
+    List<String> stripOrder(WidgetTester tester) {
+      final ids = ['a', 'b', 'c'];
+      ids.sort(
+        (x, y) => tester
+            .getTopLeft(tabOf(x))
+            .dx
+            .compareTo(tester.getTopLeft(tabOf(y)).dx),
+      );
+      return ids;
+    }
+
+    testWidgets('dropping on the trailing half of a tab moves the dragged tab '
+        'after it and reports the full order', (tester) async {
+      final orders = <List<String>>[];
+      await pumpHost(tester, orders: orders);
+
+      final gesture = await dragTo(tester, 'a', over(tester, 'b', 0.75));
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(stripOrder(tester), ['b', 'a', 'c']);
+      expect(orders, [
+        ['b', 'a', 'c'],
+      ]);
+    });
+
+    testWidgets('the 2px drop bar tracks which half of the tab the pointer is '
+        'over', (tester) async {
+      await pumpHost(tester);
+      final gesture = await dragTo(tester, 'a', over(tester, 'b', 0.25));
+
+      // Leading half of b: the bar sits on b's leading edge.
+      expect(indicator, findsOneWidget);
+      final bar = tester.getRect(indicator);
+      expect(bar.left, tester.getRect(tabOf('b')).left);
+      expect(bar.width, WorkbenchLayoutConstants.editorTabDropIndicatorWidth);
+      expect(bar.height, tester.getRect(tabOf('b')).height);
+      expect(
+        tester.widget<ColoredBox>(indicator).color,
+        testWorkbenchTheme.tabDragAndDropBorder,
+      );
+
+      // Trailing half of b: the bar moves to c's leading edge.
+      await gesture.moveTo(over(tester, 'b', 0.75));
+      await tester.pump();
+      expect(indicator, findsOneWidget);
+      expect(tester.getRect(indicator).left, tester.getRect(tabOf('c')).left);
+
+      // Trailing half of the last tab: the bar sits just past its edge.
+      await gesture.moveTo(over(tester, 'c', 0.75));
+      await tester.pump();
+      expect(tester.getRect(indicator).left, tester.getRect(tabOf('c')).right);
+
+      // Past every tab, on the empty strip: after the last tab too.
+      final strip = tester.getRect(find.byType(EditorTabStrip));
+      await gesture.moveTo(
+        Offset(tester.getRect(tabOf('c')).right + 40, strip.center.dy),
+      );
+      await tester.pump();
+      expect(tester.getRect(indicator).left, tester.getRect(tabOf('c')).right);
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(indicator, findsNothing);
+    });
+
+    testWidgets('dropping a tab where it already stands reports nothing', (
+      tester,
+    ) async {
+      final orders = <List<String>>[];
+      await pumpHost(tester, orders: orders);
+
+      // The leading half of b is the slot a already occupies.
+      final gesture = await dragTo(tester, 'a', over(tester, 'b', 0.25));
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(stripOrder(tester), ['a', 'b', 'c']);
+      expect(orders, isEmpty);
+    });
+
+    testWidgets('a drag released off the strip changes nothing', (
+      tester,
+    ) async {
+      final orders = <List<String>>[];
+      await pumpHost(tester, orders: orders);
+
+      final gesture = await dragTo(
+        tester,
+        'a',
+        tester.getCenter(find.text('Content a')),
+      );
+      expect(indicator, findsNothing);
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(stripOrder(tester), ['a', 'b', 'c']);
+      expect(orders, isEmpty);
+    });
+
+    testWidgets('dragging a tab activates it, as pressing it does upstream', (
+      tester,
+    ) async {
+      final actives = <String>[];
+      await pumpHost(tester, actives: actives);
+
+      final gesture = await dragTo(tester, 'c', over(tester, 'a', 0.25));
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(actives, ['c']);
+      expect(find.text('Content c'), findsOneWidget);
+      expect(stripOrder(tester), ['c', 'a', 'b']);
+    });
+
+    testWidgets('under Modern UI the bar spans the 24px tab row', (
+      tester,
+    ) async {
+      await pumpHost(tester, modernUI: true);
+      final gesture = await dragTo(tester, 'a', over(tester, 'c', 0.25));
+      final tab = tester.getRect(tabOf('c'));
+      final bar = tester.getRect(indicator);
+      expect(
+        bar.top,
+        tab.top + WorkbenchLayoutConstants.modernEditorTabRowInset,
+      );
+      expect(bar.height, WorkbenchLayoutConstants.modernEditorTabHeight);
+      await gesture.up();
+      await tester.pumpAndSettle();
+    });
+  });
+
   group('Editor tab keyboard (§spec:editor-tab-interaction)', () {
     /// Presses [key] with the named modifiers held.
     Future<void> press(

@@ -160,6 +160,11 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   /// [tabActiveBorderTop].
   final Color? tabActiveBorder;
 
+  /// The 2px bar marking where a dragged editor tab will land — VS Code
+  /// `tab.dragAndDropBorder`, registered as `tab.activeForeground`
+  /// (§spec:editor-tab-interaction).
+  final Color tabDragAndDropBorder;
+
   // ---- Input / dropdown / button ----
   final Color inputBackground;
   final Color inputForeground;
@@ -548,6 +553,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.tabBorder,
     required this.tabActiveBorderTop,
     required this.tabActiveBorder,
+    required this.tabDragAndDropBorder,
     required this.inputBackground,
     required this.inputForeground,
     required this.inputBorder,
@@ -981,6 +987,9 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // either key draws no rule on the active tab.
       tabActiveBorderTop: map['tab.activeBorderTop'],
       tabActiveBorder: map['tab.activeBorder'],
+      // VS Code: tab.dragAndDropBorder inherits from tab.activeForeground
+      // outside high contrast.
+      tabDragAndDropBorder: map.resolve('tab.dragAndDropBorder', tabActiveFg),
       // Inputs / buttons
       inputBackground: map.resolve(
         'input.background',
@@ -1317,6 +1326,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? tabBorder,
     Color? tabActiveBorderTop,
     Color? tabActiveBorder,
+    Color? tabDragAndDropBorder,
     Color? inputBackground,
     Color? inputForeground,
     Color? inputBorder,
@@ -1474,6 +1484,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       tabBorder: tabBorder ?? this.tabBorder,
       tabActiveBorderTop: tabActiveBorderTop ?? this.tabActiveBorderTop,
       tabActiveBorder: tabActiveBorder ?? this.tabActiveBorder,
+      tabDragAndDropBorder: tabDragAndDropBorder ?? this.tabDragAndDropBorder,
       inputBackground: inputBackground ?? this.inputBackground,
       inputForeground: inputForeground ?? this.inputForeground,
       inputBorder: inputBorder ?? this.inputBorder,
@@ -1711,6 +1722,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       tabBorder: c(tabBorder, other.tabBorder),
       tabActiveBorderTop: cn(tabActiveBorderTop, other.tabActiveBorderTop),
       tabActiveBorder: cn(tabActiveBorder, other.tabActiveBorder),
+      tabDragAndDropBorder: c(tabDragAndDropBorder, other.tabDragAndDropBorder),
       inputBackground: c(inputBackground, other.inputBackground),
       inputForeground: c(inputForeground, other.inputForeground),
       inputBorder: c(inputBorder, other.inputBorder),
@@ -1974,6 +1986,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           tabBorder == other.tabBorder &&
           tabActiveBorderTop == other.tabActiveBorderTop &&
           tabActiveBorder == other.tabActiveBorder &&
+          tabDragAndDropBorder == other.tabDragAndDropBorder &&
           inputBackground == other.inputBackground &&
           inputForeground == other.inputForeground &&
           inputBorder == other.inputBorder &&
@@ -2118,6 +2131,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     tabBorder,
     tabActiveBorderTop,
     tabActiveBorder,
+    tabDragAndDropBorder,
     inputBackground,
     inputForeground,
     inputBorder,

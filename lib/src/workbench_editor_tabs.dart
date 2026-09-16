@@ -323,6 +323,18 @@ class _EditorTabsScopeState extends State<EditorTabsScope> {
     _setActive(id);
   }
 
+  /// Adopt the order a drag produced (§spec:editor-tab-state) and report it
+  /// in full. The shell owns the order, so a controlled active tab does not
+  /// hold it back, and the strip only calls this when the order changed.
+  void _reorderFromStrip(List<String> order) {
+    setState(() {
+      _order
+        ..clear()
+        ..addAll(order);
+    });
+    widget.onOrderChanged?.call(List.unmodifiable(order));
+  }
+
   /// Receives key events for the editor-tab bindings. `Shortcuts` sees only
   /// events that bubble up from the primary focus, so this node takes focus
   /// when nothing inside the workbench holds it (see [_adoptKeyFocus]).
@@ -419,6 +431,7 @@ class _EditorTabsScopeState extends State<EditorTabsScope> {
         activeId: activeId,
         content: {for (final id in _recency) id: _contentFor(byId[id]!)},
         onSelected: _selectFromStrip,
+        onReordered: _reorderFromStrip,
         onCloseRequested: widget.onCloseRequested,
         theme: context.workbenchTheme,
       );
@@ -484,8 +497,11 @@ class EditorTabsPart extends StatelessWidget {
   /// shown costs nothing.
   final Map<String, Widget> content;
 
-  /// Activates a tab from a click.
+  /// Activates a tab from a click or the start of a drag.
   final ValueChanged<String> onSelected;
+
+  /// Adopts the full id order a drag produced.
+  final ValueChanged<List<String>> onReordered;
 
   /// Requests a tab's close. Null renders no close buttons.
   final ValueChanged<String>? onCloseRequested;
@@ -498,6 +514,7 @@ class EditorTabsPart extends StatelessWidget {
     required this.activeId,
     required this.content,
     required this.onSelected,
+    required this.onReordered,
     required this.onCloseRequested,
     required this.theme,
   });
@@ -511,6 +528,7 @@ class EditorTabsPart extends StatelessWidget {
           tabs: tabs,
           activeId: activeId,
           onSelected: onSelected,
+          onReordered: onReordered,
           onCloseRequested: onCloseRequested,
           theme: theme,
         ),
@@ -555,13 +573,23 @@ class EditorTabsPart extends StatelessWidget {
 ///   [WorkbenchLayoutConstants.connectedEditorTabStripHeight] row whose active
 ///   tab joins the editor below it (see [ConnectedEditorTabPainter]).
 ///
+/// Dragging a tab reorders it (§spec:editor-tab-interaction). The whole strip
+/// is the drop target, so a drop past the last tab lands at the end, as a drop
+/// on upstream's tabs container does.
+///
 /// Tabs past the strip's width are clipped at its trailing edge until
 /// overflow scrolling lands (§spec:editor-tab-interaction).
 @internal
-class EditorTabStrip extends StatelessWidget {
+class EditorTabStrip extends StatefulWidget {
   final List<WorkbenchEditorTab> tabs;
   final String activeId;
+
+  /// Activates a tab from a click or the start of a drag.
   final ValueChanged<String> onSelected;
+
+  /// Adopts the full id order a drop produced. Called only when the order
+  /// changed.
+  final ValueChanged<List<String>> onReordered;
   final ValueChanged<String>? onCloseRequested;
   final WorkbenchTheme theme;
 
@@ -570,49 +598,180 @@ class EditorTabStrip extends StatelessWidget {
     required this.tabs,
     required this.activeId,
     required this.onSelected,
+    required this.onReordered,
     required this.onCloseRequested,
     required this.theme,
   });
 
   @override
+  State<EditorTabStrip> createState() => _EditorTabStripState();
+}
+
+class _EditorTabStripState extends State<EditorTabStrip> {
+  /// The slot a dragged tab would drop into: 0 before the first tab through
+  /// `tabs.length` after the last. Null while no tab is dragged over the
+  /// strip.
+  int? _dropSlot;
+
+  /// A key per tab, so a drag can read each tab's box to find the one under
+  /// the pointer and which half of it the pointer is over.
+  final Map<String, GlobalKey> _tabKeys = {};
+
+  @override
+  void didUpdateWidget(covariant EditorTabStrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final ids = {for (final tab in widget.tabs) tab.id};
+    _tabKeys.removeWhere((id, _) => !ids.contains(id));
+  }
+
+  /// Record the slot under global [pointer], per VS Code's
+  /// `computeDropTarget`: the pointer's half of the tab beneath it picks the
+  /// slot before or after that tab, and a pointer past every tab picks the
+  /// slot after the last.
+  void _updateDropSlot(Offset pointer) {
+    var slot = widget.tabs.length;
+    for (final (index, tab) in widget.tabs.indexed) {
+      final box = _tabKeys[tab.id]?.currentContext?.findRenderObject();
+      if (box is! RenderBox || !box.hasSize) continue;
+      final dx = box.globalToLocal(pointer).dx;
+      if (dx < box.size.width) {
+        // `getTabDragOverLocation` counts the midpoint as the leading half.
+        slot = dx <= box.size.width / 2 ? index : index + 1;
+        break;
+      }
+    }
+    if (slot != _dropSlot) setState(() => _dropSlot = slot);
+  }
+
+  void _clearDropSlot() {
+    if (_dropSlot != null) setState(() => _dropSlot = null);
+  }
+
+  /// Move the tab with [id] into the recorded slot and report the new order,
+  /// unless it lands where it already stands.
+  void _drop(String id) {
+    final slot = _dropSlot;
+    _clearDropSlot();
+    if (slot == null) return;
+    final order = [for (final tab in widget.tabs) tab.id];
+    final from = order.indexOf(id);
+    // Taking the tab out first shifts every later slot down by one.
+    final to = slot > from ? slot - 1 : slot;
+    if (to == from) return;
+    order
+      ..removeAt(from)
+      ..insert(to, id);
+    widget.onReordered(order);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final theme = widget.theme;
+    final tabs = widget.tabs;
+    final activeId = widget.activeId;
     final connected = WorkbenchSurfaceTreatment.of(context);
-    final onClose = onCloseRequested;
+    final onClose = widget.onCloseRequested;
+    final stripHeight = connected
+        ? WorkbenchLayoutConstants.connectedEditorTabStripHeight
+        : WorkbenchLayoutConstants.editorTabHeight;
+    final slot = _dropSlot;
+
+    Widget tabFor(int index, WorkbenchEditorTab tab, {Key? key}) => _EditorTab(
+      key: key,
+      tab: tab,
+      active: tab.id == activeId,
+      connected: connected,
+      first: index == 0,
+      last: index == tabs.length - 1,
+      followsActive: index > 0 && tabs[index - 1].id == activeId,
+      // Upstream marks both tabs beside the slot and draws both bars on the
+      // same boundary, so one bar on the tab that follows it, or on the last
+      // tab's trailing edge, paints the same pixels.
+      dropEdge: slot == index
+          ? _DropEdge.leading
+          : slot == tabs.length && index == tabs.length - 1
+          ? _DropEdge.trailing
+          : null,
+      onSelected: () => widget.onSelected(tab.id),
+      onClose: onClose == null ? null : () => onClose(tab.id),
+      theme: theme,
+    );
+
     final row = Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
         for (final (index, tab) in tabs.indexed)
-          _EditorTab(
-            key: ValueKey('editor-tab-${tab.id}'),
-            tab: tab,
-            active: tab.id == activeId,
-            connected: connected,
-            first: index == 0,
-            last: index == tabs.length - 1,
-            followsActive: index > 0 && tabs[index - 1].id == activeId,
-            onSelected: () => onSelected(tab.id),
-            onClose: onClose == null ? null : () => onClose(tab.id),
-            theme: theme,
+          Draggable<String>(
+            key: ValueKey('editor-tab-drag-${tab.id}'),
+            data: tab.id,
+            // Upstream pins the drag image's top-left corner to the pointer,
+            // and the drop slot reads the pointer from the feedback offset.
+            dragAnchorStrategy: pointerDragAnchorStrategy,
+            // Pressing a tab activates it upstream, so a drag carries the tab
+            // it moves into view.
+            onDragStarted: () => widget.onSelected(tab.id),
+            onDragEnd: (_) => _clearDropSlot(),
+            onDraggableCanceled: (_, _) => _clearDropSlot(),
+            feedback: Material(
+              type: MaterialType.transparency,
+              child: UnconstrainedBox(
+                alignment: AlignmentDirectional.topStart,
+                child: SizedBox(
+                  height: stripHeight,
+                  child: _EditorTab(
+                    tab: tab,
+                    active: true,
+                    connected: connected,
+                    // A drag image carries no shoulders into its neighbours.
+                    first: true,
+                    last: false,
+                    followsActive: false,
+                    dropEdge: null,
+                    onSelected: () {},
+                    onClose: onClose == null ? null : () {},
+                    theme: theme,
+                  ),
+                ),
+              ),
+            ),
+            child: KeyedSubtree(
+              key: _tabKeys.putIfAbsent(tab.id, GlobalKey.new),
+              child: tabFor(index, tab, key: ValueKey('editor-tab-${tab.id}')),
+            ),
           ),
       ],
     );
-    final Widget content = Semantics(
-      role: SemanticsRole.tabBar,
-      container: true,
-      child: ClipRect(
-        // Lets the row keep its natural width without an overflow warning;
-        // the clip hides whatever runs past the strip.
-        child: OverflowBox(
-          alignment: AlignmentDirectional.centerStart,
-          maxWidth: double.infinity,
-          child: row,
+    final Widget content = DragTarget<String>(
+      onWillAcceptWithDetails: (details) {
+        if (!tabs.any((tab) => tab.id == details.data)) return false;
+        _updateDropSlot(details.offset);
+        return true;
+      },
+      onMove: (details) {
+        if (tabs.any((tab) => tab.id == details.data)) {
+          _updateDropSlot(details.offset);
+        }
+      },
+      onLeave: (_) => _clearDropSlot(),
+      onAcceptWithDetails: (details) => _drop(details.data),
+      builder: (context, candidates, rejected) => Semantics(
+        role: SemanticsRole.tabBar,
+        container: true,
+        child: ClipRect(
+          // Lets the row keep its natural width without an overflow warning;
+          // the clip hides whatever runs past the strip.
+          child: OverflowBox(
+            alignment: AlignmentDirectional.centerStart,
+            maxWidth: double.infinity,
+            child: row,
+          ),
         ),
       ),
     );
     if (!connected) {
       return SizedBox(
-        height: WorkbenchLayoutConstants.editorTabHeight,
+        height: stripHeight,
         child: ColoredBox(
           color: theme.editorGroupHeaderTabsBackground,
           child: content,
@@ -620,7 +779,7 @@ class EditorTabStrip extends StatelessWidget {
       );
     }
     return SizedBox(
-      height: WorkbenchLayoutConstants.connectedEditorTabStripHeight,
+      height: stripHeight,
       child: DecoratedBox(
         key: const ValueKey('editor-tab-strip-background'),
         decoration: BoxDecoration(
@@ -644,6 +803,15 @@ class EditorTabStrip extends StatelessWidget {
   }
 }
 
+/// Which edge of a tab carries the drop bar.
+enum _DropEdge {
+  /// The slot before the tab.
+  leading,
+
+  /// The slot after the last tab.
+  trailing,
+}
+
 /// One tab, per `multieditortabscontrol.css` in the base treatment and
 /// `tabs.css` with `connectedEditorTabs.css` under Modern UI.
 class _EditorTab extends StatefulWidget {
@@ -665,6 +833,10 @@ class _EditorTab extends StatefulWidget {
   /// tab's trailing shoulder over its own fill.
   final bool followsActive;
 
+  /// The edge that carries the drop bar while a dragged tab would land beside
+  /// this one. Null draws none.
+  final _DropEdge? dropEdge;
+
   final VoidCallback onSelected;
 
   /// Requests this tab's close. Null renders no close button.
@@ -679,6 +851,7 @@ class _EditorTab extends StatefulWidget {
     required this.first,
     required this.last,
     required this.followsActive,
+    required this.dropEdge,
     required this.onSelected,
     required this.onClose,
     required this.theme,
@@ -753,11 +926,51 @@ class _EditorTabState extends State<_EditorTab> {
         onExit: (_) => setState(() => _tabHovered = false),
         child: GestureDetector(
           onTap: widget.onSelected,
-          child: connected
-              ? _buildConnected(content, showsActions: showsActions)
-              : _buildBase(content, showsActions: showsActions),
+          child: _dropBar(
+            connected
+                ? _buildConnected(content, showsActions: showsActions)
+                : _buildBase(content, showsActions: showsActions),
+          ),
         ),
       ),
+    );
+  }
+
+  /// Overlays the drop bar on [child] while [_EditorTab.dropEdge] is set.
+  ///
+  /// `multieditortabscontrol.css` draws a 2px `tab.dragAndDropBorder` bar the
+  /// height of the tab's padding box: at `left: 0` for the slot before the
+  /// tab, and at `right: -2px` for the slot after the last one, just past its
+  /// edge. Under Modern UI the padding box is the 24px row between the tab's
+  /// transparent bands.
+  Widget _dropBar(Widget child) {
+    final edge = widget.dropEdge;
+    if (edge == null) return child;
+    const width = WorkbenchLayoutConstants.editorTabDropIndicatorWidth;
+    final inset = widget.connected
+        ? WorkbenchLayoutConstants.modernEditorTabRowInset
+        : 0.0;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        child,
+        Positioned(
+          top: inset,
+          // The lower band also holds the separator stroke.
+          bottom: widget.connected
+              ? inset + WorkbenchLayoutConstants.strokeThickness
+              : 0,
+          left: edge == _DropEdge.leading ? 0 : null,
+          right: edge == _DropEdge.trailing ? -width : null,
+          width: width,
+          child: IgnorePointer(
+            child: ColoredBox(
+              key: const ValueKey('editor-tab-drop-indicator'),
+              color: widget.theme.tabDragAndDropBorder,
+            ),
+          ),
+        ),
+      ],
     );
   }
 

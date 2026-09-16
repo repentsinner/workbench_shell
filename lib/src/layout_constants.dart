@@ -258,6 +258,13 @@ class WorkbenchLayoutConstants {
   /// `.tab > .tab-actions { margin: 0 spacing.size20 }`.
   static const double modernEditorTabActionsMargin = spacingSize20;
 
+  /// Width of the bar that marks where a dragged editor tab will land
+  /// (§spec:editor-tab-interaction). `multieditortabscontrol.css`
+  /// `.tab.drop-target-left::after, .tab.drop-target-right::before
+  /// { width: 2px }`. Off the spacing ladder: it is a stroke upstream, not a
+  /// spacing token.
+  static const double editorTabDropIndicatorWidth = 2.0;
+
   /// Cross-axis thickness of a resize sash's hit target — VS Code's
   /// `--vscode-sash-size`. Owned by `WorkbenchSash` so every seam is identical.
   static const double sashSize = 4.0;
