@@ -320,6 +320,36 @@ void main() {
       expect(built, contains('b'));
     });
 
+    testWidgets('an unchanged hidden tab is not rebuilt when the layout '
+        'rebuilds', (tester) async {
+      var builds = 0;
+      final a = _tab(
+        'a',
+        contentBuilder: (_) {
+          builds++;
+          return const Text('Content a');
+        },
+      );
+      final b = _tab('b');
+      late StateSetter setOuter;
+      await tester.pumpWidget(
+        StatefulBuilder(
+          builder: (context, setState) {
+            setOuter = setState;
+            return _layout(editorTabs: [a, b]);
+          },
+        ),
+      );
+      await tester.tap(find.text('Tab b'));
+      await tester.pump();
+      final before = builds;
+
+      // The host rebuilds with the same descriptors.
+      setOuter(() {});
+      await tester.pump();
+      expect(builds, before);
+    });
+
     testWidgets('a tab keeps its widget state across switches', (tester) async {
       WorkbenchEditorTab scrolling(String id) => _tab(
         id,

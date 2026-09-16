@@ -38,7 +38,10 @@ class WorkbenchEditorTab {
 
   /// Builds the editor shown while the tab is active. Called only once the
   /// tab has first become active; the result is retained offstage while
-  /// another tab is active (§spec:editor-tab-interaction).
+  /// another tab is active (§spec:editor-tab-interaction). While the host
+  /// passes this same descriptor instance, the shell reuses the content it
+  /// built rather than calling the builder on every layout rebuild; a new
+  /// descriptor rebuilds it.
   final WidgetBuilder contentBuilder;
 
   const WorkbenchEditorTab({
@@ -199,6 +202,12 @@ class _EditorTabsScopeState extends State<EditorTabsScope> {
   /// nothing.
   final List<String> _recency = [];
 
+  /// Each retained tab's built content, with the descriptor it was built
+  /// from. While the host hands back the same descriptor the scope hands the
+  /// part the same widget, so Flutter skips rebuilding content that a switch
+  /// or an unrelated rebuild does not touch.
+  final Map<String, (WorkbenchEditorTab, Widget)> _content = {};
+
   /// The active tab, resolved against the live order. A controlled or
   /// internal id that names no tab falls back to the most recently active
   /// remaining tab, then to the first in order. Null only when there are no
@@ -264,6 +273,7 @@ class _EditorTabsScopeState extends State<EditorTabsScope> {
     final previousActive = _activeId;
     _order.removeWhere((id) => !ids.contains(id));
     _recency.removeWhere((id) => !ids.contains(id));
+    _content.removeWhere((id, _) => !ids.contains(id));
     final added = [
       for (final id in ids)
         if (!_order.contains(id)) id,
@@ -372,6 +382,15 @@ class _EditorTabsScopeState extends State<EditorTabsScope> {
     _setActive(_order[at % _order.length]);
   }
 
+  /// The content widget for [tab], reused while its descriptor is unchanged.
+  Widget _contentFor(WorkbenchEditorTab tab) {
+    final cached = _content[tab.id];
+    if (cached != null && identical(cached.$1, tab)) return cached.$2;
+    final child = Builder(builder: tab.contentBuilder);
+    _content[tab.id] = (tab, child);
+    return child;
+  }
+
   @override
   Widget build(BuildContext context) {
     final activeId = _activeId;
@@ -383,7 +402,7 @@ class _EditorTabsScopeState extends State<EditorTabsScope> {
       editorPart = EditorTabsPart(
         tabs: [for (final id in _order) byId[id]!],
         activeId: activeId,
-        retainedIds: _recency,
+        content: {for (final id in _recency) id: _contentFor(byId[id]!)},
         onSelected: _setActive,
         onCloseRequested: widget.onCloseRequested,
         theme: context.workbenchTheme,
@@ -446,9 +465,9 @@ class EditorTabsPart extends StatelessWidget {
   /// The active tab's id; one of [tabs].
   final String activeId;
 
-  /// Ids whose content has been built. Only these contribute content, so a
-  /// tab never shown costs nothing.
-  final List<String> retainedIds;
+  /// Built content by tab id, for the retained tabs alone, so a tab never
+  /// shown costs nothing.
+  final Map<String, Widget> content;
 
   /// Activates a tab from a click.
   final ValueChanged<String> onSelected;
@@ -462,7 +481,7 @@ class EditorTabsPart extends StatelessWidget {
     super.key,
     required this.tabs,
     required this.activeId,
-    required this.retainedIds,
+    required this.content,
     required this.onSelected,
     required this.onCloseRequested,
     required this.theme,
@@ -489,7 +508,7 @@ class EditorTabsPart extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               for (final tab in tabs)
-                if (retainedIds.contains(tab.id))
+                if (content[tab.id] case final child?)
                   Offstage(
                     key: ValueKey(tab.id),
                     offstage: tab.id != activeId,
@@ -499,7 +518,7 @@ class EditorTabsPart extends StatelessWidget {
                       // in content the user cannot see.
                       child: ExcludeFocus(
                         excluding: tab.id != activeId,
-                        child: Builder(builder: tab.contentBuilder),
+                        child: child,
                       ),
                     ),
                   ),
