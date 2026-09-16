@@ -9,6 +9,7 @@ import 'package:meta/meta.dart';
 
 import 'layout_constants.dart';
 import 'workbench_intents.dart';
+import 'workbench_layout_state.dart';
 import 'workbench_surface_treatment.dart';
 import 'workbench_theme.dart';
 
@@ -658,10 +659,9 @@ class _EditorTabStripState extends State<EditorTabStrip> {
     // Taking the tab out first shifts every later slot down by one.
     final to = slot > from ? slot - 1 : slot;
     if (to == from) return;
-    order
-      ..removeAt(from)
-      ..insert(to, id);
-    widget.onReordered(order);
+    widget.onReordered(
+      WorkbenchLayoutState.applyReorder(order, const {}, from, to),
+    );
   }
 
   @override
