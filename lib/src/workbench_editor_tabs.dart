@@ -53,13 +53,23 @@ class WorkbenchEditorTab {
 /// VS Code's default editor-tab chords for [platform]
 /// (§spec:editor-tab-interaction), from `editorCommands.ts` and
 /// `editorActions.ts`. Apple platforms take the macOS set; every other
-/// platform takes the Windows / Linux set, with Ctrl+F4 on Windows alone. The
-/// close chord is bound only when [closable].
+/// platform takes the Windows / Linux set, with Ctrl+F4 on Windows alone.
+///
+/// The map is built once per platform and shared. Every chord stays bound
+/// whether or not the layout can serve it: an action that reports itself
+/// disabled, as the close action does without a handler, lets its chord fall
+/// through to bindings above.
 @internal
-Map<ShortcutActivator, Intent> editorTabShortcuts({
-  required TargetPlatform platform,
-  required bool closable,
-}) {
+Map<ShortcutActivator, Intent> editorTabShortcuts(TargetPlatform platform) =>
+    _editorTabShortcuts[platform] ??= Map.unmodifiable(
+      _buildEditorTabShortcuts(platform),
+    );
+
+final _editorTabShortcuts = <TargetPlatform, Map<ShortcutActivator, Intent>>{};
+
+Map<ShortcutActivator, Intent> _buildEditorTabShortcuts(
+  TargetPlatform platform,
+) {
   final apple =
       platform == TargetPlatform.macOS || platform == TargetPlatform.iOS;
   // Editor positions 1–9 in order; 0 selects the last editor.
@@ -99,21 +109,18 @@ Map<ShortcutActivator, Intent> editorTabShortcuts({
         meta: true,
         shift: true,
       ): const ActivatePreviousEditorTabIntent(),
-      if (closable)
-        const SingleActivator(LogicalKeyboardKey.keyW, meta: true):
-            const CloseActiveEditorTabIntent(),
+      const SingleActivator(LogicalKeyboardKey.keyW, meta: true):
+          const CloseActiveEditorTabIntent(),
     } else ...{
       const SingleActivator(LogicalKeyboardKey.pageDown, control: true):
           const ActivateNextEditorTabIntent(),
       const SingleActivator(LogicalKeyboardKey.pageUp, control: true):
           const ActivatePreviousEditorTabIntent(),
-      if (closable) ...{
-        const SingleActivator(LogicalKeyboardKey.keyW, control: true):
+      const SingleActivator(LogicalKeyboardKey.keyW, control: true):
+          const CloseActiveEditorTabIntent(),
+      if (platform == TargetPlatform.windows)
+        const SingleActivator(LogicalKeyboardKey.f4, control: true):
             const CloseActiveEditorTabIntent(),
-        if (platform == TargetPlatform.windows)
-          const SingleActivator(LogicalKeyboardKey.f4, control: true):
-              const CloseActiveEditorTabIntent(),
-      },
     },
     for (final (index, key) in digits.indexed)
       position(key): ActivateEditorTabAtIndexIntent(index),
@@ -383,21 +390,16 @@ class _EditorTabsScopeState extends State<EditorTabsScope> {
       );
     }
     // The wrappers stay in the tree whether or not there are tabs, so gaining
-    // or losing tabs never re-parents the workbench; with no tabs the map is
-    // empty and the node takes no focus.
-    final hasTabs = activeId != null;
+    // or losing tabs never re-parents the workbench. With no tabs every action
+    // is disabled, so each chord reaches the bindings above, and the node
+    // takes no focus.
     return Actions(
       actions: _actions,
       child: Shortcuts(
-        shortcuts: hasTabs
-            ? editorTabShortcuts(
-                platform: defaultTargetPlatform,
-                closable: widget.onCloseRequested != null,
-              )
-            : const <ShortcutActivator, Intent>{},
+        shortcuts: editorTabShortcuts(defaultTargetPlatform),
         child: Focus(
           focusNode: _keysFocusNode,
-          canRequestFocus: hasTabs,
+          canRequestFocus: activeId != null,
           skipTraversal: true,
           child: widget.builder(context, editorPart),
         ),

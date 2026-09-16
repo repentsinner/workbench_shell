@@ -857,6 +857,55 @@ void main() {
       expect(find.text('Empty editor'), findsOneWidget);
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
+    testWidgets('with focus inside a layout without tabs, the chords reach '
+        'the host', (tester) async {
+      var hostHandled = 0;
+      final editorNode = FocusNode();
+      addTearDown(editorNode.dispose);
+      await tester.pumpWidget(
+        Actions(
+          actions: {
+            _HostCloseIntent: CallbackAction<_HostCloseIntent>(
+              onInvoke: (_) => hostHandled++,
+            ),
+          },
+          child: WorkbenchShortcuts(
+            extraShortcuts: const {
+              SingleActivator(LogicalKeyboardKey.keyW, meta: true):
+                  _HostCloseIntent(),
+              SingleActivator(
+                LogicalKeyboardKey.arrowRight,
+                meta: true,
+                alt: true,
+              ): _HostCloseIntent(),
+            },
+            child: MaterialApp(
+              theme: ThemeData.dark().copyWith(
+                extensions: [testWorkbenchTheme],
+              ),
+              home: WorkbenchLayout(
+                activityBarItems: const [],
+                editor: Focus(
+                  focusNode: editorNode,
+                  child: const Text('Empty editor'),
+                ),
+                containerBuilder: _emptySpec,
+                bottomPanel: const SizedBox.shrink(),
+                showBottomPanel: false,
+                statusBar: const SizedBox(height: 22),
+              ),
+            ),
+          ),
+        ),
+      );
+      editorNode.requestFocus();
+      await tester.pump();
+      expect(editorNode.hasPrimaryFocus, isTrue);
+      await press(tester, LogicalKeyboardKey.keyW, meta: true);
+      await press(tester, LogicalKeyboardKey.arrowRight, meta: true, alt: true);
+      expect(hostHandled, 2);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
     testWidgets('the host bindings above the layout still fire', (
       tester,
     ) async {
