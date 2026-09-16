@@ -694,9 +694,7 @@ class _EditorTabStripState extends State<EditorTabStrip> {
       tab: tab,
       active: tab.id == activeId,
       metrics: metrics,
-      first: index == 0,
-      last: index == tabs.length - 1,
-      followsActive: index > 0 && tabs[index - 1].id == activeId,
+      position: EditorTabPosition.of(index, tabs, activeId),
       onSelected: () => widget.onSelected(tab.id),
       onClose: onClose == null ? null : () => onClose(tab.id),
       theme: theme,
@@ -730,9 +728,7 @@ class _EditorTabStripState extends State<EditorTabStrip> {
                     active: true,
                     metrics: metrics,
                     // A drag image carries no shoulders into its neighbours.
-                    first: true,
-                    last: false,
-                    followsActive: false,
+                    position: EditorTabPosition.first,
                     onSelected: () {},
                     onClose: onClose == null ? null : () {},
                     theme: theme,
@@ -930,17 +926,8 @@ class _EditorTab extends StatefulWidget {
   /// The treatment's sizes and hover rules.
   final _EditorTabMetrics metrics;
 
-  /// The tab stands first in the strip, so a connected active tab keeps a
-  /// straight leading edge.
-  final bool first;
-
-  /// The tab stands last, so a connected active tab turns its trailing
-  /// shoulder inside its own slot.
-  final bool last;
-
-  /// The tab directly before this one is active, so this tab paints that
-  /// tab's trailing shoulder over its own fill.
-  final bool followsActive;
+  /// Where the tab stands, which shapes a connected tab's shoulders.
+  final EditorTabPosition position;
 
   final VoidCallback onSelected;
 
@@ -953,9 +940,7 @@ class _EditorTab extends StatefulWidget {
     required this.tab,
     required this.active,
     required this.metrics,
-    required this.first,
-    required this.last,
-    required this.followsActive,
+    required this.position,
     required this.onSelected,
     required this.onClose,
     required this.theme,
@@ -1082,9 +1067,7 @@ class _EditorTabState extends State<_EditorTab> {
             ? ConnectedEditorTabPainter.hoverBackground(theme)
             : null,
         surface: theme.editorBackground,
-        leadingShoulder: active && !widget.first,
-        trailingShoulderInside: active && widget.last,
-        continuesShoulder: widget.followsActive,
+        position: widget.position,
       ),
       child: content,
     );
@@ -1175,6 +1158,42 @@ class _EditorTabState extends State<_EditorTab> {
   }
 }
 
+/// Where an editor tab stands in the strip, as far as a connected tab's
+/// shoulders care (§spec:editor-tab-rendering).
+///
+/// An active tab's shape depends on the strip's ends; an inactive tab's
+/// depends only on whether the active tab stands directly before it.
+@internal
+enum EditorTabPosition {
+  /// First in the strip, with more tabs after it.
+  first,
+
+  /// Neither first nor last, and not directly after the active tab.
+  middle,
+
+  /// Last in the strip, with more tabs before it.
+  last,
+
+  /// The strip's one tab.
+  only,
+
+  /// Directly after the active tab, wherever else it stands.
+  afterActive;
+
+  /// The position of the tab at [index] in [tabs], whose active tab is
+  /// [activeId].
+  static EditorTabPosition of(
+    int index,
+    List<WorkbenchEditorTab> tabs,
+    String activeId,
+  ) {
+    if (index > 0 && tabs[index - 1].id == activeId) return afterActive;
+    final atEnd = index == tabs.length - 1;
+    if (index == 0) return atEnd ? only : first;
+    return atEnd ? last : middle;
+  }
+}
+
 /// Paints a connected editor tab's fill (§spec:editor-tab-rendering), per
 /// `connectedEditorTabs.css`.
 ///
@@ -1225,23 +1244,30 @@ class ConnectedEditorTabPainter extends CustomPainter {
   /// The editor surface: the active shape, its shoulders and the separator.
   final Color surface;
 
-  /// The active tab curves out past its leading edge.
-  final bool leadingShoulder;
-
-  /// The active tab is last, so its trailing shoulder turns inside its slot.
-  final bool trailingShoulderInside;
-
-  /// The tab before this one is active; paint its trailing shoulder here.
-  final bool continuesShoulder;
+  /// Where the tab stands, which picks its shoulders.
+  final EditorTabPosition position;
 
   const ConnectedEditorTabPainter({
     required this.active,
     required this.fill,
     required this.surface,
-    required this.leadingShoulder,
-    required this.trailingShoulderInside,
-    required this.continuesShoulder,
+    required this.position,
   });
+
+  /// The active tab curves out past its leading edge, unless it is first.
+  bool get leadingShoulder =>
+      active &&
+      position != EditorTabPosition.first &&
+      position != EditorTabPosition.only;
+
+  /// The active tab is last, so its trailing shoulder turns inside its slot.
+  bool get trailingShoulderInside =>
+      active &&
+      (position == EditorTabPosition.last ||
+          position == EditorTabPosition.only);
+
+  /// The tab before this one is active; paint its trailing shoulder here.
+  bool get continuesShoulder => position == EditorTabPosition.afterActive;
 
   static const double _radius =
       WorkbenchLayoutConstants.connectedEditorTabCapRadius;
@@ -1275,20 +1301,18 @@ class ConnectedEditorTabPainter extends CustomPainter {
         );
     }
     if (continuesShoulder) {
-      final shoulder = Path()
-        ..moveTo(0, foot - _radius)
-        ..arcTo(
-          Rect.fromCircle(
-            center: Offset(_radius, foot - _radius),
-            radius: _radius,
-          ),
-          math.pi,
-          -math.pi / 2,
-          false,
-        )
-        ..lineTo(0, foot)
-        ..close();
-      canvas.drawPath(shoulder, surfacePaint);
+      final shoulder = Path()..moveTo(0, foot - _radius);
+      _addShoulder(
+        shoulder,
+        center: Offset(_radius, foot - _radius),
+        from: math.pi,
+      );
+      canvas.drawPath(
+        shoulder
+          ..lineTo(0, foot)
+          ..close(),
+        surfacePaint,
+      );
     }
   }
 
@@ -1299,14 +1323,10 @@ class ConnectedEditorTabPainter extends CustomPainter {
     final path = Path()..moveTo(leadingShoulder ? -_radius : 0, foot);
     if (leadingShoulder) {
       // A concave quarter turn from the foot up to the leading edge.
-      path.arcTo(
-        Rect.fromCircle(
-          center: Offset(-_radius, foot - _radius),
-          radius: _radius,
-        ),
-        math.pi / 2,
-        -math.pi / 2,
-        false,
+      _addShoulder(
+        path,
+        center: Offset(-_radius, foot - _radius),
+        from: math.pi / 2,
       );
     }
     path
@@ -1315,21 +1335,31 @@ class ConnectedEditorTabPainter extends CustomPainter {
       ..lineTo(right - _radius, 0)
       ..arcToPoint(Offset(right, _radius), radius: _corner);
     if (trailingShoulderInside) {
-      path
-        ..lineTo(right, foot - _radius)
-        ..arcTo(
-          Rect.fromCircle(
-            center: Offset(size.width, foot - _radius),
-            radius: _radius,
-          ),
-          math.pi,
-          -math.pi / 2,
-          false,
-        );
+      path.lineTo(right, foot - _radius);
+      _addShoulder(
+        path,
+        center: Offset(size.width, foot - _radius),
+        from: math.pi,
+      );
     } else {
       path.lineTo(right, foot);
     }
     return path..close();
+  }
+
+  /// Extends [path] with a shoulder: a quarter of the circle of the cap
+  /// radius about [center], turning anticlockwise from angle [from].
+  static void _addShoulder(
+    Path path, {
+    required Offset center,
+    required double from,
+  }) {
+    path.arcTo(
+      Rect.fromCircle(center: center, radius: _radius),
+      from,
+      -math.pi / 2,
+      false,
+    );
   }
 
   @override
@@ -1337,7 +1367,5 @@ class ConnectedEditorTabPainter extends CustomPainter {
       oldDelegate.active != active ||
       oldDelegate.fill != fill ||
       oldDelegate.surface != surface ||
-      oldDelegate.leadingShoulder != leadingShoulder ||
-      oldDelegate.trailingShoulderInside != trailingShoulderInside ||
-      oldDelegate.continuesShoulder != continuesShoulder;
+      oldDelegate.position != position;
 }
