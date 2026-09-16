@@ -220,6 +220,8 @@ void main() {
       expect(WorkbenchLayoutConstants.editorTabPaddingStart, 10.0);
       expect(WorkbenchLayoutConstants.editorTabPaddingEnd, 10.0);
       expect(WorkbenchLayoutConstants.editorTabIconGap, 6.0);
+      // `.tab > .tab-actions { width: 28px }`.
+      expect(WorkbenchLayoutConstants.editorTabActionsWidth, 28.0);
     });
   });
 }

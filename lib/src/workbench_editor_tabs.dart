@@ -1,6 +1,7 @@
 import 'dart:ui' show SemanticsRole;
 
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:meta/meta.dart';
 
 import 'layout_constants.dart';
@@ -15,9 +16,9 @@ import 'workbench_theme.dart';
 /// hold on type, size and colour (§spec:capability-boundary).
 @immutable
 class WorkbenchEditorTab {
-  /// Stable identity. The shell keys the active tab and each tab's retained
-  /// content by it, so it shall be unique within a layout and survive
-  /// rebuilds.
+  /// Stable identity. The shell keys the active tab, the tab order and each
+  /// tab's retained content by it, so it shall be unique within a layout and
+  /// survive rebuilds.
   final String id;
 
   /// The tab's label, rendered in the casing the host supplies.
@@ -27,8 +28,9 @@ class WorkbenchEditorTab {
   /// `workbench.editor.showIcons`.
   final IconData? icon;
 
-  /// Whether the editor has unsaved changes. The shell exposes the state to
-  /// assistive technology.
+  /// Whether the editor has unsaved changes. A dirty tab shows a filled dot in
+  /// place of its close button and exposes the state to assistive technology
+  /// (§spec:editor-tab-rendering).
   final bool isDirty;
 
   /// Builds the editor shown while the tab is active. Called only once the
@@ -65,6 +67,9 @@ class EditorTabsPart extends StatelessWidget {
   /// Activates a tab from a click.
   final ValueChanged<String> onSelected;
 
+  /// Requests a tab's close. Null renders no close buttons.
+  final ValueChanged<String>? onCloseRequested;
+
   final WorkbenchTheme theme;
 
   const EditorTabsPart({
@@ -73,6 +78,7 @@ class EditorTabsPart extends StatelessWidget {
     required this.activeId,
     required this.openedIds,
     required this.onSelected,
+    required this.onCloseRequested,
     required this.theme,
   });
 
@@ -86,6 +92,7 @@ class EditorTabsPart extends StatelessWidget {
           tabs: tabs,
           activeId: activeId,
           onSelected: onSelected,
+          onCloseRequested: onCloseRequested,
           theme: theme,
         ),
         Expanded(
@@ -125,6 +132,7 @@ class EditorTabStrip extends StatelessWidget {
   final List<WorkbenchEditorTab> tabs;
   final String activeId;
   final ValueChanged<String> onSelected;
+  final ValueChanged<String>? onCloseRequested;
   final WorkbenchTheme theme;
 
   const EditorTabStrip({
@@ -132,11 +140,13 @@ class EditorTabStrip extends StatelessWidget {
     required this.tabs,
     required this.activeId,
     required this.onSelected,
+    required this.onCloseRequested,
     required this.theme,
   });
 
   @override
   Widget build(BuildContext context) {
+    final onClose = onCloseRequested;
     return SizedBox(
       height: WorkbenchLayoutConstants.editorTabHeight,
       child: ColoredBox(
@@ -160,6 +170,7 @@ class EditorTabStrip extends StatelessWidget {
                       tab: tab,
                       active: tab.id == activeId,
                       onSelected: () => onSelected(tab.id),
+                      onClose: onClose == null ? null : () => onClose(tab.id),
                       theme: theme,
                     ),
                 ],
@@ -173,10 +184,13 @@ class EditorTabStrip extends StatelessWidget {
 }
 
 /// One tab in the base treatment, per `multieditortabscontrol.css`.
-class _EditorTab extends StatelessWidget {
+class _EditorTab extends StatefulWidget {
   final WorkbenchEditorTab tab;
   final bool active;
   final VoidCallback onSelected;
+
+  /// Requests this tab's close. Null renders no close button.
+  final VoidCallback? onClose;
   final WorkbenchTheme theme;
 
   const _EditorTab({
@@ -184,14 +198,33 @@ class _EditorTab extends StatelessWidget {
     required this.tab,
     required this.active,
     required this.onSelected,
+    required this.onClose,
     required this.theme,
   });
 
   @override
+  State<_EditorTab> createState() => _EditorTabState();
+}
+
+class _EditorTabState extends State<_EditorTab> {
+  /// The pointer is over the tab, which reveals its close button.
+  bool _tabHovered = false;
+
+  /// The pointer is over the action column itself, which swaps a dirty tab's
+  /// dot back to the close glyph (`.action-label:not(:hover)::before`).
+  bool _actionHovered = false;
+
+  @override
   Widget build(BuildContext context) {
+    final theme = widget.theme;
+    final tab = widget.tab;
+    final active = widget.active;
     final foreground = active
         ? theme.tabActiveForeground
         : theme.tabInactiveForeground;
+    // `.tab-actions` shows for a closable tab and for a dirty one: the
+    // unsaved dot is state, so it stays even with no close affordance.
+    final showsActions = widget.onClose != null || tab.isDirty;
     return Semantics(
       container: true,
       role: SemanticsRole.tab,
@@ -199,8 +232,10 @@ class _EditorTab extends StatelessWidget {
       value: tab.isDirty ? 'unsaved changes' : null,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _tabHovered = true),
+        onExit: (_) => setState(() => _tabHovered = false),
         child: GestureDetector(
-          onTap: onSelected,
+          onTap: widget.onSelected,
           child: Container(
             constraints: const BoxConstraints(
               minWidth: WorkbenchLayoutConstants.editorTabMinWidth,
@@ -213,28 +248,45 @@ class _EditorTab extends StatelessWidget {
             ),
             child: _activeRules(
               Padding(
-                padding: const EdgeInsetsDirectional.only(
+                // The action column supplies the trailing room when it shows
+                // (`.close-action-off` pads only when it does not).
+                padding: EdgeInsetsDirectional.only(
                   start: WorkbenchLayoutConstants.editorTabPaddingStart,
-                  end: WorkbenchLayoutConstants.editorTabPaddingEnd,
+                  end: showsActions
+                      ? 0
+                      : WorkbenchLayoutConstants.editorTabPaddingEnd,
                 ),
                 child: Row(
+                  // `.tab-label { flex: 1 }` pushes the actions to the
+                  // trailing edge of a tab wider than its content. The strip
+                  // lays tabs out at their natural width, so the free space
+                  // is distributed rather than flexed into.
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    if (tab.icon case final icon?) ...[
-                      Icon(
-                        icon,
-                        size: WorkbenchLayoutConstants.iconMd,
-                        color: foreground,
-                      ),
-                      const SizedBox(
-                        width: WorkbenchLayoutConstants.editorTabIconGap,
-                      ),
-                    ],
-                    Text(
-                      tab.label,
-                      maxLines: 1,
-                      softWrap: false,
-                      style: theme.editorTabLabel.copyWith(color: foreground),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (tab.icon case final icon?) ...[
+                          Icon(
+                            icon,
+                            size: WorkbenchLayoutConstants.iconMd,
+                            color: foreground,
+                          ),
+                          const SizedBox(
+                            width: WorkbenchLayoutConstants.editorTabIconGap,
+                          ),
+                        ],
+                        Text(
+                          tab.label,
+                          maxLines: 1,
+                          softWrap: false,
+                          style: theme.editorTabLabel.copyWith(
+                            color: foreground,
+                          ),
+                        ),
+                      ],
                     ),
+                    if (showsActions) _buildActions(foreground),
                   ],
                 ),
               ),
@@ -245,10 +297,57 @@ class _EditorTab extends StatelessWidget {
     );
   }
 
+  /// The trailing action column: the close button, or a dirty tab's dot.
+  ///
+  /// Upstream's `.tab-actions` rules show it on the active tab, on hover, and
+  /// on a dirty tab, and hide it (opacity 0) otherwise. A hidden button takes
+  /// no pointer, so a tap there activates the tab instead of closing an
+  /// editor the user cannot see a button for.
+  Widget _buildActions(Color foreground) {
+    final tab = widget.tab;
+    final onClose = widget.onClose;
+    final visible = widget.active || _tabHovered || tab.isDirty;
+    final showsDot = tab.isDirty && (onClose == null || !_actionHovered);
+    final glyph = Icon(
+      showsDot ? Symbols.fiber_manual_record : Symbols.close_rounded,
+      fill: showsDot ? 1 : 0,
+      size: WorkbenchLayoutConstants.iconMd,
+      color: foreground,
+    );
+    return Opacity(
+      key: const ValueKey('editor-tab-actions'),
+      opacity: visible ? 1 : 0,
+      child: IgnorePointer(
+        ignoring: !visible,
+        child: SizedBox(
+          width: WorkbenchLayoutConstants.editorTabActionsWidth,
+          child: onClose == null
+              ? Center(child: glyph)
+              : Semantics(
+                  container: true,
+                  button: true,
+                  label: 'Close',
+                  excludeSemantics: true,
+                  onTap: onClose,
+                  child: MouseRegion(
+                    onEnter: (_) => setState(() => _actionHovered = true),
+                    onExit: (_) => setState(() => _actionHovered = false),
+                    child: GestureDetector(
+                      onTap: onClose,
+                      child: Center(child: glyph),
+                    ),
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+
   /// The active tab's 1px top and bottom rules, drawn over its content
   /// inside the divider, each only when the theme sets its token.
   Widget _activeRules(Widget child) {
-    if (!active) return child;
+    if (!widget.active) return child;
+    final theme = widget.theme;
     BorderSide rule(Color? color) => color == null
         ? BorderSide.none
         : BorderSide(

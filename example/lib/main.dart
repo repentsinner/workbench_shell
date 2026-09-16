@@ -376,9 +376,10 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   void Function(Object id)? _focusPanelById;
   final NotificationService _notificationService = NotificationService();
 
-  /// Open editors (§spec:editor-tabs). The host owns which editors exist and
-  /// hands them to the shell as tabs; the shell renders the strip, tracks the
-  /// active tab, and retains each tab's content across switches.
+  /// Open editors (§spec:editor-tabs). The host owns which editors exist: it
+  /// opens one by adding it and closes one by removing it. The shell renders
+  /// the strip, places a new tab right of the active one, tracks the active
+  /// tab, and retains each tab's content across switches.
   final List<_ExampleEditor> _editors = [
     const _ExampleEditor(
       id: 'lorem',
@@ -391,6 +392,48 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
       icon: Symbols.article_rounded,
     ),
   ];
+
+  /// Numbers each editor the "New Editor" control opens.
+  int _untitledCount = 0;
+
+  /// Open an untitled editor. The host only adds it; the shell opens it to
+  /// the right of the active tab and activates it (§spec:editor-tab-state).
+  void _openNewEditor() {
+    setState(() {
+      _untitledCount++;
+      _editors.add(
+        _ExampleEditor(
+          id: 'untitled-$_untitledCount',
+          label: 'Untitled-$_untitledCount',
+          icon: Symbols.draft_rounded,
+        ),
+      );
+    });
+  }
+
+  void _toggleUnsaved(String id) {
+    setState(() {
+      final index = _editors.indexWhere((editor) => editor.id == id);
+      _editors[index] = _editors[index].withDirty(!_editors[index].isDirty);
+    });
+  }
+
+  /// Close an editor the user asked to close. A real host would ask whether
+  /// to save an unsaved editor first; the shell leaves the tab in place
+  /// until the host removes it (§spec:editor-tab-state).
+  void _closeEditor(String id) {
+    setState(() => _editors.removeWhere((editor) => editor.id == id));
+  }
+
+  /// Keep the host list in the order the shell reports, so a host persisting
+  /// open editors would restore them where the user left them.
+  void _recordEditorOrder(List<String> order) {
+    setState(
+      () => _editors.sort(
+        (a, b) => order.indexOf(a.id).compareTo(order.indexOf(b.id)),
+      ),
+    );
+  }
 
   /// Host-persisted sidebar width and panel height (§spec:resize-geometry).
   /// Dogfoods the seed-plus-commit `initialSidebarWidth`/`onSidebarWidthChangeEnd`
@@ -827,8 +870,9 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                     activityBarItems: _activityBarItems,
                     containerBuilder: _buildContainerSpec,
                     // Editor tabs (§spec:editor-tabs): the host supplies each
-                    // tab's label, icon and content; the shell renders the
-                    // strip and owns the active tab. `editor` is the
+                    // tab's label, icon, unsaved state and content, and
+                    // answers close requests; the shell renders the strip and
+                    // owns the active tab and the order. `editor` is the
                     // empty-editor surface shown once no tab is open.
                     editorTabs: [
                       for (final editor in _editors)
@@ -836,10 +880,13 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                           id: editor.id,
                           label: editor.label,
                           icon: editor.icon,
+                          isDirty: editor.isDirty,
                           contentBuilder: (_) => _buildEditorContent(editor),
                         ),
                     ],
-                    editor: const _EmptyEditorSurface(),
+                    onEditorTabCloseRequested: _closeEditor,
+                    onEditorTabOrderChanged: _recordEditorOrder,
+                    editor: _EmptyEditorSurface(onNewEditor: _openNewEditor),
                     bottomPanel: scope.tabbedPanel,
                     showBottomPanel: _panelVisible,
                     // Cross-restart persistence (§spec:layout-state-persistence):
@@ -958,12 +1005,25 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
     );
   }
 
-  /// The content of one open editor. The first editor carries the lorem body
-  /// and the chrome review select; every other editor is a scrolling notes
-  /// document.
+  /// The content of one open editor under a row of host controls that drive
+  /// the tab lifecycle. The first editor carries the lorem body and the
+  /// chrome review select; every other editor is a scrolling notes document.
   Widget _buildEditorContent(_ExampleEditor editor) {
-    if (editor.id == 'lorem') return const _EditorPlaceholder();
-    return _NotesEditor(title: editor.label);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _EditorLifecycleControls(
+          isDirty: editor.isDirty,
+          onNewEditor: _openNewEditor,
+          onToggleUnsaved: () => _toggleUnsaved(editor.id),
+        ),
+        Expanded(
+          child: editor.id == 'lorem'
+              ? const _EditorPlaceholder()
+              : _NotesEditor(title: editor.label),
+        ),
+      ],
+    );
   }
 
   /// Map an activity-bar container id to its typed view-descriptor spec
@@ -1625,25 +1685,73 @@ class _ExampleEditor {
     required this.id,
     required this.label,
     required this.icon,
+    this.isDirty = false,
   });
 
   final String id;
   final String label;
   final IconData icon;
+  final bool isDirty;
+
+  _ExampleEditor withDirty(bool isDirty) =>
+      _ExampleEditor(id: id, label: label, icon: icon, isDirty: isDirty);
 }
 
 /// The editor area with no tab open — the example's stand-in for VS Code's
 /// empty editor group watermark (§spec:editor-tab-rendering).
 class _EmptyEditorSurface extends StatelessWidget {
-  const _EmptyEditorSurface();
+  const _EmptyEditorSurface({required this.onNewEditor});
+
+  final VoidCallback onNewEditor;
 
   @override
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
     return Center(
-      child: Text(
-        'No editor is open',
-        style: theme.bodyText.copyWith(color: theme.descriptionForeground),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'No editor is open',
+            style: theme.bodyText.copyWith(color: theme.descriptionForeground),
+          ),
+          _DemoButton(label: 'New Editor', onTap: onNewEditor),
+        ],
+      ),
+    );
+  }
+}
+
+/// Host controls above each editor that exercise the tab lifecycle
+/// (§spec:editor-tab-state): open another editor, and flip this one's unsaved
+/// state so its tab trades the close button for the dirty dot.
+class _EditorLifecycleControls extends StatelessWidget {
+  const _EditorLifecycleControls({
+    required this.isDirty,
+    required this.onNewEditor,
+    required this.onToggleUnsaved,
+  });
+
+  final bool isDirty;
+  final VoidCallback onNewEditor;
+  final VoidCallback onToggleUnsaved;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: WorkbenchLayoutConstants.spacingSize240,
+        vertical: WorkbenchLayoutConstants.spacingSize80,
+      ),
+      child: Wrap(
+        spacing: WorkbenchLayoutConstants.spacingSize80,
+        children: [
+          _DemoButton(label: 'New Editor', onTap: onNewEditor),
+          _DemoButton(
+            label: isDirty ? 'Mark Saved' : 'Mark Unsaved',
+            onTap: onToggleUnsaved,
+          ),
+        ],
       ),
     );
   }

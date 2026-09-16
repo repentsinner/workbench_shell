@@ -957,5 +957,110 @@ void main() {
       // Still scrolled: the shell retained the tab's content.
       expect(find.text('# release-notes.md'), findsNothing);
     });
+
+    /// Widens the test window past the default 800px so every tab fits: the
+    /// strip clips tabs past its trailing edge until overflow scrolling lands
+    /// (§spec:editor-tab-interaction).
+    Future<void> pumpWide(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(2000, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(const WorkbenchExampleApp());
+      await tester.pumpAndSettle();
+    }
+
+    /// The tab labelled [label]: the nearest pointer region above its label.
+    Finder tabOf(String label) => find
+        .ancestor(of: find.text(label), matching: find.byType(MouseRegion))
+        .first;
+
+    /// The strip's labels, left to right.
+    List<String> tabOrder(WidgetTester tester, List<String> labels) {
+      final present = [
+        for (final label in labels)
+          if (find.text(label).evaluate().isNotEmpty) label,
+      ];
+      return present..sort(
+        (a, b) => tester
+            .getTopLeft(find.text(a))
+            .dx
+            .compareTo(tester.getTopLeft(find.text(b)).dx),
+      );
+    }
+
+    testWidgets('a new editor opens right of the active tab and activates', (
+      tester,
+    ) async {
+      await pumpWide(tester);
+
+      // lorem-ipsum.txt is active; the new editor lands between the two.
+      await tester.tap(find.text('New Editor'));
+      await tester.pumpAndSettle();
+      expect(
+        tabOrder(tester, [
+          'lorem-ipsum.txt',
+          'Untitled-1',
+          'release-notes.md',
+        ]),
+        ['lorem-ipsum.txt', 'Untitled-1', 'release-notes.md'],
+      );
+      expect(find.text('# Untitled-1'), findsOneWidget);
+    });
+
+    testWidgets('an unsaved editor shows a dot in place of its close button', (
+      tester,
+    ) async {
+      await pumpWide(tester);
+
+      Finder inLoremTab(IconData icon) => find.descendant(
+        of: tabOf('lorem-ipsum.txt'),
+        matching: find.byIcon(icon),
+      );
+      expect(inLoremTab(Symbols.close_rounded), findsOneWidget);
+
+      await tester.tap(find.text('Mark Unsaved'));
+      await tester.pumpAndSettle();
+      expect(inLoremTab(Symbols.fiber_manual_record), findsOneWidget);
+      expect(inLoremTab(Symbols.close_rounded), findsNothing);
+      expect(find.text('Mark Saved'), findsOneWidget);
+    });
+
+    testWidgets('closing the active editor activates the most recent one, and '
+        'closing the last shows the empty editor', (tester) async {
+      await pumpWide(tester);
+
+      await tester.tap(find.text('New Editor'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('release-notes.md'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Untitled-1'));
+      await tester.pumpAndSettle();
+
+      Finder closeOf(String label) => find.descendant(
+        of: tabOf(label),
+        matching: find.byIcon(Symbols.close_rounded),
+      );
+
+      // Untitled-1 is active; release-notes.md was active before it, so it
+      // takes over rather than a neighbour.
+      await tester.tap(closeOf('Untitled-1'));
+      await tester.pumpAndSettle();
+      expect(find.text('Untitled-1'), findsNothing);
+      expect(find.text('# release-notes.md'), findsOneWidget);
+
+      await tester.tap(closeOf('release-notes.md'));
+      await tester.pumpAndSettle();
+      await tester.tap(closeOf('lorem-ipsum.txt'));
+      await tester.pumpAndSettle();
+      expect(find.text('No editor is open'), findsOneWidget);
+      expect(find.text('lorem-ipsum.txt'), findsNothing);
+
+      // The empty surface can open an editor again.
+      await tester.tap(find.text('New Editor'));
+      await tester.pumpAndSettle();
+      expect(find.text('Untitled-2'), findsOneWidget);
+      expect(find.text('No editor is open'), findsNothing);
+    });
   });
 }

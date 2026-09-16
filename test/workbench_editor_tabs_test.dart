@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -30,6 +31,8 @@ Widget _layout({
   String? initialActiveEditorTabId,
   String? activeEditorTabId,
   ValueChanged<String>? onActiveEditorTabChanged,
+  ValueChanged<List<String>>? onEditorTabOrderChanged,
+  ValueChanged<String>? onEditorTabCloseRequested,
   bool? zenMode,
   bool? centeredLayout,
   bool modernUI = false,
@@ -48,6 +51,8 @@ Widget _layout({
       initialActiveEditorTabId: initialActiveEditorTabId,
       activeEditorTabId: activeEditorTabId,
       onActiveEditorTabChanged: onActiveEditorTabChanged,
+      onEditorTabOrderChanged: onEditorTabOrderChanged,
+      onEditorTabCloseRequested: onEditorTabCloseRequested,
       zenMode: zenMode,
       onZenModeChanged: zenMode == null ? null : (_) {},
       centeredLayout: centeredLayout,
@@ -193,7 +198,7 @@ void main() {
       );
       // MaterialApp animates between themes.
       await tester.pumpAndSettle();
-      final set =tester.widget<DecoratedBox>(rules());
+      final set = tester.widget<DecoratedBox>(rules());
       final setBorder = (set.decoration as BoxDecoration).border! as Border;
       expect(setBorder.top.color, top);
       expect(setBorder.top.width, WorkbenchLayoutConstants.strokeThickness);
@@ -424,6 +429,245 @@ void main() {
           hasSelectedState: true,
           hasTapAction: true,
         ),
+      );
+      handle.dispose();
+    });
+  });
+
+  group('Editor tab lifecycle (§spec:editor-tab-state)', () {
+    /// Pumps a layout whose tab list a test replaces through the returned
+    /// setter, the way a host adds and removes editors.
+    Future<void Function(List<WorkbenchEditorTab>)> pumpHost(
+      WidgetTester tester, {
+      required List<WorkbenchEditorTab> tabs,
+      ValueChanged<String>? onActiveEditorTabChanged,
+      ValueChanged<List<String>>? onEditorTabOrderChanged,
+      ValueChanged<String>? onEditorTabCloseRequested,
+    }) async {
+      var current = tabs;
+      late StateSetter setOuter;
+      await tester.pumpWidget(
+        StatefulBuilder(
+          builder: (context, setState) {
+            setOuter = setState;
+            return _layout(
+              editorTabs: current,
+              onActiveEditorTabChanged: onActiveEditorTabChanged,
+              onEditorTabOrderChanged: onEditorTabOrderChanged,
+              onEditorTabCloseRequested: onEditorTabCloseRequested,
+            );
+          },
+        ),
+      );
+      return (List<WorkbenchEditorTab> next) => setOuter(() => current = next);
+    }
+
+    /// The labels in the order the strip renders them, left to right.
+    List<String> stripOrder(WidgetTester tester) {
+      final labels = tester
+          .widgetList<Text>(
+            find.descendant(
+              of: find.byType(EditorTabStrip),
+              matching: find.byType(Text),
+            ),
+          )
+          .map((text) => text.data!)
+          .toList();
+      labels.sort(
+        (a, b) => tester
+            .getTopLeft(find.text(a))
+            .dx
+            .compareTo(tester.getTopLeft(find.text(b)).dx),
+      );
+      return labels;
+    }
+
+    testWidgets('an added tab opens right of the active tab and activates', (
+      tester,
+    ) async {
+      final orders = <List<String>>[];
+      final actives = <String>[];
+      final setTabs = await pumpHost(
+        tester,
+        tabs: [_tab('a'), _tab('b'), _tab('c')],
+        onEditorTabOrderChanged: orders.add,
+        onActiveEditorTabChanged: actives.add,
+      );
+      await tester.tap(find.text('Tab b'));
+      await tester.pump();
+
+      setTabs([_tab('a'), _tab('b'), _tab('c'), _tab('d')]);
+      await tester.pump();
+
+      expect(stripOrder(tester), ['Tab a', 'Tab b', 'Tab d', 'Tab c']);
+      expect(find.text('Content d'), findsOneWidget);
+      expect(orders, [
+        ['a', 'b', 'd', 'c'],
+      ]);
+      expect(actives, ['b', 'd']);
+    });
+
+    testWidgets('the host list order no longer moves open tabs', (
+      tester,
+    ) async {
+      final orders = <List<String>>[];
+      final setTabs = await pumpHost(
+        tester,
+        tabs: [_tab('a'), _tab('b'), _tab('c')],
+        onEditorTabOrderChanged: orders.add,
+      );
+      setTabs([_tab('c'), _tab('a'), _tab('b')]);
+      await tester.pump();
+      expect(stripOrder(tester), ['Tab a', 'Tab b', 'Tab c']);
+      expect(orders, isEmpty);
+    });
+
+    testWidgets('removing the active tab activates the most recently active '
+        'remaining tab', (tester) async {
+      final actives = <String>[];
+      final setTabs = await pumpHost(
+        tester,
+        tabs: [_tab('a'), _tab('b'), _tab('c')],
+        onActiveEditorTabChanged: actives.add,
+      );
+      await tester.tap(find.text('Tab c'));
+      await tester.pump();
+      await tester.tap(find.text('Tab b'));
+      await tester.pump();
+
+      setTabs([_tab('a'), _tab('c')]);
+      await tester.pump();
+      // c was active before b, so it takes over — not the neighbour a.
+      expect(find.text('Content c'), findsOneWidget);
+      expect(actives, ['c', 'b', 'c']);
+    });
+
+    testWidgets('removing an inactive tab keeps the active tab', (
+      tester,
+    ) async {
+      final actives = <String>[];
+      final setTabs = await pumpHost(
+        tester,
+        tabs: [_tab('a'), _tab('b')],
+        onActiveEditorTabChanged: actives.add,
+      );
+      setTabs([_tab('a')]);
+      await tester.pump();
+      expect(find.text('Content a'), findsOneWidget);
+      expect(actives, isEmpty);
+    });
+
+    testWidgets('clicking a close button requests the close; the tab stays '
+        'until the host removes it', (tester) async {
+      final requested = <String>[];
+      await pumpHost(
+        tester,
+        tabs: [_tab('a'), _tab('b')],
+        onEditorTabCloseRequested: requested.add,
+      );
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('editor-tab-a')),
+          matching: find.byIcon(Symbols.close_rounded),
+        ),
+      );
+      await tester.pump();
+      expect(requested, ['a']);
+      expect(find.text('Tab a'), findsOneWidget);
+      // Closing is not activating.
+      expect(find.text('Content a'), findsOneWidget);
+    });
+
+    Finder closeButtonOf(String id) => find.descendant(
+      of: find.byKey(ValueKey('editor-tab-$id')),
+      matching: find.byKey(const ValueKey('editor-tab-actions')),
+    );
+
+    double actionsOpacity(WidgetTester tester, String id) =>
+        tester.widget<Opacity>(closeButtonOf(id)).opacity;
+
+    testWidgets('the close button shows on the active tab and on hover', (
+      tester,
+    ) async {
+      await pumpHost(
+        tester,
+        tabs: [_tab('a'), _tab('b')],
+        onEditorTabCloseRequested: (_) {},
+      );
+      expect(actionsOpacity(tester, 'a'), 1);
+      expect(actionsOpacity(tester, 'b'), 0);
+
+      final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await pointer.addPointer(location: Offset.zero);
+      addTearDown(pointer.removePointer);
+      await pointer.moveTo(tester.getCenter(find.text('Tab b')));
+      await tester.pump();
+      expect(actionsOpacity(tester, 'b'), 1);
+
+      await pointer.moveTo(tester.getCenter(find.text('Content a')));
+      await tester.pump();
+      expect(actionsOpacity(tester, 'b'), 0);
+    });
+
+    testWidgets('a dirty tab shows a dot until the pointer is over it', (
+      tester,
+    ) async {
+      await pumpHost(
+        tester,
+        tabs: [_tab('a'), _tab('b', isDirty: true)],
+        onEditorTabCloseRequested: (_) {},
+      );
+      Finder inB(IconData icon) => find.descendant(
+        of: find.byKey(const ValueKey('editor-tab-b')),
+        matching: find.byIcon(icon),
+      );
+      // Shown although the tab is inactive and not hovered.
+      expect(actionsOpacity(tester, 'b'), 1);
+      expect(inB(Symbols.fiber_manual_record), findsOneWidget);
+      expect(inB(Symbols.close_rounded), findsNothing);
+
+      final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await pointer.addPointer(location: Offset.zero);
+      addTearDown(pointer.removePointer);
+      await pointer.moveTo(tester.getCenter(closeButtonOf('b')));
+      await tester.pump();
+      expect(inB(Symbols.close_rounded), findsOneWidget);
+      expect(inB(Symbols.fiber_manual_record), findsNothing);
+    });
+
+    testWidgets('without a close handler no tab shows a close button', (
+      tester,
+    ) async {
+      await pumpHost(tester, tabs: [_tab('a'), _tab('b', isDirty: true)]);
+      expect(find.byIcon(Symbols.close_rounded), findsNothing);
+
+      final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await pointer.addPointer(location: Offset.zero);
+      addTearDown(pointer.removePointer);
+      await pointer.moveTo(tester.getCenter(closeButtonOf('b')));
+      await tester.pump();
+      expect(find.byIcon(Symbols.close_rounded), findsNothing);
+      // The unsaved dot is state, not an affordance, so it stays.
+      expect(find.byIcon(Symbols.fiber_manual_record), findsOneWidget);
+      // A clean tab reserves no action column.
+      expect(closeButtonOf('a'), findsNothing);
+    });
+
+    testWidgets('the close button is announced as a button', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpHost(
+        tester,
+        tabs: [_tab('a')],
+        onEditorTabCloseRequested: (_) {},
+      );
+      expect(
+        tester.getSemantics(
+          find.descendant(
+            of: closeButtonOf('a'),
+            matching: find.byType(GestureDetector),
+          ),
+        ),
+        matchesSemantics(label: 'Close', isButton: true, hasTapAction: true),
       );
       handle.dispose();
     });

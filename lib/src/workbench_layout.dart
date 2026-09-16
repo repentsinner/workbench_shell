@@ -389,11 +389,29 @@ class WorkbenchLayout extends StatefulWidget {
   final Widget editor;
 
   /// Host-supplied editors rendered as a VS Code editor tab strip over the
-  /// editor area (§spec:editor-tabs). The host owns which tabs exist; the
-  /// shell owns the strip, the active tab, and each tab's retained content.
-  /// Empty (the default) leaves the editor area to [editor] unchanged. Ids
-  /// shall be unique.
+  /// editor area (§spec:editor-tabs). The host owns which tabs exist: it opens
+  /// a tab by adding its descriptor and closes one by removing it. The shell
+  /// owns the strip, the active tab, the order, and each tab's retained
+  /// content (§spec:editor-tab-state).
+  ///
+  /// The tabs stand in list order on first build. After that the shell keeps
+  /// its own order: an added id opens to the right of the active tab and
+  /// becomes active, and a removed active tab gives way to the most recently
+  /// active remaining tab. Empty (the default) leaves the editor area to
+  /// [editor] unchanged. Ids shall be unique.
   final List<WorkbenchEditorTab> editorTabs;
+
+  /// Notified with the full id order whenever the shell changes the tab order
+  /// (§spec:editor-tab-state) — today when an added tab opens. A host that
+  /// persists open tabs stores this list and hands it back as its list order
+  /// at startup.
+  final ValueChanged<List<String>>? onEditorTabOrderChanged;
+
+  /// Called with a tab's id when the user asks to close it
+  /// (§spec:editor-tab-state). The tab stays until the host removes it, so the
+  /// host can ask whether to save first. Null (the default) renders no close
+  /// button: a button that does nothing is an affordance the canon lacks.
+  final ValueChanged<String>? onEditorTabCloseRequested;
 
   /// Initial active editor tab. Used only in uncontrolled mode (when
   /// [activeEditorTabId] is null). Null (the default) activates the first tab.
@@ -725,6 +743,8 @@ class WorkbenchLayout extends StatefulWidget {
     this.initialActiveEditorTabId,
     this.activeEditorTabId,
     this.onActiveEditorTabChanged,
+    this.onEditorTabOrderChanged,
+    this.onEditorTabCloseRequested,
     this.initialStatusBarVisible = true,
     this.statusBarVisible,
     this.onStatusBarVisibilityChanged,
@@ -1063,14 +1083,33 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   /// never activated never enters here, so its content builder never runs.
   final List<String> _openedEditorTabIds = [];
 
-  /// The active editor tab, resolved against the live list: a controlled or
-  /// internal id that names no tab falls back to the first tab. Null only
-  /// when there are no tabs.
+  /// The shell-owned tab order (§spec:editor-tab-state): list order on first
+  /// build, then maintained by [_reconcileEditorTabs] as the host adds and
+  /// removes tabs.
+  final List<String> _editorTabOrder = [];
+
+  /// Editor tab ids by recency of activation, most recent last. The next tab
+  /// to take over when the active one leaves, matching VS Code's
+  /// `workbench.editor.focusRecentEditorAfterClose` default.
+  final List<String> _editorTabRecency = [];
+
+  /// The active editor tab, resolved against the live list. A controlled or
+  /// internal id that names no tab falls back to the most recently active
+  /// remaining tab, then to the first in order. Null only when there are no
+  /// tabs.
   String? get _activeEditorTabId {
-    final tabs = widget.editorTabs;
-    if (tabs.isEmpty) return null;
+    if (_editorTabOrder.isEmpty) return null;
     final id = widget.activeEditorTabId ?? _internalActiveEditorTabId;
-    return tabs.any((tab) => tab.id == id) ? id : tabs.first.id;
+    if (id != null && _editorTabOrder.contains(id)) return id;
+    return _editorTabRecency.isNotEmpty
+        ? _editorTabRecency.last
+        : _editorTabOrder.first;
+  }
+
+  /// The host's descriptors in the shell's order.
+  List<WorkbenchEditorTab> get _orderedEditorTabs {
+    final byId = {for (final tab in widget.editorTabs) tab.id: tab};
+    return [for (final id in _editorTabOrder) byId[id]!];
   }
   bool get _secondarySideBarVisible =>
       widget.secondarySideBarVisible ?? _internalSecondarySideBarVisible;
@@ -1165,6 +1204,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
             : '');
     _internalSecondarySideBarVisible = widget.initialSecondarySideBarVisible;
     _internalActiveEditorTabId = widget.initialActiveEditorTabId;
+    _editorTabOrder.addAll(widget.editorTabs.map((tab) => tab.id));
     _secondarySideBarWidth =
         widget.initialSecondarySideBarWidth ??
         WorkbenchLayoutConstants.sidebarDefaultWidth;
@@ -1190,6 +1230,59 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     if (!identical(oldWidget.activityBarItems, widget.activityBarItems)) {
       _partitionActivityItems();
     }
+    _reconcileEditorTabs();
+  }
+
+  /// Fold the host's tab list into the shell-owned order
+  /// (§spec:editor-tab-state). A removed id leaves the order; an added id
+  /// opens to the right of the active tab — VS Code's
+  /// `workbench.editor.openPositioning` default — and becomes active, several
+  /// opening left to right in list order. When the active tab leaves without
+  /// an addition, the most recently active remaining tab takes over.
+  ///
+  /// The shell originates these changes, so it reports them, after the frame:
+  /// this runs during the host's build, where a host `setState` would throw.
+  void _reconcileEditorTabs() {
+    final ids = [for (final tab in widget.editorTabs) tab.id];
+    final previousActive = _activeEditorTabId;
+    _editorTabOrder.removeWhere((id) => !ids.contains(id));
+    _editorTabRecency.removeWhere((id) => !ids.contains(id));
+    final added = [
+      for (final id in ids)
+        if (!_editorTabOrder.contains(id)) id,
+    ];
+
+    String? nextActive;
+    if (added.isNotEmpty) {
+      // A removed active tab hands its anchor to its successor.
+      var anchor = _editorTabOrder.contains(previousActive)
+          ? previousActive
+          : _activeEditorTabId;
+      for (final id in added) {
+        final at = anchor == null
+            ? _editorTabOrder.length
+            : _editorTabOrder.indexOf(anchor) + 1;
+        _editorTabOrder.insert(at, id);
+        anchor = id;
+      }
+      nextActive = added.last;
+    } else if (previousActive != null &&
+        !_editorTabOrder.contains(previousActive)) {
+      nextActive = _activeEditorTabId;
+    }
+    if (nextActive == null) return;
+
+    if (widget.activeEditorTabId == null) {
+      _internalActiveEditorTabId = nextActive;
+    }
+    final order = List<String>.unmodifiable(_editorTabOrder);
+    final reportOrder = added.isNotEmpty;
+    final activated = nextActive;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (reportOrder) widget.onEditorTabOrderChanged?.call(order);
+      widget.onActiveEditorTabChanged?.call(activated);
+    });
   }
 
   void _partitionActivityItems() {
@@ -1276,10 +1369,11 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     final activeId = _activeEditorTabId;
     if (activeId == null) return widget.editor;
     return EditorTabsPart(
-      tabs: widget.editorTabs,
+      tabs: _orderedEditorTabs,
       activeId: activeId,
       openedIds: _openedEditorTabIds,
       onSelected: _setActiveEditorTab,
+      onCloseRequested: widget.onEditorTabCloseRequested,
       theme: theme,
     );
   }
@@ -1301,10 +1395,17 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     }
     // The active editor tab is opened the same way, and a tab the host
     // removed drops its retained content (§spec:editor-tab-interaction).
-    _openedEditorTabIds.removeWhere(
-      (id) => !widget.editorTabs.any((tab) => tab.id == id),
-    );
-    _markOpened(_activeEditorTabId ?? '', _openedEditorTabIds);
+    // Recency is recorded here too, so a controlled host's change counts.
+    final activeEditorTabId = _activeEditorTabId;
+    _openedEditorTabIds.removeWhere((id) => !_editorTabOrder.contains(id));
+    if (activeEditorTabId != null) {
+      _markOpened(activeEditorTabId, _openedEditorTabIds);
+      if (_editorTabRecency.lastOrNull != activeEditorTabId) {
+        _editorTabRecency
+          ..remove(activeEditorTabId)
+          ..add(activeEditorTabId);
+      }
+    }
 
     // Centered layout narrows the editor between two proportional margins and
     // centers it; chrome stays. Applied to the editor alone so the bottom panel

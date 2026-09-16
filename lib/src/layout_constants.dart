@@ -211,6 +211,10 @@ class WorkbenchLayoutConstants {
   /// `::before` `padding-right`.
   static const double editorTabIconGap = spacingSize60;
 
+  /// Width of the trailing column that holds an editor tab's close button or
+  /// unsaved dot. `.tab > .tab-actions { width: 28px }`.
+  static const double editorTabActionsWidth = spacingSize280;
+
   /// Cross-axis thickness of a resize sash's hit target — VS Code's
   /// `--vscode-sash-size`. Owned by `WorkbenchSash` so every seam is identical.
   static const double sashSize = 4.0;
