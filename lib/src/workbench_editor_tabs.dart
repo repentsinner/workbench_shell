@@ -660,6 +660,14 @@ class _EditorTabStripState extends State<EditorTabStrip> {
     _dropSlot.value = (index: index, left: end);
   }
 
+  /// Record the drop slot for a drag of one of this strip's tabs, and report
+  /// whether the drag is one.
+  bool _trackDrag(DragTargetDetails<String> details) {
+    if (!widget.tabs.any((tab) => tab.id == details.data)) return false;
+    _updateDropSlot(details.offset);
+    return true;
+  }
+
   void _clearDropSlot() => _dropSlot.value = null;
 
   /// Move the tab with [id] into the recorded slot and report the new order,
@@ -689,12 +697,18 @@ class _EditorTabStripState extends State<EditorTabStrip> {
         : _EditorTabMetrics.base;
     final onClose = widget.onCloseRequested;
 
-    Widget tabFor(int index, WorkbenchEditorTab tab, {Key? key}) => _EditorTab(
-      key: key,
+    /// The tab for [tab] at [position], or its drag image. The drag image
+    /// renders as the active tab and, like any drag image, takes no pointer.
+    Widget tabFor(
+      WorkbenchEditorTab tab,
+      EditorTabPosition position, {
+      bool dragImage = false,
+    }) => _EditorTab(
+      key: dragImage ? null : ValueKey('editor-tab-${tab.id}'),
       tab: tab,
-      active: tab.id == activeId,
+      active: dragImage || tab.id == activeId,
       metrics: metrics,
-      position: EditorTabPosition.of(index, tabs, activeId),
+      position: position,
       onSelected: () => widget.onSelected(tab.id),
       onClose: onClose == null ? null : () => onClose(tab.id),
       theme: theme,
@@ -723,34 +737,18 @@ class _EditorTabStripState extends State<EditorTabStrip> {
                 alignment: AlignmentDirectional.topStart,
                 child: SizedBox(
                   height: metrics.stripHeight,
-                  child: _EditorTab(
-                    tab: tab,
-                    active: true,
-                    metrics: metrics,
-                    // A drag image carries no shoulders into its neighbours.
-                    position: EditorTabPosition.first,
-                    onSelected: () {},
-                    onClose: onClose == null ? null : () {},
-                    theme: theme,
-                  ),
+                  // A drag image carries no shoulders into its neighbours.
+                  child: tabFor(tab, EditorTabPosition.first, dragImage: true),
                 ),
               ),
             ),
-            child: tabFor(index, tab, key: ValueKey('editor-tab-${tab.id}')),
+            child: tabFor(tab, EditorTabPosition.of(index, tabs, activeId)),
           ),
       ],
     );
     final Widget content = DragTarget<String>(
-      onWillAcceptWithDetails: (details) {
-        if (!tabs.any((tab) => tab.id == details.data)) return false;
-        _updateDropSlot(details.offset);
-        return true;
-      },
-      onMove: (details) {
-        if (tabs.any((tab) => tab.id == details.data)) {
-          _updateDropSlot(details.offset);
-        }
-      },
+      onWillAcceptWithDetails: _trackDrag,
+      onMove: _trackDrag,
       onLeave: (_) => _clearDropSlot(),
       onAcceptWithDetails: (details) => _drop(details.data),
       builder: (context, candidates, rejected) => Semantics(
@@ -968,11 +966,14 @@ class _EditorTabState extends State<_EditorTab> {
     // `tabs.css` recolours a hovered inactive label through
     // `modernEditorTab.hoverForeground`, which defaults to
     // `modernTab.hoverForeground`; the base strip keeps its inactive colour.
-    final foreground = active
-        ? theme.tabActiveForeground
-        : metrics.tabHoverReveals && _tabHovered
-        ? theme.panelTabHoverForeground
-        : theme.tabInactiveForeground;
+    final Color foreground;
+    if (active) {
+      foreground = theme.tabActiveForeground;
+    } else if (metrics.tabHoverReveals && _tabHovered) {
+      foreground = theme.panelTabHoverForeground;
+    } else {
+      foreground = theme.tabInactiveForeground;
+    }
     // `.tab-actions` shows for a closable tab and for a dirty one: the
     // unsaved dot is state, so it stays even with no close affordance.
     final showsActions = widget.onClose != null || tab.isDirty;
