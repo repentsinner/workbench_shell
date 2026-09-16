@@ -14,8 +14,9 @@ construction.
 - `WorkbenchLayout` — composes activity bar + sidebar + editor + bottom
   panel + status bar, with controlled or uncontrolled section navigation.
   Its `editorTabs` render host-supplied editors under a VS Code editor tab
-  strip with shell-owned order, close and unsaved affordances, and the
-  editor-tab keyboard chords.
+  strip, connected to the editor under Modern UI, with shell-owned order,
+  drag reordering, close and unsaved affordances, and the editor-tab
+  keyboard chords.
 - `WorkbenchTabbedPanel` — scrollable tab strip, close button, stable
   tab ids, View-menu and keyboard-shortcut focus contract.
 - `WorkbenchStatusBar` + `WorkbenchStatusBarProblemsItem` — canonical

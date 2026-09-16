@@ -1440,6 +1440,33 @@ void main() {
       expect(theme.tabInactiveForeground, const Color(0xFF9D9D9D));
     });
 
+    test('the drop indicator reads tab.dragAndDropBorder, defaulting to '
+        'tab.activeForeground', () {
+      // theme.ts registers tab.dragAndDropBorder as tab.activeForeground in
+      // dark and light themes.
+      final fallback = WorkbenchTheme.fromVscodeColorMap(
+        loader.parse('''
+        {
+          "name": "Dnd",
+          "type": "vs-dark",
+          "colors": { "tab.activeForeground": "#FF0000" }
+        }
+        '''),
+      );
+      expect(fallback.tabDragAndDropBorder, const Color(0xFFFF0000));
+
+      final set = WorkbenchTheme.fromVscodeColorMap(
+        loader.parse('''
+        {
+          "name": "Dnd",
+          "type": "vs",
+          "colors": { "tab.dragAndDropBorder": "#00FF00" }
+        }
+        '''),
+      );
+      expect(set.tabDragAndDropBorder, const Color(0xFF00FF00));
+    });
+
     test('the label sits on the editor tab tier (13 / w400)', () {
       final theme = WorkbenchTheme.fromVscodeColorMap(
         const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
@@ -1457,8 +1484,10 @@ void main() {
         editorGroupHeaderTabsBackground: red,
         tabActiveBorderTop: red,
         tabActiveBorder: red,
+        tabDragAndDropBorder: red,
         editorTabLabel: base.editorTabLabel.copyWith(fontSize: 20),
       );
+      expect(other.tabDragAndDropBorder, red);
       expect(other.editorGroupHeaderTabsBackground, red);
       expect(other.tabActiveBorderTop, red);
       expect(other.tabActiveBorder, red);
@@ -1474,8 +1503,13 @@ void main() {
         Color.lerp(base.editorGroupHeaderTabsBackground, red, 0.5),
       );
       expect(mid.tabActiveBorderTop, Color.lerp(null, red, 0.5));
+      expect(
+        mid.tabDragAndDropBorder,
+        Color.lerp(base.tabDragAndDropBorder, red, 0.5),
+      );
 
       for (final changed in [
+        base.copyWith(tabDragAndDropBorder: red),
         base.copyWith(editorGroupHeaderTabsBackground: red),
         base.copyWith(tabActiveBorderTop: red),
         base.copyWith(tabActiveBorder: red),

@@ -1543,7 +1543,7 @@ model and do not participate in this contract.
 
 ## Editor Tabs §spec:editor-tabs
 
-*Status: in progress*
+*Status: complete*
 
 **Problem**: the editor area holds one host widget, so a host with two
 readings of one subject (a diagram and a table over the same
@@ -1576,25 +1576,22 @@ title, content and state, and the shell owns the mechanics.
   stays until the host removes it. VS Code asks whether to save a
   dirty editor before closing it; that question and its answer are
   host domain, so the shell cannot complete a close on its own.
-- **Order is the shell's.** On first build the tabs stand in list
-  order. After that the shell keeps its own order: an id the host
-  removes leaves it, and an id the host adds opens to the right of the
-  active tab, matching VS Code's `workbench.editor.openPositioning`
-  default of `right`. The host's list order no longer moves tabs once
-  they are open. Every change to the order, whether from a drag or an
-  open, is reported as the full id order through
-  `onEditorTabOrderChanged`, so a host that persists open tabs stores
-  that list and hands it back as its list order at startup.
+- **Order is the shell's.** Tabs start in list order. After that an id
+  the host adds opens to the right of the active tab, matching VS
+  Code's `workbench.editor.openPositioning` default of `right`, and
+  the host's list order no longer moves open tabs. Every change to the
+  order, from a drag or an open, is reported as the full id order
+  through `onEditorTabOrderChanged`, so a host that persists open tabs
+  stores that list and hands it back as its list order at startup.
 - **The active tab follows the controlled/uncontrolled seam**
-  (§spec:layout-customization): `initialActiveEditorTabId`, or
-  `activeEditorTabId` plus `onActiveEditorTabChanged`. A tab the host
-  adds becomes active, because opening an editor in VS Code reveals
-  it. When the active tab leaves the list, the most recently active
-  remaining tab takes its place, matching VS Code's
-  `workbench.editor.focusRecentEditorAfterClose` default. As with the
+  (§spec:layout-customization). A tab the host adds becomes active,
+  because opening an editor in VS Code reveals it. When the active tab
+  leaves, the most recently active remaining tab takes its place,
+  matching `workbench.editor.focusRecentEditorAfterClose`. As with the
   secondary side bar's tabs (§spec:secondary-sidebar), the shell both
-  originates an activation (a click, a key, a close) and reports it,
-  and a controlled host shall honor it to keep the strip functional.
+  originates an activation (a click, a drag, a key, a close) and
+  reports it, and a controlled host shall honor it to keep the strip
+  functional.
 
 **Why the host reports order as a list, not as a move.** A
 `(from, to)` callback asks the host to splice its own list, which is
@@ -1613,20 +1610,23 @@ The shell renders two treatments and picks one by the Modern UI flag
 (§spec:modern-ui-surfaces), as upstream does.
 
 - **Base.** VS Code's classic multi-tab strip, per
-  `multiEditorTabsControl.css`: a 35px row in
-  `editorGroupHeader.tabsBackground`, each tab `fit`-sized with a
-  `tab.border` divider on its trailing edge. The active tab paints
-  `tab.activeBackground` and `tab.activeForeground` with a 1px top
-  border in `tab.activeBorderTop` and a bottom border in
-  `tab.activeBorder`, each drawn only when the theme sets it. Inactive
-  tabs paint `tab.inactiveBackground` and `tab.inactiveForeground`.
+  `multieditortabscontrol.css`: a 35px row of `fit`-sized tabs with a
+  `tab.border` divider on each trailing edge, the active tab in
+  `tab.activeBackground` with `tab.activeBorderTop` and
+  `tab.activeBorder` rules drawn only when the theme sets them.
 - **Modern UI.** Upstream's `connected` editor-tab style, the default
   of `workbench.experimental.modernUIEditorTabStyle`, per
-  `connectedEditorTabs.css` and `tabs.css`. The active tab takes the
-  editor background and joins the editor card with an outside stroke
-  and curved shoulders; the strip and inactive tabs sit on
-  `editorGroupHeader.tabsBackground`. Geometry reads from
-  §spec:design-size-ladders and follows the treatment's density.
+  `connectedEditorTabs.css` and `tabs.css`. The active tab takes
+  `editor.background` and joins the editor below it: its top corners
+  and the shoulders that curve out into the editor share one radius,
+  `cornerRadius.small` plus a stroke. The first tab keeps a straight
+  leading edge, and the last turns its trailing shoulder inside its
+  own slot. The strip and inactive tabs sit on
+  `editorGroupHeader.tabsBackground` over a separator in the editor
+  surface, a hovered tab fills with `foreground` mixed over the strip,
+  and inactive labels take `tab.inactiveForeground`. The row is
+  upstream's 32px plus the separator's stroke, with content-sized tabs
+  and no base minimum width.
 
 Both treatments share the rest of the canon:
 
@@ -1634,18 +1634,17 @@ Both treatments share the rest of the canon:
   the editor-tab tier of §spec:chrome-typography-canon, in the casing
   the host supplies.
 - The close button sits at the trailing edge. It shows on the active
-  tab and on hover, and is hidden otherwise, per upstream's
-  `.tab-actions` rules.
-- A dirty tab replaces its close glyph with a filled dot while the
-  pointer is not over it, and hovering reveals the close button again.
+  tab and on hover, per upstream's `.tab-actions` rules.
+- A dirty tab replaces its close glyph with a filled dot. The close
+  glyph returns while the pointer is over the dot in the base
+  treatment (`.action-label:not(:hover)`) and anywhere over the tab
+  under Modern UI (`tabs.css` `.tab.dirty:hover`).
 - When the host supplies no `onEditorTabCloseRequested`, tabs render
   no close button and ignore close gestures. A button that does
   nothing is an affordance the canon does not have.
-- A single tab still renders as a strip, matching VS Code's
-  `workbench.editor.showTabs` default of `multiple`.
-- An empty tab list renders no strip; the `editor` widget fills the
-  area as the empty-editor surface, standing in for VS Code's empty
-  group watermark.
+- A single tab still renders as a strip, matching
+  `workbench.editor.showTabs` of `multiple`; an empty tab list renders
+  no strip, and `editor` fills the area as the empty-editor surface.
 - Centered layout and Zen (§spec:editing-modes) apply to the strip
   and content together, because both belong to the editor part.
 
@@ -1662,24 +1661,37 @@ setting and a second token family for a style few users see, so the
 shell renders the default and leaves `pill` for a consumer that needs
 it.
 
+**Why the connected row ignores layout density.** Upstream shrinks the
+tab to 20px only for `window.density.editorTabHeight: compact`, a
+setting separate from the `window.density.layout` value
+`WorkbenchLayoutDensity` mirrors. Tying the row to layout density
+would render a height no VS Code configuration pairs with it.
+
+**Why the shoulders paint as a fill without a stroke.** Upstream
+strokes the connected cap and shoulders in a border colour that
+equals `editor.background` in every non-high-contrast theme, so
+painting the surface alone produces the same pixels.
+
 **Theme mapping.** `WorkbenchTheme` resolves each color above from the
 VS Code key of the same name, with upstream's registry defaults as
-fallbacks. The drop indicator reads `tab.dragAndDropBorder`.
+fallbacks. The drop indicator reads `tab.dragAndDropBorder`, which
+defaults to `tab.activeForeground`.
 
 ### Interaction §spec:editor-tab-interaction
 
-- Clicking a tab activates it.
-- Clicking a tab's close button requests its close.
-- Dragging a tab reorders it. While dragging, a 2px bar in
-  `tab.dragAndDropBorder` marks the drop position on the leading or
-  trailing edge of the tab under the pointer, by which half of that
-  tab the pointer is over, per VS Code's `computeDropTarget`.
+- Clicking a tab activates it, and clicking its close button requests
+  its close.
+- Dragging a tab reorders it and activates it, as pressing a tab does
+  upstream. While dragging, a 2px bar in `tab.dragAndDropBorder` marks
+  the drop position on the leading or trailing edge of the tab under
+  the pointer, by which half of that tab the pointer is over, per VS
+  Code's `computeDropTarget`. The whole strip accepts the drop, so a
+  drop past the last tab lands at the end.
 - Tab content is built the first time its tab becomes active and
   retained while another tab is active, offstage with tickers
-  disabled, so a tab keeps its scroll position and other widget state
-  across switches. This follows §spec:view-container-state, for the
-  same reason: switching views of one subject shall not reset them,
-  and a tab never shown costs nothing.
+  disabled, following §spec:view-container-state for the same reason:
+  switching views of one subject shall not reset them, and a tab never
+  shown costs nothing.
 - The strip exposes each tab to assistive technology as a selectable
   tab carrying its label, its selected state and, when dirty, its
   unsaved state.
@@ -1697,8 +1709,9 @@ upstream's defaults (`editorCommands.ts`, `editorActions.ts`):
 | Last editor tab | Alt+0 | Ctrl+0 |
 
 The bindings are active only while the layout has editor tabs, and the
-close binding only while tabs are closable. The intents are public, so
-a host's menu entries (§spec:menu-model) dispatch the same commands.
+close binding only while tabs are closable. The intents are public and
+dispatch from anywhere inside the layout, so a host's own chords or a
+widget within an editor can invoke the same commands.
 
 **Why the shell binds these, when it binds no panel-tab keys.**
 §spec:action-dispatch keeps panel-tab focus bindings in the host
@@ -1710,6 +1723,12 @@ leaving them to each host would let their activators drift.
 **Deferred.** Each of these is a separable addition that the model
 above admits without change:
 
+- *Menu-bar dispatch.* A `WorkbenchMenuBar` above the layout invokes
+  its entries from its own context, which sits above the layout's
+  editor-tab actions, so a host menu entry carrying an editor-tab
+  intent finds no handler. Closing it means publishing the actions
+  above the layout or routing menu invocations through the focused
+  context.
 - *Overflow scrolling.* Upstream scrolls the strip horizontally,
   reveals the active tab, and maps a vertical wheel to horizontal
   scroll. Until it lands, tabs past the strip's width are clipped at
@@ -1719,10 +1738,12 @@ above admits without change:
 - *Ctrl+Tab recent-editor navigation*, which needs a quick-pick
   surface the package does not render.
 - *Preview tabs and sticky (pinned) tabs.* Both are editor-lifecycle
-  policy — whether a click replaces an editor, which tabs survive
-  close-all — that a host can express through membership today.
+  policy that a host can express through membership today.
 - *The tab context menu, tab descriptions*, and the `single` and
   `none` values of `workbench.editor.showTabs`.
+- *Compact editor tab height* (`window.density.editorTabHeight`) and
+  the connected style's high-contrast stroke, which upstream draws in
+  `contrastBorder` and `focusBorder`.
 - *Editor groups* (split editors). A group is an ordered set of tabs
   with its own active tab, which is exactly the state this section
   gives the editor area. Groups add a grid of such sets without
@@ -1752,15 +1773,16 @@ above admits without change:
 - Adding a tab opens it to the right of the active tab and activates
   it; removing the active tab activates the most recently active
   remaining tab.
-- Dragging a tab to a new position moves it there and reports the full
-  new order.
+- Dragging a tab shows a 2px bar on the edge it would land against and
+  drops it there, reporting the full new order.
 - A dirty tab shows a dot in place of its close button until hovered.
 - Without a close handler, no tab shows a close button, and Cmd/Ctrl+W
   closes nothing.
 - The keyboard bindings in the table move between and close tabs on
   each platform.
-- Switching the Modern UI flag switches the strip between the base
-  and connected treatments, and a VS Code theme's `tab.*` and
+- Switching the Modern UI flag switches the strip between the 35px
+  base strip and the connected strip, whose active tab joins the editor
+  with curved shoulders, and a VS Code theme's `tab.*` and
   `editorGroupHeader.*` colors reach the strip without host wiring.
 
 ---

@@ -37,6 +37,7 @@ Widget _layout({
   bool? zenMode,
   bool? centeredLayout,
   bool modernUI = false,
+  WorkbenchLayoutDensity? layoutDensity,
   WorkbenchTheme? theme,
 }) {
   return MaterialApp(
@@ -60,6 +61,8 @@ Widget _layout({
       onCenteredLayoutChanged: centeredLayout == null ? null : (_) {},
       modernUI: modernUI,
       onModernUIChanged: (_) {},
+      layoutDensity: layoutDensity,
+      onLayoutDensityChanged: layoutDensity == null ? null : (_) {},
     ),
   );
 }
@@ -125,15 +128,30 @@ void main() {
         WorkbenchLayoutConstants.editorTabHeight,
       );
       expect(WorkbenchLayoutConstants.editorTabHeight, 35);
-      final strip = tester.widget<ColoredBox>(
-        find
-            .descendant(
-              of: find.byType(EditorTabStrip),
-              matching: find.byType(ColoredBox),
-            )
-            .first,
+      final strip = tester.widget<DecoratedBox>(
+        find.byKey(const ValueKey('editor-tab-strip-background')),
       );
-      expect(strip.color, testWorkbenchTheme.editorGroupHeaderTabsBackground);
+      final decoration = strip.decoration as BoxDecoration;
+      expect(
+        decoration.color,
+        testWorkbenchTheme.editorGroupHeaderTabsBackground,
+      );
+      expect(decoration.border, isNull);
+    });
+
+    testWidgets('the strip repaints apart from the editor content', (
+      tester,
+    ) async {
+      for (final modernUI in [false, true]) {
+        await tester.pumpWidget(
+          _layout(editorTabs: [_tab('a'), _tab('b')], modernUI: modernUI),
+        );
+        // Hover and drag feedback repaint the strip alone.
+        expect(
+          tester.renderObject(find.byType(EditorTabStrip)).isRepaintBoundary,
+          isTrue,
+        );
+      }
     });
 
     testWidgets('a tab is fit-sized: at least 120px, growing with its label', (
@@ -426,17 +444,6 @@ void main() {
       );
     });
 
-    testWidgets('the Modern UI flag renders the base strip until the '
-        'connected treatment lands', (tester) async {
-      await tester.pumpWidget(
-        _layout(editorTabs: [_tab('a'), _tab('b')], modernUI: true),
-      );
-      expect(
-        tester.getSize(find.byType(EditorTabStrip)).height,
-        WorkbenchLayoutConstants.editorTabHeight,
-      );
-    });
-
     testWidgets('exposes each tab as a selectable tab to assistive '
         'technology', (tester) async {
       final handle = tester.ensureSemantics();
@@ -464,6 +471,237 @@ void main() {
       handle.dispose();
     });
   });
+
+  group(
+    'Connected editor tabs under Modern UI (§spec:editor-tab-rendering)',
+    () {
+      /// The connected fill painter of the tab with [id].
+      ConnectedEditorTabPainter painterOf(WidgetTester tester, String id) {
+        final paint = tester.widget<CustomPaint>(
+          find.descendant(
+            of: find.byKey(ValueKey('editor-tab-$id')),
+            matching: find.byKey(const ValueKey('editor-tab-connected-fill')),
+          ),
+        );
+        return paint.painter! as ConnectedEditorTabPainter;
+      }
+
+      testWidgets('the strip is the 32px Modern UI row plus the separator '
+          'stroke, at either density', (tester) async {
+        // editorTabsControl.ts: EDITOR_TAB_HEIGHT.modernUI (24px tab + 4px
+        // above and below), plus one pixel connected tabs reserve for the
+        // separator.
+        expect(
+          WorkbenchLayoutConstants.connectedEditorTabStripHeight,
+          WorkbenchLayoutConstants.modernEditorTabHeight +
+              2 * WorkbenchLayoutConstants.modernEditorTabRowInset +
+              WorkbenchLayoutConstants.strokeThickness,
+        );
+        expect(WorkbenchLayoutConstants.connectedEditorTabStripHeight, 33);
+        for (final density in WorkbenchLayoutDensity.values) {
+          await tester.pumpWidget(
+            _layout(
+              editorTabs: [_tab('a'), _tab('b')],
+              modernUI: true,
+              layoutDensity: density,
+            ),
+          );
+          expect(
+            tester.getSize(find.byType(EditorTabStrip)).height,
+            WorkbenchLayoutConstants.connectedEditorTabStripHeight,
+          );
+        }
+      });
+
+      testWidgets(
+        'the strip sits on the tabs background over an editor-coloured '
+        'separator',
+        (tester) async {
+          await tester.pumpWidget(
+            _layout(editorTabs: [_tab('a'), _tab('b')], modernUI: true),
+          );
+          final theme = testWorkbenchTheme;
+          final strip = tester.widget<DecoratedBox>(
+            find.byKey(const ValueKey('editor-tab-strip-background')),
+          );
+          final decoration = strip.decoration as BoxDecoration;
+          expect(
+            decoration.color,
+            Color.alphaBlend(
+              theme.editorGroupHeaderTabsBackground,
+              theme.editorBackground,
+            ),
+          );
+          final border = decoration.border! as Border;
+          expect(border.bottom.color, theme.editorBackground);
+          expect(border.bottom.width, WorkbenchLayoutConstants.strokeThickness);
+        },
+      );
+
+      testWidgets('the active tab takes the editor background and joins the '
+          'editor with curved shoulders; the first tab has a straight left '
+          'edge', (tester) async {
+        Future<void> pumpActive(String id) => tester.pumpWidget(
+          _layout(
+            editorTabs: [_tab('a'), _tab('b'), _tab('c')],
+            initialActiveEditorTabId: id,
+            modernUI: true,
+          ),
+        );
+        final theme = testWorkbenchTheme;
+
+        await pumpActive('b');
+        final middle = painterOf(tester, 'b');
+        expect(middle.active, isTrue);
+        expect(middle.surface, theme.editorBackground);
+        expect(middle.leadingShoulder, isTrue);
+        expect(middle.trailingShoulderInside, isFalse);
+        // The next tab draws the trailing shoulder over its own fill.
+        expect(painterOf(tester, 'c').continuesShoulder, isTrue);
+        expect(painterOf(tester, 'a').continuesShoulder, isFalse);
+        expect(
+          find.byKey(const ValueKey('editor-tab-connected-fill')).at(1),
+          paints..path(color: theme.editorBackground),
+        );
+        // Cap and shoulder share one radius: cornerRadius.small plus a stroke.
+        expect(
+          WorkbenchLayoutConstants.connectedEditorTabCapRadius,
+          WorkbenchLayoutConstants.cornerRadiusSmall +
+              WorkbenchLayoutConstants.strokeThickness,
+        );
+
+        await tester.pumpWidget(const SizedBox());
+        await pumpActive('a');
+        expect(painterOf(tester, 'a').leadingShoulder, isFalse);
+
+        await tester.pumpWidget(const SizedBox());
+        await pumpActive('c');
+        // The last tab turns its trailing shoulder inside its own slot.
+        expect(painterOf(tester, 'c').trailingShoulderInside, isTrue);
+      });
+
+      testWidgets('inactive tabs sit on the strip, fill on hover from '
+          'foreground, and label in tab.inactiveForeground', (tester) async {
+        await tester.pumpWidget(
+          _layout(editorTabs: [_tab('a'), _tab('b')], modernUI: true),
+        );
+        final theme = testWorkbenchTheme;
+        expect(painterOf(tester, 'b').fill, isNull);
+        expect(
+          tester.widget<Text>(find.text('Tab b')).style!.color,
+          theme.tabInactiveForeground,
+        );
+        expect(
+          tester.widget<Text>(find.text('Tab a')).style!.color,
+          theme.tabActiveForeground,
+        );
+
+        final pointer = await tester.createGesture(
+          kind: PointerDeviceKind.mouse,
+        );
+        await pointer.addPointer(location: Offset.zero);
+        addTearDown(pointer.removePointer);
+        await pointer.moveTo(tester.getCenter(find.text('Tab b')));
+        await tester.pump();
+        final strip = Color.alphaBlend(
+          theme.editorGroupHeaderTabsBackground,
+          theme.editorBackground,
+        );
+        expect(
+          painterOf(tester, 'b').fill,
+          Color.alphaBlend(
+            theme.foreground.withValues(
+              alpha: ConnectedEditorTabPainter.hoverForegroundOpacity,
+            ),
+            strip,
+          ),
+        );
+        expect(
+          tester.widget<Text>(find.text('Tab b')).style!.color,
+          theme.panelTabHoverForeground,
+        );
+      });
+
+      testWidgets('tabs are content-sized, with the action column inset by the '
+          'shoulder', (tester) async {
+        await tester.pumpWidget(
+          _layout(
+            editorTabs: [_tab('a'), _tab('b')],
+            modernUI: true,
+            onEditorTabCloseRequested: (_) {},
+          ),
+        );
+        final tab = find.byKey(const ValueKey('editor-tab-a'));
+        // `.sizing-fit` drops the base 120px floor under the treatment.
+        expect(
+          tester.getSize(tab).width,
+          lessThan(WorkbenchLayoutConstants.editorTabMinWidth),
+        );
+        final actions = find.descendant(
+          of: tab,
+          matching: find.byKey(const ValueKey('editor-tab-actions')),
+        );
+        expect(
+          tester.getSize(actions).width,
+          WorkbenchLayoutConstants.modernEditorTabActionsWidth,
+        );
+        expect(
+          tester.getTopRight(tab).dx - tester.getTopRight(actions).dx,
+          WorkbenchLayoutConstants.connectedEditorTabCapRadius +
+              WorkbenchLayoutConstants.spacingSize20,
+        );
+      });
+
+      testWidgets('a dirty tab shows its close button while the tab is '
+          'hovered', (tester) async {
+        await tester.pumpWidget(
+          _layout(
+            editorTabs: [_tab('a'), _tab('b', isDirty: true)],
+            modernUI: true,
+            onEditorTabCloseRequested: (_) {},
+          ),
+        );
+        Finder inB(IconData icon) => find.descendant(
+          of: find.byKey(const ValueKey('editor-tab-b')),
+          matching: find.byIcon(icon),
+        );
+        expect(inB(Symbols.fiber_manual_record), findsOneWidget);
+
+        final pointer = await tester.createGesture(
+          kind: PointerDeviceKind.mouse,
+        );
+        await pointer.addPointer(location: Offset.zero);
+        addTearDown(pointer.removePointer);
+        // Over the label, not the dot: `tabs.css` swaps the glyph on
+        // `.tab.dirty:hover`.
+        await pointer.moveTo(tester.getCenter(find.text('Tab b')));
+        await tester.pump();
+        expect(inB(Symbols.close_rounded), findsOneWidget);
+        expect(inB(Symbols.fiber_manual_record), findsNothing);
+      });
+
+      testWidgets('turning Modern UI off returns the base strip', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          _layout(editorTabs: [_tab('a'), _tab('b')], modernUI: true),
+        );
+        expect(
+          find.byKey(const ValueKey('editor-tab-connected-fill')),
+          findsNWidgets(2),
+        );
+        await tester.pumpWidget(_layout(editorTabs: [_tab('a'), _tab('b')]));
+        expect(
+          find.byKey(const ValueKey('editor-tab-connected-fill')),
+          findsNothing,
+        );
+        expect(
+          tester.getSize(find.byType(EditorTabStrip)).height,
+          WorkbenchLayoutConstants.editorTabHeight,
+        );
+      });
+    },
+  );
 
   group('Editor tab lifecycle (§spec:editor-tab-state)', () {
     /// Pumps a layout whose tab list a test replaces through the returned
@@ -717,6 +955,218 @@ void main() {
         matchesSemantics(label: 'Close', isButton: true, hasTapAction: true),
       );
       handle.dispose();
+    });
+  });
+
+  group('Editor tab drag reorder (§spec:editor-tab-interaction)', () {
+    Finder tabOf(String id) => find.byKey(ValueKey('editor-tab-$id'));
+    final indicator = find.byKey(const ValueKey('editor-tab-drop-indicator'));
+
+    /// Pumps a host that keeps its tab list and records what the shell
+    /// reports.
+    Future<void> pumpHost(
+      WidgetTester tester, {
+      List<List<String>>? orders,
+      List<String>? actives,
+      bool modernUI = false,
+    }) {
+      return tester.pumpWidget(
+        _layout(
+          editorTabs: [_tab('a'), _tab('b'), _tab('c')],
+          onEditorTabOrderChanged: orders?.add,
+          onActiveEditorTabChanged: actives?.add,
+          modernUI: modernUI,
+        ),
+      );
+    }
+
+    /// Starts dragging the tab with [id] and moves the pointer to [to].
+    Future<TestGesture> dragTo(
+      WidgetTester tester,
+      String id,
+      Offset to,
+    ) async {
+      final gesture = await tester.startGesture(
+        tester.getCenter(tabOf(id)),
+        kind: PointerDeviceKind.mouse,
+      );
+      // Past the drag slop, then onto the target.
+      await gesture.moveBy(const Offset(20, 0));
+      await tester.pump();
+      await gesture.moveTo(to);
+      await tester.pump();
+      return gesture;
+    }
+
+    /// A point over [id] at [fraction] of its width from its leading edge.
+    Offset over(WidgetTester tester, String id, double fraction) {
+      final rect = tester.getRect(tabOf(id));
+      return Offset(rect.left + rect.width * fraction, rect.center.dy);
+    }
+
+    /// The labels in the order the strip renders them, left to right.
+    List<String> stripOrder(WidgetTester tester) {
+      final ids = ['a', 'b', 'c'];
+      ids.sort(
+        (x, y) => tester
+            .getTopLeft(tabOf(x))
+            .dx
+            .compareTo(tester.getTopLeft(tabOf(y)).dx),
+      );
+      return ids;
+    }
+
+    testWidgets('dropping on the trailing half of a tab moves the dragged tab '
+        'after it and reports the full order', (tester) async {
+      final orders = <List<String>>[];
+      await pumpHost(tester, orders: orders);
+
+      final gesture = await dragTo(tester, 'a', over(tester, 'b', 0.75));
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(stripOrder(tester), ['b', 'a', 'c']);
+      expect(orders, [
+        ['b', 'a', 'c'],
+      ]);
+    });
+
+    testWidgets('the 2px drop bar tracks which half of the tab the pointer is '
+        'over', (tester) async {
+      await pumpHost(tester);
+      final gesture = await dragTo(tester, 'a', over(tester, 'b', 0.25));
+
+      // Leading half of b: the bar sits on b's leading edge.
+      expect(indicator, findsOneWidget);
+      final bar = tester.getRect(indicator);
+      expect(bar.left, tester.getRect(tabOf('b')).left);
+      expect(bar.width, WorkbenchLayoutConstants.editorTabDropIndicatorWidth);
+      expect(bar.height, tester.getRect(tabOf('b')).height);
+      expect(
+        tester.widget<ColoredBox>(indicator).color,
+        testWorkbenchTheme.tabDragAndDropBorder,
+      );
+
+      // Trailing half of b: the bar moves to c's leading edge.
+      await gesture.moveTo(over(tester, 'b', 0.75));
+      await tester.pump();
+      expect(indicator, findsOneWidget);
+      expect(tester.getRect(indicator).left, tester.getRect(tabOf('c')).left);
+
+      // Trailing half of the last tab: the bar sits just past its edge.
+      await gesture.moveTo(over(tester, 'c', 0.75));
+      await tester.pump();
+      expect(tester.getRect(indicator).left, tester.getRect(tabOf('c')).right);
+
+      // Past every tab, on the empty strip: after the last tab too.
+      final strip = tester.getRect(find.byType(EditorTabStrip));
+      await gesture.moveTo(
+        Offset(tester.getRect(tabOf('c')).right + 40, strip.center.dy),
+      );
+      await tester.pump();
+      expect(tester.getRect(indicator).left, tester.getRect(tabOf('c')).right);
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(indicator, findsNothing);
+    });
+
+    testWidgets('dropping a tab where it already stands reports nothing', (
+      tester,
+    ) async {
+      final orders = <List<String>>[];
+      await pumpHost(tester, orders: orders);
+
+      // The leading half of b is the slot a already occupies.
+      final gesture = await dragTo(tester, 'a', over(tester, 'b', 0.25));
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(stripOrder(tester), ['a', 'b', 'c']);
+      expect(orders, isEmpty);
+    });
+
+    testWidgets('a drag released off the strip changes nothing', (
+      tester,
+    ) async {
+      final orders = <List<String>>[];
+      await pumpHost(tester, orders: orders);
+
+      final gesture = await dragTo(
+        tester,
+        'a',
+        tester.getCenter(find.text('Content a')),
+      );
+      expect(indicator, findsNothing);
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(stripOrder(tester), ['a', 'b', 'c']);
+      expect(orders, isEmpty);
+    });
+
+    testWidgets('dragging a tab activates it, as pressing it does upstream', (
+      tester,
+    ) async {
+      final actives = <String>[];
+      await pumpHost(tester, actives: actives);
+
+      final gesture = await dragTo(tester, 'c', over(tester, 'a', 0.25));
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(actives, ['c']);
+      expect(find.text('Content c'), findsOneWidget);
+      expect(stripOrder(tester), ['c', 'a', 'b']);
+    });
+
+    testWidgets('under Modern UI the bar spans the 24px tab row', (
+      tester,
+    ) async {
+      await pumpHost(tester, modernUI: true);
+      final gesture = await dragTo(tester, 'a', over(tester, 'c', 0.25));
+      final tab = tester.getRect(tabOf('c'));
+      final bar = tester.getRect(indicator);
+      expect(
+        bar.top,
+        tab.top + WorkbenchLayoutConstants.modernEditorTabRowInset,
+      );
+      expect(bar.height, WorkbenchLayoutConstants.modernEditorTabHeight);
+      expect(bar.left, tab.left);
+
+      // Past the last tab the bar keeps the row's span, just past its edge.
+      await gesture.moveTo(over(tester, 'c', 0.75));
+      await tester.pump();
+      final end = tester.getRect(indicator);
+      expect(end.left, tab.right);
+      expect(end.width, WorkbenchLayoutConstants.editorTabDropIndicatorWidth);
+      expect(
+        end.top,
+        tab.top + WorkbenchLayoutConstants.modernEditorTabRowInset,
+      );
+      expect(end.height, WorkbenchLayoutConstants.modernEditorTabHeight);
+      await gesture.up();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('moving the drop bar keeps every tab mounted', (tester) async {
+      await pumpHost(tester);
+      final gesture = await dragTo(tester, 'a', over(tester, 'b', 0.25));
+      // Scoped to the strip's tab: the drag image carries a label of its own.
+      Element label(String id) => tester.element(
+        find.descendant(of: tabOf(id), matching: find.text('Tab $id')),
+      );
+      final labels = [
+        for (final id in ['a', 'b', 'c']) label(id),
+      ];
+      for (final (id, fraction) in [('b', 0.75), ('c', 0.75), ('a', 0.25)]) {
+        await gesture.moveTo(over(tester, id, fraction));
+        await tester.pump();
+        expect(indicator, findsOneWidget);
+        // A slot change leaves each tab's subtree in place.
+        expect([
+          for (final id in ['a', 'b', 'c']) label(id),
+        ], labels);
+      }
+      await gesture.up();
+      await tester.pumpAndSettle();
     });
   });
 
@@ -980,10 +1430,8 @@ void main() {
           tabs: [
             _tab(
               'a',
-              contentBuilder: (_) => Focus(
-                focusNode: contentNode,
-                child: const Text('Content a'),
-              ),
+              contentBuilder: (_) =>
+                  Focus(focusNode: contentNode, child: const Text('Content a')),
             ),
             _tab('b'),
           ],
