@@ -388,7 +388,7 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   /// tab, and retains each tab's content across switches.
   final List<_ExampleEditor> _editors = [
     const _ExampleEditor(
-      id: 'lorem',
+      id: _loremEditorId,
       label: 'lorem-ipsum.txt',
       icon: Symbols.description_rounded,
     ),
@@ -398,6 +398,9 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
       icon: Symbols.article_rounded,
     ),
   ];
+
+  /// Ids of the open editors with unsaved changes.
+  final Set<String> _dirtyEditorIds = {};
 
   /// Numbers each editor the "New Editor" control opens.
   int _untitledCount = 0;
@@ -419,8 +422,7 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
 
   void _toggleUnsaved(String id) {
     setState(() {
-      final index = _editors.indexWhere((editor) => editor.id == id);
-      _editors[index] = _editors[index].withDirty(!_editors[index].isDirty);
+      if (!_dirtyEditorIds.remove(id)) _dirtyEditorIds.add(id);
     });
   }
 
@@ -428,7 +430,10 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   /// to save an unsaved editor first; the shell leaves the tab in place
   /// until the host removes it (§spec:editor-tab-state).
   void _closeEditor(String id) {
-    setState(() => _editors.removeWhere((editor) => editor.id == id));
+    setState(() {
+      _editors.removeWhere((editor) => editor.id == id);
+      _dirtyEditorIds.remove(id);
+    });
   }
 
   /// Keep the host list in the order the shell reports, so a host persisting
@@ -886,7 +891,7 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                           id: editor.id,
                           label: editor.label,
                           icon: editor.icon,
-                          isDirty: editor.isDirty,
+                          isDirty: _dirtyEditorIds.contains(editor.id),
                           contentBuilder: (_) => _buildEditorContent(editor),
                         ),
                     ],
@@ -1019,12 +1024,12 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _EditorLifecycleControls(
-          isDirty: editor.isDirty,
+          isDirty: _dirtyEditorIds.contains(editor.id),
           onNewEditor: _openNewEditor,
           onToggleUnsaved: () => _toggleUnsaved(editor.id),
         ),
         Expanded(
-          child: editor.id == 'lorem'
+          child: editor.id == _loremEditorId
               ? const _EditorPlaceholder()
               : _NotesEditor(title: editor.label),
         ),
@@ -1683,6 +1688,9 @@ class _ThemeDropdownField extends StatelessWidget {
   }
 }
 
+/// The id of the editor that carries the lorem body.
+const _loremEditorId = 'lorem';
+
 /// One editor the example host keeps open (§spec:editor-tabs). The host owns
 /// this list; the shell derives the tab strip from it.
 @immutable
@@ -1691,16 +1699,11 @@ class _ExampleEditor {
     required this.id,
     required this.label,
     required this.icon,
-    this.isDirty = false,
   });
 
   final String id;
   final String label;
   final IconData icon;
-  final bool isDirty;
-
-  _ExampleEditor withDirty(bool isDirty) =>
-      _ExampleEditor(id: id, label: label, icon: icon, isDirty: isDirty);
 }
 
 /// The editor area with no tab open — the example's stand-in for VS Code's
