@@ -103,6 +103,29 @@ canonical chrome.
   are collapsed, their sizes, and which views are hidden — to survive
   restarting the app.
 
+### Several editors over one subject §req:editor-tabs
+
+A host often has more than one reading of the same subject — a diagram
+and a table over one selection, say. With a single editor area, each
+reading has to claim its own activity-bar container, so the user
+switches modes of work just to change views of one thing.
+
+- As a host developer, I want to offer several editors as tabs in the
+  editor area, so a user moves between readings of one subject without
+  leaving their current activity.
+- As a host developer, I want to supply each tab's title, content, and
+  state (such as unsaved changes) and have the shell own the strip
+  itself (which tab is active, the tab order, overflow, and the
+  VS Code-canonical rendering), so I write no tab-switching or
+  reordering logic and two hosts cannot drift apart.
+- As a host developer, I want to find out when the user switches,
+  closes, or reorders a tab, so I can persist or react to it without
+  holding that state myself.
+- As a host developer, I want a host that supplies a single editor to
+  keep working unchanged, so adopting tabs is opt-in.
+- As a user, I want editor tabs that match VS Code's, so switching,
+  closing, and reordering them works the way my habits expect.
+
 ## Quality attributes §req:quality-attributes
 
 - **Canon fidelity and zero drift.** The chrome matches VS Code, and
