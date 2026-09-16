@@ -1386,4 +1386,104 @@ void main() {
       );
     });
   });
+
+  group('WorkbenchTheme editor tab tokens (§spec:editor-tab-rendering)', () {
+    test('fall back to the upstream registry defaults when omitted', () {
+      final dark = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+      );
+      // theme.ts: editorGroupHeader.tabsBackground #252526 dark / #F3F3F3
+      // light; tab.inactiveForeground is tab.activeForeground at 0.5 dark /
+      // 0.7 light; tab.activeBorderTop and tab.activeBorder register null.
+      expect(dark.editorGroupHeaderTabsBackground, const Color(0xFF252526));
+      expect(dark.tabActiveForeground, const Color(0xFFFFFFFF));
+      expect(
+        dark.tabInactiveForeground,
+        const Color(0xFFFFFFFF).withValues(alpha: 0.5),
+      );
+      expect(dark.tabActiveBorderTop, isNull);
+      expect(dark.tabActiveBorder, isNull);
+
+      final light = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs', colors: {}),
+      );
+      expect(light.editorGroupHeaderTabsBackground, const Color(0xFFF3F3F3));
+      expect(
+        light.tabInactiveForeground,
+        const Color(0xFF333333).withValues(alpha: 0.7),
+      );
+    });
+
+    test('the inactive foreground follows a theme-set active foreground', () {
+      final theme = WorkbenchTheme.fromVscodeColorMap(
+        loader.parse('''
+        {
+          "name": "Tab Fg",
+          "type": "vs-dark",
+          "colors": { "tab.activeForeground": "#FF0000" }
+        }
+        '''),
+      );
+      expect(
+        theme.tabInactiveForeground,
+        const Color(0xFFFF0000).withValues(alpha: 0.5),
+      );
+    });
+
+    test('Dark Modern sets the strip, borders and label colours', () async {
+      final theme = WorkbenchTheme.fromVscodeColorMap(
+        await loader.loadAsset('dark_modern.json'),
+      );
+      expect(theme.editorGroupHeaderTabsBackground, const Color(0xFF181818));
+      expect(theme.tabActiveBorderTop, const Color(0xFF0078D4));
+      expect(theme.tabActiveBorder, const Color(0xFF1F1F1F));
+      expect(theme.tabInactiveForeground, const Color(0xFF9D9D9D));
+    });
+
+    test('the label sits on the editor tab tier (13 / w400)', () {
+      final theme = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+      );
+      expect(theme.editorTabLabel.fontSize, 13);
+      expect(theme.editorTabLabel.fontWeight, FontWeight.w400);
+    });
+
+    test('copyWith, lerp and equality carry the editor tab tokens', () {
+      final base = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+      );
+      const red = Color(0xFFFF0000);
+      final other = base.copyWith(
+        editorGroupHeaderTabsBackground: red,
+        tabActiveBorderTop: red,
+        tabActiveBorder: red,
+        editorTabLabel: base.editorTabLabel.copyWith(fontSize: 20),
+      );
+      expect(other.editorGroupHeaderTabsBackground, red);
+      expect(other.tabActiveBorderTop, red);
+      expect(other.tabActiveBorder, red);
+      expect(other.editorTabLabel.fontSize, 20);
+      expect(
+        base.copyWith(foreground: red).editorGroupHeaderTabsBackground,
+        base.editorGroupHeaderTabsBackground,
+      );
+
+      final mid = base.lerp(other, 0.5);
+      expect(
+        mid.editorGroupHeaderTabsBackground,
+        Color.lerp(base.editorGroupHeaderTabsBackground, red, 0.5),
+      );
+      expect(mid.tabActiveBorderTop, Color.lerp(null, red, 0.5));
+
+      for (final changed in [
+        base.copyWith(editorGroupHeaderTabsBackground: red),
+        base.copyWith(tabActiveBorderTop: red),
+        base.copyWith(tabActiveBorder: red),
+        base.copyWith(editorTabLabel: other.editorTabLabel),
+      ]) {
+        expect(changed, isNot(base));
+        expect(changed.hashCode, isNot(base.hashCode));
+      }
+    });
+  });
 }

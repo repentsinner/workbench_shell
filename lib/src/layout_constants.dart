@@ -189,6 +189,28 @@ class WorkbenchLayoutConstants {
   /// `.action-item:not(.icon) { padding: 0 var(--vscode-spacing-size100) }`.
   static const double panelTabPadding = spacingSize100;
 
+  /// Editor tab strip row height in the base treatment
+  /// (§spec:editor-tab-rendering). VS Code `editorTabsControl.ts`
+  /// `EDITOR_TAB_HEIGHT.normal`, the `--editor-group-tab-height` every tab in
+  /// `multieditortabscontrol.css` takes.
+  static const double editorTabHeight = 35.0;
+
+  /// Width a `fit`-sized editor tab starts from. `multieditortabscontrol.css`
+  /// `.tab.sizing-fit { width: 120px; min-width: fit-content }`, so a longer
+  /// label widens the tab past it and a shorter one never narrows it.
+  static const double editorTabMinWidth = 120.0;
+
+  /// Leading inset of an editor tab. `.tab { padding-left: 10px }`.
+  static const double editorTabPaddingStart = spacingSize100;
+
+  /// Trailing inset of an editor tab that renders no close button.
+  /// `.tab.close-action-off { padding-right: 10px }`.
+  static const double editorTabPaddingEnd = spacingSize100;
+
+  /// Gap between an editor tab's icon and its label — the icon label's
+  /// `::before` `padding-right`.
+  static const double editorTabIconGap = spacingSize60;
+
   /// Cross-axis thickness of a resize sash's hit target — VS Code's
   /// `--vscode-sash-size`. Owned by `WorkbenchSash` so every seam is identical.
   static const double sashSize = 4.0;

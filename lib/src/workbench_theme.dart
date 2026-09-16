@@ -137,12 +137,28 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   final Color statusBarBorder;
   final Color statusBarForeground;
 
-  // ---- Tab strip (container-level) ----
+  // ---- Editor tab strip (§spec:editor-tab-rendering) ----
+  /// Fill behind the editor tab strip — VS Code
+  /// `editorGroupHeader.tabsBackground`.
+  final Color editorGroupHeaderTabsBackground;
+
   final Color tabActiveBackground;
   final Color tabInactiveBackground;
   final Color tabActiveForeground;
   final Color tabInactiveForeground;
+
+  /// Divider on each editor tab's trailing edge — VS Code `tab.border`.
   final Color tabBorder;
+
+  /// 1px rule across the top of the active editor tab — VS Code
+  /// `tab.activeBorderTop`. Null when the theme omits the key, which the
+  /// registry leaves unset outside high contrast; the tab then draws no rule.
+  final Color? tabActiveBorderTop;
+
+  /// 1px rule across the bottom of the active editor tab — VS Code
+  /// `tab.activeBorder`. Null when the theme omits the key, like
+  /// [tabActiveBorderTop].
+  final Color? tabActiveBorder;
 
   // ---- Input / dropdown / button ----
   final Color inputBackground;
@@ -414,6 +430,12 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   /// `tabs.css` gives it its own tier (§spec:chrome-typography-canon).
   final TextStyle panelTabLabel;
 
+  /// An editor tab's label — `editortabscontrol.css` sets the editor part's
+  /// title row in 13px regular (§spec:chrome-typography-canon). Registered
+  /// apart from [panelTabLabel], which shares the literal today, so a host
+  /// overriding one strip does not silently restyle the other.
+  final TextStyle editorTabLabel;
+
   /// Fill behind the active panel tab under the treatment — VS Code
   /// `modernTab.activeBackground` (§spec:modern-ui-surfaces).
   final Color panelTabActiveBackground;
@@ -518,11 +540,14 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.statusBarBackground,
     required this.statusBarBorder,
     required this.statusBarForeground,
+    required this.editorGroupHeaderTabsBackground,
     required this.tabActiveBackground,
     required this.tabInactiveBackground,
     required this.tabActiveForeground,
     required this.tabInactiveForeground,
     required this.tabBorder,
+    required this.tabActiveBorderTop,
+    required this.tabActiveBorder,
     required this.inputBackground,
     required this.inputForeground,
     required this.inputBorder,
@@ -609,6 +634,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.sidebarOrPanelHeading,
     required this.baseSidebarOrPanelHeading,
     required this.panelTabLabel,
+    required this.editorTabLabel,
     required this.panelTabActiveBackground,
     required this.panelTabActiveForeground,
     required this.panelTabHoverBackground,
@@ -746,6 +772,12 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     final dropdownFg = map.resolve(
       'dropdown.foreground',
       dl(const Color(0xFFF0F0F0), fg),
+    );
+    // Shared so tab.inactiveForeground resolves through the active label
+    // colour the registry chains it to (theme.ts).
+    final tabActiveFg = map.resolve(
+      'tab.activeForeground',
+      dl(const Color(0xFFFFFFFF), const Color(0xFF333333)),
     );
     final listActiveSelectionBg = map.resolve(
       'list.activeSelectionBackground',
@@ -924,22 +956,31 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // Transparent fallback so the BorderSide draws but is invisible.
       statusBarBorder: map['statusBar.border'] ?? const Color(0x00000000),
       statusBarForeground: statusBarFg,
-      // Tab strip container
+      // Editor tab strip (§spec:editor-tab-rendering), from theme.ts.
+      editorGroupHeaderTabsBackground: map.resolve(
+        'editorGroupHeader.tabsBackground',
+        dl(const Color(0xFF252526), const Color(0xFFF3F3F3)),
+      ),
       // VS Code: tab.activeBackground inherits from editor.background.
       tabActiveBackground: map.resolve('tab.activeBackground', editorBg),
       tabInactiveBackground: map.resolve(
         'tab.inactiveBackground',
         dl(const Color(0xFF2D2D2D), const Color(0xFFECECEC)),
       ),
-      tabActiveForeground: map.resolve(
-        'tab.activeForeground',
-        dl(const Color(0xFFFFFFFF), const Color(0xFF333333)),
+      tabActiveForeground: tabActiveFg,
+      // VS Code: transparent(tab.activeForeground, 0.5) dark / 0.7 light.
+      tabInactiveForeground: map.resolve(
+        'tab.inactiveForeground',
+        tabActiveFg.withValues(alpha: map.isDark ? 0.5 : 0.7),
       ),
-      tabInactiveForeground: map.resolve('tab.inactiveForeground', secondaryFg),
       tabBorder: map.resolve(
         'tab.border',
         dl(const Color(0xFF252526), const Color(0xFFF3F3F3)),
       ),
+      // Null by the registry outside high contrast, so a theme that omits
+      // either key draws no rule on the active tab.
+      tabActiveBorderTop: map['tab.activeBorderTop'],
+      tabActiveBorder: map['tab.activeBorder'],
       // Inputs / buttons
       inputBackground: map.resolve(
         'input.background',
@@ -1157,6 +1198,9 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // at equal specificity, so it wins the label1 the ramp would otherwise
       // set (§spec:chrome-typography-canon).
       panelTabLabel: t(13, FontWeight.w400),
+      // editor tab label — editortabscontrol.css sets the editor title row
+      // in 13px regular (§spec:chrome-typography-canon).
+      editorTabLabel: t(13, FontWeight.w400),
       // pane header / WorkbenchViewPane title — fontRamp.css
       // `.pane-header .title`, label1 semiBold.
       sectionTitle: t(12, FontWeight.w600),
@@ -1265,11 +1309,14 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? statusBarBackground,
     Color? statusBarBorder,
     Color? statusBarForeground,
+    Color? editorGroupHeaderTabsBackground,
     Color? tabActiveBackground,
     Color? tabInactiveBackground,
     Color? tabActiveForeground,
     Color? tabInactiveForeground,
     Color? tabBorder,
+    Color? tabActiveBorderTop,
+    Color? tabActiveBorder,
     Color? inputBackground,
     Color? inputForeground,
     Color? inputBorder,
@@ -1355,6 +1402,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     TextStyle? valueText,
     TextStyle? sidebarOrPanelHeading,
     TextStyle? panelTabLabel,
+    TextStyle? editorTabLabel,
     Color? panelTabActiveBackground,
     Color? panelTabActiveForeground,
     Color? panelTabHoverBackground,
@@ -1414,6 +1462,9 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       statusBarBackground: statusBarBackground ?? this.statusBarBackground,
       statusBarBorder: statusBarBorder ?? this.statusBarBorder,
       statusBarForeground: statusBarForeground ?? this.statusBarForeground,
+      editorGroupHeaderTabsBackground:
+          editorGroupHeaderTabsBackground ??
+          this.editorGroupHeaderTabsBackground,
       tabActiveBackground: tabActiveBackground ?? this.tabActiveBackground,
       tabInactiveBackground:
           tabInactiveBackground ?? this.tabInactiveBackground,
@@ -1421,6 +1472,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       tabInactiveForeground:
           tabInactiveForeground ?? this.tabInactiveForeground,
       tabBorder: tabBorder ?? this.tabBorder,
+      tabActiveBorderTop: tabActiveBorderTop ?? this.tabActiveBorderTop,
+      tabActiveBorder: tabActiveBorder ?? this.tabActiveBorder,
       inputBackground: inputBackground ?? this.inputBackground,
       inputForeground: inputForeground ?? this.inputForeground,
       inputBorder: inputBorder ?? this.inputBorder,
@@ -1530,6 +1583,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       sidebarOrPanelHeading:
           sidebarOrPanelHeading ?? this.sidebarOrPanelHeading,
       panelTabLabel: panelTabLabel ?? this.panelTabLabel,
+      editorTabLabel: editorTabLabel ?? this.editorTabLabel,
       panelTabActiveBackground:
           panelTabActiveBackground ?? this.panelTabActiveBackground,
       panelTabActiveForeground:
@@ -1640,6 +1694,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       statusBarBackground: c(statusBarBackground, other.statusBarBackground),
       statusBarBorder: c(statusBarBorder, other.statusBarBorder),
       statusBarForeground: c(statusBarForeground, other.statusBarForeground),
+      editorGroupHeaderTabsBackground: c(
+        editorGroupHeaderTabsBackground,
+        other.editorGroupHeaderTabsBackground,
+      ),
       tabActiveBackground: c(tabActiveBackground, other.tabActiveBackground),
       tabInactiveBackground: c(
         tabInactiveBackground,
@@ -1651,6 +1709,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         other.tabInactiveForeground,
       ),
       tabBorder: c(tabBorder, other.tabBorder),
+      tabActiveBorderTop: cn(tabActiveBorderTop, other.tabActiveBorderTop),
+      tabActiveBorder: cn(tabActiveBorder, other.tabActiveBorder),
       inputBackground: c(inputBackground, other.inputBackground),
       inputForeground: c(inputForeground, other.inputForeground),
       inputBorder: c(inputBorder, other.inputBorder),
@@ -1809,6 +1869,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         other.sidebarOrPanelHeading,
       ),
       panelTabLabel: ts(panelTabLabel, other.panelTabLabel),
+      editorTabLabel: ts(editorTabLabel, other.editorTabLabel),
       panelTabActiveBackground: c(
         panelTabActiveBackground,
         other.panelTabActiveBackground,
@@ -1904,11 +1965,15 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           statusBarBackground == other.statusBarBackground &&
           statusBarBorder == other.statusBarBorder &&
           statusBarForeground == other.statusBarForeground &&
+          editorGroupHeaderTabsBackground ==
+              other.editorGroupHeaderTabsBackground &&
           tabActiveBackground == other.tabActiveBackground &&
           tabInactiveBackground == other.tabInactiveBackground &&
           tabActiveForeground == other.tabActiveForeground &&
           tabInactiveForeground == other.tabInactiveForeground &&
           tabBorder == other.tabBorder &&
+          tabActiveBorderTop == other.tabActiveBorderTop &&
+          tabActiveBorder == other.tabActiveBorder &&
           inputBackground == other.inputBackground &&
           inputForeground == other.inputForeground &&
           inputBorder == other.inputBorder &&
@@ -1997,6 +2062,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           valueText == other.valueText &&
           sidebarOrPanelHeading == other.sidebarOrPanelHeading &&
           panelTabLabel == other.panelTabLabel &&
+          editorTabLabel == other.editorTabLabel &&
           panelTabActiveBackground == other.panelTabActiveBackground &&
           panelTabActiveForeground == other.panelTabActiveForeground &&
           panelTabHoverBackground == other.panelTabHoverBackground &&
@@ -2044,11 +2110,14 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     statusBarBackground,
     statusBarBorder,
     statusBarForeground,
+    editorGroupHeaderTabsBackground,
     tabActiveBackground,
     tabInactiveBackground,
     tabActiveForeground,
     tabInactiveForeground,
     tabBorder,
+    tabActiveBorderTop,
+    tabActiveBorder,
     inputBackground,
     inputForeground,
     inputBorder,
@@ -2133,6 +2202,12 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     statusBarTextStyle,
     valueText,
     sidebarOrPanelHeading,
+    panelTabLabel,
+    editorTabLabel,
+    panelTabActiveBackground,
+    panelTabActiveForeground,
+    panelTabHoverBackground,
+    panelTabHoverForeground,
     baseSidebarOrPanelHeading,
     loglineMessage,
     tokenTheme,

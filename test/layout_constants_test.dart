@@ -208,4 +208,18 @@ void main() {
       expect(WorkbenchLayoutDensity.compact.activityBarIconInset, 1.0);
     });
   });
+
+  group('WorkbenchLayoutConstants editor tab geometry', () {
+    test('matches the base multi-tab strip (§spec:editor-tab-rendering)', () {
+      // editorTabsControl.ts EDITOR_TAB_HEIGHT.normal; multieditortabscontrol.css
+      // `.tab { padding-left: 10px }`, `.tab.sizing-fit { width: 120px }` and
+      // `.close-action-off { padding-right: 10px }`; the icon label's
+      // `::before { padding-right: 6px }`.
+      expect(WorkbenchLayoutConstants.editorTabHeight, 35.0);
+      expect(WorkbenchLayoutConstants.editorTabMinWidth, 120.0);
+      expect(WorkbenchLayoutConstants.editorTabPaddingStart, 10.0);
+      expect(WorkbenchLayoutConstants.editorTabPaddingEnd, 10.0);
+      expect(WorkbenchLayoutConstants.editorTabIconGap, 6.0);
+    });
+  });
 }

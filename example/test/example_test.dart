@@ -929,4 +929,33 @@ void main() {
     // persisted state marks it known and not hidden (reconcile honors it).
     expect(find.text('Open Editors'), findsOneWidget);
   });
+
+  group('Editor tabs (§spec:editor-tabs)', () {
+    testWidgets('the editor tabs switch and keep their scroll position', (
+      tester,
+    ) async {
+      await tester.pumpWidget(const WorkbenchExampleApp());
+      await tester.pumpAndSettle();
+
+      expect(find.text('lorem-ipsum.txt'), findsOneWidget);
+      expect(find.text('release-notes.md'), findsOneWidget);
+      expect(find.textContaining('Lorem ipsum'), findsOneWidget);
+
+      await tester.tap(find.text('release-notes.md'));
+      await tester.pumpAndSettle();
+      expect(find.text('# release-notes.md'), findsOneWidget);
+      expect(find.textContaining('Lorem ipsum'), findsNothing);
+
+      await tester.drag(find.text('- Note line 3'), const Offset(0, -300));
+      await tester.pumpAndSettle();
+      expect(find.text('# release-notes.md'), findsNothing);
+
+      await tester.tap(find.text('lorem-ipsum.txt'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('release-notes.md'));
+      await tester.pumpAndSettle();
+      // Still scrolled: the shell retained the tab's content.
+      expect(find.text('# release-notes.md'), findsNothing);
+    });
+  });
 }

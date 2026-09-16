@@ -376,6 +376,22 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
   void Function(Object id)? _focusPanelById;
   final NotificationService _notificationService = NotificationService();
 
+  /// Open editors (§spec:editor-tabs). The host owns which editors exist and
+  /// hands them to the shell as tabs; the shell renders the strip, tracks the
+  /// active tab, and retains each tab's content across switches.
+  final List<_ExampleEditor> _editors = [
+    const _ExampleEditor(
+      id: 'lorem',
+      label: 'lorem-ipsum.txt',
+      icon: Symbols.description_rounded,
+    ),
+    const _ExampleEditor(
+      id: 'release-notes',
+      label: 'release-notes.md',
+      icon: Symbols.article_rounded,
+    ),
+  ];
+
   /// Host-persisted sidebar width and panel height (§spec:resize-geometry).
   /// Dogfoods the seed-plus-commit `initialSidebarWidth`/`onSidebarWidthChangeEnd`
   /// and `initialPanelHeight`/`onPanelHeightChangeEnd` hooks the same way
@@ -810,7 +826,20 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
                   child: WorkbenchLayout(
                     activityBarItems: _activityBarItems,
                     containerBuilder: _buildContainerSpec,
-                    editor: const _EditorPlaceholder(),
+                    // Editor tabs (§spec:editor-tabs): the host supplies each
+                    // tab's label, icon and content; the shell renders the
+                    // strip and owns the active tab. `editor` is the
+                    // empty-editor surface shown once no tab is open.
+                    editorTabs: [
+                      for (final editor in _editors)
+                        WorkbenchEditorTab(
+                          id: editor.id,
+                          label: editor.label,
+                          icon: editor.icon,
+                          contentBuilder: (_) => _buildEditorContent(editor),
+                        ),
+                    ],
+                    editor: const _EmptyEditorSurface(),
                     bottomPanel: scope.tabbedPanel,
                     showBottomPanel: _panelVisible,
                     // Cross-restart persistence (§spec:layout-state-persistence):
@@ -927,6 +956,14 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
         );
       },
     );
+  }
+
+  /// The content of one open editor. The first editor carries the lorem body
+  /// and the chrome review select; every other editor is a scrolling notes
+  /// document.
+  Widget _buildEditorContent(_ExampleEditor editor) {
+    if (editor.id == 'lorem') return const _EditorPlaceholder();
+    return _NotesEditor(title: editor.label);
   }
 
   /// Map an activity-bar container id to its typed view-descriptor spec
@@ -1576,6 +1613,62 @@ class _ThemeDropdownField extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// One editor the example host keeps open (§spec:editor-tabs). The host owns
+/// this list; the shell derives the tab strip from it.
+@immutable
+class _ExampleEditor {
+  const _ExampleEditor({
+    required this.id,
+    required this.label,
+    required this.icon,
+  });
+
+  final String id;
+  final String label;
+  final IconData icon;
+}
+
+/// The editor area with no tab open — the example's stand-in for VS Code's
+/// empty editor group watermark (§spec:editor-tab-rendering).
+class _EmptyEditorSurface extends StatelessWidget {
+  const _EmptyEditorSurface();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.workbenchTheme;
+    return Center(
+      child: Text(
+        'No editor is open',
+        style: theme.bodyText.copyWith(color: theme.descriptionForeground),
+      ),
+    );
+  }
+}
+
+/// A second kind of editor: a scrolling document whose scroll offset shows
+/// the shell retaining a tab's widget state across switches
+/// (§spec:editor-tab-interaction).
+class _NotesEditor extends StatelessWidget {
+  const _NotesEditor({required this.title});
+
+  final String title;
+
+  static const int _lineCount = 80;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.workbenchTheme;
+    return ListView.builder(
+      padding: const EdgeInsets.all(WorkbenchLayoutConstants.spacingSize240),
+      itemCount: _lineCount,
+      itemBuilder: (context, index) => Text(
+        index == 0 ? '# $title' : '- Note line $index',
+        style: theme.editorStyle.copyWith(height: 1.6),
+      ),
     );
   }
 }
