@@ -1,3 +1,22 @@
+# [0.38.0](https://github.com/repentsinner/workbench_shell/compare/v0.37.0...v0.38.0) (2026-09-16)
+
+
+### Bug Fixes
+
+* **editor-tabs:** reconcile a tab list the host edited in place ([4766f86](https://github.com/repentsinner/workbench_shell/commit/4766f869b5e760d6d5417cf78dbc8051ae3a7677))
+
+
+### Features
+
+* **editor-tabs:** bind VS Code's editor tab keyboard commands ([2410dac](https://github.com/repentsinner/workbench_shell/commit/2410dac9d919c668ceb3d973eb16a9f3e1c7b4ef))
+* **editor-tabs:** own tab order and close through host requests ([9a822c6](https://github.com/repentsinner/workbench_shell/commit/9a822c6f0fe20a06ed6c4c1f5af32bc1f215f093))
+* **editor-tabs:** render an editor tab strip over host-supplied editors ([3ebcdb5](https://github.com/repentsinner/workbench_shell/commit/3ebcdb579486f4e9c507dbf74602af8ff15b8556))
+
+
+### Performance Improvements
+
+* **editor-tabs:** reuse retained tab content while its descriptor is unchanged ([db78510](https://github.com/repentsinner/workbench_shell/commit/db7851034975d773db168eda8367728c5cdf85f3))
+
 # [0.37.0](https://github.com/repentsinner/workbench_shell/compare/v0.36.3...v0.37.0) (2026-09-08)
 
 
