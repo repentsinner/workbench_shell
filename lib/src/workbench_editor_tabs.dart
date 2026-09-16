@@ -335,30 +335,31 @@ class _EditorTabsScopeState extends State<EditorTabsScope> {
   /// runs.
   late final Map<Type, Action<Intent>> _actions = {
     ActivateNextEditorTabIntent: _EditorTabAction<ActivateNextEditorTabIntent>(
-      enabled: () => _order.isNotEmpty,
+      this,
       onInvoke: (_) => _activateAdjacent(1),
     ),
     ActivatePreviousEditorTabIntent:
         _EditorTabAction<ActivatePreviousEditorTabIntent>(
-          enabled: () => _order.isNotEmpty,
+          this,
           onInvoke: (_) => _activateAdjacent(-1),
         ),
     ActivateEditorTabAtIndexIntent:
         _EditorTabAction<ActivateEditorTabAtIndexIntent>(
-          enabled: () => _order.isNotEmpty,
+          this,
           onInvoke: (intent) {
             if (intent.index < 0 || intent.index >= _order.length) return;
             _setActive(_order[intent.index]);
           },
         ),
     ActivateLastEditorTabIntent: _EditorTabAction<ActivateLastEditorTabIntent>(
-      enabled: () => _order.isNotEmpty,
+      this,
       onInvoke: (_) => _setActive(_order.last),
     ),
     // Disabled without a close handler, so the chord passes to any binding
     // above rather than closing nothing (§spec:editor-tab-rendering).
     CloseActiveEditorTabIntent: _EditorTabAction<CloseActiveEditorTabIntent>(
-      enabled: () => _order.isNotEmpty && widget.onCloseRequested != null,
+      this,
+      enabled: () => widget.onCloseRequested != null,
       onInvoke: (_) => widget.onCloseRequested!(_activeId!),
     ),
   };
@@ -367,9 +368,8 @@ class _EditorTabsScopeState extends State<EditorTabsScope> {
   /// end as VS Code's `nextEditor` / `previousEditor` do within a single
   /// group.
   void _activateAdjacent(int step) {
-    final active = _activeId;
-    if (active == null) return;
-    _setActive(_order[(_order.indexOf(active) + step) % _order.length]);
+    final at = _order.indexOf(_activeId!) + step;
+    _setActive(_order[at % _order.length]);
   }
 
   @override
@@ -411,14 +411,21 @@ class _EditorTabsScopeState extends State<EditorTabsScope> {
 /// One editor-tab command handler (§spec:action-dispatch). `CallbackAction`
 /// reports itself always enabled, and a disabled action is what lets a chord
 /// the scope cannot serve fall through to a host binding above it.
+///
+/// Every handler is disabled while [scope] has no tabs, so [onInvoke] always
+/// runs with an active tab.
 class _EditorTabAction<T extends Intent> extends Action<T> {
-  final bool Function() enabled;
+  final _EditorTabsScopeState scope;
+
+  /// A further condition beyond having tabs. Null adds none.
+  final bool Function()? enabled;
   final void Function(T intent) onInvoke;
 
-  _EditorTabAction({required this.enabled, required this.onInvoke});
+  _EditorTabAction(this.scope, {this.enabled, required this.onInvoke});
 
   @override
-  bool isEnabled(T intent) => enabled();
+  bool isEnabled(T intent) =>
+      scope._order.isNotEmpty && (enabled?.call() ?? true);
 
   @override
   Object? invoke(T intent) {
