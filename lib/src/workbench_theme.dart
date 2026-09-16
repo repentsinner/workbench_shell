@@ -691,7 +691,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     // light themes. Values sourced from VS Code's color registry in
     // src/vs/workbench/common/theme.ts and
     // src/vs/platform/theme/common/colors/*.ts.
-    Color dl(Color dark, Color light) => map.isDark ? dark : light;
+    T dl<T>(T dark, T light) => map.isDark ? dark : light;
 
     // VS Code `baseColors.ts` registers `foreground` dark #CCCCCC /
     // light #616161. The light default was #000000 here, which no theme
@@ -971,7 +971,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // VS Code: transparent(tab.activeForeground, 0.5) dark / 0.7 light.
       tabInactiveForeground: map.resolve(
         'tab.inactiveForeground',
-        tabActiveFg.withValues(alpha: map.isDark ? 0.5 : 0.7),
+        tabActiveFg.withValues(alpha: dl(0.5, 0.7)),
       ),
       tabBorder: map.resolve(
         'tab.border',
