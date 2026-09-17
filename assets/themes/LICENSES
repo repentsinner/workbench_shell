@@ -40,7 +40,11 @@ solarized_dark.json / solarized_light.json
 Refreshing these snapshots
 ==========================
 
-Last refreshed against microsoft/vscode `main` on 2026-09-08.
+Snapshots are refreshed against the latest stable VS Code release tag,
+not `main`, so every file matches a version users run.
+
+Last refreshed against microsoft/vscode release tag `1.138.0` on
+2026-09-16.
 
 Each file is a *flattened* snapshot: the loader does not resolve VS
 Code's `include:` directives, so an upstream theme's whole chain is

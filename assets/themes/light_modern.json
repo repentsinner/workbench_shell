@@ -20,6 +20,7 @@
     "settings.numberInputBorder": "#CECECE",
     "statusBarItem.remoteForeground": "#FFFFFF",
     "statusBarItem.remoteBackground": "#005FB8",
+    "statusBar.inactiveBackground": "#F8F8F8",
     "ports.iconRunningProcessForeground": "#369432",
     "sideBarSectionHeader.background": "#F8F8F8",
     "sideBarSectionHeader.border": "#E5E5E5",
@@ -44,6 +45,7 @@
     "modernActivityBarItem.activeForeground": "#3B3B3B",
     "modernActivityBarItem.hoverForeground": "#3B3B3B",
     "modernActivityBar.border": "#E5E5E5",
+    "titleBar.inactiveBackground": "#F8F8F8",
     "activityBar.activeBorder": "#005FB8",
     "activityBar.background": "#F8F8F8",
     "activityBar.border": "#E5E5E5",
@@ -158,7 +160,6 @@
     "titleBar.activeBackground": "#F8F8F8",
     "titleBar.activeForeground": "#1E1E1E",
     "titleBar.border": "#E5E5E5",
-    "titleBar.inactiveBackground": "#F8F8F8",
     "titleBar.inactiveForeground": "#8B949E",
     "welcomePage.tileBackground": "#F3F3F3"
   },
