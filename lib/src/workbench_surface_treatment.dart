@@ -106,9 +106,8 @@ class WorkbenchSurfaceTreatment extends InheritedWidget {
   /// the cluster rather than a card, so it takes no border or radius of its
   /// own, but `floatingPanels.css` insets its content `spacing.size60`
   /// horizontally. `statusBar.css` overrides the vertical pair: no inset above
-  /// and `spacing.size40` below, taken out of the skirt [statusBarHeight]
-  /// adds. Base VS Code's `statusbarpart.css` pads the part not at all
-  /// (§spec:modern-ui-surfaces).
+  /// and `spacing.size40` below. Base VS Code's `statusbarpart.css` pads the
+  /// part not at all (§spec:modern-ui-surfaces).
   static EdgeInsets statusBarInsetFor(bool modernUI) =>
       modernUI ? _modernStatusBarInset : EdgeInsets.zero;
 

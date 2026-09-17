@@ -797,15 +797,11 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       dl(const Color(0xFF04395E), const Color(0xFF0060C0)),
     );
 
-    // Framed container surfaces ("cards", §spec:modern-ui-surfaces). VS Code
-    // registers surface.background as sideBar.background in dark and
-    // high-contrast themes and editor.background in light ones, and
-    // surface.border as
-    // `opaque(transparent(foreground, 0.15), surface.background)`, which is
-    // `foreground` at 15% composited over it. High contrast takes
-    // contrastBorder for the border and sideBar.background for a light fill;
-    // the map models neither base type, so both fall to the dark or light
-    // default.
+    // Framed container surfaces ("cards", §spec:modern-ui-surfaces). theme.ts
+    // registers surface.background as sideBar.background (dark) or
+    // editor.background (light), and surface.border as
+    // `opaque(transparent(foreground, 0.15), surface.background)`. The
+    // high-contrast defaults are not modelled: the map has no HC base type.
     final surfaceBg = map.resolve(
       'surface.background',
       map.isDark ? sideBarBg : editorBg,
@@ -1101,8 +1097,6 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // Focus / sash
       focusBorder: accentFg,
       sashHoverBorder: map.resolve('sash.hoverBorder', accentFg),
-      // theme.ts: modernSash.gripForeground defaults to
-      // transparent(foreground, 0.4) outside high contrast.
       sashGripForeground: map.resolve(
         'modernSash.gripForeground',
         fg.withValues(alpha: fg.a * 0.4),
