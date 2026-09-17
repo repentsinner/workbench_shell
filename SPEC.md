@@ -3483,10 +3483,12 @@ shipped behavior. The shell therefore renders these surfaces in the
 casing its host supplies and stops transforming them
 (§spec:chrome-typography-canon).
 
-**A part title tightens and loses two thirds of its inset.**
-`padding.css` takes `.part > .title` from `part.css`'s 35px to 32px and
-moves the inset inward, so the label sits closer to the card edge and
-the trailing action sits against it. Two insets, not one: the part pads
+**A part title tightens and moves its insets inward.**
+`padding.css` takes `.part > .title` from `part.css`'s 35px to 32px. It
+halves the row's inset on each side from 8px to `spacing.size40`, and
+takes the label's own inset from 12px to `spacing.size80`. The label
+then starts 12px from the card edge rather than 20px, and the trailing
+action sits 4px from it rather than 8px. Two insets, not one: the part pads
 the row and the title label pads itself again inside it, which is why
 the package resolves them separately rather than as a single padding.
 The side bar heading and the panel tab strip are the same upstream rule
