@@ -904,8 +904,9 @@ class _EditorTabStripState extends State<EditorTabStrip>
     final theme = widget.theme;
     final tabs = widget.tabs;
     final activeId = widget.activeId;
-    final pills = WorkbenchSurfaceTreatment.of(context);
-    final metrics = pills ? _EditorTabMetrics.modern : _EditorTabMetrics.base;
+    final metrics = WorkbenchSurfaceTreatment.of(context)
+        ? _EditorTabMetrics.modern
+        : _EditorTabMetrics.base;
     final onClose = widget.onCloseRequested;
 
     /// The tab for [tab], or its drag image. The drag image renders as the
@@ -1001,7 +1002,7 @@ class _EditorTabStripState extends State<EditorTabStrip>
           controller: _scroll,
           onMetricsChanged: _checkReveal,
           theme: theme,
-          rounded: pills,
+          rounded: metrics.pills,
           child: viewport,
         ),
       ),
@@ -1017,7 +1018,7 @@ class _EditorTabStripState extends State<EditorTabStrip>
           // with no border (`tabs.css` `.title.tabs { background-color:
           // transparent }`).
           decoration: BoxDecoration(
-            color: pills ? null : theme.editorGroupHeaderTabsBackground,
+            color: metrics.pills ? null : theme.editorGroupHeaderTabsBackground,
           ),
           child: content,
         ),
@@ -1371,7 +1372,9 @@ typedef _DropSlot = ({int index, double left});
 /// treatments (§spec:editor-tab-rendering), resolved once per strip build.
 @immutable
 class _EditorTabMetrics {
-  /// Renders the Modern UI pills rather than the base tabs.
+  /// Renders the Modern UI pills rather than the base tabs. Pills also show
+  /// every tab's action column, and hovering anywhere on a pill reveals a
+  /// dirty tab's close glyph.
   final bool pills;
 
   /// The strip's height.
@@ -1384,10 +1387,9 @@ class _EditorTabMetrics {
   final double paddingStart;
   final double paddingStartWithIcon;
 
-  /// A tab's trailing inset when it reserves no action column, and when it
-  /// does. The action column supplies the trailing room when it shows.
+  /// A tab's trailing inset when it shows no action column. The action
+  /// column supplies the trailing room when it shows.
   final double paddingEnd;
-  final double paddingEndWithActions;
 
   /// Inset above and below a tab's content row, which the drop bar shares.
   final double rowInset;
@@ -1396,15 +1398,6 @@ class _EditorTabMetrics {
   final double actionsWidth;
   final double actionsMargin;
 
-  /// Hovering anywhere on a tab recolours an inactive label and reveals a
-  /// dirty tab's close glyph, rather than the pointer having to be over the
-  /// action column itself.
-  final bool tabHoverReveals;
-
-  /// Every closable tab shows its close button, not only the active or
-  /// hovered one.
-  final bool actionsAlwaysVisible;
-
   const _EditorTabMetrics._({
     required this.pills,
     required this.stripHeight,
@@ -1412,12 +1405,9 @@ class _EditorTabMetrics {
     required this.paddingStart,
     required this.paddingStartWithIcon,
     required this.paddingEnd,
-    required this.paddingEndWithActions,
     required this.rowInset,
     required this.actionsWidth,
     required this.actionsMargin,
-    required this.tabHoverReveals,
-    required this.actionsAlwaysVisible,
   });
 
   /// `multieditortabscontrol.css`: a full-height row; `.tab { padding-left:
@@ -1430,12 +1420,9 @@ class _EditorTabMetrics {
     paddingStart: WorkbenchLayoutConstants.editorTabPaddingStart,
     paddingStartWithIcon: WorkbenchLayoutConstants.editorTabPaddingStart,
     paddingEnd: WorkbenchLayoutConstants.editorTabPaddingEnd,
-    paddingEndWithActions: 0,
     rowInset: 0,
     actionsWidth: WorkbenchLayoutConstants.editorTabActionsWidth,
     actionsMargin: 0,
-    tabHoverReveals: false,
-    actionsAlwaysVisible: false,
   );
 
   /// VS Code 1.138.0's `tabs.css`: the label on the 24px row between the
@@ -1451,12 +1438,9 @@ class _EditorTabMetrics {
     paddingStart: WorkbenchLayoutConstants.modernEditorTabPadding,
     paddingStartWithIcon: WorkbenchLayoutConstants.modernEditorTabPaddingStart,
     paddingEnd: WorkbenchLayoutConstants.modernEditorTabPadding,
-    paddingEndWithActions: 0,
     rowInset: WorkbenchLayoutConstants.modernEditorTabRowInset,
     actionsWidth: WorkbenchLayoutConstants.modernEditorTabActionsWidth,
     actionsMargin: WorkbenchLayoutConstants.modernEditorTabActionsMargin,
-    tabHoverReveals: true,
-    actionsAlwaysVisible: true,
   );
 }
 
@@ -1524,7 +1508,7 @@ class _EditorTabState extends State<_EditorTab> {
         start: tab.icon == null
             ? metrics.paddingStart
             : metrics.paddingStartWithIcon,
-        end: showsActions ? metrics.paddingEndWithActions : metrics.paddingEnd,
+        end: showsActions ? 0 : metrics.paddingEnd,
         top: metrics.rowInset,
         bottom: metrics.rowInset,
       ),
@@ -1613,9 +1597,9 @@ class _EditorTabState extends State<_EditorTab> {
       children: [
         Positioned.fill(
           child: Padding(
-            padding: const EdgeInsets.symmetric(
+            padding: EdgeInsets.symmetric(
               horizontal: WorkbenchLayoutConstants.modernEditorTabFillInset,
-              vertical: WorkbenchLayoutConstants.modernEditorTabRowInset,
+              vertical: widget.metrics.rowInset,
             ),
             child: DecoratedBox(
               key: const ValueKey('editor-tab-pill-fill'),
@@ -1650,11 +1634,8 @@ class _EditorTabState extends State<_EditorTab> {
     final onClose = widget.onClose;
     final metrics = widget.metrics;
     final visible =
-        widget.active ||
-        _tabHovered ||
-        tab.isDirty ||
-        metrics.actionsAlwaysVisible;
-    final revealsClose = metrics.tabHoverReveals ? _tabHovered : _actionHovered;
+        widget.active || _tabHovered || tab.isDirty || metrics.pills;
+    final revealsClose = metrics.pills ? _tabHovered : _actionHovered;
     final showsDot = tab.isDirty && (onClose == null || !revealsClose);
     final glyph = Icon(
       showsDot ? Symbols.fiber_manual_record : Symbols.close_rounded,
