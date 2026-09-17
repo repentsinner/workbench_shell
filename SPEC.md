@@ -2733,7 +2733,7 @@ workbench CSS:
 | Sidebar / panel part title ("Explorer") | `fontRamp.css` — `.part > .title > .title-label h2` | 12 / w600 |
 | Sidebar pane header / `WorkbenchViewPane` | `fontRamp.css` — `.pane-header .title` | 12 / w600 |
 | Workbench body content | `part.css` — `.part > .content` | 13 / w400 |
-| Settings label / form label | `settingsEditor2.css` — `.setting-item-category` | 13 / w500 |
+| Settings label / form label | `settingsEditor2.css` — `.setting-item-category` | 13 / w600 |
 | Status bar item | `statusbarpart.css` | 12 / w400 |
 | Button (default) | `button.css` | 12 / w400 |
 | Editor tab label | `editortabscontrol.css` | 13 / w400 |

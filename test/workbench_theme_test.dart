@@ -1076,9 +1076,9 @@ void main() {
         expect(theme.bodyText.fontWeight, FontWeight.w400);
       });
 
-      test('labelText is 13 / w500 (settingsEditor2.css)', () {
+      test('labelText is 13 / w600 (settingsEditor2.css)', () {
         expect(theme.labelText.fontSize, 13);
-        expect(theme.labelText.fontWeight, FontWeight.w500);
+        expect(theme.labelText.fontWeight, FontWeight.w600);
       });
 
       test('statusText is 12 / w400 (statusbarpart.css)', () {

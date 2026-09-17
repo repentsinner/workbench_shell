@@ -1238,7 +1238,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       bodyText: t(13, FontWeight.w400),
       // settings label / form label — settingsEditor2.css
       // `.setting-item-category`.
-      labelText: t(13, FontWeight.w500),
+      labelText: t(13, FontWeight.w600),
       // status bar item — statusbarpart.css. Same metrics as
       // [helperStyle]; paints in [statusBarForeground] so the text
       // reads against the blue status bar background.
