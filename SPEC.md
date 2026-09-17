@@ -2135,11 +2135,13 @@ the shell rejects it rather than rendering twice.
 **Why tabs in the title row, not a second activity bar.** VS Code's
 secondary side bar (`AuxiliaryBarPart`) has no activity bar; it embeds
 its container switcher inside its own title row as text-label tabs (a
-`PaneCompositeBar` at the title position, labels by default per
-`workbench.secondarySideBar.showLabels` — icon mode exists only when
-the workbench-wide activity-bar location moves to top/bottom, a setting
-this shell does not model). The primary externalizes its switcher to
-the activity bar; the secondary carries its own. A second activity bar
+`PaneCompositeBar` at the title position). It shows labels by default.
+Upstream switches it to icons in two cases: the user turns
+`workbench.secondarySideBar.showLabels` off through the bar's
+"Show Icons" context action, or the workbench-wide activity bar
+location moves to top or bottom, which forces icons. The shell models
+neither setting, so it renders the default. The primary externalizes
+its switcher to the activity bar; the secondary carries its own. A second activity bar
 was rejected as non-canon. The prior single host-assigned container was
 rejected because canon presents secondary containers as user-switchable
 top-level tabs; a host had to swap the container itself to change what
