@@ -3306,17 +3306,12 @@ reason beyond call-site familiarity.
   Traceability to upstream is the property §req:quality-attributes
   ranks first; call-site fluency is not a stated requirement.
 
-**Not covered by a ladder.** Three values stay off the ladders, and each
+**Not covered by a ladder.** Two values stay off the ladders, and each
 records why so a later reader can tell a decision from an oversight:
 
 - *The icon scale* (`iconXs` … `iconXl`) keeps its t-shirt names. VS Code
   registers two codicon sizes, not a ladder, so there is nothing upstream
   to adopt. §spec:layout-constants-canon records the rationale.
-- *Button horizontal padding* stays a literal. Upstream's
-  `.monaco-text-button` pads 14px, which sits between two ramp steps; the
-  value is canonical to `button.css` rather than to the ramp, and
-  rounding it to a neighbouring step would trade a sourced value for a
-  tidier one.
 - *The panel tab badge radius* stays a literal. The panel tab count is
   VS Code's pane composite badge, which `paneCompositePart.css` rounds at
   10px under both treatments. That value sits between the `large` and

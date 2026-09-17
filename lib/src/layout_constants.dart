@@ -538,10 +538,12 @@ class WorkbenchLayoutConstants {
   /// truth — every chrome-themed button moves together when it changes.
   static const double buttonHeight = 32;
 
-  /// Button horizontal padding. VS Code's `.monaco-text-button` pads
-  /// ~14px on each side; height is governed by [buttonHeight], so the
-  /// vertical component is zero.
-  static const EdgeInsets buttonPadding = EdgeInsets.symmetric(horizontal: 14);
+  /// Button horizontal padding. VS Code's `button.css` pads
+  /// `.monaco-text-button` `4px 8px`; height is governed by [buttonHeight],
+  /// so the vertical component is zero (§spec:design-size-ladders).
+  static const EdgeInsets buttonPadding = EdgeInsets.symmetric(
+    horizontal: spacingSize80,
+  );
 
   /// Popup menu row height. VS Code's
   /// [`menu.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/base/browser/ui/menu/menu.ts)
