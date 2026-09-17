@@ -1029,14 +1029,9 @@ class _EditorTabStripState extends State<EditorTabStrip>
     );
   }
 
-  /// The drop bar, positioned over the row while a dragged tab would land in
-  /// a slot.
-  ///
-  /// `multieditortabscontrol.css` draws a 2px `tab.dragAndDropBorder` bar the
-  /// height of the tab's padding box: at `left: 0` for the slot before a tab,
-  /// and at `right: -2px` for the slot after the last one, just past its
-  /// edge. Under Modern UI the padding box is the 24px row between the tab's
-  /// transparent bands.
+  /// The drop bar over the row while a dragged tab would land in a slot:
+  /// `multieditortabscontrol.css`'s `tab.dragAndDropBorder` bar, the height of
+  /// the tab's padding box.
   Widget _dropBar(_EditorTabMetrics metrics) {
     return ValueListenableBuilder<_DropSlot?>(
       valueListenable: _dropSlot,
@@ -1617,16 +1612,9 @@ class _EditorTabState extends State<_EditorTab> {
 
   /// The trailing action column: the close button, or a dirty tab's dot.
   ///
-  /// Upstream's base `.tab-actions` rules show it on the active tab, on hover,
-  /// and on a dirty tab, and hide it (opacity 0) otherwise; under Modern UI
-  /// the reserved column shows on every tab. A hidden button takes no
-  /// pointer, so a tap there activates the tab instead of closing an editor
-  /// the user cannot see a button for.
-  ///
-  /// A dirty tab shows its dot until the pointer reveals the close glyph: in
-  /// the base treatment the pointer has to be over the column itself; under
-  /// Modern UI, `tabs.css` swaps the glyph on `.tab.dirty:hover`, anywhere on
-  /// the tab.
+  /// A hidden column (base `.tab-actions`, opacity 0) takes no pointer, so a
+  /// tap there activates the tab. Under Modern UI, `tabs.css` swaps a dirty
+  /// tab's dot for the close glyph on `.tab.dirty:hover`.
   Widget _buildActions(Color foreground) {
     final tab = widget.tab;
     final onClose = widget.onClose;
