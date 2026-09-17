@@ -1946,7 +1946,7 @@ guarantees the drift the package exists to remove.
 every decision below. Upstream builds a single
 `.monaco-button-dropdown` flex container holding a primary `Button`, a
 separator, and a disclosure `Button`
-([`button.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/base/browser/ui/button/button.ts),
+([`button.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/base/browser/ui/button/button.ts),
 `class ButtonWithDropdown`). The halves share one outer radius — the
 primary rounds its left corners only, the disclosure its right — drop
 their facing borders so no double stroke forms at the seam, and dim
@@ -2710,7 +2710,7 @@ than VS Code on the same surface.
 **Family rule: platform UI sans.** Chrome `fontFamily` defaults to
 `null`. Flutter resolves to the platform's default UI font, matching
 VS Code's rules in
-[`src/vs/workbench/browser/media/style.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/media/style.css)
+[`src/vs/workbench/browser/media/style.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/media/style.css)
 (`-apple-system` / `Segoe UI` / `system-ui`). Hosts that need a brand
 font pass `chromeFontFamily` on
 `WorkbenchTheme.fromVscodeColorMap`; the override applies uniformly
@@ -2832,7 +2832,7 @@ chrome typography canon (§spec:chrome-typography-canon) — they live in the ed
 uses configurable `editor.fontFamily` and `editor.fontSize` for
 these surfaces, both defaulting to a per-platform monospace via
 `EDITOR_FONT_DEFAULTS` in
-[`src/vs/editor/common/config/fontInfo.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/editor/common/config/fontInfo.ts).
+[`src/vs/editor/common/config/fontInfo.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/editor/common/config/fontInfo.ts).
 `workbench_shell` exposes the same anchor so log-line and value
 styles read from one place that downstream hosts can swap.
 
@@ -3151,16 +3151,16 @@ and makes a stale row visible on inspection.
 
 | Constant | Value | VS Code source | Verified |
 |---|---|---|---|
-| `activityBarWidth` | 48 | [`activitybarPart.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/activitybar/activitybarPart.ts) — `static readonly ACTIVITYBAR_WIDTH = 48`, applied by [`activitybarpart.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/activitybar/media/activitybarpart.css) as `width: var(--activity-bar-width, 48px)` | 1.138.0 |
-| `activityBarIndicatorWidth` | 2 | [`activityaction.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/activitybar/media/activityaction.css) — `.action-item.checked .active-item-indicator:before { border-left: 2px solid }`; cross-confirmed by [`activityBar.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/activityBar.css), whose override is commented "Drop the 2px left border indicator on the active item" | 1.138.0 |
-| `baseViewPaneHeaderHeight` | 22 | [`paneview.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/base/browser/ui/splitview/paneview.ts) — `DEFAULT_PANE_HEADER_SIZE = 22`, the band `viewPaneHeaderHeight` raises under the treatment (§spec:modern-ui-surfaces) | 1.138.0 |
-| `sidebarHeadingHeight` | 35 | [`part.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/media/part.css) — `.part > .title { height: 35px }`, the band `modernPartTitleHeight` tightens under the treatment (§spec:modern-ui-surfaces) | 1.138.0 |
+| `activityBarWidth` | 48 | [`activitybarPart.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/parts/activitybar/activitybarPart.ts) — `static readonly ACTIVITYBAR_WIDTH = 48`, applied by [`activitybarpart.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/parts/activitybar/media/activitybarpart.css) as `width: var(--activity-bar-width, 48px)` | 1.138.0 |
+| `activityBarIndicatorWidth` | 2 | [`activityaction.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/parts/activitybar/media/activityaction.css) — `.action-item.checked .active-item-indicator:before { border-left: 2px solid }`; cross-confirmed by [`activityBar.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/activityBar.css), whose override is commented "Drop the 2px left border indicator on the active item" | 1.138.0 |
+| `baseViewPaneHeaderHeight` | 22 | [`paneview.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/base/browser/ui/splitview/paneview.ts) — `DEFAULT_PANE_HEADER_SIZE = 22`, the band `viewPaneHeaderHeight` raises under the treatment (§spec:modern-ui-surfaces) | 1.138.0 |
+| `sidebarHeadingHeight` | 35 | [`part.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/media/part.css) — `.part > .title { height: 35px }`, the band `modernPartTitleHeight` tightens under the treatment (§spec:modern-ui-surfaces) | 1.138.0 |
 | `panelTabStripHeight` | 35 | shared `.part > .title` (same file); also tightened by `modernPartTitleHeight` | 1.138.0 |
-| `modernPartTitleHeight` | 32 | [`padding.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/padding.css) — `.part > .title, .part > .header-or-footer { height: 32px }`, commented "KEEP IN SYNC WITH: part.ts PartLayout.AREA_HEIGHT_MODERN_UI" | 1.138.0 |
-| `statusBarHeight` | 22 | [`statusbarpart.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/statusbar/media/statusbarpart.css) — `height: 22px`. Cross-confirmed by inline comment in `notificationsToasts.css`: `bottom: 25px; /* 22px status bar height + 3px */` | 1.138.0 |
-| `sidebarMinWidth` | 170 | [`sidebarPart.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/sidebar/sidebarPart.ts) — `readonly minimumWidth: number = 170` | 1.138.0 |
-| `panelMinHeight` | 77 | [`panelPart.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/panel/panelPart.ts) — `readonly minimumHeight: number = 77` | 1.138.0 |
-| `notificationCardWidth` | 450 | [`notificationsToasts.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/notifications/notificationsToasts.ts) — `private static readonly MAX_WIDTH = 450` | 1.138.0 |
+| `modernPartTitleHeight` | 32 | [`padding.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/padding.css) — `.part > .title, .part > .header-or-footer { height: 32px }`, commented "KEEP IN SYNC WITH: part.ts PartLayout.AREA_HEIGHT_MODERN_UI" | 1.138.0 |
+| `statusBarHeight` | 22 | [`statusbarpart.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/parts/statusbar/media/statusbarpart.css) — `height: 22px`. Cross-confirmed by inline comment in `notificationsToasts.css`: `bottom: 25px; /* 22px status bar height + 3px */` | 1.138.0 |
+| `sidebarMinWidth` | 170 | [`sidebarPart.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/parts/sidebar/sidebarPart.ts) — `readonly minimumWidth: number = 170` | 1.138.0 |
+| `panelMinHeight` | 77 | [`panelPart.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/parts/panel/panelPart.ts) — `readonly minimumHeight: number = 77` | 1.138.0 |
+| `notificationCardWidth` | 450 | [`notificationsToasts.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/parts/notifications/notificationsToasts.ts) — `private static readonly MAX_WIDTH = 450` | 1.138.0 |
 
 **Constants without a VS Code peer.** Some
 `WorkbenchLayoutConstants` slots intentionally diverge because
@@ -3241,8 +3241,8 @@ between two ownership boundaries.
 
 `WorkbenchLayoutConstants` names its radius, stroke and spacing values
 after the ladders VS Code registers in
-[`baseSizes.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/platform/theme/common/sizes/baseSizes.ts).
-[`roundedCorners.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/roundedCorners.css)
+[`baseSizes.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/platform/theme/common/sizes/baseSizes.ts).
+[`roundedCorners.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/roundedCorners.css)
 records the doctrine for choosing among the radius tiers — by the role
 a surface plays, not by how large it looks. The package adopts those
 ladders, their names, and that doctrine. Upstream owns the values; the
@@ -3358,11 +3358,11 @@ place the treatment in the future; it is in the present.
 **The package conforms to upstream's treatment rather than restating
 it.** The card margins, borders, radii, activity bar metrics and pane
 header dimensions are upstream's, read from
-[`floatingPanels.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/media/floatingPanels.css),
-[`editorBorder.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/editorBorder.css),
-[`paneHeaders.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/paneHeaders.css)
+[`floatingPanels.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/media/floatingPanels.css),
+[`editorBorder.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/editorBorder.css),
+[`paneHeaders.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/paneHeaders.css)
 and
-[`activitybarPart.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/activitybar/activitybarPart.ts),
+[`activitybarPart.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/parts/activitybar/activitybarPart.ts),
 and expressed through §spec:design-size-ladders. Each value is read at
 the latest stable VS Code release rather than upstream `main`, because
 stable is what users run and `main` carries changes a release may still

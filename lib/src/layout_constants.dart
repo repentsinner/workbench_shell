@@ -70,7 +70,7 @@ class WorkbenchLayoutConstants {
   // ==================== SPACING RAMP ====================
   //
   // VS Code registers a fixed spacing ramp for padding, margins and gaps in
-  // [`baseSizes.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/platform/theme/common/sizes/baseSizes.ts)
+  // [`baseSizes.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/platform/theme/common/sizes/baseSizes.ts)
   // (§spec:design-size-ladders). Each numeric token encodes its value in
   // tenths of a pixel, so `spacingSize160` is 16px. Upstream owns the
   // values; a gap the package needs picks the nearest registered step
@@ -126,7 +126,7 @@ class WorkbenchLayoutConstants {
 
   /// The `.part > .title` band under the Modern UI treatment — the side bar
   /// heading and the panel tab strip alike. VS Code
-  /// [`padding.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/padding.css)
+  /// [`padding.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/padding.css)
   /// takes the row from base `part.css`'s 35px to 32px, carrying the label's
   /// line height and the trailing action row with it, and keeps the value in
   /// sync with `part.ts` `PartLayout.AREA_HEIGHT_MODERN_UI`
@@ -139,7 +139,7 @@ class WorkbenchLayoutConstants {
   /// occupies. VS Code's Modern UI treatment raises the base
   /// `paneview.ts` `DEFAULT_PANE_HEADER_SIZE = 22` to the spacing ramp's 28px
   /// step:
-  /// [`paneHeaders.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/paneHeaders.css)
+  /// [`paneHeaders.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/paneHeaders.css)
   /// sets `--pane-header-size: var(--vscode-spacing-size280)` and keeps it in
   /// sync with the layout code's `MODERN_UI_PANE_HEADER_SIZE`
   /// (§spec:modern-ui-surfaces). The inset top rule is drawn inside this
@@ -177,7 +177,7 @@ class WorkbenchLayoutConstants {
 
   /// Height of the filled indicator behind an active or hovered panel tab
   /// under the Modern UI treatment. VS Code
-  /// [`tabs.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/tabs.css)
+  /// [`tabs.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/tabs.css)
   /// sizes the composite bar's `active-item-indicator`
   /// `height: var(--vscode-spacing-size240)` (§spec:modern-ui-surfaces).
   static const double panelTabIndicatorHeight = spacingSize240;
@@ -313,8 +313,8 @@ class WorkbenchLayoutConstants {
   // ==================== CORNER RADIUS LADDER ====================
   //
   // VS Code registers a six-tier corner-radius ladder in
-  // [`baseSizes.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/platform/theme/common/sizes/baseSizes.ts).
-  // [`roundedCorners.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/roundedCorners.css)
+  // [`baseSizes.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/platform/theme/common/sizes/baseSizes.ts).
+  // [`roundedCorners.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/roundedCorners.css)
   // records the doctrine for choosing among the tiers: pick by the role a
   // surface plays, not by how large it looks (§spec:design-size-ladders).
   //
@@ -362,12 +362,12 @@ class WorkbenchLayoutConstants {
   // VS Code frames the side bars, bottom panel, editor and activity bar as
   // bordered, rounded cards separated by a gap (§spec:modern-ui-surfaces).
   // Values come from
-  // [`layoutService.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/services/layout/browser/layoutService.ts),
-  // [`floatingPanels.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/media/floatingPanels.css),
-  // [`editorBorder.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/editorBorder.css),
-  // [`activityBar.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/activityBar.css)
+  // [`layoutService.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/services/layout/browser/layoutService.ts),
+  // [`floatingPanels.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/media/floatingPanels.css),
+  // [`editorBorder.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/editorBorder.css),
+  // [`activityBar.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/activityBar.css)
   // and
-  // [`activitybarPart.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/activitybar/activitybarPart.ts),
+  // [`activitybarPart.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/parts/activitybar/activitybarPart.ts),
   // and are expressed through the ladders above wherever a step names them.
   // Read against VS Code 1.138.0.
   //
@@ -472,7 +472,7 @@ class WorkbenchLayoutConstants {
 
   /// Margin above the activity bar's item column and below its trailing zone,
   /// on top of [activityBarIconInset]. VS Code
-  /// [`padding.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/padding.css)
+  /// [`padding.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/padding.css)
   /// gives the vertical rail's `.composite-bar` a `margin-top` and its trailing
   /// `:last-child` a `margin-bottom` of
   /// `calc(var(--vscode-spacing-size20) + var(--vscode-strokeThickness))`, so
@@ -547,7 +547,7 @@ class WorkbenchLayoutConstants {
   );
 
   /// Popup menu row height. VS Code's
-  /// [`menu.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/base/browser/ui/menu/menu.ts)
+  /// [`menu.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/base/browser/ui/menu/menu.ts)
   /// sizes `.monaco-menu .monaco-action-bar.vertical .action-menu-item` at
   /// 24px. Material's `MenuItemButton` defaults far taller, so the
   /// §spec:chrome-material-theming menu themes set this as the row's minimum
