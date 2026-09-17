@@ -636,6 +636,9 @@ class _EditorTabStripState extends State<EditorTabStrip>
   /// The strip's horizontal scroll (§spec:editor-tab-overflow).
   final ScrollController _scroll = ScrollController();
 
+  /// The scroll viewport, whose ends a dragged tab scrolls the strip from.
+  final GlobalKey _viewportKey = GlobalKey();
+
   /// Scrolls the strip while a dragged tab rests near either end.
   late final Ticker _dragScrollTicker = createTicker(_onDragScrollTick);
 
@@ -838,9 +841,7 @@ class _EditorTabStripState extends State<EditorTabStrip>
   void _updateDragScroll() {
     var direction = 0;
     final pointer = _dragPointer;
-    final viewport = _scroll.hasClients
-        ? _scroll.position.context.notificationContext?.findRenderObject()
-        : null;
+    final viewport = _viewportKey.currentContext?.findRenderObject();
     if (pointer != null && viewport is RenderBox && _overflows) {
       final x = viewport.globalToLocal(pointer).dx;
       final position = _scroll.position;
@@ -960,36 +961,31 @@ class _EditorTabStripState extends State<EditorTabStrip>
     // without shadows, and driven by the strip's own wheel mapping, so the
     // scroll view takes no gesture of its own and draws no scrollbar.
     final viewport = Listener(
+      key: _viewportKey,
       onPointerSignal: _onPointerSignal,
       onPointerPanZoomUpdate: _onPointerPanZoomUpdate,
       child: ScrollConfiguration(
         behavior: ScrollConfiguration.of(
           context,
         ).copyWith(scrollbars: false, overscroll: false),
-        child: NotificationListener<ScrollMetricsNotification>(
-          onNotification: (_) {
-            _checkReveal();
-            return false;
-          },
-          child: SingleChildScrollView(
-            key: const ValueKey('editor-tab-viewport'),
-            controller: _scroll,
-            scrollDirection: Axis.horizontal,
-            physics: const NeverScrollableScrollPhysics(),
-            child: Stack(
-              // The bar past the last tab stands just outside the row.
-              clipBehavior: Clip.none,
-              children: [
-                // Inside the scroll view, so the tabs are the tab bar's
-                // direct semantic children.
-                Semantics(
-                  role: SemanticsRole.tabBar,
-                  container: true,
-                  child: row,
-                ),
-                _dropBar(metrics),
-              ],
-            ),
+        child: SingleChildScrollView(
+          key: const ValueKey('editor-tab-viewport'),
+          controller: _scroll,
+          scrollDirection: Axis.horizontal,
+          physics: const NeverScrollableScrollPhysics(),
+          child: Stack(
+            // The bar past the last tab stands just outside the row.
+            clipBehavior: Clip.none,
+            children: [
+              // Inside the scroll view, so the tabs are the tab bar's
+              // direct semantic children.
+              Semantics(
+                role: SemanticsRole.tabBar,
+                container: true,
+                child: row,
+              ),
+              _dropBar(metrics),
+            ],
           ),
         ),
       ),
@@ -1003,6 +999,7 @@ class _EditorTabStripState extends State<EditorTabStrip>
         padding: EdgeInsetsDirectional.only(start: metrics.stripInset),
         child: _EditorTabScrollbar(
           controller: _scroll,
+          onMetricsChanged: _checkReveal,
           theme: theme,
           rounded: pills,
           child: viewport,
@@ -1072,6 +1069,11 @@ class _EditorTabScrollbar extends StatefulWidget {
   /// The strip's scroll, which the strip owns for its lifetime, so the bar
   /// listens to one controller throughout.
   final ScrollController controller;
+
+  /// Called after the bar follows a change in the scroll extent or the
+  /// viewport, the one place the strip hears of either.
+  final VoidCallback onMetricsChanged;
+
   final WorkbenchTheme theme;
 
   /// Rounds the slider to the controls tier, as Modern UI's
@@ -1082,6 +1084,7 @@ class _EditorTabScrollbar extends StatefulWidget {
 
   const _EditorTabScrollbar({
     required this.controller,
+    required this.onMetricsChanged,
     required this.theme,
     required this.rounded,
     required this.child,
@@ -1265,6 +1268,7 @@ class _EditorTabScrollbarState extends State<_EditorTabScrollbar> {
         // The slider follows the extent as tabs open and close.
         onNotification: (_) {
           setState(() {});
+          widget.onMetricsChanged();
           return false;
         },
         child: Stack(
