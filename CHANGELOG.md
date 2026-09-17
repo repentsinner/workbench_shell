@@ -1,3 +1,10 @@
+## [0.40.2](https://github.com/repentsinner/workbench_shell/compare/v0.40.1...v0.40.2) (2026-09-17)
+
+
+### Bug Fixes
+
+* **theme:** refresh bundled themes from VS Code 1.138.0 ([bece823](https://github.com/repentsinner/workbench_shell/commit/bece823b2f369028f4039f536c2f8f2305d96e42))
+
 ## [0.40.1](https://github.com/repentsinner/workbench_shell/compare/v0.40.0...v0.40.1) (2026-09-17)
 
 
