@@ -1254,10 +1254,11 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // descriptionForeground (12 / w400).
       captionText: t(12, FontWeight.w400, color: secondaryFg),
       helperStyle: t(12, FontWeight.w400, color: secondaryFg),
-      // badge tier — paneCompositeBar.css (11 / w600). Internal
-      // token the panel-tab badge pill paints in and the host
-      // analogue for dense numeric indicators.
-      smallText: t(11, FontWeight.w600, color: secondaryFg),
+      // badge tier — paneCompositePart.css `.badge .badge-content`
+      // (10 / normal), which fontRamp.css keeps at label3 under the
+      // treatment. Internal token the panel-tab badge pill paints in and
+      // the host analogue for dense numeric indicators.
+      smallText: t(10, FontWeight.w400, color: secondaryFg),
       // Editor-derived surfaces (§spec:editor-derived-surfaces) — DRO numerics and log lines
       // anchor on [editorStyle] so the host's editor-font override
       // flows through without per-call-site changes. DRO retains

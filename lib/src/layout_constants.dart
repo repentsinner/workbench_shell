@@ -189,6 +189,12 @@ class WorkbenchLayoutConstants {
   /// `.action-item:not(.icon) { padding: 0 var(--vscode-spacing-size100) }`.
   static const double panelTabPadding = spacingSize100;
 
+  /// Corner radius of the count badge beside a panel tab label. VS Code
+  /// `paneCompositePart.css` rounds the composite bar's `.badge-content` at
+  /// `border-radius: 10px`, off the corner-radius ladder
+  /// (§spec:chrome-typography-canon).
+  static const double compositeBarBadgeRadius = 10.0;
+
   /// Editor tab strip row height in the base treatment
   /// (§spec:editor-tab-rendering). VS Code `editorTabsControl.ts`
   /// `EDITOR_TAB_HEIGHT.normal`, the `--editor-group-tab-height` every tab in

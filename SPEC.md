@@ -2739,7 +2739,7 @@ workbench CSS:
 | Editor tab label | `editortabscontrol.css` | 13 / w400 |
 | Title bar / window title | `titlebarpart.css` | 12 / w400 |
 | Description / caption | inherits body, painted in `descriptionForeground` | 12 / w400 |
-| Badge pill (panel tab count, dense numeric labels) | `paneCompositeBar.css` activity / pane badge tier | 11 / w600 |
+| Badge pill (panel tab count, dense numeric labels) | `paneCompositePart.css` — `.badge .badge-content` | 10 / w400 |
 
 `WorkbenchTheme`'s `sectionTitle`, `bodyText`, `labelText`,
 `statusText`, `statusBarTextStyle`, `buttonTextStyle`,
@@ -2788,10 +2788,13 @@ concern, not a shell property (§spec:capability-boundary).
 
 **`smallText` is the badge tier.** Internal token the panel-tab
 badge pill paints in, and the host analogue for dense numeric
-indicators. VS Code's titlebar badge is `9 / w400` and the
-activity-bar / pane-composite badges are `11 / w600`; the package
-picks `11 / w600` to keep one shared token across in-strip and host
-badge surfaces.
+indicators. The panel tab count is VS Code's pane composite badge,
+which `paneCompositePart.css` sets at `10 / w400` with a 10px radius.
+The treatment's `fontRamp.css` holds every action-bar badge at
+`fontSize.label3`, also 10px, so the tier reads the same under both.
+The other upstream badges belong to surfaces the package does not
+render: the activity bar badge in `activityaction.css` is `9 / w600`,
+and the list count badge in `countBadge.css` is `11 / w400`.
 
 **Rejected — registering Inconsolata as a bundled chrome asset.**
 An earlier draft bundled Inconsolata as a package asset and stamped
@@ -3314,11 +3317,12 @@ records why so a later reader can tell a decision from an oversight:
   value is canonical to `button.css` rather than to the ramp, and
   rounding it to a neighbouring step would trade a sourced value for a
   tidier one.
-- *The panel tab badge radius* stays a literal. Base VS Code rounds a
-  count badge at 11px, and the Modern UI treatment moves it to the circle
-  tier — neither is the package's current 8px, and both are restylings.
-  §spec:modern-ui-surfaces owns that change; adopting a tier name here
-  would assert a role the rendered shape does not yet match.
+- *The panel tab badge radius* stays a literal. The panel tab count is
+  VS Code's pane composite badge, which `paneCompositePart.css` rounds at
+  10px under both treatments. That value sits between the `large` and
+  `xLarge` steps, and it belongs to the badge rule rather than to the
+  ladder. The circle tier the treatment applies to `.monaco-count-badge`
+  styles a different element.
 
 **Observable behavior**.
 

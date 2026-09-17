@@ -1106,9 +1106,9 @@ void main() {
         expect(theme.helperStyle.fontWeight, FontWeight.w400);
       });
 
-      test('smallText is 11 / w600 (paneCompositeBar badge tier)', () {
-        expect(theme.smallText.fontSize, 11);
-        expect(theme.smallText.fontWeight, FontWeight.w600);
+      test('smallText is 10 / w400 (paneCompositePart.css badge tier)', () {
+        expect(theme.smallText.fontSize, 10);
+        expect(theme.smallText.fontWeight, FontWeight.w400);
       });
 
       test('chromeFontFamily default null → resolves to platform UI sans', () {
