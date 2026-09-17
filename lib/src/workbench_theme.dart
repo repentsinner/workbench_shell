@@ -869,8 +869,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       dl(const Color(0xFF3C3C3C), const Color(0xFFDDDDDD)),
     );
     // The `modernTab.*` family, falling back to the list colours. The panel
-    // tabs read it directly and the editor pills through their own
-    // `modernEditorTab.*` keys, so the two strips resolve one chain.
+    // tabs read it directly, and the editor pills and the activity bar items
+    // through their own `modernEditorTab.*` and `modernActivityBarItem.*`
+    // keys, so every surface resolves one chain. A theme that styles only its
+    // tabs still gets a coherent rail.
     final modernTabActiveBg = map.resolve(
       'modernTab.activeBackground',
       map.resolve(
@@ -894,16 +896,6 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       'modernEditorTab.hoverBackground',
       modernTabHoverBg,
     );
-    // Activity bar item states. Upstream chains each key through the modern
-    // tab family to the list colours, so a theme that styles only its tabs
-    // still gets a coherent rail.
-    Color activityBarItemColor(
-      String key,
-      String tabKey,
-      String listKey,
-      Color fallback,
-    ) => map[key] ?? map[tabKey] ?? map[listKey] ?? fallback;
-
     // Chrome typography: chrome surfaces honour [chromeFontFamily]
     // (null → platform UI sans). The local helper carries the chrome
     // family so a single decision propagates across every chrome
@@ -954,29 +946,21 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       ),
       // Filled rounded indicator behind the selected/hovered icon
       // (§spec:modern-ui-surfaces).
-      activityBarItemActiveBackground: activityBarItemColor(
+      activityBarItemActiveBackground: map.resolve(
         'modernActivityBarItem.activeBackground',
-        'modernTab.activeBackground',
-        'list.inactiveSelectionBackground',
-        dl(const Color(0xFF37373D), const Color(0xFFE4E6F1)),
+        modernTabActiveBg,
       ),
-      activityBarItemActiveForeground: activityBarItemColor(
+      activityBarItemActiveForeground: map.resolve(
         'modernActivityBarItem.activeForeground',
-        'modernTab.activeForeground',
-        'list.inactiveSelectionForeground',
-        fg,
+        modernTabActiveFg,
       ),
-      activityBarItemHoverBackground: activityBarItemColor(
+      activityBarItemHoverBackground: map.resolve(
         'modernActivityBarItem.hoverBackground',
-        'modernTab.hoverBackground',
-        'list.hoverBackground',
-        listHoverBg,
+        modernTabHoverBg,
       ),
-      activityBarItemHoverForeground: activityBarItemColor(
+      activityBarItemHoverForeground: map.resolve(
         'modernActivityBarItem.hoverForeground',
-        'modernTab.hoverForeground',
-        'list.hoverForeground',
-        fg,
+        modernTabHoverFg,
       ),
       // Filled rounded indicator behind the selected/hovered panel tab
       // (§spec:modern-ui-surfaces). `tabs.css` paints the composite bar's
