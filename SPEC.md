@@ -1616,27 +1616,27 @@ The shell renders two treatments and picks one by the Modern UI flag
   `tab.border` divider on each trailing edge, the active tab in
   `tab.activeBackground` with `tab.activeBorderTop` and
   `tab.activeBorder` rules drawn only when the theme sets them.
-- **Modern UI.** Upstream's `connected` editor-tab style, the default
-  of `workbench.experimental.modernUIEditorTabStyle`, per
-  `connectedEditorTabs.css` and `tabs.css`. The active tab takes
-  `editor.background` and joins the editor below it: its top corners
-  and the shoulders that curve out into the editor share one radius,
-  `cornerRadius.small` plus a stroke. The first tab keeps a straight
-  leading edge, and the last turns its trailing shoulder inside its
-  own slot. The strip and inactive tabs sit on
-  `editorGroupHeader.tabsBackground` over a separator in the editor
-  surface, a hovered tab fills with `foreground` mixed over the strip,
-  and inactive labels take `tab.inactiveForeground`. The row is
-  upstream's 32px plus the separator's stroke, with content-sized tabs
-  and no base minimum width.
+- **Modern UI.** The pill tabs that the editor half of `tabs.css`
+  draws in VS Code 1.138.0. The strip is transparent over the editor
+  card, with no border or separator, in a 32px row. Each tab is
+  content-sized and carries a 24px rounded fill, `cornerRadius.small`,
+  inset `spacing.size20` from each side so neighbouring pills stand
+  apart, while their hit targets touch. The active pill fills with
+  `modernEditorTab.activeBackground`, or `activeHoverBackground` while
+  hovered, and a hovered inactive pill with
+  `modernEditorTab.hoverBackground`; other inactive pills are unfilled,
+  with labels in `foreground` at half strength.
 
 Both treatments share the rest of the canon:
 
 - A tab shows its icon, when the host supplies one, then its label in
   the editor-tab tier of §spec:chrome-typography-canon, in the casing
   the host supplies.
-- The close button sits at the trailing edge. It shows on the active
-  tab and on hover, per upstream's `.tab-actions` rules.
+- The close button sits at the trailing edge. In the base treatment it
+  shows on the active tab and on hover, per upstream's `.tab-actions`
+  rules. Under Modern UI it shows on every tab, because upstream's
+  `workbench.editor.tabActionReserveSpace` defaults to `true` and the
+  editor area is always the active group.
 - A dirty tab replaces its close glyph with a filled dot. The close
   glyph returns while the pointer is over the dot in the base
   treatment (`.action-label:not(:hover)`) and anywhere over the tab
@@ -1657,27 +1657,30 @@ icon by default (`workbench.editor.showIcons`), so the canon here
 includes one. Taking `IconData` rather than a `Widget` keeps the
 shell's hold on size and color (§spec:capability-boundary).
 
-**Why connected only under Modern UI.** Upstream offers `connected`
-and `pill` and defaults to `connected`. Rendering both means a host
-setting and a second token family for a style few users see, so the
-shell renders the default and leaves `pill` for a consumer that needs
-it.
+**Why pills, read from the stable release.** The canon is the VS Code
+users run: the latest stable release, not upstream's `main`. Upstream
+`main` carries a `connected` editor-tab style and a
+`workbench.experimental.modernUIEditorTabStyle` setting to choose it,
+but neither exists in 1.138.0, where Modern UI renders pills. A style
+that only Insiders builds show would read as off-canon to every user
+on stable, so the shell renders pills and defers `connected` until a
+stable release ships it.
 
-**Why the connected row ignores layout density.** Upstream shrinks the
-tab to 20px only for `window.density.editorTabHeight: compact`, a
-setting separate from the `window.density.layout` value
+**Why the Modern UI row ignores layout density.** Upstream shrinks the
+pill to 20px only for `workbench.editor.tabHeight: compact`, a setting
+separate from the `window.density.layout` value
 `WorkbenchLayoutDensity` mirrors. Tying the row to layout density
 would render a height no VS Code configuration pairs with it.
 
-**Why the shoulders paint as a fill without a stroke.** Upstream
-strokes the connected cap and shoulders in a border colour that
-equals `editor.background` in every non-high-contrast theme, so
-painting the surface alone produces the same pixels.
-
-**Theme mapping.** `WorkbenchTheme` resolves each color above from the
-VS Code key of the same name, with upstream's registry defaults as
-fallbacks. The drop indicator reads `tab.dragAndDropBorder`, which
-defaults to `tab.activeForeground`.
+**Theme mapping.** The base treatment resolves each color from the
+VS Code `tab.*` and `editorGroupHeader.*` key of the same name, with
+upstream's registry defaults as fallbacks. Under Modern UI, upstream
+ignores a theme file's `tab.*` colors: `modernEditorTab.*` falls back
+to `modernTab.*` and then to the list colors, the chain the panel tabs
+already resolve (§spec:modern-ui-surfaces). The shell follows it, so a
+theme renders the same pills here as in VS Code. The drop indicator
+reads `tab.dragAndDropBorder`, which defaults to
+`tab.activeForeground`.
 
 ### Interaction §spec:editor-tab-interaction
 
@@ -1697,6 +1700,51 @@ defaults to `tab.activeForeground`.
 - The strip exposes each tab to assistive technology as a selectable
   tab carrying its label, its selected state and, when dirty, its
   unsaved state.
+
+### Overflow §spec:editor-tab-overflow
+
+When the tabs outgrow the strip, the strip scrolls horizontally, per
+`multiEditorTabsControl.ts` in 1.138.0.
+
+- A vertical wheel or trackpad gesture scrolls the strip sideways, as
+  upstream's `scrollYToX` does, and a horizontal gesture scrolls it
+  directly.
+- A 3px scrollbar, upstream's `titleScrollbarSizing` default, overlays
+  the bottom of the strip rather than taking layout space. It follows
+  `titleScrollbarVisibility: auto`: it appears only while the tabs
+  overflow and the pointer is over the strip or a scroll is under way,
+  and fades out after scrolling stops. The slider paints
+  `scrollbarSlider.background`, and `hoverBackground` and
+  `activeBackground` while hovered and dragged. Under Modern UI it
+  rounds to `cornerRadius.small`, as `roundedCorners.css` rounds every
+  slider.
+- Activating a tab reveals it with the least scroll. A tab cut off at
+  the trailing edge scrolls until its trailing edge meets the strip's;
+  a tab cut off at the leading edge, or wider than the strip, scrolls
+  until its leading edge meets the strip's. Closing a tab through its
+  button does not scroll the strip to the tab that takes its place,
+  matching upstream's `blockRevealActiveTabOnce`, so the strip does
+  not jump under the pointer.
+- While a tab is dragged near either end of an overflowing strip, the
+  strip scrolls toward that end, so a tab can be dropped at a position
+  outside the visible range.
+
+**Why these scrollbar tokens and no others.** The package themes no
+scrollbar in general (§spec:modern-ui-surfaces). The editor tab strip
+needs its own because upstream sizes and shows it independently of the
+global scrollbar: an explicit size opts it out of Modern UI's 8px
+default. The strip therefore reads the three `scrollbarSlider.*`
+colors itself, and general scrollbar theming stays a separate concern.
+
+**Why the shell scrolls on drag near an edge.** Upstream gets this
+from the browser's native drag auto-scroll rather than its own code.
+Flutter has no native equivalent, and without it a tab in a long
+strip could only move within the visible range, so the shell supplies
+the behaviour the browser supplies upstream. With no upstream value to
+match, the shell picks a zone of `spacing.size320` at each end, about
+a square on the strip and narrower than any tab, and a steady 480
+logical pixels a second, fast enough to cross a long strip and slow
+enough that each drop position reads as it passes.
 
 **Keyboard.** The shell publishes intents for the editor-tab commands
 every VS Code user carries in muscle memory, and binds them to
@@ -1731,10 +1779,8 @@ above admits without change:
   intent finds no handler. Closing it means publishing the actions
   above the layout or routing menu invocations through the focused
   context.
-- *Overflow scrolling.* Upstream scrolls the strip horizontally,
-  reveals the active tab, and maps a vertical wheel to horizontal
-  scroll. Until it lands, tabs past the strip's width are clipped at
-  its trailing edge.
+- *Wheel tab switching.* Upstream switches tabs on Shift+wheel, or on
+  the plain wheel with `workbench.editor.scrollToSwitchTabs`.
 - *Middle-click close*, and *moving a tab by keyboard*
   (`moveEditorLeftInGroup` / `moveEditorRightInGroup`).
 - *Ctrl+Tab recent-editor navigation*, which needs a quick-pick
@@ -1743,9 +1789,9 @@ above admits without change:
   policy that a host can express through membership today.
 - *The tab context menu, tab descriptions*, and the `single` and
   `none` values of `workbench.editor.showTabs`.
-- *Compact editor tab height* (`window.density.editorTabHeight`) and
-  the connected style's high-contrast stroke, which upstream draws in
-  `contrastBorder` and `focusBorder`.
+- *Compact editor tab height* (`workbench.editor.tabHeight`).
+- *The `connected` editor-tab style*, until a stable VS Code release
+  ships it.
 - *Editor groups* (split editors). A group is an ordered set of tabs
   with its own active tab, which is exactly the state this section
   gives the editor area. Groups add a grid of such sets without
@@ -1783,9 +1829,12 @@ above admits without change:
 - The keyboard bindings in the table move between and close tabs on
   each platform.
 - Switching the Modern UI flag switches the strip between the 35px
-  base strip and the connected strip, whose active tab joins the editor
-  with curved shoulders, and a VS Code theme's `tab.*` and
-  `editorGroupHeader.*` colors reach the strip without host wiring.
+  base strip and a 32px row of rounded pills. A VS Code theme's `tab.*`
+  and `editorGroupHeader.*` colors reach the base strip, and its list
+  colors reach the pills, without host wiring.
+- Tabs that outgrow the strip scroll with the wheel, show a thin
+  scrollbar while the pointer is over the strip, and scroll the active
+  tab into view when it activates.
 
 ---
 
@@ -3596,8 +3645,8 @@ rounded target behind its label. The item itself takes
 padding.
 
 The composite-bar half of that module applies here. Its editor-tab
-half applies to the editor tab strip, which renders upstream's
-`connected` style under the treatment (§spec:editor-tabs).
+half applies to the editor tab strip, which renders pills under the
+treatment (§spec:editor-tabs).
 
 **A tab label is not a part title.** `fontRamp.css` raises the pane
 header and the part title to `fontSize.label1` semiBold, and `tabs.css`
@@ -3686,18 +3735,15 @@ excluded here, to be specified separately rather than absorbed:
 - *The command center.* `commandCenter.css` styles a surface the
   package does not render and §spec:capability-boundary keeps in the
   host.
-- *Pill editor tabs.* `tabs.css` restyles the editor strip as pills
-  when `modernUIEditorTabStyle` is `pill`. The shell renders only the
-  default `connected` style (§spec:editor-tabs), so the pill half has
-  no surface.
 - *Scroll shadows.* The `scrollShadows` module carries no stylesheet of
   its own and the package ships no scroll-shadow affordance to
   suppress.
 - *Scrollbars.* The contribution narrows the global default scrollbar
   to 8px and `roundedCorners.css` rounds the slider. The package
-  themes no scrollbar at all — it registers none of the
-  `scrollbarSlider.*` tokens and leaves the Material default in place —
-  so the treatment has no surface to narrow. The gap is against base VS
+  themes no general scrollbar — only the editor tab strip reads the
+  `scrollbarSlider.*` tokens (§spec:editor-tab-overflow), and every
+  other scrollbar keeps the Material default — so the treatment has no
+  surface to narrow. The gap is against base VS
   Code rather than against the treatment, and closing it is a
   scrollbar-theming section, not a Modern UI metric.
 - *Part shadows.* `workbench.shadows` defaults to `true` and is not

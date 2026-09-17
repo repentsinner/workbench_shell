@@ -222,37 +222,35 @@ class WorkbenchLayoutConstants {
   /// unsaved dot. `.tab > .tab-actions { width: 28px }`.
   static const double editorTabActionsWidth = spacingSize280;
 
-  /// Height of an editor tab's content row under the Modern UI treatment
-  /// (§spec:editor-tab-rendering). `tabs.css` sets
-  /// `--editor-group-tab-height: 24px`. Upstream shrinks it to 20px only for
-  /// `window.density.editorTabHeight: compact`, a setting separate from the
+  /// Height of an editor tab's fill and content row under the Modern UI
+  /// treatment (§spec:editor-tab-rendering).
+  /// [`tabs.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/tabs.css)
+  /// sets `--editor-group-tab-height: 24px`. Upstream shrinks it to 20px only
+  /// for `workbench.editor.tabHeight: compact`, a setting separate from the
   /// layout density the shell exposes, so the row holds at either
   /// `WorkbenchLayoutDensity`.
   static const double modernEditorTabHeight = spacingSize240;
 
   /// Transparent band above and below that row. `tabs.css` gives each tab
-  /// `border-block: var(--vscode-spacing-size40) solid transparent`, which
-  /// is the 4px top and bottom padding `EDITOR_TAB_HEIGHT.modernUI` counts.
+  /// `border-block: var(--vscode-spacing-size40) solid transparent`, so the
+  /// tab's hit target spans the whole strip while its fill stays 24px.
   static const double modernEditorTabRowInset = spacingSize40;
 
-  /// Inset below a Modern UI editor tab's content row: the lower band plus
-  /// the stroke the connected strip reserves for its separator (see
-  /// [connectedEditorTabStripHeight]).
-  static const double modernEditorTabRowInsetBottom =
-      modernEditorTabRowInset + strokeThickness;
+  /// The Modern UI strip's height: the 24px row with its bands, which
+  /// [`editorTabsControl.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/parts/editor/editorTabsControl.ts)
+  /// records as `EDITOR_TAB_HEIGHT.modernUI = 32`.
+  static const double modernEditorTabStripHeight =
+      modernEditorTabHeight + 2 * modernEditorTabRowInset;
 
-  /// The connected strip's height: `EDITOR_TAB_HEIGHT.modernUI` (32px) plus
-  /// the stroke `connectedEditorTabs.css` reserves for the separator below
-  /// the tabs (`.tabs-container { padding-bottom: strokeThickness }`).
-  static const double connectedEditorTabStripHeight =
-      modernEditorTabHeight + 2 * modernEditorTabRowInset + strokeThickness;
+  /// Inset from the strip's leading edge to the first tab.
+  /// `tabs.css` `.tabs-and-actions-container { padding: spacing.size20 0 0
+  /// spacing.size20 }`, whose top padding the non-wrapping strip drops.
+  static const double modernEditorTabStripInset = spacingSize20;
 
-  /// Radius of the connected active tab's top corners and of the shoulders
-  /// that curve it into the editor. `connectedEditorTabs.css`
-  /// `--modern-ui-connected-tab-cap-radius: calc(cornerRadius.small +
-  /// strokeThickness)`, which the shoulder radius reuses.
-  static const double connectedEditorTabCapRadius =
-      cornerRadiusSmall + strokeThickness;
+  /// Horizontal inset from a tab's edges to its rounded fill, which leaves a
+  /// gap between neighbouring pills while their hit targets touch.
+  /// `tabs.css` `.tab > .tab-fill { inset: 0 spacing.size20 }`.
+  static const double modernEditorTabFillInset = spacingSize20;
 
   /// Leading inset of a Modern UI editor tab that shows an icon.
   /// `tabs.css` `.tab { padding: 0 spacing.size80 0 spacing.size60 }`.
@@ -264,7 +262,8 @@ class WorkbenchLayoutConstants {
   static const double modernEditorTabPadding = spacingSize80;
 
   /// Width of a Modern UI editor tab's action column.
-  /// `tabs.css` `.tab > .tab-actions { width: 24px }`.
+  /// `tabs.css` `.tab > .tab-actions { width: 24px }`. With its margins it
+  /// fills the `padding-right: spacing.size280` a tab reserves for it.
   static const double modernEditorTabActionsWidth = spacingSize240;
 
   /// Horizontal margin either side of that column.
@@ -277,6 +276,50 @@ class WorkbenchLayoutConstants {
   /// { width: 2px }`. Off the spacing ladder: it is a stroke upstream, not a
   /// spacing token.
   static const double editorTabDropIndicatorWidth = 2.0;
+
+  /// Thickness of the editor tab strip's scrollbar (§spec:editor-tab-overflow).
+  /// [`multiEditorTabsControl.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/parts/editor/multiEditorTabsControl.ts)
+  /// `SCROLLBAR_SIZES.default`, the `workbench.editor.titleScrollbarSizing`
+  /// default. Off the spacing ladder: upstream sizes it in pixels, not a
+  /// spacing token.
+  static const double editorTabScrollbarSize = 3.0;
+
+  /// Shortest the scrollbar's slider gets, so it stays a target however far
+  /// the tabs overflow.
+  /// [`scrollbarState.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/base/browser/ui/scrollbar/scrollbarState.ts)
+  /// `MINIMUM_SLIDER_SIZE`.
+  static const double editorTabScrollbarMinSliderSize = 20.0;
+
+  /// How long the scrollbar stays after a scroll the pointer is not over.
+  /// [`scrollableElement.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/base/browser/ui/scrollbar/scrollableElement.ts)
+  /// `HIDE_TIMEOUT`.
+  static const Duration editorTabScrollbarHideDelay = Duration(
+    milliseconds: 500,
+  );
+
+  /// The scrollbar's fade in and fade out.
+  /// [`scrollbars.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/base/browser/ui/scrollbar/media/scrollbars.css)
+  /// `.visible { transition: opacity 100ms linear }` and
+  /// `.invisible.fade { transition: opacity 800ms linear }`.
+  static const Duration editorTabScrollbarFadeInDuration = Duration(
+    milliseconds: 100,
+  );
+  static const Duration editorTabScrollbarFadeOutDuration = Duration(
+    milliseconds: 800,
+  );
+
+  /// Width of the zone at either end of an overflowing editor tab strip where
+  /// a dragged tab scrolls the strip (§spec:editor-tab-overflow). Upstream
+  /// relies on the browser's native drag auto-scroll and declares no value;
+  /// the shell picks one Modern UI strip height, so the zone is about a
+  /// square at each end and narrower than any tab.
+  static const double editorTabDragScrollEdge = modernEditorTabStripHeight;
+
+  /// How fast a dragged tab in [editorTabDragScrollEdge] scrolls the strip,
+  /// in logical pixels per second. A shell choice for the same reason: at
+  /// roughly four base tabs a second the strip crosses a long row quickly
+  /// while a drop target stays readable as it passes.
+  static const double editorTabDragScrollSpeed = 480.0;
 
   /// Cross-axis thickness of a resize sash's hit target — VS Code's
   /// `--vscode-sash-size`. Owned by `WorkbenchSash` so every seam is identical.

@@ -241,5 +241,43 @@ void main() {
       // `.tab > .tab-actions { width: 28px }`.
       expect(WorkbenchLayoutConstants.editorTabActionsWidth, 28.0);
     });
+
+    test('matches the Modern UI pills (§spec:editor-tab-rendering)', () {
+      // editorTabsControl.ts EDITOR_TAB_HEIGHT.modernUI (32); tabs.css
+      // `--editor-group-tab-height: 24px`, `border-block: spacing.size40`,
+      // `.tabs-and-actions-container { padding-left: spacing.size20 }`,
+      // `.tab-fill { inset: 0 spacing.size20 }`, `.tab { padding: 0
+      // spacing.size80 0 spacing.size60 }` and `.tab-actions { width: 24px;
+      // margin: 0 spacing.size20 }`.
+      expect(WorkbenchLayoutConstants.modernEditorTabStripHeight, 32.0);
+      expect(WorkbenchLayoutConstants.modernEditorTabHeight, 24.0);
+      expect(WorkbenchLayoutConstants.modernEditorTabRowInset, 4.0);
+      expect(WorkbenchLayoutConstants.modernEditorTabStripInset, 2.0);
+      expect(WorkbenchLayoutConstants.modernEditorTabFillInset, 2.0);
+      expect(WorkbenchLayoutConstants.modernEditorTabPadding, 8.0);
+      expect(WorkbenchLayoutConstants.modernEditorTabPaddingStart, 6.0);
+      expect(WorkbenchLayoutConstants.modernEditorTabActionsWidth, 24.0);
+      expect(WorkbenchLayoutConstants.modernEditorTabActionsMargin, 2.0);
+    });
+
+    test('matches the tab strip scrollbar (§spec:editor-tab-overflow)', () {
+      // multiEditorTabsControl.ts SCROLLBAR_SIZES.default; scrollbarState.ts
+      // MINIMUM_SLIDER_SIZE; scrollableElement.ts HIDE_TIMEOUT; scrollbars.css
+      // `.visible` and `.invisible.fade` transitions.
+      expect(WorkbenchLayoutConstants.editorTabScrollbarSize, 3.0);
+      expect(WorkbenchLayoutConstants.editorTabScrollbarMinSliderSize, 20.0);
+      expect(
+        WorkbenchLayoutConstants.editorTabScrollbarHideDelay,
+        const Duration(milliseconds: 500),
+      );
+      expect(
+        WorkbenchLayoutConstants.editorTabScrollbarFadeInDuration,
+        const Duration(milliseconds: 100),
+      );
+      expect(
+        WorkbenchLayoutConstants.editorTabScrollbarFadeOutDuration,
+        const Duration(milliseconds: 800),
+      );
+    });
   });
 }
