@@ -639,8 +639,10 @@ class _EditorTabStripState extends State<EditorTabStrip>
   /// The scroll viewport, whose ends a dragged tab scrolls the strip from.
   final GlobalKey _viewportKey = GlobalKey();
 
-  /// Scrolls the strip while a dragged tab rests near either end.
-  late final Ticker _dragScrollTicker = createTicker(_onDragScrollTick);
+  /// Scrolls the strip while a dragged tab rests near either end. Created on
+  /// the first drag that needs it, so dispose never creates one: creating a
+  /// ticker looks up [TickerMode], which a deactivated element cannot do.
+  Ticker? _dragScrollTicker;
 
   /// The last global pointer position of a drag over the strip, and the
   /// direction the drag scrolls it: -1 toward the start, 1 toward the end, 0
@@ -678,7 +680,7 @@ class _EditorTabStripState extends State<EditorTabStrip>
 
   @override
   void dispose() {
-    _dragScrollTicker.dispose();
+    _dragScrollTicker?.dispose();
     _scroll.dispose();
     _dropSlot.dispose();
     super.dispose();
@@ -854,11 +856,12 @@ class _EditorTabStripState extends State<EditorTabStrip>
       }
     }
     _dragScrollDirection = direction;
+    final ticker = _dragScrollTicker;
     if (direction == 0) {
-      if (_dragScrollTicker.isActive) _dragScrollTicker.stop();
-    } else if (!_dragScrollTicker.isActive) {
+      if (ticker != null && ticker.isActive) ticker.stop();
+    } else if (ticker == null || !ticker.isActive) {
       _lastDragScrollTick = Duration.zero;
-      _dragScrollTicker.start();
+      (_dragScrollTicker ??= createTicker(_onDragScrollTick)).start();
     }
   }
 
