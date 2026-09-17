@@ -3576,9 +3576,8 @@ rail, so the plain inset is the only branch reachable here.
 where the padding is 6 at the default density, 4 at compact, and zero
 off the treatment. The bar keeps its 22px of content and gains a skirt
 below it, clearing the window edge the way the cards clear it with
-their perimeter gutter. An earlier pass reasoned the opposite — that a
-fixed height meant the vertical inset had to come out of the content —
-and shipped a bar six pixels short.
+their perimeter gutter. Taking the inset out of the content instead
+would leave the bar six pixels short of upstream's reserved height.
 
 This is a fourth metric the treatment sets in code rather than CSS, and
 unlike the pane header size, the scrollbar size and the notification row
@@ -3650,16 +3649,13 @@ controls tier off the treatment. The controls *inside* a card — the
 close button, the action buttons — stay at the controls tier under
 both, as upstream rounds them.
 
-**Rejected — excluding the font ramp as a renaming.** An earlier pass
-surveyed `baseSizes.ts`, found it registered `fontSize.heading1` …
-`fontSize.label3` against literals the package already pinned, and
-excluded the ramp on the grounds that adopting it renamed the canon
-without changing what renders. That reading stopped at `baseSizes.ts`.
-`fontRamp.css` is where the module does its work, and it moves the
-pane header from 11px bold ALL-CAPS to 12px semiBold title case — a
-change to three properties on the package's most repeated chrome
-surface. The exclusion is withdrawn and the casing decision above
-replaces it.
+**Rejected — excluding the font ramp as a renaming.** `baseSizes.ts`
+registers `fontSize.heading1` … `fontSize.label3` against literals the
+package already pins, which suggests adopting the ramp only renames the
+canon. It does not: `fontRamp.css` is where the module does its work,
+and it moves the pane header from 11px bold ALL-CAPS to 12px semiBold
+title case — a change to three properties on the package's most
+repeated chrome surface. The casing decision above follows from it.
 
 **Rejected — choosing the card gap independently.** The gap looks like
 a free choice among nearby spacing steps. Upstream keeps the margin
