@@ -303,9 +303,9 @@ class WorkbenchLayoutConstants {
   static const double sashGripDotGap = sashGripDotSpacing - sashGripDotSize;
 
   /// Active-indicator border width on activity bar icons with the Modern UI
-  /// treatment off (§spec:modern-ui-surfaces). VS Code `activitybarpart.css`
-  /// `.action-item.checked .active-item-indicator:before { border-left-width:
-  /// 2px }`; `activityBar.css` drops it for the filled background
+  /// treatment off (§spec:modern-ui-surfaces). VS Code `activityaction.css`
+  /// `.action-item.checked .active-item-indicator:before { border-left: 2px
+  /// solid }`; `activityBar.css` drops it for the filled background
   /// [activityBarItemIndicatorSize] names.
   static const double activityBarIndicatorWidth = 2.0;
 
