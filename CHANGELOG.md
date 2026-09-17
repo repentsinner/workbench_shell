@@ -1,3 +1,15 @@
+## [0.40.1](https://github.com/repentsinner/workbench_shell/compare/v0.40.0...v0.40.1) (2026-09-17)
+
+
+### Bug Fixes
+
+* **button:** pad text buttons 8px horizontally per button.css ([bbbd8da](https://github.com/repentsinner/workbench_shell/commit/bbbd8daadbd3fbde236dd29a85d3a5a5e032ef96))
+* **sash:** paint the grip in modernSash.gripForeground ([d3e6ae9](https://github.com/repentsinner/workbench_shell/commit/d3e6ae9ade8d238191856d5839fbedf6ac024caa))
+* **status-bar:** inset the rail by statusBar.css's vertical override ([2535ee2](https://github.com/repentsinner/workbench_shell/commit/2535ee26961976a0b396ede58e9e2cde5c340208))
+* **theme:** default surface.border to foreground at 15% over the card ([5a1de63](https://github.com/repentsinner/workbench_shell/commit/5a1de6321e64356d5702bbc6843056420cabddf2))
+* **typography:** set the badge tier from the pane composite badge ([628a358](https://github.com/repentsinner/workbench_shell/commit/628a3581802efaa95ed14401c8b5a04ff5707045))
+* **typography:** set the settings label tier at semibold ([28f400f](https://github.com/repentsinner/workbench_shell/commit/28f400fc56d238c6638c934cde57d4f08a7ab48a))
+
 # [0.40.0](https://github.com/repentsinner/workbench_shell/compare/v0.39.0...v0.40.0) (2026-09-17)
 
 
