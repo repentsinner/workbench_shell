@@ -1236,17 +1236,8 @@ class _EditorTabScrollbarState extends State<_EditorTabScrollbar> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = widget.theme;
     final overflows = _slider() != null;
     final visible = overflows && _visibility == _ScrollbarVisibility.shown;
-    final Color sliderColor;
-    if (_drag != null) {
-      sliderColor = theme.scrollbarSliderActiveBackground;
-    } else if (_sliderHovered) {
-      sliderColor = theme.scrollbarSliderHoverBackground;
-    } else {
-      sliderColor = theme.scrollbarSliderBackground;
-    }
     final duration = switch (_visibility) {
       // A bar the tabs no longer need goes without a fade.
       _ when !overflows => Duration.zero,
@@ -1294,48 +1285,56 @@ class _EditorTabScrollbarState extends State<_EditorTabScrollbar> {
                     onPointerMove: _onPointerMove,
                     onPointerUp: _onPointerEnd,
                     onPointerCancel: _onPointerEnd,
-                    // A scroll moves the slider alone: it rebuilds from the
-                    // offset and repaints apart from the tabs.
-                    child: RepaintBoundary(
-                      child: ListenableBuilder(
-                        listenable: widget.controller,
-                        builder: (context, _) => Stack(
-                          children: [
-                            if (_slider() case final slider?)
-                              Positioned(
-                                left: slider.left,
-                                width: slider.size,
-                                top: 0,
-                                bottom: 0,
-                                child: MouseRegion(
-                                  onEnter: (_) =>
-                                      setState(() => _sliderHovered = true),
-                                  onExit: (_) =>
-                                      setState(() => _sliderHovered = false),
-                                  child: DecoratedBox(
-                                    key: const ValueKey(
-                                      'editor-tab-scrollbar-slider',
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: sliderColor,
-                                      borderRadius: widget.rounded
-                                          ? BorderRadius.circular(
-                                              WorkbenchLayoutConstants
-                                                  .cornerRadiusSmall,
-                                            )
-                                          : null,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
+                    child: _buildSlider(),
                   ),
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The slider over the track. A scroll moves the slider alone: it rebuilds
+  /// from the offset and repaints apart from the tabs.
+  Widget _buildSlider() {
+    final theme = widget.theme;
+    final Color color;
+    if (_drag != null) {
+      color = theme.scrollbarSliderActiveBackground;
+    } else if (_sliderHovered) {
+      color = theme.scrollbarSliderHoverBackground;
+    } else {
+      color = theme.scrollbarSliderBackground;
+    }
+    return RepaintBoundary(
+      child: ListenableBuilder(
+        listenable: widget.controller,
+        builder: (context, _) => Stack(
+          children: [
+            if (_slider() case final slider?)
+              Positioned(
+                left: slider.left,
+                width: slider.size,
+                top: 0,
+                bottom: 0,
+                child: MouseRegion(
+                  onEnter: (_) => setState(() => _sliderHovered = true),
+                  onExit: (_) => setState(() => _sliderHovered = false),
+                  child: DecoratedBox(
+                    key: const ValueKey('editor-tab-scrollbar-slider'),
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: widget.rounded
+                          ? BorderRadius.circular(
+                              WorkbenchLayoutConstants.cornerRadiusSmall,
+                            )
+                          : null,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
