@@ -1290,6 +1290,9 @@ class _RenderViewStack extends RenderBox
     // returning the excess to the pool. Pinning raises the per-weight rate for
     // the rest, which can push another pane over its cap, so iterate to a fixed
     // point. After this phase every unpinned pane's share is at or below its cap.
+    // A pass keeps going after a pin even though the weight sum it divides by is
+    // then stale: the stale sum only understates later shares, which can defer a
+    // cap pin to the next pass but never adds one that should not happen.
     while (true) {
       final weightSum = unpinnedWeightSum();
       if (weightSum <= 0) break;
@@ -1322,6 +1325,11 @@ class _RenderViewStack extends RenderBox
           pinned[i] = true;
           remainingPool -= floors[i];
           pinnedThisPass = true;
+          // Pinning at the floor takes more than the pane's share from the pool,
+          // so dividing the reduced pool by the stale weight sum would understate
+          // every later share and pin panes that should absorb the remainder.
+          // Restart with the unpinned sum re-derived.
+          break;
         }
       }
       if (!pinnedThisPass) {

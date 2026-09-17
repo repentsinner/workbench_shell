@@ -996,6 +996,55 @@ void main() {
       expect(aBody, closeTo(2 * bBody, 2.0));
     });
 
+    testWidgets('a pane pinned at the floor re-divides the remainder by the '
+        'unpinned weights only', (tester) async {
+      const header = WorkbenchLayoutConstants.viewPaneHeaderHeight;
+      const minBody = WorkbenchLayoutConstants.viewPaneMinBodyHeight;
+      const bodyPool = 400.0;
+      const containerHeight = bodyPool + 3 * header;
+      // Weights 100:150:150 over a 400 pool: A's share of 100 falls below the
+      // uniform floor and pins, leaving 280 for B and C at 140 each. Dividing
+      // that 280 by the stale sum of all three weights would give B 105 and
+      // pin it too, leaving the stack short of its height.
+      const seed = {'a': 100.0, 'b': 150.0, 'c': 150.0};
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const SizedBox(
+            height: containerHeight,
+            child: WorkbenchViewContainer(
+              initialSizes: seed,
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'a',
+                  title: 'Alpha',
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'b',
+                  title: 'Beta',
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'c',
+                  title: 'Gamma',
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final remainder = (bodyPool - minBody) / 2;
+      final a = paneRect(tester, 'a');
+      final b = paneRect(tester, 'b');
+      final c = paneRect(tester, 'c');
+      expect(a.height, closeTo(header + minBody, 1.0));
+      expect(b.height, closeTo(header + remainder, 1.0));
+      expect(c.height, closeTo(header + remainder, 1.0));
+      expect(a.height + b.height + c.height, closeTo(containerHeight, 1.0));
+    });
+
     testWidgets('a sash drag resizes live and commits the final map once on '
         'release (§spec:resize-geometry)', (tester) async {
       const containerHeight = 600.0;
