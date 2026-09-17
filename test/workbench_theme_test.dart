@@ -504,6 +504,34 @@ void main() {
       expect(light.surfaceBackground, light.editorBackground);
     });
 
+    test('modernSash.gripForeground falls back to foreground at 40%', () {
+      // VS Code registry: `transparent(foreground, 0.4)` in dark and light
+      // themes. `sashHandles.css` paints the grip with the token as is.
+      for (final baseType in ['vs-dark', 'vs']) {
+        final theme = WorkbenchTheme.fromVscodeColorMap(
+          VscodeColorMap(name: 'X', baseType: baseType, colors: const {}),
+        );
+        expect(
+          theme.sashGripForeground,
+          theme.foreground.withValues(alpha: theme.foreground.a * 0.4),
+          reason: baseType,
+        );
+      }
+    });
+
+    test('modernSash.gripForeground honours the theme key', () {
+      final theme = WorkbenchTheme.fromVscodeColorMap(
+        loader.parse('''
+        {
+          "name": "Grip Test",
+          "type": "vs-dark",
+          "colors": { "modernSash.gripForeground": "#FF000080" }
+        }
+        '''),
+      );
+      expect(theme.sashGripForeground, const Color(0x80FF0000));
+    });
+
     test('surface.* honour explicit tokens when present', () {
       final map = loader.parse('''
         {
@@ -605,11 +633,27 @@ void main() {
         const Color(0xFF00FF00),
       );
 
+      expect(
+        base.copyWith(sashGripForeground: const Color(0xFF00FF00)),
+        isNot(base),
+      );
+      expect(
+        base
+            .copyWith(sashGripForeground: const Color(0xFF00FF00))
+            .sashGripForeground,
+        const Color(0xFF00FF00),
+      );
+
       final other = base.copyWith(
         surfaceBackground: const Color(0xFF000000),
         activityBarItemActiveBackground: const Color(0xFF000000),
+        sashGripForeground: const Color(0xFF000000),
       );
       final mid = base.lerp(other, 0.5);
+      expect(
+        mid.sashGripForeground,
+        Color.lerp(base.sashGripForeground, other.sashGripForeground, 0.5),
+      );
       expect(
         mid.surfaceBackground,
         Color.lerp(base.surfaceBackground, other.surfaceBackground, 0.5),

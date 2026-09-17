@@ -3533,7 +3533,9 @@ pixels on one density.
 an invisible-until-hovered sash leaves no sign of where one part ends
 and the next begins. `sashHandles.css` marks each boundary with three
 dots at its midpoint, faded out on hover and drag so the existing
-full-length highlight takes over unchanged. Grips mark boundaries
+full-length highlight takes over unchanged. The dots paint
+`modernSash.gripForeground` as is, a token whose registry default is
+`foreground` at 40% outside high contrast. Grips mark boundaries
 *between* parts only: upstream suppresses them for sashes inside a
 part, which in this package is every view-stack pane sash. Compact
 closes the gaps, so the grips retire with the space they occupied.

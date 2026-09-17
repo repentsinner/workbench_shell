@@ -294,20 +294,15 @@ class _WorkbenchSashState extends State<WorkbenchSash> {
   /// null on a seam that carries no grip (§spec:modern-ui-surfaces).
   Widget? _grip(BuildContext context) {
     if (!widget.grip || _hovering || _dragging) return null;
-    final foreground = Theme.of(
+    final color = Theme.of(
       context,
-    ).extension<WorkbenchTheme>()?.foreground;
-    if (foreground == null) return null;
+    ).extension<WorkbenchTheme>()?.sashGripForeground;
+    if (color == null) return null;
     const dot = WorkbenchLayoutConstants.sashGripDotSize;
     final pip = SizedBox.square(
       dimension: dot,
       child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: foreground.withValues(
-            alpha: foreground.a * WorkbenchLayoutConstants.sashGripAlpha,
-          ),
-          shape: BoxShape.circle,
-        ),
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       ),
     );
     // The dots run along the seam, across the drag axis. `spacing` is the gap

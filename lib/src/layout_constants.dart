@@ -296,11 +296,6 @@ class WorkbenchLayoutConstants {
   /// flex layout lays out, where upstream offsets a shadow from a centre.
   static const double sashGripDotGap = sashGripDotSpacing - sashGripDotSize;
 
-  /// Alpha the grip paints `foreground` at: `sashHandles.css` mixes the token
-  /// to 30% and sets `opacity: 0.75` on the element, and the two compose
-  /// (§spec:modern-ui-surfaces).
-  static const double sashGripAlpha = 0.3 * 0.75;
-
   /// Active-indicator border width on activity bar icons with the Modern UI
   /// treatment off (§spec:modern-ui-surfaces). VS Code `activitybarpart.css`
   /// `.action-item.checked .active-item-indicator:before { border-left-width:

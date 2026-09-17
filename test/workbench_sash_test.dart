@@ -190,6 +190,25 @@ void main() {
       );
     });
 
+    testWidgets('paints its dots in modernSash.gripForeground', (tester) async {
+      // `sashHandles.css` fills each dot with the token itself: no colour
+      // mix and no element opacity on top of it.
+      await tester.pumpWidget(buildGripped(grip: true));
+      final dots = tester.widgetList<DecoratedBox>(
+        find.descendant(
+          of: find.byKey(sashGripKey),
+          matching: find.byType(DecoratedBox),
+        ),
+      );
+      expect(dots, hasLength(3));
+      for (final dot in dots) {
+        expect(
+          (dot.decoration as BoxDecoration).color,
+          testWorkbenchTheme.sashGripForeground,
+        );
+      }
+    });
+
     testWidgets('a horizontal seam lays its dots along the seam', (
       tester,
     ) async {
