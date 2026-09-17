@@ -65,7 +65,7 @@ const String _disclosureTooltip = 'More Actions...';
 /// VS Code's split button — a primary action, a hairline pipe, and a
 /// disclosure that opens a menu of related actions (§spec:split-button).
 /// Upstream's `ButtonWithDropdown`
-/// ([`button.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/base/browser/ui/button/button.ts)),
+/// ([`button.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/base/browser/ui/button/button.ts)),
 /// the control the Commit and Run/Debug buttons are built from.
 ///
 /// The shell owns this one control because Flutter ships no equivalent, so

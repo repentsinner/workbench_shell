@@ -348,6 +348,19 @@ void main() {
           return deco.color == testWorkbenchTheme.badgeBackground;
         }, orElse: () => Container());
         expect(pill.decoration, isA<BoxDecoration>());
+        // `paneCompositePart.css` rounds the composite bar's badge at 10px
+        // and sets its count in the badge tier: 10px at normal weight
+        // (§spec:chrome-typography-canon).
+        expect(
+          (pill.decoration! as BoxDecoration).borderRadius,
+          const BorderRadius.all(
+            Radius.circular(WorkbenchLayoutConstants.compositeBarBadgeRadius),
+          ),
+        );
+        final count = tester.widget<Text>(find.text('3')).style!;
+        expect(count.fontSize, testWorkbenchTheme.smallText.fontSize);
+        expect(count.fontWeight, FontWeight.w400);
+        expect(count.color, testWorkbenchTheme.badgeForeground);
       },
     );
 

@@ -66,7 +66,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   final Color surfaceBackground;
 
   /// Hairline around a framed workbench card. VS Code `surface.border`,
-  /// registered as `foreground` at 10% composited over [surfaceBackground].
+  /// registered as `foreground` at 15% composited over [surfaceBackground].
   /// Every card in the treatment — side bars, bottom panel, editor and
   /// activity bar rail — draws this one stroke; `editor.border` and
   /// `modernActivityBar.border` both resolve to it upstream.
@@ -164,6 +164,18 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   /// `tab.dragAndDropBorder`, registered as `tab.activeForeground`
   /// (§spec:editor-tab-interaction).
   final Color tabDragAndDropBorder;
+
+  /// The editor tab strip's scrollbar slider — VS Code
+  /// `scrollbarSlider.background` (§spec:editor-tab-overflow). The package
+  /// themes no other scrollbar.
+  final Color scrollbarSliderBackground;
+
+  /// The slider while the pointer is over it —
+  /// `scrollbarSlider.hoverBackground`.
+  final Color scrollbarSliderHoverBackground;
+
+  /// The slider while dragged — `scrollbarSlider.activeBackground`.
+  final Color scrollbarSliderActiveBackground;
 
   // ---- Input / dropdown / button ----
   final Color inputBackground;
@@ -271,6 +283,12 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
 
   // ---- Sash (resizer drag handle) ----
   final Color sashHoverBorder;
+
+  /// Fill of the three dots that mark a seam between two parts under the
+  /// Modern UI treatment. VS Code `modernSash.gripForeground`, whose registry
+  /// default is [foreground] at 40% outside high contrast; `sashHandles.css`
+  /// paints the dots with the token as is (§spec:modern-ui-surfaces).
+  final Color sashGripForeground;
 
   // ---- Menu bar (Windows/Linux in-window fallback strip) ----
   //
@@ -454,6 +472,39 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   /// Label colour on a hovered inactive panel tab —
   /// `modernTab.hoverForeground`.
   final Color panelTabHoverForeground;
+
+  // ---- Pill editor tabs under the treatment (§spec:editor-tab-rendering) ----
+  //
+  // Upstream's theme registry chains each `modernEditorTab.*` key to the
+  // `modernTab.*` key the panel tabs read and then to the list colours
+  // ([`theme.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/common/theme.ts)),
+  // and a theme file's `tab.*` colours never reach the pills.
+
+  /// Fill behind the active editor pill — VS Code
+  /// `modernEditorTab.activeBackground`.
+  final Color modernEditorTabActiveBackground;
+
+  /// Label colour on the active editor pill —
+  /// `modernEditorTab.activeForeground`.
+  final Color modernEditorTabActiveForeground;
+
+  /// Label colour on an inactive editor pill. Not a registered key:
+  /// [`tabs.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/tabs.css)
+  /// mixes `foreground` 50% with transparent.
+  final Color modernEditorTabInactiveForeground;
+
+  /// Fill behind a hovered inactive editor pill —
+  /// `modernEditorTab.hoverBackground`.
+  final Color modernEditorTabHoverBackground;
+
+  /// Label colour on a hovered inactive editor pill —
+  /// `modernEditorTab.hoverForeground`.
+  final Color modernEditorTabHoverForeground;
+
+  /// Fill behind the active editor pill while hovered —
+  /// `modernEditorTab.activeHoverBackground`, registered as
+  /// `modernEditorTab.hoverBackground`.
+  final Color modernEditorTabActiveHoverBackground;
   final TextStyle loglineMessage;
 
   // ---- Syntax token theme ----
@@ -554,6 +605,9 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.tabActiveBorderTop,
     required this.tabActiveBorder,
     required this.tabDragAndDropBorder,
+    required this.scrollbarSliderBackground,
+    required this.scrollbarSliderHoverBackground,
+    required this.scrollbarSliderActiveBackground,
     required this.inputBackground,
     required this.inputForeground,
     required this.inputBorder,
@@ -585,6 +639,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.listActiveSelectionBackground,
     required this.focusBorder,
     required this.sashHoverBorder,
+    required this.sashGripForeground,
     required this.menuBarBackground,
     required this.menuBarForeground,
     required this.menuBarHoverBackground,
@@ -645,6 +700,12 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.panelTabActiveForeground,
     required this.panelTabHoverBackground,
     required this.panelTabHoverForeground,
+    required this.modernEditorTabActiveBackground,
+    required this.modernEditorTabActiveForeground,
+    required this.modernEditorTabInactiveForeground,
+    required this.modernEditorTabHoverBackground,
+    required this.modernEditorTabHoverForeground,
+    required this.modernEditorTabActiveHoverBackground,
     required this.loglineMessage,
     required this.tokenTheme,
     required this.notificationBackground,
@@ -667,6 +728,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   /// [WorkbenchTheme] manually can
   /// reuse it without re-deriving the formula.
   static double hctToneFor(Color color) => Hct.fromInt(color.toARGB32()).tone;
+
+  /// Share of `foreground` in an inactive editor pill's label: `tabs.css`
+  /// sets `color-mix(in srgb, var(--vscode-foreground) 50%, transparent)`.
+  static const double _modernEditorTabInactiveForegroundShare = 0.5;
 
   /// Build a [WorkbenchTheme] from a parsed VS Code color theme.
   ///
@@ -790,17 +855,18 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       dl(const Color(0xFF04395E), const Color(0xFF0060C0)),
     );
 
-    // Framed container surfaces ("cards", §spec:modern-ui-surfaces). VS Code
-    // registers surface.background as sideBar.background in dark and
-    // high-contrast themes and editor.background in light ones, and
-    // surface.border as `foreground` at 10% composited over it.
+    // Framed container surfaces ("cards", §spec:modern-ui-surfaces). theme.ts
+    // registers surface.background as sideBar.background (dark) or
+    // editor.background (light), and surface.border as
+    // `opaque(transparent(foreground, 0.15), surface.background)`. The
+    // high-contrast defaults are not modelled: the map has no HC base type.
     final surfaceBg = map.resolve(
       'surface.background',
       map.isDark ? sideBarBg : editorBg,
     );
     final surfaceBorder = map.resolve(
       'surface.border',
-      Color.alphaBlend(fg.withValues(alpha: 0.1), surfaceBg),
+      Color.alphaBlend(fg.withValues(alpha: fg.a * 0.15), surfaceBg),
     );
     // The title bar's active fill. Two surfaces read it — the workbench
     // backdrop the cards float above (`floatingPanels.css`) and the
@@ -810,16 +876,34 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       'titleBar.activeBackground',
       dl(const Color(0xFF3C3C3C), const Color(0xFFDDDDDD)),
     );
-    // Activity bar item states. Upstream chains each key through the modern
-    // tab family to the list colours, so a theme that styles only its tabs
-    // still gets a coherent rail.
-    Color activityBarItemColor(
-      String key,
-      String tabKey,
-      String listKey,
-      Color fallback,
-    ) => map[key] ?? map[tabKey] ?? map[listKey] ?? fallback;
-
+    // The `modernTab.*` family, falling back to the list colours. The panel
+    // tabs read it directly, and the editor pills and the activity bar items
+    // through their own `modernEditorTab.*` and `modernActivityBarItem.*`
+    // keys, so every surface resolves one chain. A theme that styles only its
+    // tabs still gets a coherent rail.
+    final modernTabActiveBg = map.resolve(
+      'modernTab.activeBackground',
+      map.resolve(
+        'list.inactiveSelectionBackground',
+        dl(const Color(0xFF37373D), const Color(0xFFE4E6F1)),
+      ),
+    );
+    final modernTabActiveFg = map.resolve(
+      'modernTab.activeForeground',
+      map.resolve('list.inactiveSelectionForeground', fg),
+    );
+    final modernTabHoverBg = map.resolve(
+      'modernTab.hoverBackground',
+      map.resolve('list.hoverBackground', listHoverBg),
+    );
+    final modernTabHoverFg = map.resolve(
+      'modernTab.hoverForeground',
+      map.resolve('list.hoverForeground', fg),
+    );
+    final modernEditorTabHoverBg = map.resolve(
+      'modernEditorTab.hoverBackground',
+      modernTabHoverBg,
+    );
     // Chrome typography: chrome surfaces honour [chromeFontFamily]
     // (null → platform UI sans). The local helper carries the chrome
     // family so a single decision propagates across every chrome
@@ -870,52 +954,52 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       ),
       // Filled rounded indicator behind the selected/hovered icon
       // (§spec:modern-ui-surfaces).
-      activityBarItemActiveBackground: activityBarItemColor(
+      activityBarItemActiveBackground: map.resolve(
         'modernActivityBarItem.activeBackground',
-        'modernTab.activeBackground',
-        'list.inactiveSelectionBackground',
-        dl(const Color(0xFF37373D), const Color(0xFFE4E6F1)),
+        modernTabActiveBg,
       ),
-      activityBarItemActiveForeground: activityBarItemColor(
+      activityBarItemActiveForeground: map.resolve(
         'modernActivityBarItem.activeForeground',
-        'modernTab.activeForeground',
-        'list.inactiveSelectionForeground',
-        fg,
+        modernTabActiveFg,
       ),
-      activityBarItemHoverBackground: activityBarItemColor(
+      activityBarItemHoverBackground: map.resolve(
         'modernActivityBarItem.hoverBackground',
-        'modernTab.hoverBackground',
-        'list.hoverBackground',
-        listHoverBg,
+        modernTabHoverBg,
       ),
-      activityBarItemHoverForeground: activityBarItemColor(
+      activityBarItemHoverForeground: map.resolve(
         'modernActivityBarItem.hoverForeground',
-        'modernTab.hoverForeground',
-        'list.hoverForeground',
-        fg,
+        modernTabHoverFg,
       ),
       // Filled rounded indicator behind the selected/hovered panel tab
       // (§spec:modern-ui-surfaces). `tabs.css` paints the composite bar's
       // `active-item-indicator` from the same `modernTab.*` family the rail
       // chains through, so the two surfaces cannot drift.
-      panelTabActiveBackground: map.resolve(
-        'modernTab.activeBackground',
-        map.resolve(
-          'list.inactiveSelectionBackground',
-          dl(const Color(0xFF37373D), const Color(0xFFE4E6F1)),
-        ),
+      panelTabActiveBackground: modernTabActiveBg,
+      panelTabActiveForeground: modernTabActiveFg,
+      panelTabHoverBackground: modernTabHoverBg,
+      panelTabHoverForeground: modernTabHoverFg,
+      // Pill editor tabs (§spec:editor-tab-rendering), from theme.ts.
+      modernEditorTabActiveBackground: map.resolve(
+        'modernEditorTab.activeBackground',
+        modernTabActiveBg,
       ),
-      panelTabActiveForeground: map.resolve(
-        'modernTab.activeForeground',
-        map.resolve('list.inactiveSelectionForeground', fg),
+      modernEditorTabActiveForeground: map.resolve(
+        'modernEditorTab.activeForeground',
+        modernTabActiveFg,
       ),
-      panelTabHoverBackground: map.resolve(
-        'modernTab.hoverBackground',
-        map.resolve('list.hoverBackground', listHoverBg),
+      // tabs.css: color-mix(in srgb, foreground 50%, transparent), which keeps
+      // the colour and scales its alpha by the mix share.
+      modernEditorTabInactiveForeground: fg.withValues(
+        alpha: fg.a * _modernEditorTabInactiveForegroundShare,
       ),
-      panelTabHoverForeground: map.resolve(
-        'modernTab.hoverForeground',
-        map.resolve('list.hoverForeground', fg),
+      modernEditorTabHoverBackground: modernEditorTabHoverBg,
+      modernEditorTabHoverForeground: map.resolve(
+        'modernEditorTab.hoverForeground',
+        modernTabHoverFg,
+      ),
+      modernEditorTabActiveHoverBackground: map.resolve(
+        'modernEditorTab.activeHoverBackground',
+        modernEditorTabHoverBg,
       ),
       // Framed container surfaces
       surfaceBackground: surfaceBg,
@@ -990,6 +1074,26 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // VS Code: tab.dragAndDropBorder inherits from tab.activeForeground
       // outside high contrast.
       tabDragAndDropBorder: map.resolve('tab.dragAndDropBorder', tabActiveFg),
+      // Editor tab strip scrollbar (§spec:editor-tab-overflow), from
+      // miscColors.ts.
+      scrollbarSliderBackground: map.resolve(
+        'scrollbarSlider.background',
+        dl(
+          const Color(0xFF797979),
+          const Color(0xFF646464),
+        ).withValues(alpha: 0.4),
+      ),
+      scrollbarSliderHoverBackground: map.resolve(
+        'scrollbarSlider.hoverBackground',
+        const Color(0xFF646464).withValues(alpha: 0.7),
+      ),
+      scrollbarSliderActiveBackground: map.resolve(
+        'scrollbarSlider.activeBackground',
+        dl(
+          const Color(0xFFBFBFBF).withValues(alpha: 0.4),
+          const Color(0xFF000000).withValues(alpha: 0.6),
+        ),
+      ),
       // Inputs / buttons
       inputBackground: map.resolve(
         'input.background',
@@ -1089,6 +1193,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // Focus / sash
       focusBorder: accentFg,
       sashHoverBorder: map.resolve('sash.hoverBorder', accentFg),
+      sashGripForeground: map.resolve(
+        'modernSash.gripForeground',
+        fg.withValues(alpha: fg.a * 0.4),
+      ),
       // Menu bar (Windows/Linux in-window strip).
       // VS Code stops at `titleBar.activeBackground` for the strip
       // itself; individual menu items read `menubar.*` and `menu.*`.
@@ -1220,7 +1328,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       bodyText: t(13, FontWeight.w400),
       // settings label / form label — settingsEditor2.css
       // `.setting-item-category`.
-      labelText: t(13, FontWeight.w500),
+      labelText: t(13, FontWeight.w600),
       // status bar item — statusbarpart.css. Same metrics as
       // [helperStyle]; paints in [statusBarForeground] so the text
       // reads against the blue status bar background.
@@ -1236,10 +1344,11 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // descriptionForeground (12 / w400).
       captionText: t(12, FontWeight.w400, color: secondaryFg),
       helperStyle: t(12, FontWeight.w400, color: secondaryFg),
-      // badge tier — paneCompositeBar.css (11 / w600). Internal
-      // token the panel-tab badge pill paints in and the host
-      // analogue for dense numeric indicators.
-      smallText: t(11, FontWeight.w600, color: secondaryFg),
+      // badge tier — paneCompositePart.css `.badge .badge-content`
+      // (10 / normal), which fontRamp.css keeps at label3 under the
+      // treatment. Internal token the panel-tab badge pill paints in and
+      // the host analogue for dense numeric indicators.
+      smallText: t(10, FontWeight.w400, color: secondaryFg),
       // Editor-derived surfaces (§spec:editor-derived-surfaces) — DRO numerics and log lines
       // anchor on [editorStyle] so the host's editor-font override
       // flows through without per-call-site changes. DRO retains
@@ -1327,6 +1436,9 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? tabActiveBorderTop,
     Color? tabActiveBorder,
     Color? tabDragAndDropBorder,
+    Color? scrollbarSliderBackground,
+    Color? scrollbarSliderHoverBackground,
+    Color? scrollbarSliderActiveBackground,
     Color? inputBackground,
     Color? inputForeground,
     Color? inputBorder,
@@ -1358,6 +1470,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? listActiveSelectionBackground,
     Color? focusBorder,
     Color? sashHoverBorder,
+    Color? sashGripForeground,
     Color? menuBarBackground,
     Color? menuBarForeground,
     Color? menuBarHoverBackground,
@@ -1417,6 +1530,12 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? panelTabActiveForeground,
     Color? panelTabHoverBackground,
     Color? panelTabHoverForeground,
+    Color? modernEditorTabActiveBackground,
+    Color? modernEditorTabActiveForeground,
+    Color? modernEditorTabInactiveForeground,
+    Color? modernEditorTabHoverBackground,
+    Color? modernEditorTabHoverForeground,
+    Color? modernEditorTabActiveHoverBackground,
     TextStyle? baseSidebarOrPanelHeading,
     TextStyle? loglineMessage,
     TokenTheme? tokenTheme,
@@ -1485,6 +1604,13 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       tabActiveBorderTop: tabActiveBorderTop ?? this.tabActiveBorderTop,
       tabActiveBorder: tabActiveBorder ?? this.tabActiveBorder,
       tabDragAndDropBorder: tabDragAndDropBorder ?? this.tabDragAndDropBorder,
+      scrollbarSliderBackground:
+          scrollbarSliderBackground ?? this.scrollbarSliderBackground,
+      scrollbarSliderHoverBackground:
+          scrollbarSliderHoverBackground ?? this.scrollbarSliderHoverBackground,
+      scrollbarSliderActiveBackground:
+          scrollbarSliderActiveBackground ??
+          this.scrollbarSliderActiveBackground,
       inputBackground: inputBackground ?? this.inputBackground,
       inputForeground: inputForeground ?? this.inputForeground,
       inputBorder: inputBorder ?? this.inputBorder,
@@ -1527,6 +1653,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           listActiveSelectionBackground ?? this.listActiveSelectionBackground,
       focusBorder: focusBorder ?? this.focusBorder,
       sashHoverBorder: sashHoverBorder ?? this.sashHoverBorder,
+      sashGripForeground: sashGripForeground ?? this.sashGripForeground,
       menuBarBackground: menuBarBackground ?? this.menuBarBackground,
       menuBarForeground: menuBarForeground ?? this.menuBarForeground,
       menuBarHoverBackground:
@@ -1603,6 +1730,22 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           panelTabHoverBackground ?? this.panelTabHoverBackground,
       panelTabHoverForeground:
           panelTabHoverForeground ?? this.panelTabHoverForeground,
+      modernEditorTabActiveBackground:
+          modernEditorTabActiveBackground ??
+          this.modernEditorTabActiveBackground,
+      modernEditorTabActiveForeground:
+          modernEditorTabActiveForeground ??
+          this.modernEditorTabActiveForeground,
+      modernEditorTabInactiveForeground:
+          modernEditorTabInactiveForeground ??
+          this.modernEditorTabInactiveForeground,
+      modernEditorTabHoverBackground:
+          modernEditorTabHoverBackground ?? this.modernEditorTabHoverBackground,
+      modernEditorTabHoverForeground:
+          modernEditorTabHoverForeground ?? this.modernEditorTabHoverForeground,
+      modernEditorTabActiveHoverBackground:
+          modernEditorTabActiveHoverBackground ??
+          this.modernEditorTabActiveHoverBackground,
       baseSidebarOrPanelHeading:
           baseSidebarOrPanelHeading ?? this.baseSidebarOrPanelHeading,
       loglineMessage: loglineMessage ?? this.loglineMessage,
@@ -1723,6 +1866,18 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       tabActiveBorderTop: cn(tabActiveBorderTop, other.tabActiveBorderTop),
       tabActiveBorder: cn(tabActiveBorder, other.tabActiveBorder),
       tabDragAndDropBorder: c(tabDragAndDropBorder, other.tabDragAndDropBorder),
+      scrollbarSliderBackground: c(
+        scrollbarSliderBackground,
+        other.scrollbarSliderBackground,
+      ),
+      scrollbarSliderHoverBackground: c(
+        scrollbarSliderHoverBackground,
+        other.scrollbarSliderHoverBackground,
+      ),
+      scrollbarSliderActiveBackground: c(
+        scrollbarSliderActiveBackground,
+        other.scrollbarSliderActiveBackground,
+      ),
       inputBackground: c(inputBackground, other.inputBackground),
       inputForeground: c(inputForeground, other.inputForeground),
       inputBorder: c(inputBorder, other.inputBorder),
@@ -1787,6 +1942,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       ),
       focusBorder: c(focusBorder, other.focusBorder),
       sashHoverBorder: c(sashHoverBorder, other.sashHoverBorder),
+      sashGripForeground: c(sashGripForeground, other.sashGripForeground),
       menuBarBackground: c(menuBarBackground, other.menuBarBackground),
       menuBarForeground: c(menuBarForeground, other.menuBarForeground),
       menuBarHoverBackground: c(
@@ -1898,6 +2054,30 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         panelTabHoverForeground,
         other.panelTabHoverForeground,
       ),
+      modernEditorTabActiveBackground: c(
+        modernEditorTabActiveBackground,
+        other.modernEditorTabActiveBackground,
+      ),
+      modernEditorTabActiveForeground: c(
+        modernEditorTabActiveForeground,
+        other.modernEditorTabActiveForeground,
+      ),
+      modernEditorTabInactiveForeground: c(
+        modernEditorTabInactiveForeground,
+        other.modernEditorTabInactiveForeground,
+      ),
+      modernEditorTabHoverBackground: c(
+        modernEditorTabHoverBackground,
+        other.modernEditorTabHoverBackground,
+      ),
+      modernEditorTabHoverForeground: c(
+        modernEditorTabHoverForeground,
+        other.modernEditorTabHoverForeground,
+      ),
+      modernEditorTabActiveHoverBackground: c(
+        modernEditorTabActiveHoverBackground,
+        other.modernEditorTabActiveHoverBackground,
+      ),
       baseSidebarOrPanelHeading: ts(
         baseSidebarOrPanelHeading,
         other.baseSidebarOrPanelHeading,
@@ -1987,6 +2167,11 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           tabActiveBorderTop == other.tabActiveBorderTop &&
           tabActiveBorder == other.tabActiveBorder &&
           tabDragAndDropBorder == other.tabDragAndDropBorder &&
+          scrollbarSliderBackground == other.scrollbarSliderBackground &&
+          scrollbarSliderHoverBackground ==
+              other.scrollbarSliderHoverBackground &&
+          scrollbarSliderActiveBackground ==
+              other.scrollbarSliderActiveBackground &&
           inputBackground == other.inputBackground &&
           inputForeground == other.inputForeground &&
           inputBorder == other.inputBorder &&
@@ -2020,6 +2205,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
               other.listActiveSelectionBackground &&
           focusBorder == other.focusBorder &&
           sashHoverBorder == other.sashHoverBorder &&
+          sashGripForeground == other.sashGripForeground &&
           menuBarBackground == other.menuBarBackground &&
           menuBarForeground == other.menuBarForeground &&
           menuBarHoverBackground == other.menuBarHoverBackground &&
@@ -2080,6 +2266,18 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           panelTabActiveForeground == other.panelTabActiveForeground &&
           panelTabHoverBackground == other.panelTabHoverBackground &&
           panelTabHoverForeground == other.panelTabHoverForeground &&
+          modernEditorTabActiveBackground ==
+              other.modernEditorTabActiveBackground &&
+          modernEditorTabActiveForeground ==
+              other.modernEditorTabActiveForeground &&
+          modernEditorTabInactiveForeground ==
+              other.modernEditorTabInactiveForeground &&
+          modernEditorTabHoverBackground ==
+              other.modernEditorTabHoverBackground &&
+          modernEditorTabHoverForeground ==
+              other.modernEditorTabHoverForeground &&
+          modernEditorTabActiveHoverBackground ==
+              other.modernEditorTabActiveHoverBackground &&
           baseSidebarOrPanelHeading == other.baseSidebarOrPanelHeading &&
           loglineMessage == other.loglineMessage &&
           tokenTheme == other.tokenTheme &&
@@ -2132,6 +2330,9 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     tabActiveBorderTop,
     tabActiveBorder,
     tabDragAndDropBorder,
+    scrollbarSliderBackground,
+    scrollbarSliderHoverBackground,
+    scrollbarSliderActiveBackground,
     inputBackground,
     inputForeground,
     inputBorder,
@@ -2163,6 +2364,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     listActiveSelectionBackground,
     focusBorder,
     sashHoverBorder,
+    sashGripForeground,
     menuBarBackground,
     menuBarForeground,
     menuBarHoverBackground,
@@ -2222,6 +2424,12 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     panelTabActiveForeground,
     panelTabHoverBackground,
     panelTabHoverForeground,
+    modernEditorTabActiveBackground,
+    modernEditorTabActiveForeground,
+    modernEditorTabInactiveForeground,
+    modernEditorTabHoverBackground,
+    modernEditorTabHoverForeground,
+    modernEditorTabActiveHoverBackground,
     baseSidebarOrPanelHeading,
     loglineMessage,
     tokenTheme,

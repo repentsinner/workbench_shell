@@ -1490,6 +1490,9 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
               : _CardEdgeKind.perimeter,
         ),
         background: theme.editorBackground,
+        // Under floating panels `editorBorder.css` overrides the module's
+        // `editorGroup.border` stroke with `editor.border`, whose registry
+        // default is `surface.border`.
         borderColor: theme.surfaceBorder,
         child: editorContent,
       ),

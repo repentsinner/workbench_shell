@@ -1,3 +1,22 @@
+# [0.40.0](https://github.com/repentsinner/workbench_shell/compare/v0.39.0...v0.40.0) (2026-09-17)
+
+
+### Bug Fixes
+
+* **editor-tabs:** create the drag-scroll ticker on first use, never in dispose ([c018515](https://github.com/repentsinner/workbench_shell/commit/c018515b0522b46790b05676faafb3fc7b3364ee))
+* **editor-tabs:** render VS Code 1.138.0 pill tabs under Modern UI ([14404e6](https://github.com/repentsinner/workbench_shell/commit/14404e6bfcb93fee544c3e02a2aaa673f679774c))
+
+
+### Features
+
+* **editor-tabs:** scroll an overflowing editor tab strip ([163cfc0](https://github.com/repentsinner/workbench_shell/commit/163cfc0765d44d05564f7a35870f830f216957d7))
+
+
+### Performance Improvements
+
+* **editor-tabs:** keep one scrollbar hide timer across a run of scrolls ([e660f05](https://github.com/repentsinner/workbench_shell/commit/e660f0517c571fcb031603036720cf54acdc34e8))
+* **editor-tabs:** move the scrollbar slider without rebuilding the bar ([815e502](https://github.com/repentsinner/workbench_shell/commit/815e502a776e471345e4e1af535e2fe0544cc926))
+
 # [0.39.0](https://github.com/repentsinner/workbench_shell/compare/v0.38.0...v0.39.0) (2026-09-17)
 
 

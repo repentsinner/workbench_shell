@@ -43,7 +43,7 @@ class WorkbenchStatusBar extends StatelessWidget {
       // with their perimeter gutter (§spec:modern-ui-surfaces).
       height: WorkbenchSurfaceTreatment.statusBarHeight(context),
       // A rail inside the cluster, not a card: no border or radius of its own,
-      // but `floatingPanels.css` insets its content.
+      // but `floatingPanels.css` and `statusBar.css` inset its content.
       padding: WorkbenchSurfaceTreatment.statusBarInsetFor(modernUI),
       decoration: BoxDecoration(
         color: theme.statusBarBackground,

@@ -20,6 +20,24 @@ void main() {
       expect(WorkbenchLayoutConstants.strokeThickness, 1.0);
     });
 
+    test('buttonPadding matches .monaco-text-button horizontal padding', () {
+      // `button.css`: `.monaco-text-button { padding: 4px 8px }`. Height is
+      // governed by buttonHeight, so only the horizontal pair carries over.
+      expect(
+        WorkbenchLayoutConstants.buttonPadding,
+        const EdgeInsets.symmetric(horizontal: 8),
+      );
+    });
+
+    test('selectBoxPadding matches selectBox.css leading inset', () {
+      // `selectBox.css`: `padding: 2px 23px 2px 8px`; the chevron owns the
+      // trailing slot, so the 8px leading inset is the field's padding.
+      expect(
+        WorkbenchLayoutConstants.selectBoxPadding,
+        const EdgeInsets.symmetric(horizontal: 8),
+      );
+    });
+
     test('buttonShape rounds to the controls tier (cornerRadius.small)', () {
       expect(
         WorkbenchLayoutConstants.buttonShape,
@@ -222,6 +240,44 @@ void main() {
       expect(WorkbenchLayoutConstants.editorTabIconGap, 6.0);
       // `.tab > .tab-actions { width: 28px }`.
       expect(WorkbenchLayoutConstants.editorTabActionsWidth, 28.0);
+    });
+
+    test('matches the Modern UI pills (§spec:editor-tab-rendering)', () {
+      // editorTabsControl.ts EDITOR_TAB_HEIGHT.modernUI (32); tabs.css
+      // `--editor-group-tab-height: 24px`, `border-block: spacing.size40`,
+      // `.tabs-and-actions-container { padding-left: spacing.size20 }`,
+      // `.tab-fill { inset: 0 spacing.size20 }`, `.tab { padding: 0
+      // spacing.size80 0 spacing.size60 }` and `.tab-actions { width: 24px;
+      // margin: 0 spacing.size20 }`.
+      expect(WorkbenchLayoutConstants.modernEditorTabStripHeight, 32.0);
+      expect(WorkbenchLayoutConstants.modernEditorTabHeight, 24.0);
+      expect(WorkbenchLayoutConstants.modernEditorTabRowInset, 4.0);
+      expect(WorkbenchLayoutConstants.modernEditorTabStripInset, 2.0);
+      expect(WorkbenchLayoutConstants.modernEditorTabFillInset, 2.0);
+      expect(WorkbenchLayoutConstants.modernEditorTabPadding, 8.0);
+      expect(WorkbenchLayoutConstants.modernEditorTabPaddingStart, 6.0);
+      expect(WorkbenchLayoutConstants.modernEditorTabActionsWidth, 24.0);
+      expect(WorkbenchLayoutConstants.modernEditorTabActionsMargin, 2.0);
+    });
+
+    test('matches the tab strip scrollbar (§spec:editor-tab-overflow)', () {
+      // multiEditorTabsControl.ts SCROLLBAR_SIZES.default; scrollbarState.ts
+      // MINIMUM_SLIDER_SIZE; scrollableElement.ts HIDE_TIMEOUT; scrollbars.css
+      // `.visible` and `.invisible.fade` transitions.
+      expect(WorkbenchLayoutConstants.editorTabScrollbarSize, 3.0);
+      expect(WorkbenchLayoutConstants.editorTabScrollbarMinSliderSize, 20.0);
+      expect(
+        WorkbenchLayoutConstants.editorTabScrollbarHideDelay,
+        const Duration(milliseconds: 500),
+      );
+      expect(
+        WorkbenchLayoutConstants.editorTabScrollbarFadeInDuration,
+        const Duration(milliseconds: 100),
+      );
+      expect(
+        WorkbenchLayoutConstants.editorTabScrollbarFadeOutDuration,
+        const Duration(milliseconds: 800),
+      );
     });
   });
 }

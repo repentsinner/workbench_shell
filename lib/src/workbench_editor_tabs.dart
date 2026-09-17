@@ -1,9 +1,18 @@
+import 'dart:async' show Timer;
 import 'dart:math' as math;
 import 'dart:ui' show SemanticsRole;
 
-import 'package:flutter/foundation.dart' show defaultTargetPlatform;
+import 'package:flutter/foundation.dart'
+    show clampDouble, defaultTargetPlatform;
+import 'package:flutter/gestures.dart'
+    show
+        GestureBinding,
+        PointerPanZoomUpdateEvent,
+        PointerScrollEvent,
+        PointerSignalEvent;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show FlexParentData, RenderFlex;
+import 'package:flutter/scheduler.dart' show Ticker;
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:meta/meta.dart';
@@ -571,16 +580,17 @@ class EditorTabsPart extends StatelessWidget {
 /// - **Base:** VS Code's classic multi-tab strip, a
 ///   [WorkbenchLayoutConstants.editorTabHeight] row in
 ///   `editorGroupHeader.tabsBackground` with one `fit`-sized tab per editor.
-/// - **Modern UI:** upstream's `connected` style, a
-///   [WorkbenchLayoutConstants.connectedEditorTabStripHeight] row whose active
-///   tab joins the editor below it (see [ConnectedEditorTabPainter]).
+/// - **Modern UI:** the pill tabs of VS Code 1.138.0's `tabs.css`, a
+///   transparent [WorkbenchLayoutConstants.modernEditorTabStripHeight] row of
+///   content-sized tabs, each with an inset rounded fill.
 ///
 /// Dragging a tab reorders it (§spec:editor-tab-interaction). The whole strip
 /// is the drop target, so a drop past the last tab lands at the end, as a drop
 /// on upstream's tabs container does.
 ///
-/// Tabs past the strip's width are clipped at its trailing edge until
-/// overflow scrolling lands (§spec:editor-tab-interaction).
+/// Tabs that outgrow the strip scroll horizontally under an overlay
+/// scrollbar, and the strip reveals the active tab (§spec:editor-tab-overflow),
+/// per `multiEditorTabsControl.ts`.
 @internal
 class EditorTabStrip extends StatefulWidget {
   final List<WorkbenchEditorTab> tabs;
@@ -609,7 +619,8 @@ class EditorTabStrip extends StatefulWidget {
   State<EditorTabStrip> createState() => _EditorTabStripState();
 }
 
-class _EditorTabStripState extends State<EditorTabStrip> {
+class _EditorTabStripState extends State<EditorTabStrip>
+    with SingleTickerProviderStateMixin {
   /// Where a dragged tab would drop, and the row-local x of the bar that
   /// marks it. Null while no tab is dragged over the strip.
   ///
@@ -622,10 +633,170 @@ class _EditorTabStripState extends State<EditorTabStrip> {
   /// space.
   final GlobalKey _rowKey = GlobalKey();
 
+  /// The strip's horizontal scroll (§spec:editor-tab-overflow).
+  final ScrollController _scroll = ScrollController();
+
+  /// The scroll viewport, whose ends a dragged tab scrolls the strip from.
+  final GlobalKey _viewportKey = GlobalKey();
+
+  /// Scrolls the strip while a dragged tab rests near either end. Created on
+  /// the first drag that needs it, so dispose never creates one: creating a
+  /// ticker looks up [TickerMode], which a deactivated element cannot do.
+  Ticker? _dragScrollTicker;
+
+  /// The last global pointer position of a drag over the strip, and the
+  /// direction the drag scrolls it: -1 toward the start, 1 toward the end, 0
+  /// not at all.
+  Offset? _dragPointer;
+  int _dragScrollDirection = 0;
+  Duration _lastDragScrollTick = Duration.zero;
+
+  /// The viewport extent, scroll range and active tab the last reveal check
+  /// saw. The strip reveals the active tab when any of them changes, as
+  /// upstream does when the active tab or its tab dimensions change.
+  (double, double)? _revealedDimensions;
+  String? _revealedActiveId;
+
+  /// The next reveal check is skipped: upstream's `blockRevealActiveTabOnce`,
+  /// set when a tab's close button requests its close so a run of closes does
+  /// not scroll the strip under the pointer.
+  bool _blockRevealOnce = false;
+
+  bool _revealCheckScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleRevealCheck();
+  }
+
+  @override
+  void didUpdateWidget(covariant EditorTabStrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A change of dimensions reaches the check through the metrics
+    // notification.
+    if (widget.activeId != _revealedActiveId) _scheduleRevealCheck();
+  }
+
   @override
   void dispose() {
+    _dragScrollTicker?.dispose();
+    _scroll.dispose();
     _dropSlot.dispose();
     super.dispose();
+  }
+
+  /// Check for a reveal once this frame has laid the tabs out.
+  void _scheduleRevealCheck() {
+    if (_revealCheckScheduled) return;
+    _revealCheckScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _revealCheckScheduled = false;
+      _checkReveal();
+    });
+  }
+
+  /// Reveal the active tab if the active tab or the strip's dimensions
+  /// changed since the last check, unless a close button blocked it once.
+  void _checkReveal() {
+    if (!mounted || !_scroll.hasClients) return;
+    final position = _scroll.position;
+    if (!position.hasContentDimensions || !position.hasViewportDimension) {
+      return;
+    }
+    final dimensions = (position.viewportDimension, position.maxScrollExtent);
+    final changed =
+        dimensions != _revealedDimensions ||
+        widget.activeId != _revealedActiveId;
+    _revealedDimensions = dimensions;
+    _revealedActiveId = widget.activeId;
+    if (_blockRevealOnce) {
+      _blockRevealOnce = false;
+      return;
+    }
+    if (changed) _revealActive();
+  }
+
+  /// The laid-out row of tabs, or null before its first layout.
+  RenderFlex? get _row => switch (_rowKey.currentContext?.findRenderObject()) {
+    final RenderFlex row when row.hasSize => row,
+    _ => null,
+  };
+
+  /// Each tab's row-local leading edge and width, in tab order: the row has
+  /// one child per tab.
+  static Iterable<({double left, double width})> _tabBoxes(
+    RenderFlex row,
+  ) sync* {
+    for (var child = row.firstChild; child != null;) {
+      final data = child.parentData! as FlexParentData;
+      yield (left: data.offset.dx, width: child.size.width);
+      child = data.nextSibling;
+    }
+  }
+
+  /// Scroll the active tab into view with the least movement, per upstream's
+  /// `layout`: a tab that fits but runs past the trailing edge scrolls until
+  /// its trailing edge meets the strip's; a tab past the leading edge, or
+  /// wider than the strip, scrolls until its leading edge meets the strip's.
+  void _revealActive() {
+    final row = _row;
+    if (row == null) return;
+    final index = widget.tabs.indexWhere((tab) => tab.id == widget.activeId);
+    if (index < 0) return;
+    final box = _tabBoxes(row).elementAtOrNull(index);
+    if (box == null) return;
+    final (:left, :width) = box;
+    final position = _scroll.position;
+    final viewport = position.viewportDimension;
+    final scrollX = position.pixels;
+    final fits = width <= viewport;
+    double? target;
+    if (fits && scrollX + viewport < left + width) {
+      target = left + width - viewport;
+    } else if (scrollX > left || !fits) {
+      target = left;
+    }
+    if (target != null) position.jumpToClamped(target);
+  }
+
+  /// Scroll the strip by [delta] logical pixels, clamped to its range.
+  void _scrollBy(double delta) {
+    final position = _scroll.position;
+    position.jumpToClamped(position.pixels + delta);
+  }
+
+  /// Whether the tabs overflow the strip, so it has somewhere to scroll.
+  bool get _overflows =>
+      _scroll.hasClients && _scroll.position.maxScrollExtent > 0;
+
+  /// The dominant axis of a gesture's [delta], per upstream's
+  /// `scrollPredominantAxis` with `scrollYToX`: a vertical gesture scrolls
+  /// the strip sideways, and a tie in opposite directions scrolls nothing.
+  static double _predominant(Offset delta) {
+    if (delta.dx + delta.dy == 0 && delta.dx.abs() == delta.dy.abs()) return 0;
+    return delta.dy.abs() >= delta.dx.abs() ? delta.dy : delta.dx;
+  }
+
+  /// A wheel over an overflowing strip scrolls it. Registering with the
+  /// signal resolver lets a strip that fits pass the wheel to a scrollable
+  /// above.
+  void _onPointerSignal(PointerSignalEvent event) {
+    if (event is! PointerScrollEvent || !_overflows) return;
+    final delta = _predominant(event.scrollDelta);
+    if (delta == 0) return;
+    GestureBinding.instance.pointerSignalResolver.register(
+      event,
+      (_) => _scrollBy(delta),
+    );
+  }
+
+  /// A trackpad gesture over an overflowing strip scrolls it, the content
+  /// following the fingers.
+  void _onPointerPanZoomUpdate(PointerPanZoomUpdateEvent event) {
+    if (!_overflows) return;
+    final delta = _predominant(event.panDelta);
+    if (delta != 0) _scrollBy(-delta);
   }
 
   /// Record the slot under global [pointer], per VS Code's
@@ -637,16 +808,12 @@ class _EditorTabStripState extends State<EditorTabStrip> {
   /// boundary, so one bar on the leading edge of the tab after the slot, or
   /// on the last tab's trailing edge, paints the same pixels.
   void _updateDropSlot(Offset pointer) {
-    final row = _rowKey.currentContext?.findRenderObject();
-    if (row is! RenderFlex || !row.hasSize) return;
+    final row = _row;
+    if (row == null) return;
     final x = row.globalToLocal(pointer).dx;
-    // One row child per tab, in tab order.
     var index = 0;
     var end = 0.0;
-    for (RenderBox? child = row.firstChild; child != null; index++) {
-      final data = child.parentData! as FlexParentData;
-      final start = data.offset.dx;
-      final width = child.size.width;
+    for (final (left: start, :width) in _tabBoxes(row)) {
       end = start + width;
       if (x - start < width) {
         // `getTabDragOverLocation` counts the midpoint as the leading half.
@@ -655,7 +822,7 @@ class _EditorTabStripState extends State<EditorTabStrip> {
             : (index: index + 1, left: end);
         return;
       }
-      child = data.nextSibling;
+      index++;
     }
     _dropSlot.value = (index: index, left: end);
   }
@@ -664,11 +831,60 @@ class _EditorTabStripState extends State<EditorTabStrip> {
   /// whether the drag is one.
   bool _trackDrag(DragTargetDetails<String> details) {
     if (!widget.tabs.any((tab) => tab.id == details.data)) return false;
+    _dragPointer = details.offset;
     _updateDropSlot(details.offset);
+    _updateDragScroll();
     return true;
   }
 
-  void _clearDropSlot() => _dropSlot.value = null;
+  /// Start or stop scrolling the strip by where the dragged tab rests: within
+  /// [WorkbenchLayoutConstants.editorTabDragScrollEdge] of an end the strip
+  /// can still scroll toward (§spec:editor-tab-overflow).
+  void _updateDragScroll() {
+    var direction = 0;
+    final pointer = _dragPointer;
+    final viewport = _viewportKey.currentContext?.findRenderObject();
+    if (pointer != null && viewport is RenderBox && _overflows) {
+      final x = viewport.globalToLocal(pointer).dx;
+      final position = _scroll.position;
+      const edge = WorkbenchLayoutConstants.editorTabDragScrollEdge;
+      if (x < edge && position.pixels > position.minScrollExtent) {
+        direction = -1;
+      } else if (x > viewport.size.width - edge &&
+          position.pixels < position.maxScrollExtent) {
+        direction = 1;
+      }
+    }
+    _dragScrollDirection = direction;
+    final ticker = _dragScrollTicker;
+    if (direction == 0) {
+      if (ticker != null && ticker.isActive) ticker.stop();
+    } else if (ticker == null || !ticker.isActive) {
+      _lastDragScrollTick = Duration.zero;
+      (_dragScrollTicker ??= createTicker(_onDragScrollTick)).start();
+    }
+  }
+
+  void _onDragScrollTick(Duration elapsed) {
+    final seconds =
+        (elapsed - _lastDragScrollTick).inMicroseconds /
+        Duration.microsecondsPerSecond;
+    _lastDragScrollTick = elapsed;
+    _scrollBy(
+      _dragScrollDirection *
+          WorkbenchLayoutConstants.editorTabDragScrollSpeed *
+          seconds,
+    );
+    // The tabs moved under a still pointer, so the slot and the zone follow.
+    if (_dragPointer case final pointer?) _updateDropSlot(pointer);
+    _updateDragScroll();
+  }
+
+  void _clearDropSlot() {
+    _dropSlot.value = null;
+    _dragPointer = null;
+    _updateDragScroll();
+  }
 
   /// Move the tab with [id] into the recorded slot and report the new order,
   /// unless it lands where it already stands.
@@ -686,40 +902,43 @@ class _EditorTabStripState extends State<EditorTabStrip> {
     );
   }
 
+  /// Request the close of the tab with [id] from its close button, and skip
+  /// the next reveal so a run of closes leaves the strip under the pointer.
+  void _closeFromButton(String id) {
+    _blockRevealOnce = true;
+    widget.onCloseRequested!(id);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = widget.theme;
     final tabs = widget.tabs;
     final activeId = widget.activeId;
-    final connected = WorkbenchSurfaceTreatment.of(context);
-    final metrics = connected
+    final metrics = WorkbenchSurfaceTreatment.of(context)
         ? _EditorTabMetrics.modern
         : _EditorTabMetrics.base;
-    final onClose = widget.onCloseRequested;
 
-    /// The tab for [tab] at [position], or its drag image. The drag image
-    /// renders as the active tab and, like any drag image, takes no pointer.
-    Widget tabFor(
-      WorkbenchEditorTab tab,
-      EditorTabPosition position, {
-      bool dragImage = false,
-    }) => _EditorTab(
-      key: dragImage ? null : ValueKey('editor-tab-${tab.id}'),
-      tab: tab,
-      active: dragImage || tab.id == activeId,
-      metrics: metrics,
-      position: position,
-      onSelected: () => widget.onSelected(tab.id),
-      onClose: onClose == null ? null : () => onClose(tab.id),
-      theme: theme,
-    );
+    /// The tab for [tab], or its drag image. The drag image renders as the
+    /// active tab and, like any drag image, takes no pointer.
+    Widget tabFor(WorkbenchEditorTab tab, {bool dragImage = false}) =>
+        _EditorTab(
+          key: dragImage ? null : ValueKey('editor-tab-${tab.id}'),
+          tab: tab,
+          active: dragImage || tab.id == activeId,
+          metrics: metrics,
+          onSelected: () => widget.onSelected(tab.id),
+          onClose: widget.onCloseRequested == null
+              ? null
+              : () => _closeFromButton(tab.id),
+          theme: theme,
+        );
 
     final row = Row(
       key: _rowKey,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        for (final (index, tab) in tabs.indexed)
+        for (final tab in tabs)
           Draggable<String>(
             key: ValueKey('editor-tab-drag-${tab.id}'),
             data: tab.id,
@@ -737,35 +956,60 @@ class _EditorTabStripState extends State<EditorTabStrip> {
                 alignment: AlignmentDirectional.topStart,
                 child: SizedBox(
                   height: metrics.stripHeight,
-                  // A drag image carries no shoulders into its neighbours.
-                  child: tabFor(tab, EditorTabPosition.first, dragImage: true),
+                  child: tabFor(tab, dragImage: true),
                 ),
               ),
             ),
-            child: tabFor(tab, EditorTabPosition.of(index, tabs, activeId)),
+            child: tabFor(tab),
           ),
       ],
+    );
+    // Upstream's `ScrollableElement` over the tabs container: horizontal,
+    // without shadows, and driven by the strip's own wheel mapping, so the
+    // scroll view takes no gesture of its own and draws no scrollbar.
+    final viewport = Listener(
+      key: _viewportKey,
+      onPointerSignal: _onPointerSignal,
+      onPointerPanZoomUpdate: _onPointerPanZoomUpdate,
+      child: ScrollConfiguration(
+        behavior: ScrollConfiguration.of(
+          context,
+        ).copyWith(scrollbars: false, overscroll: false),
+        child: SingleChildScrollView(
+          key: const ValueKey('editor-tab-viewport'),
+          controller: _scroll,
+          scrollDirection: Axis.horizontal,
+          physics: const NeverScrollableScrollPhysics(),
+          child: Stack(
+            // The bar past the last tab stands just outside the row.
+            clipBehavior: Clip.none,
+            children: [
+              // Inside the scroll view, so the tabs are the tab bar's
+              // direct semantic children.
+              Semantics(
+                role: SemanticsRole.tabBar,
+                container: true,
+                child: row,
+              ),
+              _dropBar(metrics),
+            ],
+          ),
+        ),
+      ),
     );
     final Widget content = DragTarget<String>(
       onWillAcceptWithDetails: _trackDrag,
       onMove: _trackDrag,
       onLeave: (_) => _clearDropSlot(),
       onAcceptWithDetails: (details) => _drop(details.data),
-      builder: (context, candidates, rejected) => Semantics(
-        role: SemanticsRole.tabBar,
-        container: true,
-        child: ClipRect(
-          // Lets the row keep its natural width without an overflow warning;
-          // the clip hides whatever runs past the strip.
-          child: OverflowBox(
-            alignment: AlignmentDirectional.centerStart,
-            maxWidth: double.infinity,
-            child: Stack(
-              // The bar past the last tab stands just outside the row.
-              clipBehavior: Clip.none,
-              children: [row, _dropBar(metrics)],
-            ),
-          ),
+      builder: (context, candidates, rejected) => Padding(
+        padding: EdgeInsetsDirectional.only(start: metrics.stripInset),
+        child: _EditorTabScrollbar(
+          controller: _scroll,
+          onMetricsChanged: _checkReveal,
+          theme: theme,
+          rounded: metrics.pills,
+          child: viewport,
         ),
       ),
     );
@@ -776,26 +1020,11 @@ class _EditorTabStripState extends State<EditorTabStrip> {
         height: metrics.stripHeight,
         child: DecoratedBox(
           key: const ValueKey('editor-tab-strip-background'),
+          // Under Modern UI the strip is transparent over the editor card,
+          // with no border (`tabs.css` `.title.tabs { background-color:
+          // transparent }`).
           decoration: BoxDecoration(
-            color: connected
-                ? ConnectedEditorTabPainter.stripBackground(theme)
-                : theme.editorGroupHeaderTabsBackground,
-            // Under Modern UI, the separator along the strip's foot, in the
-            // editor surface so the active tab and the editor read as one well.
-            // Inactive fills repaint it over themselves; the active tab covers
-            // it.
-            border: connected
-                ? Border(
-                    bottom: BorderSide(
-                      color: theme.editorBackground,
-                      // Stated so the separator tracks `strokeThickness` if
-                      // upstream moves it, rather than silently keeping
-                      // Flutter's 1px default.
-                      // ignore: avoid_redundant_argument_values
-                      width: WorkbenchLayoutConstants.strokeThickness,
-                    ),
-                  )
-                : null,
+            color: metrics.pills ? null : theme.editorGroupHeaderTabsBackground,
           ),
           child: content,
         ),
@@ -803,22 +1032,17 @@ class _EditorTabStripState extends State<EditorTabStrip> {
     );
   }
 
-  /// The drop bar, positioned over the row while a dragged tab would land in
-  /// a slot.
-  ///
-  /// `multieditortabscontrol.css` draws a 2px `tab.dragAndDropBorder` bar the
-  /// height of the tab's padding box: at `left: 0` for the slot before a tab,
-  /// and at `right: -2px` for the slot after the last one, just past its
-  /// edge. Under Modern UI the padding box is the 24px row between the tab's
-  /// transparent bands.
+  /// The drop bar over the row while a dragged tab would land in a slot:
+  /// `multieditortabscontrol.css`'s `tab.dragAndDropBorder` bar, the height of
+  /// the tab's padding box.
   Widget _dropBar(_EditorTabMetrics metrics) {
     return ValueListenableBuilder<_DropSlot?>(
       valueListenable: _dropSlot,
       builder: (context, slot, _) {
         if (slot == null) return const SizedBox.shrink();
         return Positioned(
-          top: metrics.rowInsetTop,
-          bottom: metrics.rowInsetBottom,
+          top: metrics.rowInset,
+          bottom: metrics.rowInset,
           left: slot.left,
           width: WorkbenchLayoutConstants.editorTabDropIndicatorWidth,
           child: IgnorePointer(
@@ -833,103 +1057,399 @@ class _EditorTabStripState extends State<EditorTabStrip> {
   }
 }
 
+/// The editor tab strip's scrollbar (§spec:editor-tab-overflow): a
+/// [WorkbenchLayoutConstants.editorTabScrollbarSize] bar overlaying the foot
+/// of [child], per upstream's `ScrollableElement` with
+/// `titleScrollbarVisibility: auto`.
+///
+/// It shows only while the tabs overflow and the pointer is over the strip,
+/// a scroll is under way, or the slider is dragged, and hides
+/// [WorkbenchLayoutConstants.editorTabScrollbarHideDelay] after a scroll the
+/// pointer is not over (`scrollableElement.ts`,
+/// `scrollbarVisibilityController.ts`).
+class _EditorTabScrollbar extends StatefulWidget {
+  /// The strip's scroll, which the strip owns for its lifetime, so the bar
+  /// listens to one controller throughout.
+  final ScrollController controller;
+
+  /// Called after the bar follows a change in the scroll extent or the
+  /// viewport, the one place the strip hears of either.
+  final VoidCallback onMetricsChanged;
+
+  final WorkbenchTheme theme;
+
+  /// Rounds the slider to the controls tier, as Modern UI's
+  /// `roundedCorners.css` does.
+  final bool rounded;
+
+  final Widget child;
+
+  const _EditorTabScrollbar({
+    required this.controller,
+    required this.onMetricsChanged,
+    required this.theme,
+    required this.rounded,
+    required this.child,
+  });
+
+  @override
+  State<_EditorTabScrollbar> createState() => _EditorTabScrollbarState();
+}
+
+class _EditorTabScrollbarState extends State<_EditorTabScrollbar> {
+  bool _pointerOver = false;
+  bool _sliderHovered = false;
+
+  /// The slider is dragged, from the scroll offset it started at and the
+  /// global x it started from.
+  ({double pixels, double pointerX})? _drag;
+
+  /// Where the bar stands between reveals and hides, which also picks the
+  /// fade.
+  _ScrollbarVisibility _visibility = _ScrollbarVisibility.hidden;
+
+  /// One timer serves a run of reveals: when it fires, it waits out the rest
+  /// of the delay since the last reveal rather than restarting on each one.
+  Timer? _hideTimer;
+
+  /// Time since the last reveal. The gesture binding's sampling clock keeps
+  /// it in step with the fake time of widget tests.
+  final Stopwatch _sinceReveal = GestureBinding.instance.samplingClock
+      .stopwatch();
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_reveal);
+  }
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    widget.controller.removeListener(_reveal);
+    super.dispose();
+  }
+
+  bool get _held => _pointerOver || _drag != null;
+
+  /// Show the bar, and schedule its hide unless the pointer or a drag holds
+  /// it (`ScrollableElement._reveal`). Every scroll reveals, so the bar
+  /// rebuilds only when it was hidden.
+  void _reveal() {
+    if (_visibility != _ScrollbarVisibility.shown) {
+      setState(() => _visibility = _ScrollbarVisibility.shown);
+    }
+    _sinceReveal
+      ..reset()
+      ..start();
+    if (_held) {
+      _hideTimer?.cancel();
+    } else if (!(_hideTimer?.isActive ?? false)) {
+      _hideTimer = Timer(
+        WorkbenchLayoutConstants.editorTabScrollbarHideDelay,
+        _onHideTimer,
+      );
+    }
+  }
+
+  /// Hide once the delay has passed since the last reveal, else wait out the
+  /// rest of it.
+  void _onHideTimer() {
+    final remaining =
+        WorkbenchLayoutConstants.editorTabScrollbarHideDelay -
+        _sinceReveal.elapsed;
+    if (remaining > Duration.zero) {
+      _hideTimer = Timer(remaining, _onHideTimer);
+    } else {
+      _hide();
+    }
+  }
+
+  /// Fade the bar out unless the pointer or a drag holds it
+  /// (`ScrollableElement._hide`).
+  void _hide() {
+    if (!mounted || _held) return;
+    _hideTimer?.cancel();
+    if (_visibility != _ScrollbarVisibility.fadingOut) {
+      setState(() => _visibility = _ScrollbarVisibility.fadingOut);
+    }
+  }
+
+  /// Slider geometry per `scrollbarState.ts`: the slider takes the visible
+  /// share of the track, never less than the minimum, and travels in
+  /// proportion to the scroll. Null while the tabs fit.
+  ({double size, double left, double ratio})? _slider() {
+    final controller = widget.controller;
+    if (!controller.hasClients) return null;
+    final position = controller.position;
+    if (!position.hasContentDimensions || !position.hasViewportDimension) {
+      return null;
+    }
+    final visible = position.viewportDimension;
+    final scrollSize = position.maxScrollExtent + visible;
+    if (scrollSize <= visible) return null;
+    final size = math
+        .max(
+          WorkbenchLayoutConstants.editorTabScrollbarMinSliderSize,
+          (visible * visible / scrollSize).floorToDouble(),
+        )
+        .roundToDouble();
+    final ratio = (visible - size) / (scrollSize - visible);
+    return (
+      size: size,
+      left: (position.pixels * ratio).roundToDouble(),
+      ratio: ratio,
+    );
+  }
+
+  /// A press on the track centres the slider under the pointer, then drags
+  /// it (`AbstractScrollbar._onPointerDown`); a press on the slider drags it
+  /// from where it stands.
+  void _onPointerDown(PointerDownEvent event) {
+    final slider = _slider();
+    if (slider == null) return;
+    final position = widget.controller.position;
+    final x = event.localPosition.dx;
+    if (x < slider.left || x > slider.left + slider.size) {
+      position.jumpToClamped((x - slider.size / 2) / slider.ratio);
+    }
+    setState(() {
+      _drag = (pixels: position.pixels, pointerX: event.position.dx);
+    });
+    _reveal();
+  }
+
+  void _onPointerMove(PointerMoveEvent event) {
+    final drag = _drag;
+    final slider = _slider();
+    if (drag == null || slider == null) return;
+    final delta = event.position.dx - drag.pointerX;
+    widget.controller.position.jumpToClamped(
+      drag.pixels + delta / slider.ratio,
+    );
+  }
+
+  void _onPointerEnd(PointerEvent event) {
+    if (_drag == null) return;
+    setState(() => _drag = null);
+    _hide();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final overflows = _slider() != null;
+    final visible = overflows && _visibility == _ScrollbarVisibility.shown;
+    final duration = switch (_visibility) {
+      // A bar the tabs no longer need goes without a fade.
+      _ when !overflows => Duration.zero,
+      _ScrollbarVisibility.hidden => Duration.zero,
+      _ScrollbarVisibility.shown =>
+        WorkbenchLayoutConstants.editorTabScrollbarFadeInDuration,
+      _ScrollbarVisibility.fadingOut =>
+        WorkbenchLayoutConstants.editorTabScrollbarFadeOutDuration,
+    };
+    return MouseRegion(
+      onEnter: (_) {
+        _pointerOver = true;
+        _reveal();
+      },
+      onExit: (_) {
+        _pointerOver = false;
+        _hide();
+      },
+      child: NotificationListener<ScrollMetricsNotification>(
+        // The slider follows the extent as tabs open and close.
+        onNotification: (_) {
+          setState(() {});
+          widget.onMetricsChanged();
+          return false;
+        },
+        child: Stack(
+          children: [
+            widget.child,
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: WorkbenchLayoutConstants.editorTabScrollbarSize,
+              child: AnimatedOpacity(
+                key: const ValueKey('editor-tab-scrollbar'),
+                opacity: visible ? 1 : 0,
+                duration: duration,
+                // An invisible bar takes no pointer, so the tabs beneath it
+                // stay reachable (`.invisible { pointer-events: none }`).
+                child: IgnorePointer(
+                  ignoring: !visible,
+                  child: Listener(
+                    behavior: HitTestBehavior.opaque,
+                    onPointerDown: _onPointerDown,
+                    onPointerMove: _onPointerMove,
+                    onPointerUp: _onPointerEnd,
+                    onPointerCancel: _onPointerEnd,
+                    child: _buildSlider(),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The slider over the track. A scroll moves the slider alone: it rebuilds
+  /// from the offset and repaints apart from the tabs.
+  Widget _buildSlider() {
+    final theme = widget.theme;
+    final Color color;
+    if (_drag != null) {
+      color = theme.scrollbarSliderActiveBackground;
+    } else if (_sliderHovered) {
+      color = theme.scrollbarSliderHoverBackground;
+    } else {
+      color = theme.scrollbarSliderBackground;
+    }
+    return RepaintBoundary(
+      child: ListenableBuilder(
+        listenable: widget.controller,
+        builder: (context, _) => Stack(
+          children: [
+            if (_slider() case final slider?)
+              Positioned(
+                left: slider.left,
+                width: slider.size,
+                top: 0,
+                bottom: 0,
+                child: MouseRegion(
+                  onEnter: (_) => setState(() => _sliderHovered = true),
+                  onExit: (_) => setState(() => _sliderHovered = false),
+                  child: DecoratedBox(
+                    key: const ValueKey('editor-tab-scrollbar-slider'),
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: widget.rounded
+                          ? WorkbenchLayoutConstants.controlsRadius
+                          : null,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Whether the editor tab scrollbar shows, before the tabs' overflow gates
+/// it.
+enum _ScrollbarVisibility {
+  /// Never revealed.
+  hidden,
+
+  /// Revealed by a scroll or the pointer; shows over the fade-in.
+  shown,
+
+  /// Hidden after a reveal; fades out rather than cutting.
+  fadingOut,
+}
+
+extension on ScrollPosition {
+  /// Jump to [pixels] clamped to the scroll range, unless already there.
+  void jumpToClamped(double pixels) {
+    final target = clampDouble(pixels, minScrollExtent, maxScrollExtent);
+    if (target != this.pixels) jumpTo(target);
+  }
+}
+
 /// A slot a dragged tab would drop into, 0 before the first tab through
 /// `tabs.length` after the last, with the row-local x of the bar marking it.
 typedef _DropSlot = ({int index, double left});
 
-/// The sizes and hover rules that differ between the base and Modern UI tab
+/// The sizes and rules that differ between the base and Modern UI tab
 /// treatments (§spec:editor-tab-rendering), resolved once per strip build.
 @immutable
 class _EditorTabMetrics {
-  /// Renders the Modern UI `connected` treatment rather than the base one.
-  final bool connected;
+  /// Renders the Modern UI pills rather than the base tabs. Pills also show
+  /// every tab's action column, and hovering anywhere on a pill reveals a
+  /// dirty tab's close glyph.
+  final bool pills;
 
   /// The strip's height.
   final double stripHeight;
+
+  /// Inset from the strip's leading edge to the first tab.
+  final double stripInset;
 
   /// A tab's leading inset without an icon, and with one.
   final double paddingStart;
   final double paddingStartWithIcon;
 
-  /// A tab's trailing inset when it reserves no action column, and when it
-  /// does. The action column supplies the trailing room when it shows.
+  /// A tab's trailing inset when it shows no action column. The action
+  /// column supplies the trailing room when it shows.
   final double paddingEnd;
-  final double paddingEndWithActions;
 
-  /// Insets above and below a tab's content row, which the drop bar shares.
-  final double rowInsetTop;
-  final double rowInsetBottom;
+  /// Inset above and below a tab's content row, which the drop bar shares.
+  final double rowInset;
 
   /// The action column's width, and its margin either side.
   final double actionsWidth;
   final double actionsMargin;
 
-  /// Hovering anywhere on a tab recolours an inactive label and reveals a
-  /// dirty tab's close glyph, rather than the pointer having to be over the
-  /// action column itself.
-  final bool tabHoverReveals;
-
   const _EditorTabMetrics._({
-    required this.connected,
+    required this.pills,
     required this.stripHeight,
+    required this.stripInset,
     required this.paddingStart,
     required this.paddingStartWithIcon,
     required this.paddingEnd,
-    required this.paddingEndWithActions,
-    required this.rowInsetTop,
-    required this.rowInsetBottom,
+    required this.rowInset,
     required this.actionsWidth,
     required this.actionsMargin,
-    required this.tabHoverReveals,
   });
 
   /// `multieditortabscontrol.css`: a full-height row; `.tab { padding-left:
   /// 10px }`, with `.close-action-off` padding the trailing edge only when
   /// no action column shows.
   static const base = _EditorTabMetrics._(
-    connected: false,
+    pills: false,
     stripHeight: WorkbenchLayoutConstants.editorTabHeight,
+    stripInset: 0,
     paddingStart: WorkbenchLayoutConstants.editorTabPaddingStart,
     paddingStartWithIcon: WorkbenchLayoutConstants.editorTabPaddingStart,
     paddingEnd: WorkbenchLayoutConstants.editorTabPaddingEnd,
-    paddingEndWithActions: 0,
-    rowInsetTop: 0,
-    rowInsetBottom: 0,
+    rowInset: 0,
     actionsWidth: WorkbenchLayoutConstants.editorTabActionsWidth,
     actionsMargin: 0,
-    tabHoverReveals: false,
   );
 
-  /// `tabs.css` with `connectedEditorTabs.css`: the label on the 24px row
-  /// between the transparent bands, and the action column a shoulder's width
-  /// in from the trailing edge (`.tab-actions { right: shoulder-radius }`),
-  /// its margins making up the rest of `--modern-ui-tab-action-padding`.
+  /// VS Code 1.138.0's `tabs.css`: the label on the 24px row between the
+  /// transparent bands, and the 24px action column with its 2px margins
+  /// filling the 28px a tab reserves at its trailing edge. Upstream overlays
+  /// the column on that reserved padding; laying it out in the row gives the
+  /// same geometry. `workbench.editor.tabActionReserveSpace` defaults to
+  /// `true`, which keeps the close button on every tab of the active group.
   static const modern = _EditorTabMetrics._(
-    connected: true,
-    stripHeight: WorkbenchLayoutConstants.connectedEditorTabStripHeight,
+    pills: true,
+    stripHeight: WorkbenchLayoutConstants.modernEditorTabStripHeight,
+    stripInset: WorkbenchLayoutConstants.modernEditorTabStripInset,
     paddingStart: WorkbenchLayoutConstants.modernEditorTabPadding,
     paddingStartWithIcon: WorkbenchLayoutConstants.modernEditorTabPaddingStart,
     paddingEnd: WorkbenchLayoutConstants.modernEditorTabPadding,
-    paddingEndWithActions: WorkbenchLayoutConstants.connectedEditorTabCapRadius,
-    rowInsetTop: WorkbenchLayoutConstants.modernEditorTabRowInset,
-    rowInsetBottom: WorkbenchLayoutConstants.modernEditorTabRowInsetBottom,
+    rowInset: WorkbenchLayoutConstants.modernEditorTabRowInset,
     actionsWidth: WorkbenchLayoutConstants.modernEditorTabActionsWidth,
     actionsMargin: WorkbenchLayoutConstants.modernEditorTabActionsMargin,
-    tabHoverReveals: true,
   );
 }
 
 /// One tab, per `multieditortabscontrol.css` in the base treatment and
-/// `tabs.css` with `connectedEditorTabs.css` under Modern UI.
+/// `tabs.css` under Modern UI.
 class _EditorTab extends StatefulWidget {
   final WorkbenchEditorTab tab;
   final bool active;
 
   /// The treatment's sizes and hover rules.
   final _EditorTabMetrics metrics;
-
-  /// Where the tab stands, which shapes a connected tab's shoulders.
-  final EditorTabPosition position;
 
   final VoidCallback onSelected;
 
@@ -942,7 +1462,6 @@ class _EditorTab extends StatefulWidget {
     required this.tab,
     required this.active,
     required this.metrics,
-    required this.position,
     required this.onSelected,
     required this.onClose,
     required this.theme,
@@ -967,16 +1486,17 @@ class _EditorTabState extends State<_EditorTab> {
     final tab = widget.tab;
     final active = widget.active;
     final metrics = widget.metrics;
-    // `tabs.css` recolours a hovered inactive label through
-    // `modernEditorTab.hoverForeground`, which defaults to
-    // `modernTab.hoverForeground`; the base strip keeps its inactive colour.
     final Color foreground;
-    if (active) {
-      foreground = theme.tabActiveForeground;
-    } else if (metrics.tabHoverReveals && _tabHovered) {
-      foreground = theme.panelTabHoverForeground;
+    if (!metrics.pills) {
+      foreground = active
+          ? theme.tabActiveForeground
+          : theme.tabInactiveForeground;
+    } else if (active) {
+      foreground = theme.modernEditorTabActiveForeground;
+    } else if (_tabHovered) {
+      foreground = theme.modernEditorTabHoverForeground;
     } else {
-      foreground = theme.tabInactiveForeground;
+      foreground = theme.modernEditorTabInactiveForeground;
     }
     // `.tab-actions` shows for a closable tab and for a dirty one: the
     // unsaved dot is state, so it stays even with no close affordance.
@@ -986,9 +1506,9 @@ class _EditorTabState extends State<_EditorTab> {
         start: tab.icon == null
             ? metrics.paddingStart
             : metrics.paddingStartWithIcon,
-        end: showsActions ? metrics.paddingEndWithActions : metrics.paddingEnd,
-        top: metrics.rowInsetTop,
-        bottom: metrics.rowInsetBottom,
+        end: showsActions ? 0 : metrics.paddingEnd,
+        top: metrics.rowInset,
+        bottom: metrics.rowInset,
       ),
       child: Row(
         // `.tab-label { flex: 1 }` pushes the actions to the trailing edge of a
@@ -1032,9 +1552,7 @@ class _EditorTabState extends State<_EditorTab> {
         onExit: (_) => setState(() => _tabHovered = false),
         child: GestureDetector(
           onTap: widget.onSelected,
-          child: metrics.connected
-              ? _buildConnected(content)
-              : _buildBase(content),
+          child: metrics.pills ? _buildPill(content) : _buildBase(content),
         ),
       ),
     );
@@ -1058,43 +1576,55 @@ class _EditorTabState extends State<_EditorTab> {
     );
   }
 
-  /// The connected tab: content-sized (`.sizing-fit { min-width: 0 }`), its
-  /// label on the 24px row between the transparent 4px bands, with the fill
-  /// and shoulders painted beneath it.
-  Widget _buildConnected(Widget content) {
+  /// The pill tab: content-sized (`.sizing-fit { width: auto; min-width: 0
+  /// }`) over its `.tab-fill`, a 24px rounded fill inset from the tab's edges.
+  /// The active pill fills, a hovered one takes the hover fill, and an
+  /// inactive one stays clear (`modernEditorTab.inactiveBackground` registers
+  /// as transparent).
+  Widget _buildPill(Widget content) {
     final theme = widget.theme;
-    final active = widget.active;
-    return CustomPaint(
-      key: const ValueKey('editor-tab-connected-fill'),
-      painter: ConnectedEditorTabPainter(
-        active: active,
-        fill: !active && _tabHovered
-            ? ConnectedEditorTabPainter.hoverBackground(theme)
-            : null,
-        surface: theme.editorBackground,
-        position: widget.position,
-      ),
-      child: content,
+    final Color? fill;
+    if (widget.active) {
+      fill = _tabHovered
+          ? theme.modernEditorTabActiveHoverBackground
+          : theme.modernEditorTabActiveBackground;
+    } else {
+      fill = _tabHovered ? theme.modernEditorTabHoverBackground : null;
+    }
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: WorkbenchLayoutConstants.modernEditorTabFillInset,
+              vertical: widget.metrics.rowInset,
+            ),
+            child: DecoratedBox(
+              key: const ValueKey('editor-tab-pill-fill'),
+              decoration: BoxDecoration(
+                color: fill,
+                borderRadius: WorkbenchLayoutConstants.controlsRadius,
+              ),
+            ),
+          ),
+        ),
+        content,
+      ],
     );
   }
 
   /// The trailing action column: the close button, or a dirty tab's dot.
   ///
-  /// Upstream's `.tab-actions` rules show it on the active tab, on hover, and
-  /// on a dirty tab, and hide it (opacity 0) otherwise. A hidden button takes
-  /// no pointer, so a tap there activates the tab instead of closing an
-  /// editor the user cannot see a button for.
-  ///
-  /// A dirty tab shows its dot until the pointer reveals the close glyph: in
-  /// the base treatment the pointer has to be over the column itself; under
-  /// Modern UI, `tabs.css` swaps the glyph on `.tab.dirty:hover`, anywhere on
-  /// the tab.
+  /// A hidden column (base `.tab-actions`, opacity 0) takes no pointer, so a
+  /// tap there activates the tab. Under Modern UI, `tabs.css` swaps a dirty
+  /// tab's dot for the close glyph on `.tab.dirty:hover`.
   Widget _buildActions(Color foreground) {
     final tab = widget.tab;
     final onClose = widget.onClose;
     final metrics = widget.metrics;
-    final visible = widget.active || _tabHovered || tab.isDirty;
-    final revealsClose = metrics.tabHoverReveals ? _tabHovered : _actionHovered;
+    final visible =
+        widget.active || _tabHovered || tab.isDirty || metrics.pills;
+    final revealsClose = metrics.pills ? _tabHovered : _actionHovered;
     final showsDot = tab.isDirty && (onClose == null || !revealsClose);
     final glyph = Icon(
       showsDot ? Symbols.fiber_manual_record : Symbols.close_rounded,
@@ -1161,216 +1691,4 @@ class _EditorTabState extends State<_EditorTab> {
       child: child,
     );
   }
-}
-
-/// Where an editor tab stands in the strip, as far as a connected tab's
-/// shoulders care (§spec:editor-tab-rendering).
-///
-/// An active tab's shape depends on the strip's ends; an inactive tab's
-/// depends only on whether the active tab stands directly before it.
-@internal
-enum EditorTabPosition {
-  /// First in the strip, with more tabs after it.
-  first,
-
-  /// Neither first nor last, and not directly after the active tab.
-  middle,
-
-  /// Last in the strip, with more tabs before it.
-  last,
-
-  /// The strip's one tab.
-  only,
-
-  /// Directly after the active tab, wherever else it stands.
-  afterActive;
-
-  /// The position of the tab at [index] in [tabs], whose active tab is
-  /// [activeId].
-  static EditorTabPosition of(
-    int index,
-    List<WorkbenchEditorTab> tabs,
-    String activeId,
-  ) {
-    if (index > 0 && tabs[index - 1].id == activeId) return afterActive;
-    final atEnd = index == tabs.length - 1;
-    if (index == 0) return atEnd ? only : first;
-    return atEnd ? last : middle;
-  }
-}
-
-/// Paints a connected editor tab's fill (§spec:editor-tab-rendering), per
-/// `connectedEditorTabs.css`.
-///
-/// The active tab is one shape in the editor surface: a cap rounded at its top
-/// corners, running the strip's full height so it covers the separator, with
-/// a concave shoulder at each foot curving it out into the editor. The first
-/// tab keeps a straight leading edge; the last turns its trailing shoulder
-/// inside its own slot. An inactive tab paints nothing until hovered, then a
-/// fill rounded at the controls tier, over which the separator is repainted.
-///
-/// Upstream draws a stroke around the cap and shoulders in
-/// `--modern-ui-connected-tab-border`, which outside high contrast is the
-/// surface itself, so painting the surface alone is the same pixels. High
-/// contrast recolours that stroke; the shell renders no high-contrast variant
-/// of it.
-///
-/// A shoulder that curves past the tab's edge would be overdrawn by the
-/// neighbour Flutter paints after it, so the tab that follows the active one
-/// paints that trailing shoulder itself ([continuesShoulder]). The leading
-/// shoulder overdraws the tab before, which has already painted, and upstream
-/// stacks the active fill above its neighbours in the same way.
-@internal
-class ConnectedEditorTabPainter extends CustomPainter {
-  /// Share of `foreground` mixed into the strip for a hovered tab.
-  /// `connectedEditorTabs.css` sets `--modern-ui-editor-tab-hover-background`
-  /// to `color-mix(in srgb, var(--vscode-foreground) 6%, ...)` over the strip.
-  static const double hoverForegroundOpacity = 0.06;
-
-  /// The strip's fill: `editorGroupHeader.tabsBackground` made opaque over
-  /// `editor.background`, as `connectedEditorTabs.ts` flattens it.
-  static Color stripBackground(WorkbenchTheme theme) => Color.alphaBlend(
-    theme.editorGroupHeaderTabsBackground,
-    theme.editorBackground,
-  );
-
-  /// A hovered inactive tab's fill, derived from `foreground` over the strip.
-  static Color hoverBackground(WorkbenchTheme theme) => Color.alphaBlend(
-    theme.foreground.withValues(alpha: hoverForegroundOpacity),
-    stripBackground(theme),
-  );
-
-  /// Paints the active shape rather than an inactive fill.
-  final bool active;
-
-  /// An inactive tab's fill; null paints none. Ignored while [active].
-  final Color? fill;
-
-  /// The editor surface: the active shape, its shoulders and the separator.
-  final Color surface;
-
-  /// Where the tab stands, which picks its shoulders.
-  final EditorTabPosition position;
-
-  const ConnectedEditorTabPainter({
-    required this.active,
-    required this.fill,
-    required this.surface,
-    required this.position,
-  });
-
-  /// The active tab curves out past its leading edge, unless it is first.
-  bool get leadingShoulder =>
-      active &&
-      position != EditorTabPosition.first &&
-      position != EditorTabPosition.only;
-
-  /// The active tab is last, so its trailing shoulder turns inside its slot.
-  bool get trailingShoulderInside =>
-      active &&
-      (position == EditorTabPosition.last ||
-          position == EditorTabPosition.only);
-
-  /// The tab before this one is active; paint its trailing shoulder here.
-  bool get continuesShoulder => position == EditorTabPosition.afterActive;
-
-  static const double _radius =
-      WorkbenchLayoutConstants.connectedEditorTabCapRadius;
-  static const _corner = Radius.circular(_radius);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final surfacePaint = Paint()..color = surface;
-    final foot = size.height;
-    if (active) {
-      canvas.drawPath(_activeShape(size), surfacePaint);
-      return;
-    }
-    if (fill case final color?) {
-      canvas
-        ..drawRRect(
-          RRect.fromRectAndRadius(
-            Offset.zero & size,
-            const Radius.circular(WorkbenchLayoutConstants.cornerRadiusSmall),
-          ),
-          Paint()..color = color,
-        )
-        ..drawRect(
-          Rect.fromLTRB(
-            0,
-            foot - WorkbenchLayoutConstants.strokeThickness,
-            size.width,
-            foot,
-          ),
-          surfacePaint,
-        );
-    }
-    if (continuesShoulder) {
-      final shoulder = Path()..moveTo(0, foot - _radius);
-      _addShoulder(
-        shoulder,
-        center: Offset(_radius, foot - _radius),
-        from: math.pi,
-      );
-      canvas.drawPath(
-        shoulder
-          ..lineTo(0, foot)
-          ..close(),
-        surfacePaint,
-      );
-    }
-  }
-
-  /// The cap with its shoulders, traced clockwise from the leading foot.
-  Path _activeShape(Size size) {
-    final foot = size.height;
-    final right = trailingShoulderInside ? size.width - _radius : size.width;
-    final path = Path()..moveTo(leadingShoulder ? -_radius : 0, foot);
-    if (leadingShoulder) {
-      // A concave quarter turn from the foot up to the leading edge.
-      _addShoulder(
-        path,
-        center: Offset(-_radius, foot - _radius),
-        from: math.pi / 2,
-      );
-    }
-    path
-      ..lineTo(0, _radius)
-      ..arcToPoint(const Offset(_radius, 0), radius: _corner)
-      ..lineTo(right - _radius, 0)
-      ..arcToPoint(Offset(right, _radius), radius: _corner);
-    if (trailingShoulderInside) {
-      path.lineTo(right, foot - _radius);
-      _addShoulder(
-        path,
-        center: Offset(size.width, foot - _radius),
-        from: math.pi,
-      );
-    } else {
-      path.lineTo(right, foot);
-    }
-    return path..close();
-  }
-
-  /// Extends [path] with a shoulder: a quarter of the circle of the cap
-  /// radius about [center], turning anticlockwise from angle [from].
-  static void _addShoulder(
-    Path path, {
-    required Offset center,
-    required double from,
-  }) {
-    path.arcTo(
-      Rect.fromCircle(center: center, radius: _radius),
-      from,
-      -math.pi / 2,
-      false,
-    );
-  }
-
-  @override
-  bool shouldRepaint(ConnectedEditorTabPainter oldDelegate) =>
-      oldDelegate.active != active ||
-      oldDelegate.fill != fill ||
-      oldDelegate.surface != surface ||
-      oldDelegate.position != position;
 }

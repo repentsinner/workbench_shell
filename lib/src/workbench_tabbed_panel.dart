@@ -391,14 +391,13 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
       ),
       decoration: BoxDecoration(
         color: theme.badgeBackground,
-        borderRadius: const BorderRadius.all(Radius.circular(8)),
+        borderRadius: const BorderRadius.all(
+          Radius.circular(WorkbenchLayoutConstants.compositeBarBadgeRadius),
+        ),
       ),
       child: Text(
         '${badge.count}',
-        style: theme.smallText.copyWith(
-          color: theme.badgeForeground,
-          fontWeight: FontWeight.w600,
-        ),
+        style: theme.smallText.copyWith(color: theme.badgeForeground),
       ),
     );
   }

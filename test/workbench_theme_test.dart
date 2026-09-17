@@ -488,12 +488,12 @@ void main() {
       );
       // VS Code registry: surface.background is sideBar.background in dark
       // themes and editor.background in light ones; surface.border is
-      // `foreground` at 10% composited over it.
+      // `opaque(transparent(foreground, 0.15), surface.background)`.
       expect(dark.surfaceBackground, dark.sideBarBackground);
       expect(
         dark.surfaceBorder,
         Color.alphaBlend(
-          dark.foreground.withValues(alpha: 0.1),
+          dark.foreground.withValues(alpha: dark.foreground.a * 0.15),
           dark.surfaceBackground,
         ),
       );
@@ -502,6 +502,34 @@ void main() {
         const VscodeColorMap(name: 'X', baseType: 'vs', colors: {}),
       );
       expect(light.surfaceBackground, light.editorBackground);
+    });
+
+    test('modernSash.gripForeground falls back to foreground at 40%', () {
+      // VS Code registry: `transparent(foreground, 0.4)` in dark and light
+      // themes. `sashHandles.css` paints the grip with the token as is.
+      for (final baseType in ['vs-dark', 'vs']) {
+        final theme = WorkbenchTheme.fromVscodeColorMap(
+          VscodeColorMap(name: 'X', baseType: baseType, colors: const {}),
+        );
+        expect(
+          theme.sashGripForeground,
+          theme.foreground.withValues(alpha: theme.foreground.a * 0.4),
+          reason: baseType,
+        );
+      }
+    });
+
+    test('modernSash.gripForeground honours the theme key', () {
+      final theme = WorkbenchTheme.fromVscodeColorMap(
+        loader.parse('''
+        {
+          "name": "Grip Test",
+          "type": "vs-dark",
+          "colors": { "modernSash.gripForeground": "#FF000080" }
+        }
+        '''),
+      );
+      expect(theme.sashGripForeground, const Color(0x80FF0000));
     });
 
     test('surface.* honour explicit tokens when present', () {
@@ -605,11 +633,27 @@ void main() {
         const Color(0xFF00FF00),
       );
 
+      expect(
+        base.copyWith(sashGripForeground: const Color(0xFF00FF00)),
+        isNot(base),
+      );
+      expect(
+        base
+            .copyWith(sashGripForeground: const Color(0xFF00FF00))
+            .sashGripForeground,
+        const Color(0xFF00FF00),
+      );
+
       final other = base.copyWith(
         surfaceBackground: const Color(0xFF000000),
         activityBarItemActiveBackground: const Color(0xFF000000),
+        sashGripForeground: const Color(0xFF000000),
       );
       final mid = base.lerp(other, 0.5);
+      expect(
+        mid.sashGripForeground,
+        Color.lerp(base.sashGripForeground, other.sashGripForeground, 0.5),
+      );
       expect(
         mid.surfaceBackground,
         Color.lerp(base.surfaceBackground, other.surfaceBackground, 0.5),
@@ -1032,9 +1076,9 @@ void main() {
         expect(theme.bodyText.fontWeight, FontWeight.w400);
       });
 
-      test('labelText is 13 / w500 (settingsEditor2.css)', () {
+      test('labelText is 13 / w600 (settingsEditor2.css)', () {
         expect(theme.labelText.fontSize, 13);
-        expect(theme.labelText.fontWeight, FontWeight.w500);
+        expect(theme.labelText.fontWeight, FontWeight.w600);
       });
 
       test('statusText is 12 / w400 (statusbarpart.css)', () {
@@ -1062,9 +1106,9 @@ void main() {
         expect(theme.helperStyle.fontWeight, FontWeight.w400);
       });
 
-      test('smallText is 11 / w600 (paneCompositeBar badge tier)', () {
-        expect(theme.smallText.fontSize, 11);
-        expect(theme.smallText.fontWeight, FontWeight.w600);
+      test('smallText is 10 / w400 (paneCompositePart.css badge tier)', () {
+        expect(theme.smallText.fontSize, 10);
+        expect(theme.smallText.fontWeight, FontWeight.w400);
       });
 
       test('chromeFontFamily default null → resolves to platform UI sans', () {
@@ -1514,6 +1558,266 @@ void main() {
         base.copyWith(tabActiveBorderTop: red),
         base.copyWith(tabActiveBorder: red),
         base.copyWith(editorTabLabel: other.editorTabLabel),
+      ]) {
+        expect(changed, isNot(base));
+        expect(changed.hashCode, isNot(base.hashCode));
+      }
+    });
+  });
+
+  group('WorkbenchTheme Modern UI editor tab tokens '
+      '(§spec:editor-tab-rendering)', () {
+    WorkbenchTheme parse(String type, String colors) =>
+        WorkbenchTheme.fromVscodeColorMap(
+          loader.parse('{"name": "X", "type": "$type", "colors": {$colors}}'),
+        );
+
+    test('fall back to the list colours when the theme sets no tab key', () {
+      // theme.ts: modernEditorTab.* registers as modernTab.*, which registers
+      // as the list colours; listColors.ts: list.inactiveSelectionBackground
+      // #37373D dark / #E4E6F1 light, list.hoverBackground #2A2D2E / #F0F0F0.
+      final dark = parse('vs-dark', '');
+      expect(dark.modernEditorTabActiveBackground, const Color(0xFF37373D));
+      expect(dark.modernEditorTabHoverBackground, const Color(0xFF2A2D2E));
+      expect(
+        dark.modernEditorTabActiveHoverBackground,
+        const Color(0xFF2A2D2E),
+      );
+      expect(dark.modernEditorTabActiveForeground, dark.foreground);
+      expect(dark.modernEditorTabHoverForeground, dark.foreground);
+      // tabs.css: color-mix(in srgb, var(--vscode-foreground) 50%,
+      // transparent).
+      expect(
+        dark.modernEditorTabInactiveForeground,
+        dark.foreground.withValues(alpha: dark.foreground.a / 2),
+      );
+
+      final light = parse('vs', '');
+      expect(light.modernEditorTabActiveBackground, const Color(0xFFE4E6F1));
+      expect(light.modernEditorTabHoverBackground, const Color(0xFFF0F0F0));
+    });
+
+    test('each key falls back through modernTab.* to the list colours', () {
+      final list = parse('vs-dark', '''
+        "list.inactiveSelectionBackground": "#010101",
+        "list.inactiveSelectionForeground": "#020202",
+        "list.hoverBackground": "#030303",
+        "list.hoverForeground": "#040404"
+      ''');
+      expect(list.modernEditorTabActiveBackground, const Color(0xFF010101));
+      expect(list.modernEditorTabActiveForeground, const Color(0xFF020202));
+      expect(list.modernEditorTabHoverBackground, const Color(0xFF030303));
+      expect(
+        list.modernEditorTabActiveHoverBackground,
+        const Color(0xFF030303),
+      );
+      expect(list.modernEditorTabHoverForeground, const Color(0xFF040404));
+
+      final modernTab = parse('vs-dark', '''
+        "list.inactiveSelectionBackground": "#010101",
+        "modernTab.activeBackground": "#111111",
+        "modernTab.activeForeground": "#121212",
+        "modernTab.hoverBackground": "#131313",
+        "modernTab.hoverForeground": "#141414"
+      ''');
+      expect(
+        modernTab.modernEditorTabActiveBackground,
+        const Color(0xFF111111),
+      );
+      expect(
+        modernTab.modernEditorTabActiveForeground,
+        const Color(0xFF121212),
+      );
+      expect(modernTab.modernEditorTabHoverBackground, const Color(0xFF131313));
+      expect(
+        modernTab.modernEditorTabActiveHoverBackground,
+        const Color(0xFF131313),
+      );
+      expect(modernTab.modernEditorTabHoverForeground, const Color(0xFF141414));
+
+      final editorTab = parse('vs-dark', '''
+        "modernTab.activeBackground": "#111111",
+        "modernEditorTab.activeBackground": "#212121",
+        "modernEditorTab.activeForeground": "#222222",
+        "modernEditorTab.hoverBackground": "#232323",
+        "modernEditorTab.hoverForeground": "#242424"
+      ''');
+      expect(
+        editorTab.modernEditorTabActiveBackground,
+        const Color(0xFF212121),
+      );
+      expect(
+        editorTab.modernEditorTabActiveForeground,
+        const Color(0xFF222222),
+      );
+      expect(editorTab.modernEditorTabHoverBackground, const Color(0xFF232323));
+      // theme.ts registers modernEditorTab.activeHoverBackground as
+      // modernEditorTab.hoverBackground.
+      expect(
+        editorTab.modernEditorTabActiveHoverBackground,
+        const Color(0xFF232323),
+      );
+      expect(editorTab.modernEditorTabHoverForeground, const Color(0xFF242424));
+
+      final activeHover = parse('vs-dark', '''
+        "modernEditorTab.activeHoverBackground": "#252525"
+      ''');
+      expect(
+        activeHover.modernEditorTabActiveHoverBackground,
+        const Color(0xFF252525),
+      );
+    });
+
+    test("a theme's tab.* colours do not reach the pills", () {
+      // Upstream carries tab.* onto the pills only from the user's
+      // workbench.colorCustomizations (modernTabColorCustomizations.ts),
+      // never from a theme file.
+      final theme = parse('vs-dark', '''
+        "tab.activeBackground": "#FF0000",
+        "tab.hoverBackground": "#00FF00",
+        "tab.activeForeground": "#0000FF",
+        "tab.inactiveForeground": "#FFFF00"
+      ''');
+      final plain = parse('vs-dark', '');
+      expect(
+        theme.modernEditorTabActiveBackground,
+        plain.modernEditorTabActiveBackground,
+      );
+      expect(
+        theme.modernEditorTabHoverBackground,
+        plain.modernEditorTabHoverBackground,
+      );
+      expect(
+        theme.modernEditorTabActiveForeground,
+        plain.modernEditorTabActiveForeground,
+      );
+      expect(
+        theme.modernEditorTabInactiveForeground,
+        plain.modernEditorTabInactiveForeground,
+      );
+    });
+
+    test('copyWith, lerp and equality carry the tokens', () {
+      final base = parse('vs-dark', '');
+      const red = Color(0xFFFF0000);
+      final other = base.copyWith(
+        modernEditorTabActiveBackground: red,
+        modernEditorTabActiveForeground: red,
+        modernEditorTabInactiveForeground: red,
+        modernEditorTabHoverBackground: red,
+        modernEditorTabHoverForeground: red,
+        modernEditorTabActiveHoverBackground: red,
+      );
+      expect(other.modernEditorTabActiveBackground, red);
+      expect(other.modernEditorTabActiveForeground, red);
+      expect(other.modernEditorTabInactiveForeground, red);
+      expect(other.modernEditorTabHoverBackground, red);
+      expect(other.modernEditorTabHoverForeground, red);
+      expect(other.modernEditorTabActiveHoverBackground, red);
+
+      final mid = base.lerp(other, 0.5);
+      expect(
+        mid.modernEditorTabActiveBackground,
+        Color.lerp(base.modernEditorTabActiveBackground, red, 0.5),
+      );
+      expect(
+        mid.modernEditorTabActiveHoverBackground,
+        Color.lerp(base.modernEditorTabActiveHoverBackground, red, 0.5),
+      );
+
+      for (final changed in [
+        base.copyWith(modernEditorTabActiveBackground: red),
+        base.copyWith(modernEditorTabActiveForeground: red),
+        base.copyWith(modernEditorTabInactiveForeground: red),
+        base.copyWith(modernEditorTabHoverBackground: red),
+        base.copyWith(modernEditorTabHoverForeground: red),
+        base.copyWith(modernEditorTabActiveHoverBackground: red),
+      ]) {
+        expect(changed, isNot(base));
+        expect(changed.hashCode, isNot(base.hashCode));
+      }
+    });
+  });
+
+  group('WorkbenchTheme editor tab scrollbar tokens '
+      '(§spec:editor-tab-overflow)', () {
+    test('fall back to the upstream registry defaults when omitted', () {
+      // miscColors.ts: scrollbarSlider.background #797979 at 0.4 dark /
+      // #646464 at 0.4 light; hoverBackground #646464 at 0.7 in both;
+      // activeBackground #BFBFBF at 0.4 dark / #000000 at 0.6 light.
+      final dark = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+      );
+      expect(
+        dark.scrollbarSliderBackground,
+        const Color(0xFF797979).withValues(alpha: 0.4),
+      );
+      expect(
+        dark.scrollbarSliderHoverBackground,
+        const Color(0xFF646464).withValues(alpha: 0.7),
+      );
+      expect(
+        dark.scrollbarSliderActiveBackground,
+        const Color(0xFFBFBFBF).withValues(alpha: 0.4),
+      );
+
+      final light = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs', colors: {}),
+      );
+      expect(
+        light.scrollbarSliderBackground,
+        const Color(0xFF646464).withValues(alpha: 0.4),
+      );
+      expect(
+        light.scrollbarSliderHoverBackground,
+        const Color(0xFF646464).withValues(alpha: 0.7),
+      );
+      expect(
+        light.scrollbarSliderActiveBackground,
+        const Color(0xFF000000).withValues(alpha: 0.6),
+      );
+    });
+
+    test('read the theme keys', () {
+      final theme = WorkbenchTheme.fromVscodeColorMap(
+        loader.parse('''
+        {
+          "name": "Slider",
+          "type": "vs-dark",
+          "colors": {
+            "scrollbarSlider.background": "#010203",
+            "scrollbarSlider.hoverBackground": "#040506",
+            "scrollbarSlider.activeBackground": "#070809"
+          }
+        }
+        '''),
+      );
+      expect(theme.scrollbarSliderBackground, const Color(0xFF010203));
+      expect(theme.scrollbarSliderHoverBackground, const Color(0xFF040506));
+      expect(theme.scrollbarSliderActiveBackground, const Color(0xFF070809));
+    });
+
+    test('copyWith, lerp and equality carry the tokens', () {
+      final base = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+      );
+      const red = Color(0xFFFF0000);
+      final other = base.copyWith(
+        scrollbarSliderBackground: red,
+        scrollbarSliderHoverBackground: red,
+        scrollbarSliderActiveBackground: red,
+      );
+      expect(other.scrollbarSliderBackground, red);
+      expect(other.scrollbarSliderHoverBackground, red);
+      expect(other.scrollbarSliderActiveBackground, red);
+      expect(
+        base.lerp(other, 0.5).scrollbarSliderBackground,
+        Color.lerp(base.scrollbarSliderBackground, red, 0.5),
+      );
+      for (final changed in [
+        base.copyWith(scrollbarSliderBackground: red),
+        base.copyWith(scrollbarSliderHoverBackground: red),
+        base.copyWith(scrollbarSliderActiveBackground: red),
       ]) {
         expect(changed, isNot(base));
         expect(changed.hashCode, isNot(base.hashCode));
