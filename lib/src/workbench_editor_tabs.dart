@@ -899,6 +899,13 @@ class _EditorTabStripState extends State<EditorTabStrip>
     );
   }
 
+  /// Request the close of the tab with [id] from its close button, and skip
+  /// the next reveal so a run of closes leaves the strip under the pointer.
+  void _closeFromButton(String id) {
+    _blockRevealOnce = true;
+    widget.onCloseRequested!(id);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = widget.theme;
@@ -907,7 +914,6 @@ class _EditorTabStripState extends State<EditorTabStrip>
     final metrics = WorkbenchSurfaceTreatment.of(context)
         ? _EditorTabMetrics.modern
         : _EditorTabMetrics.base;
-    final onClose = widget.onCloseRequested;
 
     /// The tab for [tab], or its drag image. The drag image renders as the
     /// active tab and, like any drag image, takes no pointer.
@@ -918,12 +924,9 @@ class _EditorTabStripState extends State<EditorTabStrip>
           active: dragImage || tab.id == activeId,
           metrics: metrics,
           onSelected: () => widget.onSelected(tab.id),
-          onClose: onClose == null
+          onClose: widget.onCloseRequested == null
               ? null
-              : () {
-                  _blockRevealOnce = true;
-                  onClose(tab.id);
-                },
+              : () => _closeFromButton(tab.id),
           theme: theme,
         );
 
