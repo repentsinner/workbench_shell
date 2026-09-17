@@ -1543,7 +1543,7 @@ model and do not participate in this contract.
 
 ## Editor Tabs §spec:editor-tabs
 
-*Status: in progress*
+*Status: complete*
 
 **Problem**: the editor area holds one host widget, so a host with two
 readings of one subject (a diagram and a table over the same
@@ -1619,9 +1619,11 @@ The shell renders two treatments and picks one by the Modern UI flag
   card, with no border or separator, in a 32px row. Each tab is
   content-sized and carries a 24px rounded fill, `cornerRadius.small`,
   inset `spacing.size20` from each side so neighbouring pills stand
-  apart. The active pill fills with `modernEditorTab.activeBackground`
-  and a hovered pill with `modernEditorTab.hoverBackground`; inactive
-  pills are unfilled, with labels in `foreground` at half strength.
+  apart, while their hit targets touch. The active pill fills with
+  `modernEditorTab.activeBackground`, or `activeHoverBackground` while
+  hovered, and a hovered inactive pill with
+  `modernEditorTab.hoverBackground`; other inactive pills are unfilled,
+  with labels in `foreground` at half strength.
 
 Both treatments share the rest of the canon:
 
@@ -1711,7 +1713,9 @@ When the tabs outgrow the strip, the strip scrolls horizontally, per
   overflow and the pointer is over the strip or a scroll is under way,
   and fades out after scrolling stops. The slider paints
   `scrollbarSlider.background`, and `hoverBackground` and
-  `activeBackground` while hovered and dragged.
+  `activeBackground` while hovered and dragged. Under Modern UI it
+  rounds to `cornerRadius.small`, as `roundedCorners.css` rounds every
+  slider.
 - Activating a tab reveals it with the least scroll. A tab cut off at
   the trailing edge scrolls until its trailing edge meets the strip's;
   a tab cut off at the leading edge, or wider than the strip, scrolls
@@ -1734,7 +1738,11 @@ colors itself, and general scrollbar theming stays a separate concern.
 from the browser's native drag auto-scroll rather than its own code.
 Flutter has no native equivalent, and without it a tab in a long
 strip could only move within the visible range, so the shell supplies
-the behaviour the browser supplies upstream.
+the behaviour the browser supplies upstream. With no upstream value to
+match, the shell picks a zone of `spacing.size320` at each end, about
+a square on the strip and narrower than any tab, and a steady 480
+logical pixels a second, fast enough to cross a long strip and slow
+enough that each drop position reads as it passes.
 
 **Keyboard.** The shell publishes intents for the editor-tab commands
 every VS Code user carries in muscle memory, and binds them to

@@ -1520,4 +1520,264 @@ void main() {
       }
     });
   });
+
+  group('WorkbenchTheme Modern UI editor tab tokens '
+      '(§spec:editor-tab-rendering)', () {
+    WorkbenchTheme parse(String type, String colors) =>
+        WorkbenchTheme.fromVscodeColorMap(
+          loader.parse('{"name": "X", "type": "$type", "colors": {$colors}}'),
+        );
+
+    test('fall back to the list colours when the theme sets no tab key', () {
+      // theme.ts: modernEditorTab.* registers as modernTab.*, which registers
+      // as the list colours; listColors.ts: list.inactiveSelectionBackground
+      // #37373D dark / #E4E6F1 light, list.hoverBackground #2A2D2E / #F0F0F0.
+      final dark = parse('vs-dark', '');
+      expect(dark.modernEditorTabActiveBackground, const Color(0xFF37373D));
+      expect(dark.modernEditorTabHoverBackground, const Color(0xFF2A2D2E));
+      expect(
+        dark.modernEditorTabActiveHoverBackground,
+        const Color(0xFF2A2D2E),
+      );
+      expect(dark.modernEditorTabActiveForeground, dark.foreground);
+      expect(dark.modernEditorTabHoverForeground, dark.foreground);
+      // tabs.css: color-mix(in srgb, var(--vscode-foreground) 50%,
+      // transparent).
+      expect(
+        dark.modernEditorTabInactiveForeground,
+        dark.foreground.withValues(alpha: dark.foreground.a / 2),
+      );
+
+      final light = parse('vs', '');
+      expect(light.modernEditorTabActiveBackground, const Color(0xFFE4E6F1));
+      expect(light.modernEditorTabHoverBackground, const Color(0xFFF0F0F0));
+    });
+
+    test('each key falls back through modernTab.* to the list colours', () {
+      final list = parse('vs-dark', '''
+        "list.inactiveSelectionBackground": "#010101",
+        "list.inactiveSelectionForeground": "#020202",
+        "list.hoverBackground": "#030303",
+        "list.hoverForeground": "#040404"
+      ''');
+      expect(list.modernEditorTabActiveBackground, const Color(0xFF010101));
+      expect(list.modernEditorTabActiveForeground, const Color(0xFF020202));
+      expect(list.modernEditorTabHoverBackground, const Color(0xFF030303));
+      expect(
+        list.modernEditorTabActiveHoverBackground,
+        const Color(0xFF030303),
+      );
+      expect(list.modernEditorTabHoverForeground, const Color(0xFF040404));
+
+      final modernTab = parse('vs-dark', '''
+        "list.inactiveSelectionBackground": "#010101",
+        "modernTab.activeBackground": "#111111",
+        "modernTab.activeForeground": "#121212",
+        "modernTab.hoverBackground": "#131313",
+        "modernTab.hoverForeground": "#141414"
+      ''');
+      expect(
+        modernTab.modernEditorTabActiveBackground,
+        const Color(0xFF111111),
+      );
+      expect(
+        modernTab.modernEditorTabActiveForeground,
+        const Color(0xFF121212),
+      );
+      expect(modernTab.modernEditorTabHoverBackground, const Color(0xFF131313));
+      expect(
+        modernTab.modernEditorTabActiveHoverBackground,
+        const Color(0xFF131313),
+      );
+      expect(modernTab.modernEditorTabHoverForeground, const Color(0xFF141414));
+
+      final editorTab = parse('vs-dark', '''
+        "modernTab.activeBackground": "#111111",
+        "modernEditorTab.activeBackground": "#212121",
+        "modernEditorTab.activeForeground": "#222222",
+        "modernEditorTab.hoverBackground": "#232323",
+        "modernEditorTab.hoverForeground": "#242424"
+      ''');
+      expect(
+        editorTab.modernEditorTabActiveBackground,
+        const Color(0xFF212121),
+      );
+      expect(
+        editorTab.modernEditorTabActiveForeground,
+        const Color(0xFF222222),
+      );
+      expect(editorTab.modernEditorTabHoverBackground, const Color(0xFF232323));
+      // theme.ts registers modernEditorTab.activeHoverBackground as
+      // modernEditorTab.hoverBackground.
+      expect(
+        editorTab.modernEditorTabActiveHoverBackground,
+        const Color(0xFF232323),
+      );
+      expect(editorTab.modernEditorTabHoverForeground, const Color(0xFF242424));
+
+      final activeHover = parse('vs-dark', '''
+        "modernEditorTab.activeHoverBackground": "#252525"
+      ''');
+      expect(
+        activeHover.modernEditorTabActiveHoverBackground,
+        const Color(0xFF252525),
+      );
+    });
+
+    test("a theme's tab.* colours do not reach the pills", () {
+      // Upstream carries tab.* onto the pills only from the user's
+      // workbench.colorCustomizations (modernTabColorCustomizations.ts),
+      // never from a theme file.
+      final theme = parse('vs-dark', '''
+        "tab.activeBackground": "#FF0000",
+        "tab.hoverBackground": "#00FF00",
+        "tab.activeForeground": "#0000FF",
+        "tab.inactiveForeground": "#FFFF00"
+      ''');
+      final plain = parse('vs-dark', '');
+      expect(
+        theme.modernEditorTabActiveBackground,
+        plain.modernEditorTabActiveBackground,
+      );
+      expect(
+        theme.modernEditorTabHoverBackground,
+        plain.modernEditorTabHoverBackground,
+      );
+      expect(
+        theme.modernEditorTabActiveForeground,
+        plain.modernEditorTabActiveForeground,
+      );
+      expect(
+        theme.modernEditorTabInactiveForeground,
+        plain.modernEditorTabInactiveForeground,
+      );
+    });
+
+    test('copyWith, lerp and equality carry the tokens', () {
+      final base = parse('vs-dark', '');
+      const red = Color(0xFFFF0000);
+      final other = base.copyWith(
+        modernEditorTabActiveBackground: red,
+        modernEditorTabActiveForeground: red,
+        modernEditorTabInactiveForeground: red,
+        modernEditorTabHoverBackground: red,
+        modernEditorTabHoverForeground: red,
+        modernEditorTabActiveHoverBackground: red,
+      );
+      expect(other.modernEditorTabActiveBackground, red);
+      expect(other.modernEditorTabActiveForeground, red);
+      expect(other.modernEditorTabInactiveForeground, red);
+      expect(other.modernEditorTabHoverBackground, red);
+      expect(other.modernEditorTabHoverForeground, red);
+      expect(other.modernEditorTabActiveHoverBackground, red);
+
+      final mid = base.lerp(other, 0.5);
+      expect(
+        mid.modernEditorTabActiveBackground,
+        Color.lerp(base.modernEditorTabActiveBackground, red, 0.5),
+      );
+      expect(
+        mid.modernEditorTabActiveHoverBackground,
+        Color.lerp(base.modernEditorTabActiveHoverBackground, red, 0.5),
+      );
+
+      for (final changed in [
+        base.copyWith(modernEditorTabActiveBackground: red),
+        base.copyWith(modernEditorTabActiveForeground: red),
+        base.copyWith(modernEditorTabInactiveForeground: red),
+        base.copyWith(modernEditorTabHoverBackground: red),
+        base.copyWith(modernEditorTabHoverForeground: red),
+        base.copyWith(modernEditorTabActiveHoverBackground: red),
+      ]) {
+        expect(changed, isNot(base));
+        expect(changed.hashCode, isNot(base.hashCode));
+      }
+    });
+  });
+
+  group('WorkbenchTheme editor tab scrollbar tokens '
+      '(§spec:editor-tab-overflow)', () {
+    test('fall back to the upstream registry defaults when omitted', () {
+      // miscColors.ts: scrollbarSlider.background #797979 at 0.4 dark /
+      // #646464 at 0.4 light; hoverBackground #646464 at 0.7 in both;
+      // activeBackground #BFBFBF at 0.4 dark / #000000 at 0.6 light.
+      final dark = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+      );
+      expect(
+        dark.scrollbarSliderBackground,
+        const Color(0xFF797979).withValues(alpha: 0.4),
+      );
+      expect(
+        dark.scrollbarSliderHoverBackground,
+        const Color(0xFF646464).withValues(alpha: 0.7),
+      );
+      expect(
+        dark.scrollbarSliderActiveBackground,
+        const Color(0xFFBFBFBF).withValues(alpha: 0.4),
+      );
+
+      final light = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs', colors: {}),
+      );
+      expect(
+        light.scrollbarSliderBackground,
+        const Color(0xFF646464).withValues(alpha: 0.4),
+      );
+      expect(
+        light.scrollbarSliderHoverBackground,
+        const Color(0xFF646464).withValues(alpha: 0.7),
+      );
+      expect(
+        light.scrollbarSliderActiveBackground,
+        const Color(0xFF000000).withValues(alpha: 0.6),
+      );
+    });
+
+    test('read the theme keys', () {
+      final theme = WorkbenchTheme.fromVscodeColorMap(
+        loader.parse('''
+        {
+          "name": "Slider",
+          "type": "vs-dark",
+          "colors": {
+            "scrollbarSlider.background": "#010203",
+            "scrollbarSlider.hoverBackground": "#040506",
+            "scrollbarSlider.activeBackground": "#070809"
+          }
+        }
+        '''),
+      );
+      expect(theme.scrollbarSliderBackground, const Color(0xFF010203));
+      expect(theme.scrollbarSliderHoverBackground, const Color(0xFF040506));
+      expect(theme.scrollbarSliderActiveBackground, const Color(0xFF070809));
+    });
+
+    test('copyWith, lerp and equality carry the tokens', () {
+      final base = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+      );
+      const red = Color(0xFFFF0000);
+      final other = base.copyWith(
+        scrollbarSliderBackground: red,
+        scrollbarSliderHoverBackground: red,
+        scrollbarSliderActiveBackground: red,
+      );
+      expect(other.scrollbarSliderBackground, red);
+      expect(other.scrollbarSliderHoverBackground, red);
+      expect(other.scrollbarSliderActiveBackground, red);
+      expect(
+        base.lerp(other, 0.5).scrollbarSliderBackground,
+        Color.lerp(base.scrollbarSliderBackground, red, 0.5),
+      );
+      for (final changed in [
+        base.copyWith(scrollbarSliderBackground: red),
+        base.copyWith(scrollbarSliderHoverBackground: red),
+        base.copyWith(scrollbarSliderActiveBackground: red),
+      ]) {
+        expect(changed, isNot(base));
+        expect(changed.hashCode, isNot(base.hashCode));
+      }
+    });
+  });
 }

@@ -407,16 +407,23 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
 
   /// Open an untitled editor. The host only adds it; the shell opens it to
   /// the right of the active tab and activates it (§spec:editor-tab-state).
-  void _openNewEditor() {
+  void _openNewEditor() => _openNewEditors(1);
+
+  /// Open [count] untitled editors in one step. The shell opens them left to
+  /// right after the active tab and activates the last, scrolling it into
+  /// view once the tabs overflow the strip (§spec:editor-tab-overflow).
+  void _openNewEditors(int count) {
     setState(() {
-      _untitledCount++;
-      _editors.add(
-        _ExampleEditor(
-          id: 'untitled-$_untitledCount',
-          label: 'Untitled-$_untitledCount',
-          icon: Symbols.draft_rounded,
-        ),
-      );
+      for (var i = 0; i < count; i++) {
+        _untitledCount++;
+        _editors.add(
+          _ExampleEditor(
+            id: 'untitled-$_untitledCount',
+            label: 'Untitled-$_untitledCount',
+            icon: Symbols.draft_rounded,
+          ),
+        );
+      }
     });
   }
 
@@ -1026,6 +1033,7 @@ class _WorkbenchHomeState extends State<WorkbenchHome> {
         _EditorLifecycleControls(
           isDirty: _dirtyEditorIds.contains(editor.id),
           onNewEditor: _openNewEditor,
+          onNewEditors: () => _openNewEditors(_bulkEditorCount),
           onToggleUnsaved: () => _toggleUnsaved(editor.id),
         ),
         Expanded(
@@ -1691,6 +1699,10 @@ class _ThemeDropdownField extends StatelessWidget {
 /// The id of the editor that carries the lorem body.
 const _loremEditorId = 'lorem';
 
+/// How many untitled editors the bulk control opens: enough to outgrow the
+/// editor tab strip at a typical window width (§spec:editor-tab-overflow).
+const _bulkEditorCount = 10;
+
 /// One editor the example host keeps open (§spec:editor-tabs). The host owns
 /// this list; the shell derives the tab strip from it.
 @immutable
@@ -1732,17 +1744,20 @@ class _EmptyEditorSurface extends StatelessWidget {
 }
 
 /// Host controls above each editor that exercise the tab lifecycle
-/// (§spec:editor-tab-state): open another editor, and flip this one's unsaved
+/// (§spec:editor-tab-state): open another editor, open enough at once to
+/// overflow the strip (§spec:editor-tab-overflow), and flip this one's unsaved
 /// state so its tab trades the close button for the dirty dot.
 class _EditorLifecycleControls extends StatelessWidget {
   const _EditorLifecycleControls({
     required this.isDirty,
     required this.onNewEditor,
+    required this.onNewEditors,
     required this.onToggleUnsaved,
   });
 
   final bool isDirty;
   final VoidCallback onNewEditor;
+  final VoidCallback onNewEditors;
   final VoidCallback onToggleUnsaved;
 
   @override
@@ -1756,6 +1771,10 @@ class _EditorLifecycleControls extends StatelessWidget {
         spacing: WorkbenchLayoutConstants.spacingSize80,
         children: [
           _DemoButton(label: 'New Editor', onTap: onNewEditor),
+          _DemoButton(
+            label: 'Open $_bulkEditorCount Editors',
+            onTap: onNewEditors,
+          ),
           _DemoButton(
             label: isDirty ? 'Mark Saved' : 'Mark Unsaved',
             onTap: onToggleUnsaved,
