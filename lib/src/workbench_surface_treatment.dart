@@ -104,15 +104,18 @@ class WorkbenchSurfaceTreatment extends InheritedWidget {
 
   /// The inset the status bar pads its item row by. The bar is a rail inside
   /// the cluster rather than a card, so it takes no border or radius of its
-  /// own, but `floatingPanels.css` insets its content —
-  /// `spacing.size60` horizontally, `spacing.size20` vertically. Base VS Code's
-  /// `statusbarpart.css` pads the part not at all (§spec:modern-ui-surfaces).
+  /// own, but `floatingPanels.css` insets its content `spacing.size60`
+  /// horizontally. `statusBar.css` overrides the vertical pair: no inset above
+  /// and `spacing.size40` below, taken out of the skirt [statusBarHeight]
+  /// adds. Base VS Code's `statusbarpart.css` pads the part not at all
+  /// (§spec:modern-ui-surfaces).
   static EdgeInsets statusBarInsetFor(bool modernUI) =>
       modernUI ? _modernStatusBarInset : EdgeInsets.zero;
 
-  static const _modernStatusBarInset = EdgeInsets.symmetric(
-    horizontal: WorkbenchLayoutConstants.spacingSize60,
-    vertical: WorkbenchLayoutConstants.spacingSize20,
+  static const _modernStatusBarInset = EdgeInsets.only(
+    left: WorkbenchLayoutConstants.spacingSize60,
+    right: WorkbenchLayoutConstants.spacingSize60,
+    bottom: WorkbenchLayoutConstants.spacingSize40,
   );
 
   /// The radius a status bar item rounds its fill at, so an item that paints a

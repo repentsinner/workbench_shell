@@ -3540,8 +3540,10 @@ closes the gaps, so the grips retire with the space they occupied.
 
 **The status bar is a rail inside the cluster, not a card.** It spans
 the full width and takes no border or radius of its own, but the
-treatment insets its content — `spacing.size60` horizontally,
-`spacing.size20` vertically. Its items round at the controls tier, so
+treatment insets its content. `floatingPanels.css` sets
+`spacing.size60` on each side, and `statusBar.css` overrides the
+vertical pair to no inset above and `spacing.size40` below. Its items
+round at the controls tier, so
 an item that paints a background reads as a pill rather than a
 rectangle. Upstream's variants
 of that horizontal inset — tightened to the activity bar's own gutter,
