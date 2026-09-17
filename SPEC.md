@@ -285,9 +285,10 @@ owns the stacking, the headers, and the chrome between bodies.
   header height. A pane's body sits flush under its header — VS Code's
   `.pane-body` has no top inset; the host body owns any padding.
 - Adjacent panes are separated by chrome on the header, not whitespace:
-  each header paints a section-header background band, and a top rule
-  separates *adjacent* panes — inset from both ends under the Modern UI
-  treatment (§spec:modern-ui-surfaces). The **first** pane in a container
+  a top rule separates *adjacent* panes, inset from both ends under the
+  Modern UI treatment (§spec:modern-ui-surfaces). With the treatment off
+  each header also paints a section-header background band; under it the
+  header matches the surface it sits on. The **first** pane in a container
   omits the rule — VS Code draws no divider above the first pane (and
   none between the container's own header and the first pane). Both
   come from `WorkbenchTheme` tokens mapped from VS Code's
@@ -434,9 +435,10 @@ Reselecting the active container toggles sidebar visibility, unchanged.
   per-view collapsible flag.
 - Panes stack flush at the view-pane header height with no inter-pane
   gap, and each body sits flush under its header; adjacent panes are
-  separated by a header background band and a top rule, inset from both
-  ends (§spec:modern-ui-surfaces) and each nullable per theme, rendered
-  in the bundled default themes. The first pane in a container omits the
+  separated by a top rule, inset from both ends under the Modern UI
+  treatment, and with the treatment off by a header background band
+  (§spec:modern-ui-surfaces). Each is nullable per theme and rendered in
+  the bundled default themes. The first pane in a container omits the
   top rule.
 - Whether a pane is collapsible is derived from the container's view
   count: multiple views → all collapsible; a single view → non-collapsible,
@@ -3495,6 +3497,15 @@ The side bar heading and the panel tab strip are the same upstream rule
 and share the tightened band; each keeps its own base constant so the
 flag returns both to 35px (§spec:layout-constants-canon).
 
+**A pane header matches its surface at rest.** `paneHeaders.css`
+overrides the header's `sideBarSectionHeader.background` with the
+surface it sits on: `sideBar.background` in a side bar and
+`panel.background` in the panel. The header then reads as part of the
+body rather than as a tinted strip. The shell paints no fill at rest,
+which lets that surface through without the header knowing which part
+encloses it. A theme that tints the header token, Monokai among the
+bundled set, shows that tint only with the treatment off.
+
 **The activity bar holds its two zones off the card edges.**
 `padding.css` gives the vertical rail's item column a top margin and its
 trailing zone a bottom margin, over and above the lane inset that centres
@@ -3695,13 +3706,6 @@ excluded here, to be specified separately rather than absorbed:
   The Modern UI look suppresses part shadows for a flat surface while
   preserving floating-overlay shadows. The package's shadow story is
   unaudited against either.
-- *Flattening the pane header's rest-state band.* Upstream additionally
-  paints a pane header the surface colour, discarding
-  `sideBarSectionHeader.background`. The band is retained: the shell
-  renders the header's own token, so a theme that tints it keeps that
-  tint. The two agree wherever a theme leaves the header token equal to
-  the surface — Dark Modern and Light Modern among them — and diverge
-  where it does not, Monokai being the case in the bundled set.
 - *The notification row height.* One of the three metrics
   `modernUI.contribution.ts` sets in code rather than CSS: it swaps
   `DEFAULT_NOTIFICATION_ROW_HEIGHT` (42) for
@@ -3730,8 +3734,8 @@ excluded here, to be specified separately rather than absorbed:
 - The primary side bar, secondary side bar and bottom panel each
   render as a bordered, rounded card separated from its neighbours by
   a visible gap.
-- A view pane header is rounded at the controls tier and tints on
-  hover.
+- A view pane header is rounded at the controls tier, paints no band
+  at rest and tints on hover.
 - The editor renders inside a hairline frame with the same radius, and
   the frame consumes no additional layout space.
 - Where the primary side bar meets the activity bar, one hairline
