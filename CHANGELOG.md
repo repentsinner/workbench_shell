@@ -1,3 +1,18 @@
+# [0.39.0](https://github.com/repentsinner/workbench_shell/compare/v0.38.0...v0.39.0) (2026-09-17)
+
+
+### Features
+
+* **editor-tabs:** render the connected tab style under Modern UI ([5c61fc7](https://github.com/repentsinner/workbench_shell/commit/5c61fc75d495fa4559b164d0464b94bcadc0e987))
+* **editor-tabs:** reorder tabs by dragging them ([508a19e](https://github.com/repentsinner/workbench_shell/commit/508a19eceb865ed04cf3d67d2d89afb7f516145d))
+
+
+### Performance Improvements
+
+* **editor-tabs:** find the drop slot from the row's child offsets ([67761ec](https://github.com/repentsinner/workbench_shell/commit/67761ecbc898b18dccb2a33ffd2c76f7641a718c))
+* **editor-tabs:** isolate strip repaints behind a repaint boundary ([79b6a14](https://github.com/repentsinner/workbench_shell/commit/79b6a14b24da7b2f88e96fdebc54cc0d7497235f))
+* **editor-tabs:** paint one strip-level drop bar instead of rebuilding tabs ([21e6932](https://github.com/repentsinner/workbench_shell/commit/21e69322e012bb6960aac871d51d76821d426a75))
+
 # [0.38.0](https://github.com/repentsinner/workbench_shell/compare/v0.37.0...v0.38.0) (2026-09-16)
 
 
