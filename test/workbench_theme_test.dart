@@ -488,12 +488,12 @@ void main() {
       );
       // VS Code registry: surface.background is sideBar.background in dark
       // themes and editor.background in light ones; surface.border is
-      // `foreground` at 10% composited over it.
+      // `opaque(transparent(foreground, 0.15), surface.background)`.
       expect(dark.surfaceBackground, dark.sideBarBackground);
       expect(
         dark.surfaceBorder,
         Color.alphaBlend(
-          dark.foreground.withValues(alpha: 0.1),
+          dark.foreground.withValues(alpha: dark.foreground.a * 0.15),
           dark.surfaceBackground,
         ),
       );

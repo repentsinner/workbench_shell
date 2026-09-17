@@ -66,7 +66,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   final Color surfaceBackground;
 
   /// Hairline around a framed workbench card. VS Code `surface.border`,
-  /// registered as `foreground` at 10% composited over [surfaceBackground].
+  /// registered as `foreground` at 15% composited over [surfaceBackground].
   /// Every card in the treatment — side bars, bottom panel, editor and
   /// activity bar rail — draws this one stroke; `editor.border` and
   /// `modernActivityBar.border` both resolve to it upstream.
@@ -793,14 +793,19 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     // Framed container surfaces ("cards", §spec:modern-ui-surfaces). VS Code
     // registers surface.background as sideBar.background in dark and
     // high-contrast themes and editor.background in light ones, and
-    // surface.border as `foreground` at 10% composited over it.
+    // surface.border as
+    // `opaque(transparent(foreground, 0.15), surface.background)`, which is
+    // `foreground` at 15% composited over it. High contrast takes
+    // contrastBorder for the border and sideBar.background for a light fill;
+    // the map models neither base type, so both fall to the dark or light
+    // default.
     final surfaceBg = map.resolve(
       'surface.background',
       map.isDark ? sideBarBg : editorBg,
     );
     final surfaceBorder = map.resolve(
       'surface.border',
-      Color.alphaBlend(fg.withValues(alpha: 0.1), surfaceBg),
+      Color.alphaBlend(fg.withValues(alpha: fg.a * 0.15), surfaceBg),
     );
     // The title bar's active fill. Two surfaces read it — the workbench
     // backdrop the cards float above (`floatingPanels.css`) and the
