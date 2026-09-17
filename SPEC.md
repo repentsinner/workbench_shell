@@ -3363,8 +3363,11 @@ header dimensions are upstream's, read from
 [`paneHeaders.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/paneHeaders.css)
 and
 [`activitybarPart.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/activitybar/activitybarPart.ts),
-and expressed through §spec:design-size-ladders. What follows records
-only the decisions that are this package's to make.
+and expressed through §spec:design-size-ladders. Each value is read at
+the latest stable VS Code release rather than upstream `main`, because
+stable is what users run and `main` carries changes a release may still
+alter or drop. What follows records only the decisions that are this
+package's to make.
 
 **The frame is drawn inside the allocation, not around it.** A part's
 border and margin consume space the layout already assigned to it,
