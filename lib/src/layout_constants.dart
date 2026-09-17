@@ -304,9 +304,9 @@ class WorkbenchLayoutConstants {
   /// Width of the zone at either end of an overflowing editor tab strip where
   /// a dragged tab scrolls the strip (§spec:editor-tab-overflow). Upstream
   /// relies on the browser's native drag auto-scroll and declares no value;
-  /// the shell picks [spacingSize320], one Modern UI strip height, so the
-  /// zone is about a square at each end and narrower than any tab.
-  static const double editorTabDragScrollEdge = spacingSize320;
+  /// the shell picks one Modern UI strip height, so the zone is about a
+  /// square at each end and narrower than any tab.
+  static const double editorTabDragScrollEdge = modernEditorTabStripHeight;
 
   /// How fast a dragged tab in [editorTabDragScrollEdge] scrolls the strip,
   /// in logical pixels per second. A shell choice for the same reason: at

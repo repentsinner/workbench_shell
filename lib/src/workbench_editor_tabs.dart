@@ -1330,9 +1330,7 @@ class _EditorTabScrollbarState extends State<_EditorTabScrollbar> {
                     decoration: BoxDecoration(
                       color: color,
                       borderRadius: widget.rounded
-                          ? BorderRadius.circular(
-                              WorkbenchLayoutConstants.cornerRadiusSmall,
-                            )
+                          ? WorkbenchLayoutConstants.controlsRadius
                           : null,
                     ),
                   ),
@@ -1607,9 +1605,7 @@ class _EditorTabState extends State<_EditorTab> {
               key: const ValueKey('editor-tab-pill-fill'),
               decoration: BoxDecoration(
                 color: fill,
-                borderRadius: BorderRadius.circular(
-                  WorkbenchLayoutConstants.cornerRadiusSmall,
-                ),
+                borderRadius: WorkbenchLayoutConstants.controlsRadius,
               ),
             ),
           ),
