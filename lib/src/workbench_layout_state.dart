@@ -120,7 +120,8 @@ class WorkbenchLayoutState {
   /// (§spec:layout-state-persistence). For each container in [live]:
   /// drops arrangement for view ids the descriptors no longer declare, admits
   /// newly declared views at their descriptor defaults, and clamps persisted
-  /// sizes to each pane's geometry (`[minBody, maximumBodySize]`). Containers
+  /// sizes to each pane's geometry (`[minimumBodySize, maximumBodySize]`, the
+  /// floor defaulting to the uniform minimum body height). Containers
   /// absent from [live] are dropped entirely. Controlled visibility views
   /// (a descriptor with `onVisibleChanged`) are excluded from [hidden] — the
   /// host owns their visibility, not the shell store.
@@ -158,8 +159,11 @@ class WorkbenchLayoutState {
         final view = byId[viewId];
         if (view == null) return;
         final maxBody = view.maximumBodySize ?? double.infinity;
-        // A cap below the floor wins (VS Code max-over-min, §spec:view-pane-max-body).
-        final floor = maxBody < minBody ? maxBody : minBody;
+        // Each pane's own floor, defaulting to the uniform minimum
+        // (§spec:view-pane-min-body). A cap below the floor wins (VS Code
+        // max-over-min, §spec:view-pane-max-body).
+        final viewMin = view.minimumBodySize ?? minBody;
+        final floor = maxBody < viewMin ? maxBody : viewMin;
         resolvedSizes[viewId] = value.clamp(floor, maxBody);
       });
       if (resolvedSizes.isNotEmpty) newSizes[containerId] = resolvedSizes;

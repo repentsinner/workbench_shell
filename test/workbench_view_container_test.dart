@@ -356,6 +356,252 @@ void main() {
       expect(fill.height, closeTo(containerHeight - (header + cap), 1.0));
     });
 
+    testWidgets('a pane raises its own floor with minimumBodySize; the '
+        'sibling absorbs the remainder', (tester) async {
+      const containerHeight = 600.0;
+      const header = WorkbenchLayoutConstants.viewPaneHeaderHeight;
+      const floor = 320.0; // above the 120 uniform default
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const SizedBox(
+            height: containerHeight,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'tall',
+                  title: 'Tall',
+                  minimumBodySize: floor,
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'rest',
+                  title: 'Rest',
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // The even share (600 - 2*header) / 2 sits below the raised floor, so the
+      // pane pins at its own minimum and the sibling takes what is left.
+      final tall = paneRect(tester, 'tall');
+      final rest = paneRect(tester, 'rest');
+      expect(tall.height, closeTo(header + floor, 1.0));
+      expect(tall.height + rest.height, closeTo(containerHeight, 1.0));
+    });
+
+    testWidgets('a per-view maximum below a per-view minimum still lets the '
+        'maximum win (canon clamp order)', (tester) async {
+      const containerHeight = 600.0;
+      const header = WorkbenchLayoutConstants.viewPaneHeaderHeight;
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const SizedBox(
+            height: containerHeight,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'inverted',
+                  title: 'Inverted',
+                  minimumBodySize: 300,
+                  maximumBodySize: 80,
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'fill',
+                  title: 'Fill',
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // min(max(value, minBody), maxBody): the outer maximum dominates, so the
+      // pane renders at 80 despite the 300 floor (§spec:view-pane-min-body).
+      expect(paneRect(tester, 'inverted').height, closeTo(header + 80, 1.0));
+    });
+
+    testWidgets('an unset minimumBodySize keeps the uniform default floor',
+        (tester) async {
+      // Pool = 250 - 2*28 = 194; an even share of 97 sits below the 120 floor.
+      const containerHeight = 250.0;
+      const header = WorkbenchLayoutConstants.viewPaneHeaderHeight;
+      const minBody = WorkbenchLayoutConstants.viewPaneMinBodyHeight;
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const SizedBox(
+            height: containerHeight,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'a',
+                  title: 'Alpha',
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'b',
+                  title: 'Beta',
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // Both pin at the uniform floor and the stack overflows, exactly as
+      // before the per-view minimum existed.
+      expect(paneRect(tester, 'a').height, closeTo(header + minBody, 1.0));
+      expect(paneRect(tester, 'b').height, closeTo(header + minBody, 1.0));
+    });
+
+    testWidgets('a minimumBodySize below the uniform floor lowers it', (
+      tester,
+    ) async {
+      const header = WorkbenchLayoutConstants.viewPaneHeaderHeight;
+      const minBody = WorkbenchLayoutConstants.viewPaneMinBodyHeight;
+      const lowFloor = 40.0;
+      const containerHeight = 250.0;
+      const bodyPool = containerHeight - 2 * header;
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const SizedBox(
+            height: containerHeight,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'a',
+                  title: 'Alpha',
+                  minimumBodySize: lowFloor,
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'b',
+                  title: 'Beta',
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // The even share sits below the uniform floor but above A's own, so only
+      // B pins and A absorbs the rest, rendering below the uniform floor.
+      final a = paneRect(tester, 'a');
+      final b = paneRect(tester, 'b');
+      expect(b.height, closeTo(header + minBody, 1.0));
+      expect(a.height, closeTo(header + bodyPool - minBody, 1.0));
+      expect(a.height - header, lessThan(minBody));
+
+      // A sash drag shrinks A down to its own floor, not the uniform one.
+      await tester.drag(
+        find.byKey(const ValueKey('workbench-view-sash-b')),
+        const Offset(0, -1000),
+      );
+      await tester.pumpAndSettle();
+      expect(paneRect(tester, 'a').height, closeTo(header + lowFloor, 1.0));
+    });
+
+    testWidgets('changing minimumBodySize on rebuild re-lays the stack out', (
+      tester,
+    ) async {
+      const header = WorkbenchLayoutConstants.viewPaneHeaderHeight;
+      const containerHeight = 600.0;
+      const bodyPool = containerHeight - 2 * header;
+      Widget build(double? floor) => wrapWithTheme(
+        SizedBox(
+          height: containerHeight,
+          child: WorkbenchViewContainer(
+            views: [
+              WorkbenchViewDescriptor(
+                id: 'a',
+                title: 'Alpha',
+                minimumBodySize: floor,
+                bodyBuilder: _shortBody,
+              ),
+              const WorkbenchViewDescriptor(
+                id: 'b',
+                title: 'Beta',
+                bodyBuilder: _shortBody,
+              ),
+            ],
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(build(null));
+      expect(paneRect(tester, 'a').height, closeTo(header + bodyPool / 2, 1.0));
+
+      // Raising the floor above the even share pins A at it.
+      const raised = 400.0;
+      await tester.pumpWidget(build(raised));
+      expect(paneRect(tester, 'a').height, closeTo(header + raised, 1.0));
+      expect(
+        paneRect(tester, 'b').height,
+        closeTo(header + bodyPool - raised, 1.0),
+      );
+
+      // Dropping it again releases A back to the even share.
+      await tester.pumpWidget(build(null));
+      expect(paneRect(tester, 'a').height, closeTo(header + bodyPool / 2, 1.0));
+    });
+
+    testWidgets('a raised floor and a capped sibling resolve together across '
+        'three panes', (tester) async {
+      const header = WorkbenchLayoutConstants.viewPaneHeaderHeight;
+      const bodyPool = 500.0;
+      const containerHeight = bodyPool + 3 * header;
+      const cap = 60.0;
+      const floor = 300.0;
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const SizedBox(
+            height: containerHeight,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'capped',
+                  title: 'Capped',
+                  maximumBodySize: cap,
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'floored',
+                  title: 'Floored',
+                  minimumBodySize: floor,
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'rest',
+                  title: 'Rest',
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // The cap pins first and returns its excess; the survivors' 220 shares
+      // then leave the floored pane under its floor, so it pins at 300 and the
+      // last pane takes the remaining 140. The stack fills its height exactly.
+      final capped = paneRect(tester, 'capped');
+      final floored = paneRect(tester, 'floored');
+      final rest = paneRect(tester, 'rest');
+      expect(capped.height, closeTo(header + cap, 1.0));
+      expect(floored.height, closeTo(header + floor, 1.0));
+      expect(rest.height, closeTo(header + bodyPool - cap - floor, 1.0));
+      expect(
+        capped.height + floored.height + rest.height,
+        closeTo(containerHeight, 1.0),
+      );
+    });
+
     testWidgets('when every expanded pane is capped below the pool the slack '
         'pools as a trailing gap (canon)', (tester) async {
       const containerHeight = 600.0;
@@ -676,6 +922,53 @@ void main() {
       );
     });
 
+    testWidgets('the sash drag clamps at each pane\'s own minimumBodySize',
+        (tester) async {
+      const header = WorkbenchLayoutConstants.viewPaneHeaderHeight;
+      const containerHeight = 600.0;
+      const aFloor = 200.0;
+      const bFloor = 260.0;
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const SizedBox(
+            height: containerHeight,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'a',
+                  title: 'Alpha',
+                  minimumBodySize: aFloor,
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'b',
+                  title: 'Beta',
+                  minimumBodySize: bFloor,
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // Shrinking the lower pane stops at its own floor, not the uniform one.
+      await tester.drag(
+        find.byKey(const ValueKey('workbench-view-sash-b')),
+        const Offset(0, 1000),
+      );
+      await tester.pumpAndSettle();
+      expect(paneRect(tester, 'b').height, closeTo(header + bFloor, 1.0));
+
+      // And the upper pane stops at its own, larger-than-uniform floor.
+      await tester.drag(
+        find.byKey(const ValueKey('workbench-view-sash-b')),
+        const Offset(0, -1000),
+      );
+      await tester.pumpAndSettle();
+      expect(paneRect(tester, 'a').height, closeTo(header + aFloor, 1.0));
+    });
+
     testWidgets('the sash stays locked to the cursor after overshooting a '
         'clamp — no accumulated offset', (tester) async {
       const containerHeight = 600.0;
@@ -776,6 +1069,61 @@ void main() {
 
       // Drag up past the upper pane's minimum: only "down" remains → down arrow
       // (VS Code s-resize / .minimum).
+      await tester.drag(
+        find.byKey(const ValueKey('workbench-view-sash-b')),
+        const Offset(0, -1000),
+      );
+      await tester.pumpAndSettle();
+      expect(sashCursor(), SystemMouseCursors.resizeDown);
+    });
+
+    testWidgets('the sash cursor turns single-direction at a pane\'s own '
+        'floor', (tester) async {
+      const containerHeight = 600.0;
+      await tester.pumpWidget(
+        wrapWithTheme(
+          const SizedBox(
+            height: containerHeight,
+            child: WorkbenchViewContainer(
+              views: [
+                WorkbenchViewDescriptor(
+                  id: 'a',
+                  title: 'Alpha',
+                  minimumBodySize: 200,
+                  bodyBuilder: _shortBody,
+                ),
+                WorkbenchViewDescriptor(
+                  id: 'b',
+                  title: 'Beta',
+                  minimumBodySize: 260,
+                  bodyBuilder: _shortBody,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      MouseCursor sashCursor() => tester
+          .widget<MouseRegion>(
+            find.descendant(
+              of: find.byKey(const ValueKey('workbench-view-sash-b')),
+              matching: find.byType(MouseRegion),
+            ),
+          )
+          .cursor;
+
+      expect(sashCursor(), SystemMouseCursors.resizeUpDown);
+
+      // The lower pane parks at its 260 floor, well above the uniform one.
+      await tester.drag(
+        find.byKey(const ValueKey('workbench-view-sash-b')),
+        const Offset(0, 1000),
+      );
+      await tester.pumpAndSettle();
+      expect(sashCursor(), SystemMouseCursors.resizeUp);
+
+      // The upper pane parks at its 200 floor.
       await tester.drag(
         find.byKey(const ValueKey('workbench-view-sash-b')),
         const Offset(0, -1000),
@@ -1982,6 +2330,7 @@ void main() {
         expanded: true,
         onExpandedChanged: onExp,
         maximumBodySize: 120,
+        minimumBodySize: 60,
         bodyBuilder: body,
       );
       final copy = base.copyWith();
@@ -1999,7 +2348,44 @@ void main() {
       expect(copy.expanded, isTrue);
       expect(copy.onExpandedChanged, same(onExp));
       expect(copy.maximumBodySize, 120);
+      expect(copy.minimumBodySize, 60);
       expect(copy.bodyBuilder, same(body));
+    });
+
+    test('WorkbenchViewDescriptor.copyWith replaces minimumBodySize and keeps '
+        'it when omitted', () {
+      final base = WorkbenchViewDescriptor(
+        id: 'v',
+        title: 'View',
+        minimumBodySize: 60,
+        bodyBuilder: body,
+      );
+      expect(base.copyWith(minimumBodySize: 200).minimumBodySize, 200);
+      expect(base.copyWith(title: 'Renamed').minimumBodySize, 60);
+    });
+
+    test('WorkbenchViewDescriptor rejects a negative or non-finite floor and a '
+        'negative or NaN cap', () {
+      WorkbenchViewDescriptor floor(double value) => WorkbenchViewDescriptor(
+        id: 'v',
+        title: 'View',
+        minimumBodySize: value,
+        bodyBuilder: body,
+      );
+      WorkbenchViewDescriptor cap(double value) => WorkbenchViewDescriptor(
+        id: 'v',
+        title: 'View',
+        maximumBodySize: value,
+        bodyBuilder: body,
+      );
+      expect(() => floor(-1), throwsAssertionError);
+      expect(() => floor(double.nan), throwsAssertionError);
+      expect(() => floor(double.infinity), throwsAssertionError);
+      expect(floor(0).minimumBodySize, 0);
+      expect(() => cap(-1), throwsAssertionError);
+      expect(() => cap(double.nan), throwsAssertionError);
+      // An infinite cap is VS Code's unbounded default, the same as null.
+      expect(cap(double.infinity).maximumBodySize, double.infinity);
     });
 
     test('WorkbenchViewDescriptor.copyWith overrides only the named fields', () {
