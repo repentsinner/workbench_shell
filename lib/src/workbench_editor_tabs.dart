@@ -752,21 +752,13 @@ class _EditorTabStripState extends State<EditorTabStrip>
     } else if (scrollX > left || !fits) {
       target = left;
     }
-    if (target == null) return;
-    _scroll.jumpTo(
-      clampDouble(target, position.minScrollExtent, position.maxScrollExtent),
-    );
+    if (target != null) position.jumpToClamped(target);
   }
 
   /// Scroll the strip by [delta] logical pixels, clamped to its range.
   void _scrollBy(double delta) {
     final position = _scroll.position;
-    final target = clampDouble(
-      position.pixels + delta,
-      position.minScrollExtent,
-      position.maxScrollExtent,
-    );
-    if (target != position.pixels) _scroll.jumpTo(target);
+    position.jumpToClamped(position.pixels + delta);
   }
 
   /// Whether the tabs overflow the strip, so it has somewhere to scroll.
@@ -1214,13 +1206,7 @@ class _EditorTabScrollbarState extends State<_EditorTabScrollbar> {
     final position = widget.controller.position;
     final x = event.localPosition.dx;
     if (x < slider.left || x > slider.left + slider.size) {
-      widget.controller.jumpTo(
-        clampDouble(
-          (x - slider.size / 2) / slider.ratio,
-          position.minScrollExtent,
-          position.maxScrollExtent,
-        ),
-      );
+      position.jumpToClamped((x - slider.size / 2) / slider.ratio);
     }
     setState(() {
       _drag = (pixels: position.pixels, pointerX: event.position.dx);
@@ -1232,14 +1218,9 @@ class _EditorTabScrollbarState extends State<_EditorTabScrollbar> {
     final drag = _drag;
     final slider = _slider();
     if (drag == null || slider == null) return;
-    final position = widget.controller.position;
     final delta = event.position.dx - drag.pointerX;
-    widget.controller.jumpTo(
-      clampDouble(
-        drag.pixels + delta / slider.ratio,
-        position.minScrollExtent,
-        position.maxScrollExtent,
-      ),
+    widget.controller.position.jumpToClamped(
+      drag.pixels + delta / slider.ratio,
     );
   }
 
@@ -1368,6 +1349,14 @@ enum _ScrollbarVisibility {
 
   /// Hidden after a reveal; fades out rather than cutting.
   fadingOut,
+}
+
+extension on ScrollPosition {
+  /// Jump to [pixels] clamped to the scroll range, unless already there.
+  void jumpToClamped(double pixels) {
+    final target = clampDouble(pixels, minScrollExtent, maxScrollExtent);
+    if (target != this.pixels) jumpTo(target);
+  }
 }
 
 /// A slot a dragged tab would drop into, 0 before the first tab through
