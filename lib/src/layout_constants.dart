@@ -546,6 +546,17 @@ class WorkbenchLayoutConstants {
     horizontal: spacingSize80,
   );
 
+  /// Dropdown field horizontal padding. VS Code's
+  /// [`selectBox.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/base/browser/ui/selectBox/selectBox.css)
+  /// insets a select's label `8px` from its leading edge; the trailing
+  /// chevron takes its own slot, so only the leading value carries over,
+  /// mirrored for balance (§spec:design-size-ladders). It matches
+  /// [buttonPadding] in value but not in role, so a button change does not
+  /// move the field.
+  static const EdgeInsets selectBoxPadding = EdgeInsets.symmetric(
+    horizontal: spacingSize80,
+  );
+
   /// Popup menu row height. VS Code's
   /// [`menu.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/base/browser/ui/menu/menu.ts)
   /// sizes `.monaco-menu .monaco-action-bar.vertical .action-menu-item` at

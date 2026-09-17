@@ -29,6 +29,15 @@ void main() {
       );
     });
 
+    test('selectBoxPadding matches selectBox.css leading inset', () {
+      // `selectBox.css`: `padding: 2px 23px 2px 8px`; the chevron owns the
+      // trailing slot, so the 8px leading inset is the field's padding.
+      expect(
+        WorkbenchLayoutConstants.selectBoxPadding,
+        const EdgeInsets.symmetric(horizontal: 8),
+      );
+    });
+
     test('buttonShape rounds to the controls tier (cornerRadius.small)', () {
       expect(
         WorkbenchLayoutConstants.buttonShape,
