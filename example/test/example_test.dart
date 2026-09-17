@@ -989,29 +989,32 @@ void main() {
       );
     }
 
-    testWidgets('the strip is connected under Modern UI and classic without '
-        'it', (tester) async {
+    testWidgets('the strip renders pills under Modern UI and classic tabs '
+        'without it', (tester) async {
       await pumpWide(tester);
       // The tab stretches to the strip's height, so it reads the row.
       double stripHeight() => tester.getSize(tabOf('lorem-ipsum.txt')).height;
+      final fills = find.byKey(const ValueKey('editor-tab-pill-fill'));
 
       expect(
         stripHeight(),
-        WorkbenchLayoutConstants.connectedEditorTabStripHeight,
+        WorkbenchLayoutConstants.modernEditorTabStripHeight,
       );
+      expect(fills, findsNWidgets(2));
+      // Every tab carries its close button, the inactive one included.
       expect(
-        find.byKey(const ValueKey('editor-tab-connected-fill')),
-        findsNWidgets(2),
+        find.descendant(
+          of: tabOf('release-notes.md'),
+          matching: find.byIcon(Symbols.close_rounded),
+        ),
+        findsOneWidget,
       );
 
       final context = tester.element(find.byType(WorkbenchLayout));
       Actions.invoke(context, const ToggleModernUIIntent());
       await tester.pumpAndSettle();
       expect(stripHeight(), WorkbenchLayoutConstants.editorTabHeight);
-      expect(
-        find.byKey(const ValueKey('editor-tab-connected-fill')),
-        findsNothing,
-      );
+      expect(fills, findsNothing);
     });
 
     testWidgets('dragging a tab shows the drop bar and reorders the strip', (

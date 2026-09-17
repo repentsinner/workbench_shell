@@ -454,6 +454,39 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   /// Label colour on a hovered inactive panel tab —
   /// `modernTab.hoverForeground`.
   final Color panelTabHoverForeground;
+
+  // ---- Pill editor tabs under the treatment (§spec:editor-tab-rendering) ----
+  //
+  // Upstream's theme registry chains each `modernEditorTab.*` key to the
+  // `modernTab.*` key the panel tabs read and then to the list colours
+  // ([`theme.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/common/theme.ts)),
+  // and a theme file's `tab.*` colours never reach the pills.
+
+  /// Fill behind the active editor pill — VS Code
+  /// `modernEditorTab.activeBackground`.
+  final Color modernEditorTabActiveBackground;
+
+  /// Label colour on the active editor pill —
+  /// `modernEditorTab.activeForeground`.
+  final Color modernEditorTabActiveForeground;
+
+  /// Label colour on an inactive editor pill. Not a registered key:
+  /// [`tabs.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/tabs.css)
+  /// mixes `foreground` 50% with transparent.
+  final Color modernEditorTabInactiveForeground;
+
+  /// Fill behind a hovered inactive editor pill —
+  /// `modernEditorTab.hoverBackground`.
+  final Color modernEditorTabHoverBackground;
+
+  /// Label colour on a hovered inactive editor pill —
+  /// `modernEditorTab.hoverForeground`.
+  final Color modernEditorTabHoverForeground;
+
+  /// Fill behind the active editor pill while hovered —
+  /// `modernEditorTab.activeHoverBackground`, registered as
+  /// `modernEditorTab.hoverBackground`.
+  final Color modernEditorTabActiveHoverBackground;
   final TextStyle loglineMessage;
 
   // ---- Syntax token theme ----
@@ -645,6 +678,12 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.panelTabActiveForeground,
     required this.panelTabHoverBackground,
     required this.panelTabHoverForeground,
+    required this.modernEditorTabActiveBackground,
+    required this.modernEditorTabActiveForeground,
+    required this.modernEditorTabInactiveForeground,
+    required this.modernEditorTabHoverBackground,
+    required this.modernEditorTabHoverForeground,
+    required this.modernEditorTabActiveHoverBackground,
     required this.loglineMessage,
     required this.tokenTheme,
     required this.notificationBackground,
@@ -667,6 +706,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   /// [WorkbenchTheme] manually can
   /// reuse it without re-deriving the formula.
   static double hctToneFor(Color color) => Hct.fromInt(color.toARGB32()).tone;
+
+  /// Share of `foreground` in an inactive editor pill's label: `tabs.css`
+  /// sets `color-mix(in srgb, var(--vscode-foreground) 50%, transparent)`.
+  static const double _modernEditorTabInactiveForegroundShare = 0.5;
 
   /// Build a [WorkbenchTheme] from a parsed VS Code color theme.
   ///
@@ -810,6 +853,32 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       'titleBar.activeBackground',
       dl(const Color(0xFF3C3C3C), const Color(0xFFDDDDDD)),
     );
+    // The `modernTab.*` family, falling back to the list colours. The panel
+    // tabs read it directly and the editor pills through their own
+    // `modernEditorTab.*` keys, so the two strips resolve one chain.
+    final modernTabActiveBg = map.resolve(
+      'modernTab.activeBackground',
+      map.resolve(
+        'list.inactiveSelectionBackground',
+        dl(const Color(0xFF37373D), const Color(0xFFE4E6F1)),
+      ),
+    );
+    final modernTabActiveFg = map.resolve(
+      'modernTab.activeForeground',
+      map.resolve('list.inactiveSelectionForeground', fg),
+    );
+    final modernTabHoverBg = map.resolve(
+      'modernTab.hoverBackground',
+      map.resolve('list.hoverBackground', listHoverBg),
+    );
+    final modernTabHoverFg = map.resolve(
+      'modernTab.hoverForeground',
+      map.resolve('list.hoverForeground', fg),
+    );
+    final modernEditorTabHoverBg = map.resolve(
+      'modernEditorTab.hoverBackground',
+      modernTabHoverBg,
+    );
     // Activity bar item states. Upstream chains each key through the modern
     // tab family to the list colours, so a theme that styles only its tabs
     // still gets a coherent rail.
@@ -898,24 +967,32 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // (§spec:modern-ui-surfaces). `tabs.css` paints the composite bar's
       // `active-item-indicator` from the same `modernTab.*` family the rail
       // chains through, so the two surfaces cannot drift.
-      panelTabActiveBackground: map.resolve(
-        'modernTab.activeBackground',
-        map.resolve(
-          'list.inactiveSelectionBackground',
-          dl(const Color(0xFF37373D), const Color(0xFFE4E6F1)),
-        ),
+      panelTabActiveBackground: modernTabActiveBg,
+      panelTabActiveForeground: modernTabActiveFg,
+      panelTabHoverBackground: modernTabHoverBg,
+      panelTabHoverForeground: modernTabHoverFg,
+      // Pill editor tabs (§spec:editor-tab-rendering), from theme.ts.
+      modernEditorTabActiveBackground: map.resolve(
+        'modernEditorTab.activeBackground',
+        modernTabActiveBg,
       ),
-      panelTabActiveForeground: map.resolve(
-        'modernTab.activeForeground',
-        map.resolve('list.inactiveSelectionForeground', fg),
+      modernEditorTabActiveForeground: map.resolve(
+        'modernEditorTab.activeForeground',
+        modernTabActiveFg,
       ),
-      panelTabHoverBackground: map.resolve(
-        'modernTab.hoverBackground',
-        map.resolve('list.hoverBackground', listHoverBg),
+      // tabs.css: color-mix(in srgb, foreground 50%, transparent), which keeps
+      // the colour and scales its alpha by the mix share.
+      modernEditorTabInactiveForeground: fg.withValues(
+        alpha: fg.a * _modernEditorTabInactiveForegroundShare,
       ),
-      panelTabHoverForeground: map.resolve(
-        'modernTab.hoverForeground',
-        map.resolve('list.hoverForeground', fg),
+      modernEditorTabHoverBackground: modernEditorTabHoverBg,
+      modernEditorTabHoverForeground: map.resolve(
+        'modernEditorTab.hoverForeground',
+        modernTabHoverFg,
+      ),
+      modernEditorTabActiveHoverBackground: map.resolve(
+        'modernEditorTab.activeHoverBackground',
+        modernEditorTabHoverBg,
       ),
       // Framed container surfaces
       surfaceBackground: surfaceBg,
@@ -1417,6 +1494,12 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? panelTabActiveForeground,
     Color? panelTabHoverBackground,
     Color? panelTabHoverForeground,
+    Color? modernEditorTabActiveBackground,
+    Color? modernEditorTabActiveForeground,
+    Color? modernEditorTabInactiveForeground,
+    Color? modernEditorTabHoverBackground,
+    Color? modernEditorTabHoverForeground,
+    Color? modernEditorTabActiveHoverBackground,
     TextStyle? baseSidebarOrPanelHeading,
     TextStyle? loglineMessage,
     TokenTheme? tokenTheme,
@@ -1603,6 +1686,22 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           panelTabHoverBackground ?? this.panelTabHoverBackground,
       panelTabHoverForeground:
           panelTabHoverForeground ?? this.panelTabHoverForeground,
+      modernEditorTabActiveBackground:
+          modernEditorTabActiveBackground ??
+          this.modernEditorTabActiveBackground,
+      modernEditorTabActiveForeground:
+          modernEditorTabActiveForeground ??
+          this.modernEditorTabActiveForeground,
+      modernEditorTabInactiveForeground:
+          modernEditorTabInactiveForeground ??
+          this.modernEditorTabInactiveForeground,
+      modernEditorTabHoverBackground:
+          modernEditorTabHoverBackground ?? this.modernEditorTabHoverBackground,
+      modernEditorTabHoverForeground:
+          modernEditorTabHoverForeground ?? this.modernEditorTabHoverForeground,
+      modernEditorTabActiveHoverBackground:
+          modernEditorTabActiveHoverBackground ??
+          this.modernEditorTabActiveHoverBackground,
       baseSidebarOrPanelHeading:
           baseSidebarOrPanelHeading ?? this.baseSidebarOrPanelHeading,
       loglineMessage: loglineMessage ?? this.loglineMessage,
@@ -1898,6 +1997,30 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         panelTabHoverForeground,
         other.panelTabHoverForeground,
       ),
+      modernEditorTabActiveBackground: c(
+        modernEditorTabActiveBackground,
+        other.modernEditorTabActiveBackground,
+      ),
+      modernEditorTabActiveForeground: c(
+        modernEditorTabActiveForeground,
+        other.modernEditorTabActiveForeground,
+      ),
+      modernEditorTabInactiveForeground: c(
+        modernEditorTabInactiveForeground,
+        other.modernEditorTabInactiveForeground,
+      ),
+      modernEditorTabHoverBackground: c(
+        modernEditorTabHoverBackground,
+        other.modernEditorTabHoverBackground,
+      ),
+      modernEditorTabHoverForeground: c(
+        modernEditorTabHoverForeground,
+        other.modernEditorTabHoverForeground,
+      ),
+      modernEditorTabActiveHoverBackground: c(
+        modernEditorTabActiveHoverBackground,
+        other.modernEditorTabActiveHoverBackground,
+      ),
       baseSidebarOrPanelHeading: ts(
         baseSidebarOrPanelHeading,
         other.baseSidebarOrPanelHeading,
@@ -2080,6 +2203,18 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           panelTabActiveForeground == other.panelTabActiveForeground &&
           panelTabHoverBackground == other.panelTabHoverBackground &&
           panelTabHoverForeground == other.panelTabHoverForeground &&
+          modernEditorTabActiveBackground ==
+              other.modernEditorTabActiveBackground &&
+          modernEditorTabActiveForeground ==
+              other.modernEditorTabActiveForeground &&
+          modernEditorTabInactiveForeground ==
+              other.modernEditorTabInactiveForeground &&
+          modernEditorTabHoverBackground ==
+              other.modernEditorTabHoverBackground &&
+          modernEditorTabHoverForeground ==
+              other.modernEditorTabHoverForeground &&
+          modernEditorTabActiveHoverBackground ==
+              other.modernEditorTabActiveHoverBackground &&
           baseSidebarOrPanelHeading == other.baseSidebarOrPanelHeading &&
           loglineMessage == other.loglineMessage &&
           tokenTheme == other.tokenTheme &&
@@ -2222,6 +2357,12 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     panelTabActiveForeground,
     panelTabHoverBackground,
     panelTabHoverForeground,
+    modernEditorTabActiveBackground,
+    modernEditorTabActiveForeground,
+    modernEditorTabInactiveForeground,
+    modernEditorTabHoverBackground,
+    modernEditorTabHoverForeground,
+    modernEditorTabActiveHoverBackground,
     baseSidebarOrPanelHeading,
     loglineMessage,
     tokenTheme,

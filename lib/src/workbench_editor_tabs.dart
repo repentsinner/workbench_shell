@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:ui' show SemanticsRole;
 
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
@@ -571,16 +570,13 @@ class EditorTabsPart extends StatelessWidget {
 /// - **Base:** VS Code's classic multi-tab strip, a
 ///   [WorkbenchLayoutConstants.editorTabHeight] row in
 ///   `editorGroupHeader.tabsBackground` with one `fit`-sized tab per editor.
-/// - **Modern UI:** upstream's `connected` style, a
-///   [WorkbenchLayoutConstants.connectedEditorTabStripHeight] row whose active
-///   tab joins the editor below it (see [ConnectedEditorTabPainter]).
+/// - **Modern UI:** the pill tabs of VS Code 1.138.0's `tabs.css`, a
+///   transparent [WorkbenchLayoutConstants.modernEditorTabStripHeight] row of
+///   content-sized tabs, each with an inset rounded fill.
 ///
 /// Dragging a tab reorders it (§spec:editor-tab-interaction). The whole strip
 /// is the drop target, so a drop past the last tab lands at the end, as a drop
 /// on upstream's tabs container does.
-///
-/// Tabs past the strip's width are clipped at its trailing edge until
-/// overflow scrolling lands (§spec:editor-tab-interaction).
 @internal
 class EditorTabStrip extends StatefulWidget {
   final List<WorkbenchEditorTab> tabs;
@@ -691,35 +687,29 @@ class _EditorTabStripState extends State<EditorTabStrip> {
     final theme = widget.theme;
     final tabs = widget.tabs;
     final activeId = widget.activeId;
-    final connected = WorkbenchSurfaceTreatment.of(context);
-    final metrics = connected
-        ? _EditorTabMetrics.modern
-        : _EditorTabMetrics.base;
+    final pills = WorkbenchSurfaceTreatment.of(context);
+    final metrics = pills ? _EditorTabMetrics.modern : _EditorTabMetrics.base;
     final onClose = widget.onCloseRequested;
 
-    /// The tab for [tab] at [position], or its drag image. The drag image
-    /// renders as the active tab and, like any drag image, takes no pointer.
-    Widget tabFor(
-      WorkbenchEditorTab tab,
-      EditorTabPosition position, {
-      bool dragImage = false,
-    }) => _EditorTab(
-      key: dragImage ? null : ValueKey('editor-tab-${tab.id}'),
-      tab: tab,
-      active: dragImage || tab.id == activeId,
-      metrics: metrics,
-      position: position,
-      onSelected: () => widget.onSelected(tab.id),
-      onClose: onClose == null ? null : () => onClose(tab.id),
-      theme: theme,
-    );
+    /// The tab for [tab], or its drag image. The drag image renders as the
+    /// active tab and, like any drag image, takes no pointer.
+    Widget tabFor(WorkbenchEditorTab tab, {bool dragImage = false}) =>
+        _EditorTab(
+          key: dragImage ? null : ValueKey('editor-tab-${tab.id}'),
+          tab: tab,
+          active: dragImage || tab.id == activeId,
+          metrics: metrics,
+          onSelected: () => widget.onSelected(tab.id),
+          onClose: onClose == null ? null : () => onClose(tab.id),
+          theme: theme,
+        );
 
     final row = Row(
       key: _rowKey,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        for (final (index, tab) in tabs.indexed)
+        for (final tab in tabs)
           Draggable<String>(
             key: ValueKey('editor-tab-drag-${tab.id}'),
             data: tab.id,
@@ -737,12 +727,11 @@ class _EditorTabStripState extends State<EditorTabStrip> {
                 alignment: AlignmentDirectional.topStart,
                 child: SizedBox(
                   height: metrics.stripHeight,
-                  // A drag image carries no shoulders into its neighbours.
-                  child: tabFor(tab, EditorTabPosition.first, dragImage: true),
+                  child: tabFor(tab, dragImage: true),
                 ),
               ),
             ),
-            child: tabFor(tab, EditorTabPosition.of(index, tabs, activeId)),
+            child: tabFor(tab),
           ),
       ],
     );
@@ -754,16 +743,19 @@ class _EditorTabStripState extends State<EditorTabStrip> {
       builder: (context, candidates, rejected) => Semantics(
         role: SemanticsRole.tabBar,
         container: true,
-        child: ClipRect(
-          // Lets the row keep its natural width without an overflow warning;
-          // the clip hides whatever runs past the strip.
-          child: OverflowBox(
-            alignment: AlignmentDirectional.centerStart,
-            maxWidth: double.infinity,
-            child: Stack(
-              // The bar past the last tab stands just outside the row.
-              clipBehavior: Clip.none,
-              children: [row, _dropBar(metrics)],
+        child: Padding(
+          padding: EdgeInsetsDirectional.only(start: metrics.stripInset),
+          child: ClipRect(
+            // Lets the row keep its natural width without an overflow
+            // warning; the clip hides whatever runs past the strip.
+            child: OverflowBox(
+              alignment: AlignmentDirectional.centerStart,
+              maxWidth: double.infinity,
+              child: Stack(
+                // The bar past the last tab stands just outside the row.
+                clipBehavior: Clip.none,
+                children: [row, _dropBar(metrics)],
+              ),
             ),
           ),
         ),
@@ -776,26 +768,11 @@ class _EditorTabStripState extends State<EditorTabStrip> {
         height: metrics.stripHeight,
         child: DecoratedBox(
           key: const ValueKey('editor-tab-strip-background'),
+          // Under Modern UI the strip is transparent over the editor card,
+          // with no border (`tabs.css` `.title.tabs { background-color:
+          // transparent }`).
           decoration: BoxDecoration(
-            color: connected
-                ? ConnectedEditorTabPainter.stripBackground(theme)
-                : theme.editorGroupHeaderTabsBackground,
-            // Under Modern UI, the separator along the strip's foot, in the
-            // editor surface so the active tab and the editor read as one well.
-            // Inactive fills repaint it over themselves; the active tab covers
-            // it.
-            border: connected
-                ? Border(
-                    bottom: BorderSide(
-                      color: theme.editorBackground,
-                      // Stated so the separator tracks `strokeThickness` if
-                      // upstream moves it, rather than silently keeping
-                      // Flutter's 1px default.
-                      // ignore: avoid_redundant_argument_values
-                      width: WorkbenchLayoutConstants.strokeThickness,
-                    ),
-                  )
-                : null,
+            color: pills ? null : theme.editorGroupHeaderTabsBackground,
           ),
           child: content,
         ),
@@ -817,8 +794,8 @@ class _EditorTabStripState extends State<EditorTabStrip> {
       builder: (context, slot, _) {
         if (slot == null) return const SizedBox.shrink();
         return Positioned(
-          top: metrics.rowInsetTop,
-          bottom: metrics.rowInsetBottom,
+          top: metrics.rowInset,
+          bottom: metrics.rowInset,
           left: slot.left,
           width: WorkbenchLayoutConstants.editorTabDropIndicatorWidth,
           child: IgnorePointer(
@@ -837,15 +814,18 @@ class _EditorTabStripState extends State<EditorTabStrip> {
 /// `tabs.length` after the last, with the row-local x of the bar marking it.
 typedef _DropSlot = ({int index, double left});
 
-/// The sizes and hover rules that differ between the base and Modern UI tab
+/// The sizes and rules that differ between the base and Modern UI tab
 /// treatments (§spec:editor-tab-rendering), resolved once per strip build.
 @immutable
 class _EditorTabMetrics {
-  /// Renders the Modern UI `connected` treatment rather than the base one.
-  final bool connected;
+  /// Renders the Modern UI pills rather than the base tabs.
+  final bool pills;
 
   /// The strip's height.
   final double stripHeight;
+
+  /// Inset from the strip's leading edge to the first tab.
+  final double stripInset;
 
   /// A tab's leading inset without an icon, and with one.
   final double paddingStart;
@@ -856,9 +836,8 @@ class _EditorTabMetrics {
   final double paddingEnd;
   final double paddingEndWithActions;
 
-  /// Insets above and below a tab's content row, which the drop bar shares.
-  final double rowInsetTop;
-  final double rowInsetBottom;
+  /// Inset above and below a tab's content row, which the drop bar shares.
+  final double rowInset;
 
   /// The action column's width, and its margin either side.
   final double actionsWidth;
@@ -869,67 +848,73 @@ class _EditorTabMetrics {
   /// action column itself.
   final bool tabHoverReveals;
 
+  /// Every closable tab shows its close button, not only the active or
+  /// hovered one.
+  final bool actionsAlwaysVisible;
+
   const _EditorTabMetrics._({
-    required this.connected,
+    required this.pills,
     required this.stripHeight,
+    required this.stripInset,
     required this.paddingStart,
     required this.paddingStartWithIcon,
     required this.paddingEnd,
     required this.paddingEndWithActions,
-    required this.rowInsetTop,
-    required this.rowInsetBottom,
+    required this.rowInset,
     required this.actionsWidth,
     required this.actionsMargin,
     required this.tabHoverReveals,
+    required this.actionsAlwaysVisible,
   });
 
   /// `multieditortabscontrol.css`: a full-height row; `.tab { padding-left:
   /// 10px }`, with `.close-action-off` padding the trailing edge only when
   /// no action column shows.
   static const base = _EditorTabMetrics._(
-    connected: false,
+    pills: false,
     stripHeight: WorkbenchLayoutConstants.editorTabHeight,
+    stripInset: 0,
     paddingStart: WorkbenchLayoutConstants.editorTabPaddingStart,
     paddingStartWithIcon: WorkbenchLayoutConstants.editorTabPaddingStart,
     paddingEnd: WorkbenchLayoutConstants.editorTabPaddingEnd,
     paddingEndWithActions: 0,
-    rowInsetTop: 0,
-    rowInsetBottom: 0,
+    rowInset: 0,
     actionsWidth: WorkbenchLayoutConstants.editorTabActionsWidth,
     actionsMargin: 0,
     tabHoverReveals: false,
+    actionsAlwaysVisible: false,
   );
 
-  /// `tabs.css` with `connectedEditorTabs.css`: the label on the 24px row
-  /// between the transparent bands, and the action column a shoulder's width
-  /// in from the trailing edge (`.tab-actions { right: shoulder-radius }`),
-  /// its margins making up the rest of `--modern-ui-tab-action-padding`.
+  /// VS Code 1.138.0's `tabs.css`: the label on the 24px row between the
+  /// transparent bands, and the 24px action column with its 2px margins
+  /// filling the 28px a tab reserves at its trailing edge. Upstream overlays
+  /// the column on that reserved padding; laying it out in the row gives the
+  /// same geometry. `workbench.editor.tabActionReserveSpace` defaults to
+  /// `true`, which keeps the close button on every tab of the active group.
   static const modern = _EditorTabMetrics._(
-    connected: true,
-    stripHeight: WorkbenchLayoutConstants.connectedEditorTabStripHeight,
+    pills: true,
+    stripHeight: WorkbenchLayoutConstants.modernEditorTabStripHeight,
+    stripInset: WorkbenchLayoutConstants.modernEditorTabStripInset,
     paddingStart: WorkbenchLayoutConstants.modernEditorTabPadding,
     paddingStartWithIcon: WorkbenchLayoutConstants.modernEditorTabPaddingStart,
     paddingEnd: WorkbenchLayoutConstants.modernEditorTabPadding,
-    paddingEndWithActions: WorkbenchLayoutConstants.connectedEditorTabCapRadius,
-    rowInsetTop: WorkbenchLayoutConstants.modernEditorTabRowInset,
-    rowInsetBottom: WorkbenchLayoutConstants.modernEditorTabRowInsetBottom,
+    paddingEndWithActions: 0,
+    rowInset: WorkbenchLayoutConstants.modernEditorTabRowInset,
     actionsWidth: WorkbenchLayoutConstants.modernEditorTabActionsWidth,
     actionsMargin: WorkbenchLayoutConstants.modernEditorTabActionsMargin,
     tabHoverReveals: true,
+    actionsAlwaysVisible: true,
   );
 }
 
 /// One tab, per `multieditortabscontrol.css` in the base treatment and
-/// `tabs.css` with `connectedEditorTabs.css` under Modern UI.
+/// `tabs.css` under Modern UI.
 class _EditorTab extends StatefulWidget {
   final WorkbenchEditorTab tab;
   final bool active;
 
   /// The treatment's sizes and hover rules.
   final _EditorTabMetrics metrics;
-
-  /// Where the tab stands, which shapes a connected tab's shoulders.
-  final EditorTabPosition position;
 
   final VoidCallback onSelected;
 
@@ -942,7 +927,6 @@ class _EditorTab extends StatefulWidget {
     required this.tab,
     required this.active,
     required this.metrics,
-    required this.position,
     required this.onSelected,
     required this.onClose,
     required this.theme,
@@ -967,16 +951,17 @@ class _EditorTabState extends State<_EditorTab> {
     final tab = widget.tab;
     final active = widget.active;
     final metrics = widget.metrics;
-    // `tabs.css` recolours a hovered inactive label through
-    // `modernEditorTab.hoverForeground`, which defaults to
-    // `modernTab.hoverForeground`; the base strip keeps its inactive colour.
     final Color foreground;
-    if (active) {
-      foreground = theme.tabActiveForeground;
-    } else if (metrics.tabHoverReveals && _tabHovered) {
-      foreground = theme.panelTabHoverForeground;
+    if (!metrics.pills) {
+      foreground = active
+          ? theme.tabActiveForeground
+          : theme.tabInactiveForeground;
+    } else if (active) {
+      foreground = theme.modernEditorTabActiveForeground;
+    } else if (_tabHovered) {
+      foreground = theme.modernEditorTabHoverForeground;
     } else {
-      foreground = theme.tabInactiveForeground;
+      foreground = theme.modernEditorTabInactiveForeground;
     }
     // `.tab-actions` shows for a closable tab and for a dirty one: the
     // unsaved dot is state, so it stays even with no close affordance.
@@ -987,8 +972,8 @@ class _EditorTabState extends State<_EditorTab> {
             ? metrics.paddingStart
             : metrics.paddingStartWithIcon,
         end: showsActions ? metrics.paddingEndWithActions : metrics.paddingEnd,
-        top: metrics.rowInsetTop,
-        bottom: metrics.rowInsetBottom,
+        top: metrics.rowInset,
+        bottom: metrics.rowInset,
       ),
       child: Row(
         // `.tab-label { flex: 1 }` pushes the actions to the trailing edge of a
@@ -1032,9 +1017,7 @@ class _EditorTabState extends State<_EditorTab> {
         onExit: (_) => setState(() => _tabHovered = false),
         child: GestureDetector(
           onTap: widget.onSelected,
-          child: metrics.connected
-              ? _buildConnected(content)
-              : _buildBase(content),
+          child: metrics.pills ? _buildPill(content) : _buildBase(content),
         ),
       ),
     );
@@ -1058,32 +1041,52 @@ class _EditorTabState extends State<_EditorTab> {
     );
   }
 
-  /// The connected tab: content-sized (`.sizing-fit { min-width: 0 }`), its
-  /// label on the 24px row between the transparent 4px bands, with the fill
-  /// and shoulders painted beneath it.
-  Widget _buildConnected(Widget content) {
+  /// The pill tab: content-sized (`.sizing-fit { width: auto; min-width: 0
+  /// }`) over its `.tab-fill`, a 24px rounded fill inset from the tab's edges.
+  /// The active pill fills, a hovered one takes the hover fill, and an
+  /// inactive one stays clear (`modernEditorTab.inactiveBackground` registers
+  /// as transparent).
+  Widget _buildPill(Widget content) {
     final theme = widget.theme;
-    final active = widget.active;
-    return CustomPaint(
-      key: const ValueKey('editor-tab-connected-fill'),
-      painter: ConnectedEditorTabPainter(
-        active: active,
-        fill: !active && _tabHovered
-            ? ConnectedEditorTabPainter.hoverBackground(theme)
-            : null,
-        surface: theme.editorBackground,
-        position: widget.position,
-      ),
-      child: content,
+    final Color? fill;
+    if (widget.active) {
+      fill = _tabHovered
+          ? theme.modernEditorTabActiveHoverBackground
+          : theme.modernEditorTabActiveBackground;
+    } else {
+      fill = _tabHovered ? theme.modernEditorTabHoverBackground : null;
+    }
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: WorkbenchLayoutConstants.modernEditorTabFillInset,
+              vertical: WorkbenchLayoutConstants.modernEditorTabRowInset,
+            ),
+            child: DecoratedBox(
+              key: const ValueKey('editor-tab-pill-fill'),
+              decoration: BoxDecoration(
+                color: fill,
+                borderRadius: BorderRadius.circular(
+                  WorkbenchLayoutConstants.cornerRadiusSmall,
+                ),
+              ),
+            ),
+          ),
+        ),
+        content,
+      ],
     );
   }
 
   /// The trailing action column: the close button, or a dirty tab's dot.
   ///
-  /// Upstream's `.tab-actions` rules show it on the active tab, on hover, and
-  /// on a dirty tab, and hide it (opacity 0) otherwise. A hidden button takes
-  /// no pointer, so a tap there activates the tab instead of closing an
-  /// editor the user cannot see a button for.
+  /// Upstream's base `.tab-actions` rules show it on the active tab, on hover,
+  /// and on a dirty tab, and hide it (opacity 0) otherwise; under Modern UI
+  /// the reserved column shows on every tab. A hidden button takes no
+  /// pointer, so a tap there activates the tab instead of closing an editor
+  /// the user cannot see a button for.
   ///
   /// A dirty tab shows its dot until the pointer reveals the close glyph: in
   /// the base treatment the pointer has to be over the column itself; under
@@ -1093,7 +1096,11 @@ class _EditorTabState extends State<_EditorTab> {
     final tab = widget.tab;
     final onClose = widget.onClose;
     final metrics = widget.metrics;
-    final visible = widget.active || _tabHovered || tab.isDirty;
+    final visible =
+        widget.active ||
+        _tabHovered ||
+        tab.isDirty ||
+        metrics.actionsAlwaysVisible;
     final revealsClose = metrics.tabHoverReveals ? _tabHovered : _actionHovered;
     final showsDot = tab.isDirty && (onClose == null || !revealsClose);
     final glyph = Icon(
@@ -1161,216 +1168,4 @@ class _EditorTabState extends State<_EditorTab> {
       child: child,
     );
   }
-}
-
-/// Where an editor tab stands in the strip, as far as a connected tab's
-/// shoulders care (§spec:editor-tab-rendering).
-///
-/// An active tab's shape depends on the strip's ends; an inactive tab's
-/// depends only on whether the active tab stands directly before it.
-@internal
-enum EditorTabPosition {
-  /// First in the strip, with more tabs after it.
-  first,
-
-  /// Neither first nor last, and not directly after the active tab.
-  middle,
-
-  /// Last in the strip, with more tabs before it.
-  last,
-
-  /// The strip's one tab.
-  only,
-
-  /// Directly after the active tab, wherever else it stands.
-  afterActive;
-
-  /// The position of the tab at [index] in [tabs], whose active tab is
-  /// [activeId].
-  static EditorTabPosition of(
-    int index,
-    List<WorkbenchEditorTab> tabs,
-    String activeId,
-  ) {
-    if (index > 0 && tabs[index - 1].id == activeId) return afterActive;
-    final atEnd = index == tabs.length - 1;
-    if (index == 0) return atEnd ? only : first;
-    return atEnd ? last : middle;
-  }
-}
-
-/// Paints a connected editor tab's fill (§spec:editor-tab-rendering), per
-/// `connectedEditorTabs.css`.
-///
-/// The active tab is one shape in the editor surface: a cap rounded at its top
-/// corners, running the strip's full height so it covers the separator, with
-/// a concave shoulder at each foot curving it out into the editor. The first
-/// tab keeps a straight leading edge; the last turns its trailing shoulder
-/// inside its own slot. An inactive tab paints nothing until hovered, then a
-/// fill rounded at the controls tier, over which the separator is repainted.
-///
-/// Upstream draws a stroke around the cap and shoulders in
-/// `--modern-ui-connected-tab-border`, which outside high contrast is the
-/// surface itself, so painting the surface alone is the same pixels. High
-/// contrast recolours that stroke; the shell renders no high-contrast variant
-/// of it.
-///
-/// A shoulder that curves past the tab's edge would be overdrawn by the
-/// neighbour Flutter paints after it, so the tab that follows the active one
-/// paints that trailing shoulder itself ([continuesShoulder]). The leading
-/// shoulder overdraws the tab before, which has already painted, and upstream
-/// stacks the active fill above its neighbours in the same way.
-@internal
-class ConnectedEditorTabPainter extends CustomPainter {
-  /// Share of `foreground` mixed into the strip for a hovered tab.
-  /// `connectedEditorTabs.css` sets `--modern-ui-editor-tab-hover-background`
-  /// to `color-mix(in srgb, var(--vscode-foreground) 6%, ...)` over the strip.
-  static const double hoverForegroundOpacity = 0.06;
-
-  /// The strip's fill: `editorGroupHeader.tabsBackground` made opaque over
-  /// `editor.background`, as `connectedEditorTabs.ts` flattens it.
-  static Color stripBackground(WorkbenchTheme theme) => Color.alphaBlend(
-    theme.editorGroupHeaderTabsBackground,
-    theme.editorBackground,
-  );
-
-  /// A hovered inactive tab's fill, derived from `foreground` over the strip.
-  static Color hoverBackground(WorkbenchTheme theme) => Color.alphaBlend(
-    theme.foreground.withValues(alpha: hoverForegroundOpacity),
-    stripBackground(theme),
-  );
-
-  /// Paints the active shape rather than an inactive fill.
-  final bool active;
-
-  /// An inactive tab's fill; null paints none. Ignored while [active].
-  final Color? fill;
-
-  /// The editor surface: the active shape, its shoulders and the separator.
-  final Color surface;
-
-  /// Where the tab stands, which picks its shoulders.
-  final EditorTabPosition position;
-
-  const ConnectedEditorTabPainter({
-    required this.active,
-    required this.fill,
-    required this.surface,
-    required this.position,
-  });
-
-  /// The active tab curves out past its leading edge, unless it is first.
-  bool get leadingShoulder =>
-      active &&
-      position != EditorTabPosition.first &&
-      position != EditorTabPosition.only;
-
-  /// The active tab is last, so its trailing shoulder turns inside its slot.
-  bool get trailingShoulderInside =>
-      active &&
-      (position == EditorTabPosition.last ||
-          position == EditorTabPosition.only);
-
-  /// The tab before this one is active; paint its trailing shoulder here.
-  bool get continuesShoulder => position == EditorTabPosition.afterActive;
-
-  static const double _radius =
-      WorkbenchLayoutConstants.connectedEditorTabCapRadius;
-  static const _corner = Radius.circular(_radius);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final surfacePaint = Paint()..color = surface;
-    final foot = size.height;
-    if (active) {
-      canvas.drawPath(_activeShape(size), surfacePaint);
-      return;
-    }
-    if (fill case final color?) {
-      canvas
-        ..drawRRect(
-          RRect.fromRectAndRadius(
-            Offset.zero & size,
-            const Radius.circular(WorkbenchLayoutConstants.cornerRadiusSmall),
-          ),
-          Paint()..color = color,
-        )
-        ..drawRect(
-          Rect.fromLTRB(
-            0,
-            foot - WorkbenchLayoutConstants.strokeThickness,
-            size.width,
-            foot,
-          ),
-          surfacePaint,
-        );
-    }
-    if (continuesShoulder) {
-      final shoulder = Path()..moveTo(0, foot - _radius);
-      _addShoulder(
-        shoulder,
-        center: Offset(_radius, foot - _radius),
-        from: math.pi,
-      );
-      canvas.drawPath(
-        shoulder
-          ..lineTo(0, foot)
-          ..close(),
-        surfacePaint,
-      );
-    }
-  }
-
-  /// The cap with its shoulders, traced clockwise from the leading foot.
-  Path _activeShape(Size size) {
-    final foot = size.height;
-    final right = trailingShoulderInside ? size.width - _radius : size.width;
-    final path = Path()..moveTo(leadingShoulder ? -_radius : 0, foot);
-    if (leadingShoulder) {
-      // A concave quarter turn from the foot up to the leading edge.
-      _addShoulder(
-        path,
-        center: Offset(-_radius, foot - _radius),
-        from: math.pi / 2,
-      );
-    }
-    path
-      ..lineTo(0, _radius)
-      ..arcToPoint(const Offset(_radius, 0), radius: _corner)
-      ..lineTo(right - _radius, 0)
-      ..arcToPoint(Offset(right, _radius), radius: _corner);
-    if (trailingShoulderInside) {
-      path.lineTo(right, foot - _radius);
-      _addShoulder(
-        path,
-        center: Offset(size.width, foot - _radius),
-        from: math.pi,
-      );
-    } else {
-      path.lineTo(right, foot);
-    }
-    return path..close();
-  }
-
-  /// Extends [path] with a shoulder: a quarter of the circle of the cap
-  /// radius about [center], turning anticlockwise from angle [from].
-  static void _addShoulder(
-    Path path, {
-    required Offset center,
-    required double from,
-  }) {
-    path.arcTo(
-      Rect.fromCircle(center: center, radius: _radius),
-      from,
-      -math.pi / 2,
-      false,
-    );
-  }
-
-  @override
-  bool shouldRepaint(ConnectedEditorTabPainter oldDelegate) =>
-      oldDelegate.active != active ||
-      oldDelegate.fill != fill ||
-      oldDelegate.surface != surface ||
-      oldDelegate.position != position;
 }
