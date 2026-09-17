@@ -712,21 +712,36 @@ class _EditorTabStripState extends State<EditorTabStrip>
     if (changed) _revealActive();
   }
 
+  /// The laid-out row of tabs, or null before its first layout.
+  RenderFlex? get _row => switch (_rowKey.currentContext?.findRenderObject()) {
+    final RenderFlex row when row.hasSize => row,
+    _ => null,
+  };
+
+  /// Each tab's row-local leading edge and width, in tab order: the row has
+  /// one child per tab.
+  static Iterable<({double left, double width})> _tabBoxes(
+    RenderFlex row,
+  ) sync* {
+    for (var child = row.firstChild; child != null;) {
+      final data = child.parentData! as FlexParentData;
+      yield (left: data.offset.dx, width: child.size.width);
+      child = data.nextSibling;
+    }
+  }
+
   /// Scroll the active tab into view with the least movement, per upstream's
   /// `layout`: a tab that fits but runs past the trailing edge scrolls until
   /// its trailing edge meets the strip's; a tab past the leading edge, or
   /// wider than the strip, scrolls until its leading edge meets the strip's.
   void _revealActive() {
-    final row = _rowKey.currentContext?.findRenderObject();
-    if (row is! RenderFlex || !row.hasSize) return;
+    final row = _row;
+    if (row == null) return;
     final index = widget.tabs.indexWhere((tab) => tab.id == widget.activeId);
-    var child = row.firstChild;
-    for (var i = 0; i < index && child != null; i++) {
-      child = (child.parentData! as FlexParentData).nextSibling;
-    }
-    if (child == null) return;
-    final left = (child.parentData! as FlexParentData).offset.dx;
-    final width = child.size.width;
+    if (index < 0) return;
+    final box = _tabBoxes(row).elementAtOrNull(index);
+    if (box == null) return;
+    final (:left, :width) = box;
     final position = _scroll.position;
     final viewport = position.viewportDimension;
     final scrollX = position.pixels;
@@ -796,16 +811,12 @@ class _EditorTabStripState extends State<EditorTabStrip>
   /// boundary, so one bar on the leading edge of the tab after the slot, or
   /// on the last tab's trailing edge, paints the same pixels.
   void _updateDropSlot(Offset pointer) {
-    final row = _rowKey.currentContext?.findRenderObject();
-    if (row is! RenderFlex || !row.hasSize) return;
+    final row = _row;
+    if (row == null) return;
     final x = row.globalToLocal(pointer).dx;
-    // One row child per tab, in tab order.
     var index = 0;
     var end = 0.0;
-    for (RenderBox? child = row.firstChild; child != null; index++) {
-      final data = child.parentData! as FlexParentData;
-      final start = data.offset.dx;
-      final width = child.size.width;
+    for (final (left: start, :width) in _tabBoxes(row)) {
       end = start + width;
       if (x - start < width) {
         // `getTabDragOverLocation` counts the midpoint as the leading half.
@@ -814,7 +825,7 @@ class _EditorTabStripState extends State<EditorTabStrip>
             : (index: index + 1, left: end);
         return;
       }
-      child = data.nextSibling;
+      index++;
     }
     _dropSlot.value = (index: index, left: end);
   }
