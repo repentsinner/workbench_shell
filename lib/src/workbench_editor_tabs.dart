@@ -1104,11 +1104,9 @@ class _EditorTabScrollbarState extends State<_EditorTabScrollbar> {
   /// global x it started from.
   ({double pixels, double pointerX})? _drag;
 
-  /// Revealed by a scroll or the pointer, before the tabs' overflow gates it.
-  bool _revealed = false;
-
-  /// The last hide faded rather than cut, so the fade-out duration applies.
-  bool _fading = false;
+  /// Where the bar stands between reveals and hides, which also picks the
+  /// fade.
+  _ScrollbarVisibility _visibility = _ScrollbarVisibility.hidden;
 
   /// One timer serves a run of reveals: when it fires, it waits out the rest
   /// of the delay since the last reveal rather than restarting on each one.
@@ -1138,11 +1136,8 @@ class _EditorTabScrollbarState extends State<_EditorTabScrollbar> {
   /// it (`ScrollableElement._reveal`). Every scroll reveals, so the bar
   /// rebuilds only when it was hidden.
   void _reveal() {
-    if (!_revealed) {
-      setState(() {
-        _revealed = true;
-        _fading = false;
-      });
+    if (_visibility != _ScrollbarVisibility.shown) {
+      setState(() => _visibility = _ScrollbarVisibility.shown);
     }
     _sinceReveal
       ..reset()
@@ -1175,10 +1170,9 @@ class _EditorTabScrollbarState extends State<_EditorTabScrollbar> {
   void _hide() {
     if (!mounted || _held) return;
     _hideTimer?.cancel();
-    setState(() {
-      _revealed = false;
-      _fading = true;
-    });
+    if (_visibility != _ScrollbarVisibility.fadingOut) {
+      setState(() => _visibility = _ScrollbarVisibility.fadingOut);
+    }
   }
 
   /// Slider geometry per `scrollbarState.ts`: the slider takes the visible
@@ -1256,7 +1250,7 @@ class _EditorTabScrollbarState extends State<_EditorTabScrollbar> {
   Widget build(BuildContext context) {
     final theme = widget.theme;
     final overflows = _slider() != null;
-    final visible = _revealed && overflows;
+    final visible = overflows && _visibility == _ScrollbarVisibility.shown;
     final Color sliderColor;
     if (_drag != null) {
       sliderColor = theme.scrollbarSliderActiveBackground;
@@ -1265,15 +1259,15 @@ class _EditorTabScrollbarState extends State<_EditorTabScrollbar> {
     } else {
       sliderColor = theme.scrollbarSliderBackground;
     }
-    final Duration duration;
-    if (visible) {
-      duration = WorkbenchLayoutConstants.editorTabScrollbarFadeInDuration;
-    } else if (_fading && overflows) {
-      duration = WorkbenchLayoutConstants.editorTabScrollbarFadeOutDuration;
-    } else {
+    final duration = switch (_visibility) {
       // A bar the tabs no longer need goes without a fade.
-      duration = Duration.zero;
-    }
+      _ when !overflows => Duration.zero,
+      _ScrollbarVisibility.hidden => Duration.zero,
+      _ScrollbarVisibility.shown =>
+        WorkbenchLayoutConstants.editorTabScrollbarFadeInDuration,
+      _ScrollbarVisibility.fadingOut =>
+        WorkbenchLayoutConstants.editorTabScrollbarFadeOutDuration,
+    };
     return MouseRegion(
       onEnter: (_) {
         _pointerOver = true;
@@ -1358,6 +1352,19 @@ class _EditorTabScrollbarState extends State<_EditorTabScrollbar> {
       ),
     );
   }
+}
+
+/// Whether the editor tab scrollbar shows, before the tabs' overflow gates
+/// it.
+enum _ScrollbarVisibility {
+  /// Never revealed.
+  hidden,
+
+  /// Revealed by a scroll or the pointer; shows over the fade-in.
+  shown,
+
+  /// Hidden after a reveal; fades out rather than cutting.
+  fadingOut,
 }
 
 /// A slot a dragged tab would drop into, 0 before the first tab through
