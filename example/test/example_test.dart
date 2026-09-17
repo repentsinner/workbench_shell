@@ -900,6 +900,45 @@ void main() {
     expect(find.text('Problems'), findsWidgets);
   });
 
+  testWidgets('the Timeline pane stops a sash drag at its own row-count floor '
+      '(§spec:view-pane-min-body)', (tester) async {
+    // The example counts the floor from rows: eight 22px rows.
+    const minVisibleRows = 8;
+    const rowHeight = 22.0;
+    const floor = minVisibleRows * rowHeight;
+    await tester.pumpWidget(const WorkbenchExampleApp());
+    await tester.pumpAndSettle();
+
+    Rect timelinePane() => tester.getRect(
+      find.byKey(const ValueKey('workbench-view-pane-timeline')),
+    );
+    // The body starts at the top of the Timeline's row column, flush under the
+    // header.
+    double timelineBody() =>
+        timelinePane().bottom -
+        tester
+            .getRect(
+              find
+                  .ancestor(
+                    of: find.text('Edited main.dart'),
+                    matching: find.byType(Column),
+                  )
+                  .first,
+            )
+            .top;
+    expect(timelineBody(), greaterThan(floor));
+
+    // Folders sits above Timeline; dragging their sash far down grows Folders
+    // until Timeline reaches its floor, well above the uniform minimum.
+    await tester.drag(
+      find.byKey(const ValueKey('workbench-view-sash-timeline')),
+      const Offset(0, 1000),
+    );
+    await tester.pumpAndSettle();
+    expect(floor, greaterThan(WorkbenchLayoutConstants.viewPaneMinBodyHeight));
+    expect(timelineBody(), closeTo(floor, 1.0));
+  });
+
   testWidgets('seeded WorkbenchLayoutState restores the Explorer arrangement '
       '(§spec:layout-state-persistence)', (tester) async {
     // Rehydrate a persisted arrangement that hides the Timeline pane and

@@ -2014,9 +2014,13 @@ Map<String, WorkbenchViewDescriptor> _explorerViews(
       bodyBuilder: (_) =>
           const _SidebarBodyPlaceholder(text: 'WorkbenchViewPane'),
     ),
+    // Timeline keeps at least a few rows visible however crowded the Explorer
+    // gets (§spec:view-pane-min-body). The floor counts rows rather than
+    // measuring the list, the way VS Code's Open Editors view derives its own.
     'timeline': WorkbenchViewDescriptor(
       id: 'timeline',
       title: 'Timeline',
+      minimumBodySize: _timelineMinBodySize,
       actions: [
         _explorerHeaderAction(
           icon: Symbols.refresh_rounded,
@@ -2024,11 +2028,67 @@ Map<String, WorkbenchViewDescriptor> _explorerViews(
           onPressed: () => notify('Refreshed Timeline'),
         ),
       ],
-      bodyBuilder: (_) => const _SidebarBodyPlaceholder(
-        text: 'Timeline — recent edits land here.',
-      ),
+      bodyBuilder: (_) => const _TimelineList(),
     ),
   };
+}
+
+/// Recent edits the Timeline pane lists, one fixed-height row each.
+const _timelineEntries = [
+  'Edited main.dart',
+  'Saved workbench_content.dart',
+  'Renamed layout_constants.dart',
+  'Edited SPEC.md',
+  'Created example_test.dart',
+  'Saved pubspec.yaml',
+  'Edited README.md',
+  'Deleted scratch.dart',
+  'Edited analysis_options.yaml',
+  'Saved CHANGELOG.md',
+];
+
+/// Height of one Timeline row: VS Code's 22px list row.
+const double _timelineRowHeight = 22;
+
+/// Rows the Timeline keeps visible when siblings crowd the Explorer.
+const int _timelineMinVisibleRows = 8;
+
+/// The Timeline's body floor, counted from its rows rather than measured
+/// (§spec:view-pane-min-body): the visible-row minimum, capped at the rows
+/// that exist, times the row height.
+final double _timelineMinBodySize =
+    (_timelineEntries.length < _timelineMinVisibleRows
+        ? _timelineEntries.length
+        : _timelineMinVisibleRows) *
+    _timelineRowHeight;
+
+/// The Timeline body: one [_timelineRowHeight] row per entry with no vertical
+/// padding, so [_timelineMinBodySize] shows exactly the rows it counts.
+class _TimelineList extends StatelessWidget {
+  const _TimelineList();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.workbenchTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final entry in _timelineEntries)
+          SizedBox(
+            height: _timelineRowHeight,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: WorkbenchLayoutConstants.spacingSize160,
+              ),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(entry, style: theme.bodyStyle),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 }
 
 /// Compact icon button sized to the pane-header row — the host supplies the
