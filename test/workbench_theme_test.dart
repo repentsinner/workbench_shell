@@ -488,12 +488,12 @@ void main() {
       );
       // VS Code registry: surface.background is sideBar.background in dark
       // themes and editor.background in light ones; surface.border is
-      // `foreground` at 10% composited over it.
+      // `opaque(transparent(foreground, 0.15), surface.background)`.
       expect(dark.surfaceBackground, dark.sideBarBackground);
       expect(
         dark.surfaceBorder,
         Color.alphaBlend(
-          dark.foreground.withValues(alpha: 0.1),
+          dark.foreground.withValues(alpha: dark.foreground.a * 0.15),
           dark.surfaceBackground,
         ),
       );
@@ -502,6 +502,34 @@ void main() {
         const VscodeColorMap(name: 'X', baseType: 'vs', colors: {}),
       );
       expect(light.surfaceBackground, light.editorBackground);
+    });
+
+    test('modernSash.gripForeground falls back to foreground at 40%', () {
+      // VS Code registry: `transparent(foreground, 0.4)` in dark and light
+      // themes. `sashHandles.css` paints the grip with the token as is.
+      for (final baseType in ['vs-dark', 'vs']) {
+        final theme = WorkbenchTheme.fromVscodeColorMap(
+          VscodeColorMap(name: 'X', baseType: baseType, colors: const {}),
+        );
+        expect(
+          theme.sashGripForeground,
+          theme.foreground.withValues(alpha: theme.foreground.a * 0.4),
+          reason: baseType,
+        );
+      }
+    });
+
+    test('modernSash.gripForeground honours the theme key', () {
+      final theme = WorkbenchTheme.fromVscodeColorMap(
+        loader.parse('''
+        {
+          "name": "Grip Test",
+          "type": "vs-dark",
+          "colors": { "modernSash.gripForeground": "#FF000080" }
+        }
+        '''),
+      );
+      expect(theme.sashGripForeground, const Color(0x80FF0000));
     });
 
     test('surface.* honour explicit tokens when present', () {
@@ -605,11 +633,27 @@ void main() {
         const Color(0xFF00FF00),
       );
 
+      expect(
+        base.copyWith(sashGripForeground: const Color(0xFF00FF00)),
+        isNot(base),
+      );
+      expect(
+        base
+            .copyWith(sashGripForeground: const Color(0xFF00FF00))
+            .sashGripForeground,
+        const Color(0xFF00FF00),
+      );
+
       final other = base.copyWith(
         surfaceBackground: const Color(0xFF000000),
         activityBarItemActiveBackground: const Color(0xFF000000),
+        sashGripForeground: const Color(0xFF000000),
       );
       final mid = base.lerp(other, 0.5);
+      expect(
+        mid.sashGripForeground,
+        Color.lerp(base.sashGripForeground, other.sashGripForeground, 0.5),
+      );
       expect(
         mid.surfaceBackground,
         Color.lerp(base.surfaceBackground, other.surfaceBackground, 0.5),
@@ -1032,9 +1076,9 @@ void main() {
         expect(theme.bodyText.fontWeight, FontWeight.w400);
       });
 
-      test('labelText is 13 / w500 (settingsEditor2.css)', () {
+      test('labelText is 13 / w600 (settingsEditor2.css)', () {
         expect(theme.labelText.fontSize, 13);
-        expect(theme.labelText.fontWeight, FontWeight.w500);
+        expect(theme.labelText.fontWeight, FontWeight.w600);
       });
 
       test('statusText is 12 / w400 (statusbarpart.css)', () {
@@ -1062,9 +1106,9 @@ void main() {
         expect(theme.helperStyle.fontWeight, FontWeight.w400);
       });
 
-      test('smallText is 11 / w600 (paneCompositeBar badge tier)', () {
-        expect(theme.smallText.fontSize, 11);
-        expect(theme.smallText.fontWeight, FontWeight.w600);
+      test('smallText is 10 / w400 (paneCompositePart.css badge tier)', () {
+        expect(theme.smallText.fontSize, 10);
+        expect(theme.smallText.fontWeight, FontWeight.w400);
       });
 
       test('chromeFontFamily default null → resolves to platform UI sans', () {

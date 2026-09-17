@@ -20,6 +20,24 @@ void main() {
       expect(WorkbenchLayoutConstants.strokeThickness, 1.0);
     });
 
+    test('buttonPadding matches .monaco-text-button horizontal padding', () {
+      // `button.css`: `.monaco-text-button { padding: 4px 8px }`. Height is
+      // governed by buttonHeight, so only the horizontal pair carries over.
+      expect(
+        WorkbenchLayoutConstants.buttonPadding,
+        const EdgeInsets.symmetric(horizontal: 8),
+      );
+    });
+
+    test('selectBoxPadding matches selectBox.css leading inset', () {
+      // `selectBox.css`: `padding: 2px 23px 2px 8px`; the chevron owns the
+      // trailing slot, so the 8px leading inset is the field's padding.
+      expect(
+        WorkbenchLayoutConstants.selectBoxPadding,
+        const EdgeInsets.symmetric(horizontal: 8),
+      );
+    });
+
     test('buttonShape rounds to the controls tier (cornerRadius.small)', () {
       expect(
         WorkbenchLayoutConstants.buttonShape,

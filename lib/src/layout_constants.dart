@@ -70,7 +70,7 @@ class WorkbenchLayoutConstants {
   // ==================== SPACING RAMP ====================
   //
   // VS Code registers a fixed spacing ramp for padding, margins and gaps in
-  // [`baseSizes.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/platform/theme/common/sizes/baseSizes.ts)
+  // [`baseSizes.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/platform/theme/common/sizes/baseSizes.ts)
   // (§spec:design-size-ladders). Each numeric token encodes its value in
   // tenths of a pixel, so `spacingSize160` is 16px. Upstream owns the
   // values; a gap the package needs picks the nearest registered step
@@ -126,7 +126,7 @@ class WorkbenchLayoutConstants {
 
   /// The `.part > .title` band under the Modern UI treatment — the side bar
   /// heading and the panel tab strip alike. VS Code
-  /// [`padding.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/padding.css)
+  /// [`padding.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/padding.css)
   /// takes the row from base `part.css`'s 35px to 32px, carrying the label's
   /// line height and the trailing action row with it, and keeps the value in
   /// sync with `part.ts` `PartLayout.AREA_HEIGHT_MODERN_UI`
@@ -139,7 +139,7 @@ class WorkbenchLayoutConstants {
   /// occupies. VS Code's Modern UI treatment raises the base
   /// `paneview.ts` `DEFAULT_PANE_HEADER_SIZE = 22` to the spacing ramp's 28px
   /// step:
-  /// [`paneHeaders.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/paneHeaders.css)
+  /// [`paneHeaders.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/paneHeaders.css)
   /// sets `--pane-header-size: var(--vscode-spacing-size280)` and keeps it in
   /// sync with the layout code's `MODERN_UI_PANE_HEADER_SIZE`
   /// (§spec:modern-ui-surfaces). The inset top rule is drawn inside this
@@ -160,8 +160,9 @@ class WorkbenchLayoutConstants {
   static const double baseViewPaneHeaderHeight = 22.0;
 
   /// View-pane minimum body height. The floor below which an expanded pane's
-  /// apportioned body never shrinks (§spec:view-stack). VS Code's view pane
-  /// registers `minimumBodySize = 120` (`viewPane.ts`); the splitview keeps an
+  /// apportioned body never shrinks (§spec:view-stack). VS Code's `paneview.ts`
+  /// `Pane` defaults `minimumBodySize` to 120 in a vertical pane view (200 in
+  /// a horizontal one), and a view pane inherits it; the splitview keeps an
   /// expanded body at least this tall and, when the expanded panes cannot all
   /// fit at this floor, scrolls the whole stack as the overflow fallback.
   static const double viewPaneMinBodyHeight = 120.0;
@@ -176,7 +177,7 @@ class WorkbenchLayoutConstants {
 
   /// Height of the filled indicator behind an active or hovered panel tab
   /// under the Modern UI treatment. VS Code
-  /// [`tabs.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/tabs.css)
+  /// [`tabs.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/tabs.css)
   /// sizes the composite bar's `active-item-indicator`
   /// `height: var(--vscode-spacing-size240)` (§spec:modern-ui-surfaces).
   static const double panelTabIndicatorHeight = spacingSize240;
@@ -188,6 +189,12 @@ class WorkbenchLayoutConstants {
   /// Horizontal padding inside a panel tab. `tabs.css`
   /// `.action-item:not(.icon) { padding: 0 var(--vscode-spacing-size100) }`.
   static const double panelTabPadding = spacingSize100;
+
+  /// Corner radius of the count badge beside a panel tab label. VS Code
+  /// `paneCompositePart.css` rounds the composite bar's `.badge-content` at
+  /// `border-radius: 10px`, off the corner-radius ladder
+  /// (§spec:chrome-typography-canon).
+  static const double compositeBarBadgeRadius = 10.0;
 
   /// Editor tab strip row height in the base treatment
   /// (§spec:editor-tab-rendering). VS Code `editorTabsControl.ts`
@@ -339,23 +346,18 @@ class WorkbenchLayoutConstants {
   /// flex layout lays out, where upstream offsets a shadow from a centre.
   static const double sashGripDotGap = sashGripDotSpacing - sashGripDotSize;
 
-  /// Alpha the grip paints `foreground` at: `sashHandles.css` mixes the token
-  /// to 30% and sets `opacity: 0.75` on the element, and the two compose
-  /// (§spec:modern-ui-surfaces).
-  static const double sashGripAlpha = 0.3 * 0.75;
-
   /// Active-indicator border width on activity bar icons with the Modern UI
-  /// treatment off (§spec:modern-ui-surfaces). VS Code `activitybarpart.css`
-  /// `.action-item.checked .active-item-indicator:before { border-left-width:
-  /// 2px }`; `activityBar.css` drops it for the filled background
+  /// treatment off (§spec:modern-ui-surfaces). VS Code `activityaction.css`
+  /// `.action-item.checked .active-item-indicator:before { border-left: 2px
+  /// solid }`; `activityBar.css` drops it for the filled background
   /// [activityBarItemIndicatorSize] names.
   static const double activityBarIndicatorWidth = 2.0;
 
   // ==================== CORNER RADIUS LADDER ====================
   //
   // VS Code registers a six-tier corner-radius ladder in
-  // [`baseSizes.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/platform/theme/common/sizes/baseSizes.ts).
-  // [`roundedCorners.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/roundedCorners.css)
+  // [`baseSizes.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/platform/theme/common/sizes/baseSizes.ts).
+  // [`roundedCorners.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/roundedCorners.css)
   // records the doctrine for choosing among the tiers: pick by the role a
   // surface plays, not by how large it looks (§spec:design-size-ladders).
   //
@@ -403,12 +405,12 @@ class WorkbenchLayoutConstants {
   // VS Code frames the side bars, bottom panel, editor and activity bar as
   // bordered, rounded cards separated by a gap (§spec:modern-ui-surfaces).
   // Values come from
-  // [`layoutService.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/services/layout/browser/layoutService.ts),
-  // [`floatingPanels.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/media/floatingPanels.css),
-  // [`editorBorder.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/editorBorder.css),
-  // [`activityBar.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/activityBar.css)
+  // [`layoutService.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/services/layout/browser/layoutService.ts),
+  // [`floatingPanels.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/media/floatingPanels.css),
+  // [`editorBorder.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/editorBorder.css),
+  // [`activityBar.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/activityBar.css)
   // and
-  // [`activitybarPart.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/activitybar/activitybarPart.ts),
+  // [`activitybarPart.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/parts/activitybar/activitybarPart.ts),
   // and are expressed through the ladders above wherever a step names them.
   // Read against VS Code 1.138.0.
   //
@@ -513,7 +515,7 @@ class WorkbenchLayoutConstants {
 
   /// Margin above the activity bar's item column and below its trailing zone,
   /// on top of [activityBarIconInset]. VS Code
-  /// [`padding.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/padding.css)
+  /// [`padding.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/padding.css)
   /// gives the vertical rail's `.composite-bar` a `margin-top` and its trailing
   /// `:last-child` a `margin-bottom` of
   /// `calc(var(--vscode-spacing-size20) + var(--vscode-strokeThickness))`, so
@@ -580,13 +582,26 @@ class WorkbenchLayoutConstants {
   /// truth — every chrome-themed button moves together when it changes.
   static const double buttonHeight = 32;
 
-  /// Button horizontal padding. VS Code's `.monaco-text-button` pads
-  /// ~14px on each side; height is governed by [buttonHeight], so the
-  /// vertical component is zero.
-  static const EdgeInsets buttonPadding = EdgeInsets.symmetric(horizontal: 14);
+  /// Button horizontal padding. VS Code's `button.css` pads
+  /// `.monaco-text-button` `4px 8px`; height is governed by [buttonHeight],
+  /// so the vertical component is zero (§spec:design-size-ladders).
+  static const EdgeInsets buttonPadding = EdgeInsets.symmetric(
+    horizontal: spacingSize80,
+  );
+
+  /// Dropdown field horizontal padding. VS Code's
+  /// [`selectBox.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/base/browser/ui/selectBox/selectBox.css)
+  /// insets a select's label `8px` from its leading edge; the trailing
+  /// chevron takes its own slot, so only the leading value carries over,
+  /// mirrored for balance (§spec:design-size-ladders). It matches
+  /// [buttonPadding] in value but not in role, so a button change does not
+  /// move the field.
+  static const EdgeInsets selectBoxPadding = EdgeInsets.symmetric(
+    horizontal: spacingSize80,
+  );
 
   /// Popup menu row height. VS Code's
-  /// [`menu.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/base/browser/ui/menu/menu.ts)
+  /// [`menu.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/base/browser/ui/menu/menu.ts)
   /// sizes `.monaco-menu .monaco-action-bar.vertical .action-menu-item` at
   /// 24px. Material's `MenuItemButton` defaults far taller, so the
   /// §spec:chrome-material-theming menu themes set this as the row's minimum

@@ -66,7 +66,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   final Color surfaceBackground;
 
   /// Hairline around a framed workbench card. VS Code `surface.border`,
-  /// registered as `foreground` at 10% composited over [surfaceBackground].
+  /// registered as `foreground` at 15% composited over [surfaceBackground].
   /// Every card in the treatment — side bars, bottom panel, editor and
   /// activity bar rail — draws this one stroke; `editor.border` and
   /// `modernActivityBar.border` both resolve to it upstream.
@@ -283,6 +283,12 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
 
   // ---- Sash (resizer drag handle) ----
   final Color sashHoverBorder;
+
+  /// Fill of the three dots that mark a seam between two parts under the
+  /// Modern UI treatment. VS Code `modernSash.gripForeground`, whose registry
+  /// default is [foreground] at 40% outside high contrast; `sashHandles.css`
+  /// paints the dots with the token as is (§spec:modern-ui-surfaces).
+  final Color sashGripForeground;
 
   // ---- Menu bar (Windows/Linux in-window fallback strip) ----
   //
@@ -633,6 +639,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.listActiveSelectionBackground,
     required this.focusBorder,
     required this.sashHoverBorder,
+    required this.sashGripForeground,
     required this.menuBarBackground,
     required this.menuBarForeground,
     required this.menuBarHoverBackground,
@@ -848,17 +855,18 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       dl(const Color(0xFF04395E), const Color(0xFF0060C0)),
     );
 
-    // Framed container surfaces ("cards", §spec:modern-ui-surfaces). VS Code
-    // registers surface.background as sideBar.background in dark and
-    // high-contrast themes and editor.background in light ones, and
-    // surface.border as `foreground` at 10% composited over it.
+    // Framed container surfaces ("cards", §spec:modern-ui-surfaces). theme.ts
+    // registers surface.background as sideBar.background (dark) or
+    // editor.background (light), and surface.border as
+    // `opaque(transparent(foreground, 0.15), surface.background)`. The
+    // high-contrast defaults are not modelled: the map has no HC base type.
     final surfaceBg = map.resolve(
       'surface.background',
       map.isDark ? sideBarBg : editorBg,
     );
     final surfaceBorder = map.resolve(
       'surface.border',
-      Color.alphaBlend(fg.withValues(alpha: 0.1), surfaceBg),
+      Color.alphaBlend(fg.withValues(alpha: fg.a * 0.15), surfaceBg),
     );
     // The title bar's active fill. Two surfaces read it — the workbench
     // backdrop the cards float above (`floatingPanels.css`) and the
@@ -1185,6 +1193,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // Focus / sash
       focusBorder: accentFg,
       sashHoverBorder: map.resolve('sash.hoverBorder', accentFg),
+      sashGripForeground: map.resolve(
+        'modernSash.gripForeground',
+        fg.withValues(alpha: fg.a * 0.4),
+      ),
       // Menu bar (Windows/Linux in-window strip).
       // VS Code stops at `titleBar.activeBackground` for the strip
       // itself; individual menu items read `menubar.*` and `menu.*`.
@@ -1316,7 +1328,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       bodyText: t(13, FontWeight.w400),
       // settings label / form label — settingsEditor2.css
       // `.setting-item-category`.
-      labelText: t(13, FontWeight.w500),
+      labelText: t(13, FontWeight.w600),
       // status bar item — statusbarpart.css. Same metrics as
       // [helperStyle]; paints in [statusBarForeground] so the text
       // reads against the blue status bar background.
@@ -1332,10 +1344,11 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // descriptionForeground (12 / w400).
       captionText: t(12, FontWeight.w400, color: secondaryFg),
       helperStyle: t(12, FontWeight.w400, color: secondaryFg),
-      // badge tier — paneCompositeBar.css (11 / w600). Internal
-      // token the panel-tab badge pill paints in and the host
-      // analogue for dense numeric indicators.
-      smallText: t(11, FontWeight.w600, color: secondaryFg),
+      // badge tier — paneCompositePart.css `.badge .badge-content`
+      // (10 / normal), which fontRamp.css keeps at label3 under the
+      // treatment. Internal token the panel-tab badge pill paints in and
+      // the host analogue for dense numeric indicators.
+      smallText: t(10, FontWeight.w400, color: secondaryFg),
       // Editor-derived surfaces (§spec:editor-derived-surfaces) — DRO numerics and log lines
       // anchor on [editorStyle] so the host's editor-font override
       // flows through without per-call-site changes. DRO retains
@@ -1457,6 +1470,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? listActiveSelectionBackground,
     Color? focusBorder,
     Color? sashHoverBorder,
+    Color? sashGripForeground,
     Color? menuBarBackground,
     Color? menuBarForeground,
     Color? menuBarHoverBackground,
@@ -1639,6 +1653,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           listActiveSelectionBackground ?? this.listActiveSelectionBackground,
       focusBorder: focusBorder ?? this.focusBorder,
       sashHoverBorder: sashHoverBorder ?? this.sashHoverBorder,
+      sashGripForeground: sashGripForeground ?? this.sashGripForeground,
       menuBarBackground: menuBarBackground ?? this.menuBarBackground,
       menuBarForeground: menuBarForeground ?? this.menuBarForeground,
       menuBarHoverBackground:
@@ -1927,6 +1942,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       ),
       focusBorder: c(focusBorder, other.focusBorder),
       sashHoverBorder: c(sashHoverBorder, other.sashHoverBorder),
+      sashGripForeground: c(sashGripForeground, other.sashGripForeground),
       menuBarBackground: c(menuBarBackground, other.menuBarBackground),
       menuBarForeground: c(menuBarForeground, other.menuBarForeground),
       menuBarHoverBackground: c(
@@ -2189,6 +2205,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
               other.listActiveSelectionBackground &&
           focusBorder == other.focusBorder &&
           sashHoverBorder == other.sashHoverBorder &&
+          sashGripForeground == other.sashGripForeground &&
           menuBarBackground == other.menuBarBackground &&
           menuBarForeground == other.menuBarForeground &&
           menuBarHoverBackground == other.menuBarHoverBackground &&
@@ -2347,6 +2364,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     listActiveSelectionBackground,
     focusBorder,
     sashHoverBorder,
+    sashGripForeground,
     menuBarBackground,
     menuBarForeground,
     menuBarHoverBackground,

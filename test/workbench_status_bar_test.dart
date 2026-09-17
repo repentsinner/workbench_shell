@@ -120,7 +120,8 @@ void main() {
     });
 
     testWidgets('insets its item row at the part tier', (tester) async {
-      // `floatingPanels.css`: `size60` horizontally, `size20` vertically
+      // `floatingPanels.css` insets it `size60` horizontally; `statusBar.css`
+      // overrides the vertical pair to no top inset and `size40` below
       // (§spec:modern-ui-surfaces).
       await tester.pumpWidget(
         wrapWithTheme(
@@ -131,9 +132,10 @@ void main() {
       );
       expect(
         _barContainer(tester).padding,
-        const EdgeInsets.symmetric(
-          horizontal: WorkbenchLayoutConstants.spacingSize60,
-          vertical: WorkbenchLayoutConstants.spacingSize20,
+        const EdgeInsets.only(
+          left: WorkbenchLayoutConstants.spacingSize60,
+          right: WorkbenchLayoutConstants.spacingSize60,
+          bottom: WorkbenchLayoutConstants.spacingSize40,
         ),
       );
     });
@@ -153,9 +155,9 @@ void main() {
     testWidgets('the inset content box still holds an icon and its label', (
       tester,
     ) async {
-      // The bar is a fixed 22px, so the vertical inset shrinks the content box
-      // to 18px. Neither the 17px status icon nor the 12px label may outgrow
-      // it (§spec:modern-ui-surfaces).
+      // The bottom inset comes out of the bar's height plus its skirt, which
+      // leaves a 24px content box. Neither the 17px status icon nor the 12px
+      // label may outgrow it (§spec:modern-ui-surfaces).
       await tester.pumpWidget(
         wrapWithTheme(
           const WorkbenchStatusBar(
@@ -169,8 +171,9 @@ void main() {
         ),
       );
       const content =
-          WorkbenchLayoutConstants.statusBarHeight -
-          2 * WorkbenchLayoutConstants.spacingSize20;
+          WorkbenchLayoutConstants.statusBarHeight +
+          WorkbenchLayoutConstants.statusBarFloatingSkirt -
+          WorkbenchLayoutConstants.spacingSize40;
       expect(
         tester.getSize(find.byIcon(Symbols.wifi_rounded)).height,
         lessThanOrEqualTo(content),

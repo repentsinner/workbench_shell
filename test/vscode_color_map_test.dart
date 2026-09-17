@@ -304,7 +304,7 @@ void main() {
       // The reported symptom, pinned as an ordering rather than a literal.
       // The editor is the card the seam reads against; upstream's own
       // `surface.border` sits below it, where the fallback the shell computes
-      // when the token is absent — `foreground` at 10% over the surface — sits
+      // when the token is absent — `foreground` at 15% over the surface — sits
       // above it and reads as a light rule on a dark theme.
       final colors = colorsOf('solarized_dark');
       Color at(String key) =>
@@ -318,7 +318,7 @@ void main() {
       // makes the token's presence load-bearing rather than cosmetic.
       final surface = at('sideBar.background');
       final fallback = Color.alphaBlend(
-        at('editor.foreground').withValues(alpha: 0.1),
+        at('editor.foreground').withValues(alpha: 0.15),
         surface,
       );
       expect(luma(fallback), greaterThan(luma(at('editor.background'))));

@@ -1656,7 +1656,7 @@ class _ThemeDropdownField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Form label — settings dropdown caption follows the §spec:chrome-typography-canon
-        // `labelText` tier (13 / w500), not the pane-header tier
+        // `labelText` tier (13 / w600), not the pane-header tier
         // that `sectionTitle` reserves for sidebar/panel grouping.
         Text(label, style: theme.labelText.copyWith(color: labelColor)),
         const SizedBox(height: WorkbenchLayoutConstants.spacingSize20),

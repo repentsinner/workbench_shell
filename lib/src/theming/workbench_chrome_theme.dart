@@ -291,7 +291,7 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
         constraints: const BoxConstraints(
           minHeight: WorkbenchLayoutConstants.buttonHeight,
         ),
-        contentPadding: buttonPadding,
+        contentPadding: WorkbenchLayoutConstants.selectBoxPadding,
         // The trailing chevron sits in Material's 48px icon slot, inside a
         // 4px pad [DropdownMenu] adds of its own — together taller than
         // every other chrome control, and the tallest thing in the field,

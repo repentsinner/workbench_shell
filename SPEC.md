@@ -285,9 +285,10 @@ owns the stacking, the headers, and the chrome between bodies.
   header height. A pane's body sits flush under its header — VS Code's
   `.pane-body` has no top inset; the host body owns any padding.
 - Adjacent panes are separated by chrome on the header, not whitespace:
-  each header paints a section-header background band, and a top rule
-  separates *adjacent* panes — inset from both ends under the Modern UI
-  treatment (§spec:modern-ui-surfaces). The **first** pane in a container
+  a top rule separates *adjacent* panes, inset from both ends under the
+  Modern UI treatment (§spec:modern-ui-surfaces). With the treatment off
+  each header also paints a section-header background band; under it the
+  header matches the surface it sits on. The **first** pane in a container
   omits the rule — VS Code draws no divider above the first pane (and
   none between the container's own header and the first pane). Both
   come from `WorkbenchTheme` tokens mapped from VS Code's
@@ -434,9 +435,10 @@ Reselecting the active container toggles sidebar visibility, unchanged.
   per-view collapsible flag.
 - Panes stack flush at the view-pane header height with no inter-pane
   gap, and each body sits flush under its header; adjacent panes are
-  separated by a header background band and a top rule, inset from both
-  ends (§spec:modern-ui-surfaces) and each nullable per theme, rendered
-  in the bundled default themes. The first pane in a container omits the
+  separated by a top rule, inset from both ends under the Modern UI
+  treatment, and with the treatment off by a header background band
+  (§spec:modern-ui-surfaces). Each is nullable per theme and rendered in
+  the bundled default themes. The first pane in a container omits the
   top rule.
 - Whether a pane is collapsible is derived from the container's view
   count: multiple views → all collapsible; a single view → non-collapsible,
@@ -1993,7 +1995,7 @@ guarantees the drift the package exists to remove.
 every decision below. Upstream builds a single
 `.monaco-button-dropdown` flex container holding a primary `Button`, a
 separator, and a disclosure `Button`
-([`button.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/base/browser/ui/button/button.ts),
+([`button.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/base/browser/ui/button/button.ts),
 `class ButtonWithDropdown`). The halves share one outer radius — the
 primary rounds its left corners only, the disclosure its right — drop
 their facing borders so no double stroke forms at the seam, and dim
@@ -2184,11 +2186,13 @@ the shell rejects it rather than rendering twice.
 **Why tabs in the title row, not a second activity bar.** VS Code's
 secondary side bar (`AuxiliaryBarPart`) has no activity bar; it embeds
 its container switcher inside its own title row as text-label tabs (a
-`PaneCompositeBar` at the title position, labels by default per
-`workbench.secondarySideBar.showLabels` — icon mode exists only when
-the workbench-wide activity-bar location moves to top/bottom, a setting
-this shell does not model). The primary externalizes its switcher to
-the activity bar; the secondary carries its own. A second activity bar
+`PaneCompositeBar` at the title position). It shows labels by default.
+Upstream switches it to icons in two cases: the user turns
+`workbench.secondarySideBar.showLabels` off through the bar's
+"Show Icons" context action, or the workbench-wide activity bar
+location moves to top or bottom, which forces icons. The shell models
+neither setting, so it renders the default. The primary externalizes
+its switcher to the activity bar; the secondary carries its own. A second activity bar
 was rejected as non-canon. The prior single host-assigned container was
 rejected because canon presents secondary containers as user-switchable
 top-level tabs; a host had to swap the container itself to change what
@@ -2755,7 +2759,7 @@ than VS Code on the same surface.
 **Family rule: platform UI sans.** Chrome `fontFamily` defaults to
 `null`. Flutter resolves to the platform's default UI font, matching
 VS Code's rules in
-[`src/vs/workbench/browser/media/style.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/media/style.css)
+[`src/vs/workbench/browser/media/style.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/media/style.css)
 (`-apple-system` / `Segoe UI` / `system-ui`). Hosts that need a brand
 font pass `chromeFontFamily` on
 `WorkbenchTheme.fromVscodeColorMap`; the override applies uniformly
@@ -2782,13 +2786,13 @@ workbench CSS:
 | Sidebar / panel part title ("Explorer") | `fontRamp.css` — `.part > .title > .title-label h2` | 12 / w600 |
 | Sidebar pane header / `WorkbenchViewPane` | `fontRamp.css` — `.pane-header .title` | 12 / w600 |
 | Workbench body content | `part.css` — `.part > .content` | 13 / w400 |
-| Settings label / form label | `settingsEditor2.css` — `.setting-item-category` | 13 / w500 |
+| Settings label / form label | `settingsEditor2.css` — `.setting-item-category` | 13 / w600 |
 | Status bar item | `statusbarpart.css` | 12 / w400 |
 | Button (default) | `button.css` | 12 / w400 |
 | Editor tab label | `editortabscontrol.css` | 13 / w400 |
 | Title bar / window title | `titlebarpart.css` | 12 / w400 |
 | Description / caption | inherits body, painted in `descriptionForeground` | 12 / w400 |
-| Badge pill (panel tab count, dense numeric labels) | `paneCompositeBar.css` activity / pane badge tier | 11 / w600 |
+| Badge pill (panel tab count, dense numeric labels) | `paneCompositePart.css` — `.badge .badge-content` | 10 / w400 |
 
 `WorkbenchTheme`'s `sectionTitle`, `bodyText`, `labelText`,
 `statusText`, `statusBarTextStyle`, `buttonTextStyle`,
@@ -2837,10 +2841,13 @@ concern, not a shell property (§spec:capability-boundary).
 
 **`smallText` is the badge tier.** Internal token the panel-tab
 badge pill paints in, and the host analogue for dense numeric
-indicators. VS Code's titlebar badge is `9 / w400` and the
-activity-bar / pane-composite badges are `11 / w600`; the package
-picks `11 / w600` to keep one shared token across in-strip and host
-badge surfaces.
+indicators. The panel tab count is VS Code's pane composite badge,
+which `paneCompositePart.css` sets at `10 / w400` with a 10px radius.
+The treatment's `fontRamp.css` holds every action-bar badge at
+`fontSize.label3`, also 10px, so the tier reads the same under both.
+The other upstream badges belong to surfaces the package does not
+render: the activity bar badge in `activityaction.css` is `9 / w600`,
+and the list count badge in `countBadge.css` is `11 / w400`.
 
 **Rejected — registering Inconsolata as a bundled chrome asset.**
 An earlier draft bundled Inconsolata as a package asset and stamped
@@ -2874,7 +2881,7 @@ chrome typography canon (§spec:chrome-typography-canon) — they live in the ed
 uses configurable `editor.fontFamily` and `editor.fontSize` for
 these surfaces, both defaulting to a per-platform monospace via
 `EDITOR_FONT_DEFAULTS` in
-[`src/vs/editor/common/config/fontInfo.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/editor/common/config/fontInfo.ts).
+[`src/vs/editor/common/config/fontInfo.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/editor/common/config/fontInfo.ts).
 `workbench_shell` exposes the same anchor so log-line and value
 styles read from one place that downstream hosts can swap.
 
@@ -3193,16 +3200,16 @@ and makes a stale row visible on inspection.
 
 | Constant | Value | VS Code source | Verified |
 |---|---|---|---|
-| `activityBarWidth` | 48 | [`activitybarPart.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/activitybar/activitybarPart.ts) — `static readonly ACTIVITYBAR_WIDTH = 48`, applied by [`activitybarpart.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/activitybar/media/activitybarpart.css) as `width: var(--activity-bar-width, 48px)` | 1.138.0 |
-| `activityBarIndicatorWidth` | 2 | activity bar item left-border indicator (same CSS file); cross-confirmed by [`activityBar.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/activityBar.css), whose override is commented "Drop the 2px left border indicator on the active item" | 1.138.0 |
-| `baseViewPaneHeaderHeight` | 22 | [`paneview.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/base/browser/ui/splitview/paneview.ts) — `DEFAULT_PANE_HEADER_SIZE = 22`, the band `viewPaneHeaderHeight` raises under the treatment (§spec:modern-ui-surfaces) | 1.138.0 |
-| `sidebarHeadingHeight` | 35 | [`part.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/media/part.css) — `.part > .title { height: 35px }`, the band `modernPartTitleHeight` tightens under the treatment (§spec:modern-ui-surfaces) | 1.138.0 |
+| `activityBarWidth` | 48 | [`activitybarPart.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/parts/activitybar/activitybarPart.ts) — `static readonly ACTIVITYBAR_WIDTH = 48`, applied by [`activitybarpart.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/parts/activitybar/media/activitybarpart.css) as `width: var(--activity-bar-width, 48px)` | 1.138.0 |
+| `activityBarIndicatorWidth` | 2 | [`activityaction.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/parts/activitybar/media/activityaction.css) — `.action-item.checked .active-item-indicator:before { border-left: 2px solid }`; cross-confirmed by [`activityBar.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/activityBar.css), whose override is commented "Drop the 2px left border indicator on the active item" | 1.138.0 |
+| `baseViewPaneHeaderHeight` | 22 | [`paneview.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/base/browser/ui/splitview/paneview.ts) — `DEFAULT_PANE_HEADER_SIZE = 22`, the band `viewPaneHeaderHeight` raises under the treatment (§spec:modern-ui-surfaces) | 1.138.0 |
+| `sidebarHeadingHeight` | 35 | [`part.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/media/part.css) — `.part > .title { height: 35px }`, the band `modernPartTitleHeight` tightens under the treatment (§spec:modern-ui-surfaces) | 1.138.0 |
 | `panelTabStripHeight` | 35 | shared `.part > .title` (same file); also tightened by `modernPartTitleHeight` | 1.138.0 |
-| `modernPartTitleHeight` | 32 | [`padding.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/padding.css) — `.part > .title, .part > .header-or-footer { height: 32px }`, commented "KEEP IN SYNC WITH: part.ts PartLayout.AREA_HEIGHT_MODERN_UI" | 1.138.0 |
-| `statusBarHeight` | 22 | [`statusbarpart.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/statusbar/media/statusbarpart.css) — `height: 22px`. Cross-confirmed by inline comment in `notificationsToasts.css`: `bottom: 25px; /* 22px status bar height + 3px */` | 1.138.0 |
-| `sidebarMinWidth` | 170 | [`sidebarPart.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/sidebar/sidebarPart.ts) — `readonly minimumWidth: number = 170` | 1.138.0 |
-| `panelMinHeight` | 77 | [`panelPart.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/panel/panelPart.ts) — `readonly minimumHeight: number = 77` | 1.138.0 |
-| `notificationCardWidth` | 450 | [`notificationsToasts.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/notifications/notificationsToasts.ts) — `private static readonly MAX_WIDTH = 450` | 1.138.0 |
+| `modernPartTitleHeight` | 32 | [`padding.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/padding.css) — `.part > .title, .part > .header-or-footer { height: 32px }`, commented "KEEP IN SYNC WITH: part.ts PartLayout.AREA_HEIGHT_MODERN_UI" | 1.138.0 |
+| `statusBarHeight` | 22 | [`statusbarpart.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/parts/statusbar/media/statusbarpart.css) — `height: 22px`. Cross-confirmed by inline comment in `notificationsToasts.css`: `bottom: 25px; /* 22px status bar height + 3px */` | 1.138.0 |
+| `sidebarMinWidth` | 170 | [`sidebarPart.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/parts/sidebar/sidebarPart.ts) — `readonly minimumWidth: number = 170` | 1.138.0 |
+| `panelMinHeight` | 77 | [`panelPart.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/parts/panel/panelPart.ts) — `readonly minimumHeight: number = 77` | 1.138.0 |
+| `notificationCardWidth` | 450 | [`notificationsToasts.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/parts/notifications/notificationsToasts.ts) — `private static readonly MAX_WIDTH = 450` | 1.138.0 |
 
 **Constants without a VS Code peer.** Some
 `WorkbenchLayoutConstants` slots intentionally diverge because
@@ -3283,8 +3290,8 @@ between two ownership boundaries.
 
 `WorkbenchLayoutConstants` names its radius, stroke and spacing values
 after the ladders VS Code registers in
-[`baseSizes.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/platform/theme/common/sizes/baseSizes.ts).
-[`roundedCorners.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/roundedCorners.css)
+[`baseSizes.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/platform/theme/common/sizes/baseSizes.ts).
+[`roundedCorners.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/roundedCorners.css)
 records the doctrine for choosing among the radius tiers — by the role
 a surface plays, not by how large it looks. The package adopts those
 ladders, their names, and that doctrine. Upstream owns the values; the
@@ -3352,22 +3359,18 @@ reason beyond call-site familiarity.
   Traceability to upstream is the property §req:quality-attributes
   ranks first; call-site fluency is not a stated requirement.
 
-**Not covered by a ladder.** Three values stay off the ladders, and each
+**Not covered by a ladder.** Two values stay off the ladders, and each
 records why so a later reader can tell a decision from an oversight:
 
 - *The icon scale* (`iconXs` … `iconXl`) keeps its t-shirt names. VS Code
   registers two codicon sizes, not a ladder, so there is nothing upstream
   to adopt. §spec:layout-constants-canon records the rationale.
-- *Button horizontal padding* stays a literal. Upstream's
-  `.monaco-text-button` pads 14px, which sits between two ramp steps; the
-  value is canonical to `button.css` rather than to the ramp, and
-  rounding it to a neighbouring step would trade a sourced value for a
-  tidier one.
-- *The panel tab badge radius* stays a literal. Base VS Code rounds a
-  count badge at 11px, and the Modern UI treatment moves it to the circle
-  tier — neither is the package's current 8px, and both are restylings.
-  §spec:modern-ui-surfaces owns that change; adopting a tier name here
-  would assert a role the rendered shape does not yet match.
+- *The panel tab badge radius* stays a literal. The panel tab count is
+  VS Code's pane composite badge, which `paneCompositePart.css` rounds at
+  10px under both treatments. That value sits between the `large` and
+  `xLarge` steps, and it belongs to the badge rule rather than to the
+  ladder. The circle tier the treatment applies to `.monaco-count-badge`
+  styles a different element.
 
 **Observable behavior**.
 
@@ -3404,13 +3407,16 @@ place the treatment in the future; it is in the present.
 **The package conforms to upstream's treatment rather than restating
 it.** The card margins, borders, radii, activity bar metrics and pane
 header dimensions are upstream's, read from
-[`floatingPanels.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/media/floatingPanels.css),
-[`editorBorder.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/editorBorder.css),
-[`paneHeaders.css`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/modernUI/browser/media/paneHeaders.css)
+[`floatingPanels.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/media/floatingPanels.css),
+[`editorBorder.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/editorBorder.css),
+[`paneHeaders.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/contrib/modernUI/browser/media/paneHeaders.css)
 and
-[`activitybarPart.ts`](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/browser/parts/activitybar/activitybarPart.ts),
-and expressed through §spec:design-size-ladders. What follows records
-only the decisions that are this package's to make.
+[`activitybarPart.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/parts/activitybar/activitybarPart.ts),
+and expressed through §spec:design-size-ladders. Each value is read at
+the latest stable VS Code release rather than upstream `main`, because
+stable is what users run and `main` carries changes a release may still
+alter or drop. What follows records only the decisions that are this
+package's to make.
 
 **The frame is drawn inside the allocation, not around it.** A part's
 border and margin consume space the layout already assigned to it,
@@ -3531,15 +3537,26 @@ shipped behavior. The shell therefore renders these surfaces in the
 casing its host supplies and stops transforming them
 (§spec:chrome-typography-canon).
 
-**A part title tightens and loses two thirds of its inset.**
-`padding.css` takes `.part > .title` from `part.css`'s 35px to 32px and
-moves the inset inward, so the label sits closer to the card edge and
-the trailing action sits against it. Two insets, not one: the part pads
+**A part title tightens and moves its insets inward.**
+`padding.css` takes `.part > .title` from `part.css`'s 35px to 32px. It
+halves the row's inset on each side from 8px to `spacing.size40`, and
+takes the label's own inset from 12px to `spacing.size80`. The label
+then starts 12px from the card edge rather than 20px, and the trailing
+action sits 4px from it rather than 8px. Two insets, not one: the part pads
 the row and the title label pads itself again inside it, which is why
 the package resolves them separately rather than as a single padding.
 The side bar heading and the panel tab strip are the same upstream rule
 and share the tightened band; each keeps its own base constant so the
 flag returns both to 35px (§spec:layout-constants-canon).
+
+**A pane header matches its surface at rest.** `paneHeaders.css`
+overrides the header's `sideBarSectionHeader.background` with the
+surface it sits on: `sideBar.background` in a side bar and
+`panel.background` in the panel. The header then reads as part of the
+body rather than as a tinted strip. The shell paints no fill at rest,
+which lets that surface through without the header knowing which part
+encloses it. A theme that tints the header token, Monokai among the
+bundled set, shows that tint only with the treatment off.
 
 **The activity bar holds its two zones off the card edges.**
 `padding.css` gives the vertical rail's item column a top margin and its
@@ -3582,15 +3599,19 @@ pixels on one density.
 an invisible-until-hovered sash leaves no sign of where one part ends
 and the next begins. `sashHandles.css` marks each boundary with three
 dots at its midpoint, faded out on hover and drag so the existing
-full-length highlight takes over unchanged. Grips mark boundaries
+full-length highlight takes over unchanged. The dots paint
+`modernSash.gripForeground` as is, a token whose registry default is
+`foreground` at 40% outside high contrast. Grips mark boundaries
 *between* parts only: upstream suppresses them for sashes inside a
 part, which in this package is every view-stack pane sash. Compact
 closes the gaps, so the grips retire with the space they occupied.
 
 **The status bar is a rail inside the cluster, not a card.** It spans
 the full width and takes no border or radius of its own, but the
-treatment insets its content — `spacing.size60` horizontally,
-`spacing.size20` vertically. Its items round at the controls tier, so
+treatment insets its content. `floatingPanels.css` sets
+`spacing.size60` on each side, and `statusBar.css` overrides the
+vertical pair to no inset above and `spacing.size40` below. Its items
+round at the controls tier, so
 an item that paints a background reads as a pill rather than a
 rectangle. Upstream's variants
 of that horizontal inset — tightened to the activity bar's own gutter,
@@ -3604,9 +3625,8 @@ rail, so the plain inset is the only branch reachable here.
 where the padding is 6 at the default density, 4 at compact, and zero
 off the treatment. The bar keeps its 22px of content and gains a skirt
 below it, clearing the window edge the way the cards clear it with
-their perimeter gutter. An earlier pass reasoned the opposite — that a
-fixed height meant the vertical inset had to come out of the content —
-and shipped a bar six pixels short.
+their perimeter gutter. Taking the inset out of the content instead
+would leave the bar six pixels short of upstream's reserved height.
 
 This is a fourth metric the treatment sets in code rather than CSS, and
 unlike the pane header size, the scrollbar size and the notification row
@@ -3678,16 +3698,13 @@ controls tier off the treatment. The controls *inside* a card — the
 close button, the action buttons — stay at the controls tier under
 both, as upstream rounds them.
 
-**Rejected — excluding the font ramp as a renaming.** An earlier pass
-surveyed `baseSizes.ts`, found it registered `fontSize.heading1` …
-`fontSize.label3` against literals the package already pinned, and
-excluded the ramp on the grounds that adopting it renamed the canon
-without changing what renders. That reading stopped at `baseSizes.ts`.
-`fontRamp.css` is where the module does its work, and it moves the
-pane header from 11px bold ALL-CAPS to 12px semiBold title case — a
-change to three properties on the package's most repeated chrome
-surface. The exclusion is withdrawn and the casing decision above
-replaces it.
+**Rejected — excluding the font ramp as a renaming.** `baseSizes.ts`
+registers `fontSize.heading1` … `fontSize.label3` against literals the
+package already pins, which suggests adopting the ramp only renames the
+canon. It does not: `fontRamp.css` is where the module does its work,
+and it moves the pane header from 11px bold ALL-CAPS to 12px semiBold
+title case — a change to three properties on the package's most
+repeated chrome surface. The casing decision above follows from it.
 
 **Rejected — choosing the card gap independently.** The gap looks like
 a free choice among nearby spacing steps. Upstream keeps the margin
@@ -3734,13 +3751,6 @@ excluded here, to be specified separately rather than absorbed:
   The Modern UI look suppresses part shadows for a flat surface while
   preserving floating-overlay shadows. The package's shadow story is
   unaudited against either.
-- *Flattening the pane header's rest-state band.* Upstream additionally
-  paints a pane header the surface colour, discarding
-  `sideBarSectionHeader.background`. The band is retained: the shell
-  renders the header's own token, so a theme that tints it keeps that
-  tint. The two agree wherever a theme leaves the header token equal to
-  the surface — Dark Modern and Light Modern among them — and diverge
-  where it does not, Monokai being the case in the bundled set.
 - *The notification row height.* One of the three metrics
   `modernUI.contribution.ts` sets in code rather than CSS: it swaps
   `DEFAULT_NOTIFICATION_ROW_HEIGHT` (42) for
@@ -3769,8 +3779,8 @@ excluded here, to be specified separately rather than absorbed:
 - The primary side bar, secondary side bar and bottom panel each
   render as a bordered, rounded card separated from its neighbours by
   a visible gap.
-- A view pane header is rounded at the controls tier and tints on
-  hover.
+- A view pane header is rounded at the controls tier, paints no band
+  at rest and tints on hover.
 - The editor renders inside a hairline frame with the same radius, and
   the frame consumes no additional layout space.
 - Where the primary side bar meets the activity bar, one hairline
