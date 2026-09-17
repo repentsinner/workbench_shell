@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' show SemanticsRole;
 
 import 'package:flutter/foundation.dart'
-    show clampDouble, defaultTargetPlatform, listEquals;
+    show clampDouble, defaultTargetPlatform;
 import 'package:flutter/gestures.dart'
     show
         GestureBinding,
@@ -646,14 +646,11 @@ class _EditorTabStripState extends State<EditorTabStrip>
   int _dragScrollDirection = 0;
   Duration _lastDragScrollTick = Duration.zero;
 
-  /// The viewport extent and scroll range the last reveal check saw. The
-  /// strip reveals the active tab when either changes, as upstream does when
-  /// its tab dimensions change.
+  /// The viewport extent, scroll range and active tab the last reveal check
+  /// saw. The strip reveals the active tab when any of them changes, as
+  /// upstream does when the active tab or its tab dimensions change.
   (double, double)? _revealedDimensions;
-
-  /// The next reveal check reveals the active tab even with unchanged
-  /// dimensions, because the active tab changed.
-  bool _forceReveal = false;
+  String? _revealedActiveId;
 
   /// The next reveal check is skipped: upstream's `blockRevealActiveTabOnce`,
   /// set when a tab's close button requests its close so a run of closes does
@@ -671,15 +668,9 @@ class _EditorTabStripState extends State<EditorTabStrip>
   @override
   void didUpdateWidget(covariant EditorTabStrip oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.activeId != widget.activeId) {
-      _forceReveal = true;
-      _scheduleRevealCheck();
-    } else if (!listEquals(
-      [for (final tab in oldWidget.tabs) tab.id],
-      [for (final tab in widget.tabs) tab.id],
-    )) {
-      _scheduleRevealCheck();
-    }
+    // A change of dimensions reaches the check through the metrics
+    // notification.
+    if (widget.activeId != _revealedActiveId) _scheduleRevealCheck();
   }
 
   @override
@@ -709,15 +700,16 @@ class _EditorTabStripState extends State<EditorTabStrip>
       return;
     }
     final dimensions = (position.viewportDimension, position.maxScrollExtent);
-    final changed = dimensions != _revealedDimensions;
+    final changed =
+        dimensions != _revealedDimensions ||
+        widget.activeId != _revealedActiveId;
     _revealedDimensions = dimensions;
-    final force = _forceReveal;
-    _forceReveal = false;
+    _revealedActiveId = widget.activeId;
     if (_blockRevealOnce) {
       _blockRevealOnce = false;
       return;
     }
-    if (changed || force) _revealActive();
+    if (changed) _revealActive();
   }
 
   /// Scroll the active tab into view with the least movement, per upstream's
