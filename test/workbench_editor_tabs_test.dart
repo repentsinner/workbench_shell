@@ -1397,6 +1397,34 @@ void main() {
       );
     });
 
+    testWidgets('a run of scrolls holds the scrollbar until the hide delay '
+        'after the last', (tester) async {
+      await pumpHost(tester);
+      const delay = WorkbenchLayoutConstants.editorTabScrollbarHideDelay;
+      const gap = Duration(milliseconds: 300);
+      // Scrolls the pointer does not drive: activating the last tab and the
+      // first by turns, each cut off at the far end, each gap inside the
+      // delay.
+      for (var i = 0; i < 4; i++) {
+        Actions.invoke(
+          tester.element(find.byType(EditorTabStrip)),
+          i.isEven
+              ? const ActivateLastEditorTabIntent()
+              : const ActivateEditorTabAtIndexIntent(0),
+        );
+        await tester.pump();
+        await tester.pump();
+        expect(position(tester).pixels, i.isEven ? greaterThan(0) : 0);
+        await tester.pump(gap);
+      }
+      expect(scrollbarOpacity(tester), 1);
+      await tester.pump(delay - gap - const Duration(milliseconds: 1));
+      expect(scrollbarOpacity(tester), 1);
+      await tester.pump(const Duration(milliseconds: 2));
+      expect(scrollbarOpacity(tester), 0);
+      await tester.pumpAndSettle();
+    });
+
     testWidgets('the slider is sized and placed from the scroll extent', (
       tester,
     ) async {

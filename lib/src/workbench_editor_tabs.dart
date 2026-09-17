@@ -1110,7 +1110,14 @@ class _EditorTabScrollbarState extends State<_EditorTabScrollbar> {
   /// The last hide faded rather than cut, so the fade-out duration applies.
   bool _fading = false;
 
+  /// One timer serves a run of reveals: when it fires, it waits out the rest
+  /// of the delay since the last reveal rather than restarting on each one.
   Timer? _hideTimer;
+
+  /// Time since the last reveal. The gesture binding's sampling clock keeps
+  /// it in step with the fake time of widget tests.
+  final Stopwatch _sinceReveal = GestureBinding.instance.samplingClock
+      .stopwatch();
 
   @override
   void initState() {
@@ -1137,12 +1144,29 @@ class _EditorTabScrollbarState extends State<_EditorTabScrollbar> {
         _fading = false;
       });
     }
-    _hideTimer?.cancel();
-    if (!_held) {
+    _sinceReveal
+      ..reset()
+      ..start();
+    if (_held) {
+      _hideTimer?.cancel();
+    } else if (!(_hideTimer?.isActive ?? false)) {
       _hideTimer = Timer(
         WorkbenchLayoutConstants.editorTabScrollbarHideDelay,
-        _hide,
+        _onHideTimer,
       );
+    }
+  }
+
+  /// Hide once the delay has passed since the last reveal, else wait out the
+  /// rest of it.
+  void _onHideTimer() {
+    final remaining =
+        WorkbenchLayoutConstants.editorTabScrollbarHideDelay -
+        _sinceReveal.elapsed;
+    if (remaining > Duration.zero) {
+      _hideTimer = Timer(remaining, _onHideTimer);
+    } else {
+      _hide();
     }
   }
 
