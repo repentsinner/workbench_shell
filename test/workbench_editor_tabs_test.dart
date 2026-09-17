@@ -1368,6 +1368,35 @@ void main() {
       await tester.pumpAndSettle();
     });
 
+    testWidgets('scrolling moves the slider without rebuilding the bar, and '
+        'repaints the slider apart from the tabs', (tester) async {
+      await pumpHost(tester);
+      final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await pointer.addPointer(location: Offset.zero);
+      addTearDown(pointer.removePointer);
+      await pointer.moveTo(tester.getCenter(tabOf('1')));
+      await tester.pump();
+      expect(scrollbarOpacity(tester), 1);
+      final bar = tester.widget<AnimatedOpacity>(scrollbar);
+      final sliderLeft = tester.getRect(slider).left;
+
+      await wheel(tester, const Offset(0, 100));
+      await wheel(tester, const Offset(0, 100));
+      expect(tester.getRect(slider).left, greaterThan(sliderLeft));
+      // The bar rebuilds only when it shows or hides.
+      expect(tester.widget<AnimatedOpacity>(scrollbar), same(bar));
+      expect(
+        find.descendant(
+          of: scrollbar,
+          matching: find.ancestor(
+            of: slider,
+            matching: find.byType(RepaintBoundary),
+          ),
+        ),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('the slider is sized and placed from the scroll extent', (
       tester,
     ) async {
