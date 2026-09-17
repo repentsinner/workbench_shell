@@ -270,6 +270,50 @@ class WorkbenchLayoutConstants {
   /// spacing token.
   static const double editorTabDropIndicatorWidth = 2.0;
 
+  /// Thickness of the editor tab strip's scrollbar (§spec:editor-tab-overflow).
+  /// [`multiEditorTabsControl.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/parts/editor/multiEditorTabsControl.ts)
+  /// `SCROLLBAR_SIZES.default`, the `workbench.editor.titleScrollbarSizing`
+  /// default. Off the spacing ladder: upstream sizes it in pixels, not a
+  /// spacing token.
+  static const double editorTabScrollbarSize = 3.0;
+
+  /// Shortest the scrollbar's slider gets, so it stays a target however far
+  /// the tabs overflow.
+  /// [`scrollbarState.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/base/browser/ui/scrollbar/scrollbarState.ts)
+  /// `MINIMUM_SLIDER_SIZE`.
+  static const double editorTabScrollbarMinSliderSize = 20.0;
+
+  /// How long the scrollbar stays after a scroll the pointer is not over.
+  /// [`scrollableElement.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/base/browser/ui/scrollbar/scrollableElement.ts)
+  /// `HIDE_TIMEOUT`.
+  static const Duration editorTabScrollbarHideDelay = Duration(
+    milliseconds: 500,
+  );
+
+  /// The scrollbar's fade in and fade out.
+  /// [`scrollbars.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/base/browser/ui/scrollbar/media/scrollbars.css)
+  /// `.visible { transition: opacity 100ms linear }` and
+  /// `.invisible.fade { transition: opacity 800ms linear }`.
+  static const Duration editorTabScrollbarFadeInDuration = Duration(
+    milliseconds: 100,
+  );
+  static const Duration editorTabScrollbarFadeOutDuration = Duration(
+    milliseconds: 800,
+  );
+
+  /// Width of the zone at either end of an overflowing editor tab strip where
+  /// a dragged tab scrolls the strip (§spec:editor-tab-overflow). Upstream
+  /// relies on the browser's native drag auto-scroll and declares no value;
+  /// the shell picks [spacingSize320], one Modern UI strip height, so the
+  /// zone is about a square at each end and narrower than any tab.
+  static const double editorTabDragScrollEdge = spacingSize320;
+
+  /// How fast a dragged tab in [editorTabDragScrollEdge] scrolls the strip,
+  /// in logical pixels per second. A shell choice for the same reason: at
+  /// roughly four base tabs a second the strip crosses a long row quickly
+  /// while a drop target stays readable as it passes.
+  static const double editorTabDragScrollSpeed = 480.0;
+
   /// Cross-axis thickness of a resize sash's hit target — VS Code's
   /// `--vscode-sash-size`. Owned by `WorkbenchSash` so every seam is identical.
   static const double sashSize = 4.0;

@@ -958,9 +958,9 @@ void main() {
       expect(find.text('# release-notes.md'), findsNothing);
     });
 
-    /// Widens the test window past the default 800px so every tab fits: the
-    /// strip clips tabs past its trailing edge until overflow scrolling lands
-    /// (§spec:editor-tab-interaction).
+    /// Widens the test window past the default 800px so every tab fits, and a
+    /// test reads tab positions without the strip scrolling
+    /// (§spec:editor-tab-overflow).
     Future<void> pumpWide(WidgetTester tester) async {
       tester.view.physicalSize = const Size(2000, 1000);
       tester.view.devicePixelRatio = 1.0;
@@ -1066,6 +1066,100 @@ void main() {
         ['lorem-ipsum.txt', 'Untitled-1', 'release-notes.md'],
       );
       expect(find.text('# Untitled-1'), findsOneWidget);
+    });
+
+    testWidgets('opening many editors overflows the strip, which reveals the '
+        'newest and scrolls with the wheel', (tester) async {
+      await tester.pumpWidget(const WorkbenchExampleApp());
+      await tester.pumpAndSettle();
+      final viewport = find.byKey(const ValueKey('editor-tab-viewport'));
+      ScrollPosition position() => tester
+          .state<ScrollableState>(
+            find.descendant(of: viewport, matching: find.byType(Scrollable)),
+          )
+          .position;
+
+      await tester.tap(find.text('Open 10 Editors'));
+      await tester.pumpAndSettle();
+      expect(position().maxScrollExtent, greaterThan(0));
+      // The last editor opened is active and scrolled fully into view.
+      expect(find.text('# Untitled-10'), findsOneWidget);
+      final strip = tester.getRect(viewport);
+      final newest = tester.getRect(tabOf('Untitled-10'));
+      expect(newest.right, lessThanOrEqualTo(strip.right));
+      expect(newest.left, greaterThanOrEqualTo(strip.left));
+
+      final before = position().pixels;
+      tester.binding.handlePointerEvent(
+        PointerScrollEvent(
+          position: strip.center,
+          scrollDelta: const Offset(0, -120),
+        ),
+      );
+      await tester.pump();
+      expect(position().pixels, before - 120);
+
+      // The thin scrollbar shows while the pointer is over the strip.
+      final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await pointer.addPointer(location: strip.center);
+      addTearDown(pointer.removePointer);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<AnimatedOpacity>(
+              find.byKey(const ValueKey('editor-tab-scrollbar')),
+            )
+            .opacity,
+        1,
+      );
+    });
+
+    testWidgets('dragging a tab to the end of an overflowing strip scrolls it '
+        'and drops the tab past tabs that were out of view', (tester) async {
+      await tester.pumpWidget(const WorkbenchExampleApp());
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open 10 Editors'));
+      await tester.pumpAndSettle();
+      final viewport = find.byKey(const ValueKey('editor-tab-viewport'));
+      final strip = tester.getRect(viewport);
+
+      // Bring the first tab into view, leaving the newest out of view.
+      tester.binding.handlePointerEvent(
+        PointerScrollEvent(
+          position: strip.center,
+          scrollDelta: const Offset(0, -5000),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.getRect(tabOf('Untitled-10')).left,
+        greaterThan(strip.right),
+      );
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(tabOf('lorem-ipsum.txt')),
+        kind: PointerDeviceKind.mouse,
+      );
+      await gesture.moveBy(const Offset(20, 0));
+      await tester.pump();
+      await gesture.moveTo(
+        Offset(
+          strip.right - WorkbenchLayoutConstants.editorTabDragScrollEdge / 2,
+          strip.center.dy,
+        ),
+      );
+      for (var i = 0; i < 100; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      final labels = [
+        'lorem-ipsum.txt',
+        for (var i = 1; i <= 10; i++) 'Untitled-$i',
+        'release-notes.md',
+      ];
+      expect(tabOrder(tester, labels).last, 'lorem-ipsum.txt');
     });
 
     testWidgets('an unsaved editor shows a dot in place of its close button', (

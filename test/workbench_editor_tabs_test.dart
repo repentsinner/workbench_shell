@@ -1199,6 +1199,390 @@ void main() {
     });
   });
 
+  group('Editor tab overflow (§spec:editor-tab-overflow)', () {
+    Finder tabOf(String id) => find.byKey(ValueKey('editor-tab-$id'));
+    final viewport = find.byKey(const ValueKey('editor-tab-viewport'));
+    final scrollbar = find.byKey(const ValueKey('editor-tab-scrollbar'));
+    final slider = find.byKey(const ValueKey('editor-tab-scrollbar-slider'));
+
+    /// Ids for [count] tabs, enough at 12 to overflow the test window's
+    /// editor area in either treatment.
+    List<String> ids([int count = 12]) => [
+      for (var i = 0; i < count; i++) '$i',
+    ];
+
+    /// Pumps a host that removes a tab when its close is requested.
+    Future<void> pumpHost(
+      WidgetTester tester, {
+      List<String>? tabIds,
+      bool modernUI = false,
+      String? initialActiveEditorTabId,
+      List<List<String>>? orders,
+      WorkbenchTheme? theme,
+    }) async {
+      final open = [...(tabIds ?? ids())];
+      await tester.pumpWidget(
+        StatefulBuilder(
+          builder: (context, setState) => _layout(
+            editorTabs: [for (final id in open) _tab(id)],
+            modernUI: modernUI,
+            initialActiveEditorTabId: initialActiveEditorTabId,
+            onEditorTabOrderChanged: orders?.add,
+            onEditorTabCloseRequested: (id) => setState(() => open.remove(id)),
+            theme: theme,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    ScrollPosition position(WidgetTester tester) => tester
+        .state<ScrollableState>(
+          find.descendant(of: viewport, matching: find.byType(Scrollable)),
+        )
+        .position;
+
+    double scrollbarOpacity(WidgetTester tester) =>
+        tester.widget<AnimatedOpacity>(scrollbar).opacity;
+
+    Future<void> wheel(WidgetTester tester, Offset delta) async {
+      tester.binding.handlePointerEvent(
+        PointerScrollEvent(
+          position: tester.getCenter(viewport),
+          scrollDelta: delta,
+        ),
+      );
+      await tester.pump();
+    }
+
+    testWidgets('a vertical wheel scrolls an overflowing strip sideways, and a '
+        'horizontal one scrolls it directly', (tester) async {
+      await pumpHost(tester);
+      final start = tester.getTopLeft(tabOf('0')).dx;
+      expect(position(tester).maxScrollExtent, greaterThan(0));
+
+      await wheel(tester, const Offset(0, 100));
+      expect(position(tester).pixels, 100);
+      expect(tester.getTopLeft(tabOf('0')).dx, start - 100);
+
+      await wheel(tester, const Offset(-40, 0));
+      expect(position(tester).pixels, 60);
+
+      // The predominant axis wins, as upstream's `scrollPredominantAxis`.
+      await wheel(tester, const Offset(10, -30));
+      expect(position(tester).pixels, 30);
+
+      // Clamped at either end.
+      await wheel(tester, const Offset(0, -500));
+      expect(position(tester).pixels, 0);
+    });
+
+    testWidgets('a vertical trackpad gesture scrolls the strip sideways', (
+      tester,
+    ) async {
+      await pumpHost(tester);
+      final gesture = await tester.createGesture(
+        kind: PointerDeviceKind.trackpad,
+      );
+      final center = tester.getCenter(viewport);
+      await gesture.panZoomStart(center);
+      await gesture.panZoomUpdate(center, pan: const Offset(0, -60));
+      await tester.pump();
+      await gesture.panZoomEnd();
+      await tester.pump();
+      expect(position(tester).pixels, 60);
+    });
+
+    testWidgets('a strip that fits ignores the wheel and shows no scrollbar', (
+      tester,
+    ) async {
+      await pumpHost(tester, tabIds: ids(2));
+      expect(position(tester).maxScrollExtent, 0);
+      await wheel(tester, const Offset(0, 100));
+      expect(position(tester).pixels, 0);
+
+      final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await pointer.addPointer(location: tester.getCenter(viewport));
+      addTearDown(pointer.removePointer);
+      await tester.pumpAndSettle();
+      expect(scrollbarOpacity(tester), 0);
+    });
+
+    testWidgets('the scrollbar overlays the strip foot and shows only while '
+        'the pointer is over an overflowing strip', (tester) async {
+      await pumpHost(tester);
+      final strip = tester.getRect(viewport);
+      final bar = tester.getRect(scrollbar);
+      // A 3px bar over the bottom of the strip, taking no layout space.
+      expect(bar.height, WorkbenchLayoutConstants.editorTabScrollbarSize);
+      expect(bar.bottom, strip.bottom);
+      expect(bar.width, strip.width);
+      expect(
+        tester.getSize(find.byType(EditorTabStrip)).height,
+        WorkbenchLayoutConstants.editorTabHeight,
+      );
+      expect(scrollbarOpacity(tester), 0);
+
+      final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await pointer.addPointer(location: Offset.zero);
+      addTearDown(pointer.removePointer);
+      await pointer.moveTo(tester.getCenter(tabOf('1')));
+      await tester.pump();
+      expect(scrollbarOpacity(tester), 1);
+      expect(
+        tester.widget<AnimatedOpacity>(scrollbar).duration,
+        WorkbenchLayoutConstants.editorTabScrollbarFadeInDuration,
+      );
+      // Still shown while the pointer stays, however long.
+      await tester.pump(const Duration(seconds: 2));
+      expect(scrollbarOpacity(tester), 1);
+
+      await pointer.moveTo(tester.getCenter(find.text('Content 0')));
+      await tester.pump();
+      expect(scrollbarOpacity(tester), 0);
+      expect(
+        tester.widget<AnimatedOpacity>(scrollbar).duration,
+        WorkbenchLayoutConstants.editorTabScrollbarFadeOutDuration,
+      );
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('scrolling shows the scrollbar, which fades once scrolling '
+        'has stopped for the hide delay', (tester) async {
+      await pumpHost(tester);
+      // A scroll the pointer does not drive: activating a cut-off tab.
+      Actions.invoke(
+        tester.element(find.text('Content 0')),
+        const ActivateLastEditorTabIntent(),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(position(tester).pixels, greaterThan(0));
+      expect(scrollbarOpacity(tester), 1);
+
+      const delay = WorkbenchLayoutConstants.editorTabScrollbarHideDelay;
+      await tester.pump(delay - const Duration(milliseconds: 1));
+      expect(scrollbarOpacity(tester), 1);
+      await tester.pump(const Duration(milliseconds: 2));
+      expect(scrollbarOpacity(tester), 0);
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('the slider is sized and placed from the scroll extent', (
+      tester,
+    ) async {
+      await pumpHost(tester);
+      await wheel(tester, const Offset(0, 150));
+      final metrics = position(tester);
+      final visible = metrics.viewportDimension;
+      final scrollSize = metrics.maxScrollExtent + visible;
+      // scrollbarState.ts: the slider takes the visible share of the track,
+      // never less than 20px, and moves in proportion to the scroll.
+      final size = (visible * visible / scrollSize).floorToDouble().clamp(
+        WorkbenchLayoutConstants.editorTabScrollbarMinSliderSize,
+        visible,
+      );
+      final ratio = (visible - size) / (scrollSize - visible);
+      final rect = tester.getRect(slider);
+      final bar = tester.getRect(scrollbar);
+      expect(rect.width, size.roundToDouble());
+      expect(rect.left - bar.left, (metrics.pixels * ratio).roundToDouble());
+      expect(rect.height, WorkbenchLayoutConstants.editorTabScrollbarSize);
+    });
+
+    testWidgets('the slider paints scrollbarSlider.*, and dragging it scrolls '
+        'the strip', (tester) async {
+      await pumpHost(tester);
+      Color? sliderColor() =>
+          (tester.widget<DecoratedBox>(slider).decoration as BoxDecoration)
+              .color;
+      final theme = testWorkbenchTheme;
+
+      final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await pointer.addPointer(location: Offset.zero);
+      addTearDown(pointer.removePointer);
+      await pointer.moveTo(tester.getCenter(tabOf('1')));
+      await tester.pump();
+      expect(sliderColor(), theme.scrollbarSliderBackground);
+
+      await pointer.moveTo(tester.getCenter(slider));
+      await tester.pump();
+      expect(sliderColor(), theme.scrollbarSliderHoverBackground);
+
+      await pointer.down(tester.getCenter(slider));
+      await tester.pump();
+      expect(sliderColor(), theme.scrollbarSliderActiveBackground);
+      await pointer.moveBy(const Offset(40, 0));
+      await tester.pump();
+      expect(position(tester).pixels, greaterThan(40));
+      await pointer.up();
+      await tester.pump();
+      expect(sliderColor(), theme.scrollbarSliderHoverBackground);
+    });
+
+    testWidgets('under Modern UI the slider rounds to the controls tier', (
+      tester,
+    ) async {
+      await pumpHost(tester, modernUI: true);
+      expect(
+        (tester.widget<DecoratedBox>(slider).decoration as BoxDecoration)
+            .borderRadius,
+        BorderRadius.circular(WorkbenchLayoutConstants.cornerRadiusSmall),
+      );
+    });
+
+    testWidgets('activating a tab cut off at the trailing edge scrolls until '
+        'its trailing edge meets the strip', (tester) async {
+      await pumpHost(tester);
+      Actions.invoke(
+        tester.element(find.text('Content 0')),
+        const ActivateEditorTabAtIndexIntent(6),
+      );
+      await tester.pumpAndSettle();
+      final strip = tester.getRect(viewport);
+      expect(tester.getRect(tabOf('6')).right, closeTo(strip.right, 0.01));
+    });
+
+    testWidgets('activating a tab cut off at the leading edge scrolls until '
+        'its leading edge meets the strip', (tester) async {
+      await pumpHost(tester, initialActiveEditorTabId: '11');
+      expect(position(tester).pixels, position(tester).maxScrollExtent);
+      Actions.invoke(
+        tester.element(find.text('Content 11')),
+        const ActivateEditorTabAtIndexIntent(4),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.getRect(tabOf('4')).left,
+        closeTo(tester.getRect(viewport).left, 0.01),
+      );
+    });
+
+    testWidgets('a tab wider than the strip aligns its leading edge', (
+      tester,
+    ) async {
+      final wide = WorkbenchEditorTab(
+        id: 'wide',
+        label: List.filled(40, 'wide').join(' '),
+        contentBuilder: (_) => const Text('Content wide'),
+      );
+      await tester.pumpWidget(_layout(editorTabs: [_tab('a'), wide]));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Tab a'));
+      await tester.pumpAndSettle();
+      Actions.invoke(
+        tester.element(find.text('Content a')),
+        const ActivateLastEditorTabIntent(),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.getRect(tabOf('wide')).left,
+        closeTo(tester.getRect(viewport).left, 0.01),
+      );
+    });
+
+    testWidgets('closing a tab through its button leaves the strip where it '
+        'is', (tester) async {
+      // Under Modern UI every tab shows its close button.
+      await pumpHost(tester, tabIds: ids(20), modernUI: true);
+      await wheel(tester, const Offset(0, 300));
+      expect(position(tester).pixels, 300);
+      // The active tab, 0, is now out of view to the leading side.
+      expect(
+        tester.getRect(tabOf('0')).right,
+        lessThan(tester.getRect(viewport).left),
+      );
+
+      final visible = ids(20).firstWhere(
+        (id) => tester.getRect(tabOf(id)).left > tester.getRect(viewport).left,
+      );
+      await tester.tap(
+        find.descendant(
+          of: tabOf(visible),
+          matching: find.byKey(const ValueKey('editor-tab-actions')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tabOf(visible), findsNothing);
+      expect(position(tester).pixels, 300);
+    });
+
+    testWidgets('dragging a tab near an end scrolls the strip, and the tab '
+        'drops at a slot that started out of view', (tester) async {
+      final orders = <List<String>>[];
+      await pumpHost(tester, orders: orders);
+      final strip = tester.getRect(viewport);
+      // The last tab starts out of view.
+      expect(tester.getRect(tabOf('11')).left, greaterThan(strip.right));
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(tabOf('0')),
+        kind: PointerDeviceKind.mouse,
+      );
+      await gesture.moveBy(const Offset(20, 0));
+      await tester.pump();
+      await gesture.moveTo(
+        Offset(
+          strip.right - WorkbenchLayoutConstants.editorTabDragScrollEdge / 2,
+          strip.center.dy,
+        ),
+      );
+      await tester.pump();
+      // Hold the pointer still in the edge zone until the strip reaches its
+      // end.
+      for (var i = 0; i < 100; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(position(tester).pixels, position(tester).maxScrollExtent);
+      expect(
+        tester.getRect(find.byKey(const ValueKey('editor-tab-drop-indicator'))),
+        isNotNull,
+      );
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(orders.single.last, '0');
+
+      // Near the leading edge the strip scrolls back.
+      final back = await tester.startGesture(
+        tester.getCenter(tabOf('0')),
+        kind: PointerDeviceKind.mouse,
+      );
+      await back.moveBy(const Offset(-20, 0));
+      await tester.pump();
+      await back.moveTo(
+        Offset(
+          strip.left + WorkbenchLayoutConstants.editorTabDragScrollEdge / 2,
+          strip.center.dy,
+        ),
+      );
+      await tester.pump();
+      final before = position(tester).pixels;
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(position(tester).pixels, lessThan(before));
+      await back.up();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('a drag in the middle of the strip does not scroll it', (
+      tester,
+    ) async {
+      await pumpHost(tester);
+      final gesture = await tester.startGesture(
+        tester.getCenter(tabOf('0')),
+        kind: PointerDeviceKind.mouse,
+      );
+      await gesture.moveBy(const Offset(20, 0));
+      await tester.pump();
+      await gesture.moveTo(tester.getCenter(viewport));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(position(tester).pixels, 0);
+      await gesture.up();
+      await tester.pumpAndSettle();
+    });
+  });
+
   group('Editor tab keyboard (§spec:editor-tab-interaction)', () {
     /// Presses [key] with the named modifiers held.
     Future<void> press(

@@ -241,5 +241,25 @@ void main() {
       expect(WorkbenchLayoutConstants.modernEditorTabActionsWidth, 24.0);
       expect(WorkbenchLayoutConstants.modernEditorTabActionsMargin, 2.0);
     });
+
+    test('matches the tab strip scrollbar (§spec:editor-tab-overflow)', () {
+      // multiEditorTabsControl.ts SCROLLBAR_SIZES.default; scrollbarState.ts
+      // MINIMUM_SLIDER_SIZE; scrollableElement.ts HIDE_TIMEOUT; scrollbars.css
+      // `.visible` and `.invisible.fade` transitions.
+      expect(WorkbenchLayoutConstants.editorTabScrollbarSize, 3.0);
+      expect(WorkbenchLayoutConstants.editorTabScrollbarMinSliderSize, 20.0);
+      expect(
+        WorkbenchLayoutConstants.editorTabScrollbarHideDelay,
+        const Duration(milliseconds: 500),
+      );
+      expect(
+        WorkbenchLayoutConstants.editorTabScrollbarFadeInDuration,
+        const Duration(milliseconds: 100),
+      );
+      expect(
+        WorkbenchLayoutConstants.editorTabScrollbarFadeOutDuration,
+        const Duration(milliseconds: 800),
+      );
+    });
   });
 }

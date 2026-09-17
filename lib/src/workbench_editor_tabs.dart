@@ -1,8 +1,18 @@
+import 'dart:async' show Timer;
+import 'dart:math' as math;
 import 'dart:ui' show SemanticsRole;
 
-import 'package:flutter/foundation.dart' show defaultTargetPlatform;
+import 'package:flutter/foundation.dart'
+    show clampDouble, defaultTargetPlatform, listEquals;
+import 'package:flutter/gestures.dart'
+    show
+        GestureBinding,
+        PointerPanZoomUpdateEvent,
+        PointerScrollEvent,
+        PointerSignalEvent;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show FlexParentData, RenderFlex;
+import 'package:flutter/scheduler.dart' show Ticker;
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:meta/meta.dart';
@@ -577,6 +587,10 @@ class EditorTabsPart extends StatelessWidget {
 /// Dragging a tab reorders it (§spec:editor-tab-interaction). The whole strip
 /// is the drop target, so a drop past the last tab lands at the end, as a drop
 /// on upstream's tabs container does.
+///
+/// Tabs that outgrow the strip scroll horizontally under an overlay
+/// scrollbar, and the strip reveals the active tab (§spec:editor-tab-overflow),
+/// per `multiEditorTabsControl.ts`.
 @internal
 class EditorTabStrip extends StatefulWidget {
   final List<WorkbenchEditorTab> tabs;
@@ -605,7 +619,8 @@ class EditorTabStrip extends StatefulWidget {
   State<EditorTabStrip> createState() => _EditorTabStripState();
 }
 
-class _EditorTabStripState extends State<EditorTabStrip> {
+class _EditorTabStripState extends State<EditorTabStrip>
+    with SingleTickerProviderStateMixin {
   /// Where a dragged tab would drop, and the row-local x of the bar that
   /// marks it. Null while no tab is dragged over the strip.
   ///
@@ -618,10 +633,166 @@ class _EditorTabStripState extends State<EditorTabStrip> {
   /// space.
   final GlobalKey _rowKey = GlobalKey();
 
+  /// The strip's horizontal scroll (§spec:editor-tab-overflow).
+  final ScrollController _scroll = ScrollController();
+
+  /// Scrolls the strip while a dragged tab rests near either end.
+  late final Ticker _dragScrollTicker = createTicker(_onDragScrollTick);
+
+  /// The last global pointer position of a drag over the strip, and the
+  /// direction the drag scrolls it: -1 toward the start, 1 toward the end, 0
+  /// not at all.
+  Offset? _dragPointer;
+  int _dragScrollDirection = 0;
+  Duration _lastDragScrollTick = Duration.zero;
+
+  /// The viewport extent and scroll range the last reveal check saw. The
+  /// strip reveals the active tab when either changes, as upstream does when
+  /// its tab dimensions change.
+  (double, double)? _revealedDimensions;
+
+  /// The next reveal check reveals the active tab even with unchanged
+  /// dimensions, because the active tab changed.
+  bool _forceReveal = false;
+
+  /// The next reveal check is skipped: upstream's `blockRevealActiveTabOnce`,
+  /// set when a tab's close button requests its close so a run of closes does
+  /// not scroll the strip under the pointer.
+  bool _blockRevealOnce = false;
+
+  bool _revealCheckScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleRevealCheck();
+  }
+
+  @override
+  void didUpdateWidget(covariant EditorTabStrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.activeId != widget.activeId) {
+      _forceReveal = true;
+      _scheduleRevealCheck();
+    } else if (!listEquals(
+      [for (final tab in oldWidget.tabs) tab.id],
+      [for (final tab in widget.tabs) tab.id],
+    )) {
+      _scheduleRevealCheck();
+    }
+  }
+
   @override
   void dispose() {
+    _dragScrollTicker.dispose();
+    _scroll.dispose();
     _dropSlot.dispose();
     super.dispose();
+  }
+
+  /// Check for a reveal once this frame has laid the tabs out.
+  void _scheduleRevealCheck() {
+    if (_revealCheckScheduled) return;
+    _revealCheckScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _revealCheckScheduled = false;
+      _checkReveal();
+    });
+  }
+
+  /// Reveal the active tab if the active tab or the strip's dimensions
+  /// changed since the last check, unless a close button blocked it once.
+  void _checkReveal() {
+    if (!mounted || !_scroll.hasClients) return;
+    final position = _scroll.position;
+    if (!position.hasContentDimensions || !position.hasViewportDimension) {
+      return;
+    }
+    final dimensions = (position.viewportDimension, position.maxScrollExtent);
+    final changed = dimensions != _revealedDimensions;
+    _revealedDimensions = dimensions;
+    final force = _forceReveal;
+    _forceReveal = false;
+    if (_blockRevealOnce) {
+      _blockRevealOnce = false;
+      return;
+    }
+    if (changed || force) _revealActive();
+  }
+
+  /// Scroll the active tab into view with the least movement, per upstream's
+  /// `layout`: a tab that fits but runs past the trailing edge scrolls until
+  /// its trailing edge meets the strip's; a tab past the leading edge, or
+  /// wider than the strip, scrolls until its leading edge meets the strip's.
+  void _revealActive() {
+    final row = _rowKey.currentContext?.findRenderObject();
+    if (row is! RenderFlex || !row.hasSize) return;
+    final index = widget.tabs.indexWhere((tab) => tab.id == widget.activeId);
+    var child = row.firstChild;
+    for (var i = 0; i < index && child != null; i++) {
+      child = (child.parentData! as FlexParentData).nextSibling;
+    }
+    if (child == null) return;
+    final left = (child.parentData! as FlexParentData).offset.dx;
+    final width = child.size.width;
+    final position = _scroll.position;
+    final viewport = position.viewportDimension;
+    final scrollX = position.pixels;
+    final fits = width <= viewport;
+    double? target;
+    if (fits && scrollX + viewport < left + width) {
+      target = left + width - viewport;
+    } else if (scrollX > left || !fits) {
+      target = left;
+    }
+    if (target == null) return;
+    _scroll.jumpTo(
+      clampDouble(target, position.minScrollExtent, position.maxScrollExtent),
+    );
+  }
+
+  /// Scroll the strip by [delta] logical pixels, clamped to its range.
+  void _scrollBy(double delta) {
+    final position = _scroll.position;
+    final target = clampDouble(
+      position.pixels + delta,
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    if (target != position.pixels) _scroll.jumpTo(target);
+  }
+
+  /// Whether the tabs overflow the strip, so it has somewhere to scroll.
+  bool get _overflows =>
+      _scroll.hasClients && _scroll.position.maxScrollExtent > 0;
+
+  /// The dominant axis of a gesture's [delta], per upstream's
+  /// `scrollPredominantAxis` with `scrollYToX`: a vertical gesture scrolls
+  /// the strip sideways, and a tie in opposite directions scrolls nothing.
+  static double _predominant(Offset delta) {
+    if (delta.dx + delta.dy == 0 && delta.dx.abs() == delta.dy.abs()) return 0;
+    return delta.dy.abs() >= delta.dx.abs() ? delta.dy : delta.dx;
+  }
+
+  /// A wheel over an overflowing strip scrolls it. Registering with the
+  /// signal resolver lets a strip that fits pass the wheel to a scrollable
+  /// above.
+  void _onPointerSignal(PointerSignalEvent event) {
+    if (event is! PointerScrollEvent || !_overflows) return;
+    final delta = _predominant(event.scrollDelta);
+    if (delta == 0) return;
+    GestureBinding.instance.pointerSignalResolver.register(
+      event,
+      (_) => _scrollBy(delta),
+    );
+  }
+
+  /// A trackpad gesture over an overflowing strip scrolls it, the content
+  /// following the fingers.
+  void _onPointerPanZoomUpdate(PointerPanZoomUpdateEvent event) {
+    if (!_overflows) return;
+    final delta = _predominant(event.panDelta);
+    if (delta != 0) _scrollBy(-delta);
   }
 
   /// Record the slot under global [pointer], per VS Code's
@@ -660,11 +831,61 @@ class _EditorTabStripState extends State<EditorTabStrip> {
   /// whether the drag is one.
   bool _trackDrag(DragTargetDetails<String> details) {
     if (!widget.tabs.any((tab) => tab.id == details.data)) return false;
+    _dragPointer = details.offset;
     _updateDropSlot(details.offset);
+    _updateDragScroll();
     return true;
   }
 
-  void _clearDropSlot() => _dropSlot.value = null;
+  /// Start or stop scrolling the strip by where the dragged tab rests: within
+  /// [WorkbenchLayoutConstants.editorTabDragScrollEdge] of an end the strip
+  /// can still scroll toward (§spec:editor-tab-overflow).
+  void _updateDragScroll() {
+    var direction = 0;
+    final pointer = _dragPointer;
+    final viewport = _scroll.hasClients
+        ? _scroll.position.context.notificationContext?.findRenderObject()
+        : null;
+    if (pointer != null && viewport is RenderBox && _overflows) {
+      final x = viewport.globalToLocal(pointer).dx;
+      final position = _scroll.position;
+      const edge = WorkbenchLayoutConstants.editorTabDragScrollEdge;
+      if (x < edge && position.pixels > position.minScrollExtent) {
+        direction = -1;
+      } else if (x > viewport.size.width - edge &&
+          position.pixels < position.maxScrollExtent) {
+        direction = 1;
+      }
+    }
+    _dragScrollDirection = direction;
+    if (direction == 0) {
+      if (_dragScrollTicker.isActive) _dragScrollTicker.stop();
+    } else if (!_dragScrollTicker.isActive) {
+      _lastDragScrollTick = Duration.zero;
+      _dragScrollTicker.start();
+    }
+  }
+
+  void _onDragScrollTick(Duration elapsed) {
+    final seconds =
+        (elapsed - _lastDragScrollTick).inMicroseconds /
+        Duration.microsecondsPerSecond;
+    _lastDragScrollTick = elapsed;
+    _scrollBy(
+      _dragScrollDirection *
+          WorkbenchLayoutConstants.editorTabDragScrollSpeed *
+          seconds,
+    );
+    // The tabs moved under a still pointer, so the slot and the zone follow.
+    if (_dragPointer case final pointer?) _updateDropSlot(pointer);
+    _updateDragScroll();
+  }
+
+  void _clearDropSlot() {
+    _dropSlot.value = null;
+    _dragPointer = null;
+    _updateDragScroll();
+  }
 
   /// Move the tab with [id] into the recorded slot and report the new order,
   /// unless it lands where it already stands.
@@ -700,7 +921,12 @@ class _EditorTabStripState extends State<EditorTabStrip> {
           active: dragImage || tab.id == activeId,
           metrics: metrics,
           onSelected: () => widget.onSelected(tab.id),
-          onClose: onClose == null ? null : () => onClose(tab.id),
+          onClose: onClose == null
+              ? null
+              : () {
+                  _blockRevealOnce = true;
+                  onClose(tab.id);
+                },
           theme: theme,
         );
 
@@ -735,29 +961,56 @@ class _EditorTabStripState extends State<EditorTabStrip> {
           ),
       ],
     );
+    // Upstream's `ScrollableElement` over the tabs container: horizontal,
+    // without shadows, and driven by the strip's own wheel mapping, so the
+    // scroll view takes no gesture of its own and draws no scrollbar.
+    final viewport = Listener(
+      onPointerSignal: _onPointerSignal,
+      onPointerPanZoomUpdate: _onPointerPanZoomUpdate,
+      child: ScrollConfiguration(
+        behavior: ScrollConfiguration.of(
+          context,
+        ).copyWith(scrollbars: false, overscroll: false),
+        child: NotificationListener<ScrollMetricsNotification>(
+          onNotification: (_) {
+            _checkReveal();
+            return false;
+          },
+          child: SingleChildScrollView(
+            key: const ValueKey('editor-tab-viewport'),
+            controller: _scroll,
+            scrollDirection: Axis.horizontal,
+            physics: const NeverScrollableScrollPhysics(),
+            child: Stack(
+              // The bar past the last tab stands just outside the row.
+              clipBehavior: Clip.none,
+              children: [
+                // Inside the scroll view, so the tabs are the tab bar's
+                // direct semantic children.
+                Semantics(
+                  role: SemanticsRole.tabBar,
+                  container: true,
+                  child: row,
+                ),
+                _dropBar(metrics),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
     final Widget content = DragTarget<String>(
       onWillAcceptWithDetails: _trackDrag,
       onMove: _trackDrag,
       onLeave: (_) => _clearDropSlot(),
       onAcceptWithDetails: (details) => _drop(details.data),
-      builder: (context, candidates, rejected) => Semantics(
-        role: SemanticsRole.tabBar,
-        container: true,
-        child: Padding(
-          padding: EdgeInsetsDirectional.only(start: metrics.stripInset),
-          child: ClipRect(
-            // Lets the row keep its natural width without an overflow
-            // warning; the clip hides whatever runs past the strip.
-            child: OverflowBox(
-              alignment: AlignmentDirectional.centerStart,
-              maxWidth: double.infinity,
-              child: Stack(
-                // The bar past the last tab stands just outside the row.
-                clipBehavior: Clip.none,
-                children: [row, _dropBar(metrics)],
-              ),
-            ),
-          ),
+      builder: (context, candidates, rejected) => Padding(
+        padding: EdgeInsetsDirectional.only(start: metrics.stripInset),
+        child: _EditorTabScrollbar(
+          controller: _scroll,
+          theme: theme,
+          rounded: pills,
+          child: viewport,
         ),
       ),
     );
@@ -806,6 +1059,271 @@ class _EditorTabStripState extends State<EditorTabStrip> {
           ),
         );
       },
+    );
+  }
+}
+
+/// The editor tab strip's scrollbar (§spec:editor-tab-overflow): a
+/// [WorkbenchLayoutConstants.editorTabScrollbarSize] bar overlaying the foot
+/// of [child], per upstream's `ScrollableElement` with
+/// `titleScrollbarVisibility: auto`.
+///
+/// It shows only while the tabs overflow and the pointer is over the strip,
+/// a scroll is under way, or the slider is dragged, and hides
+/// [WorkbenchLayoutConstants.editorTabScrollbarHideDelay] after a scroll the
+/// pointer is not over (`scrollableElement.ts`,
+/// `scrollbarVisibilityController.ts`).
+class _EditorTabScrollbar extends StatefulWidget {
+  /// The strip's scroll, which the strip owns for its lifetime, so the bar
+  /// listens to one controller throughout.
+  final ScrollController controller;
+  final WorkbenchTheme theme;
+
+  /// Rounds the slider to the controls tier, as Modern UI's
+  /// `roundedCorners.css` does.
+  final bool rounded;
+
+  final Widget child;
+
+  const _EditorTabScrollbar({
+    required this.controller,
+    required this.theme,
+    required this.rounded,
+    required this.child,
+  });
+
+  @override
+  State<_EditorTabScrollbar> createState() => _EditorTabScrollbarState();
+}
+
+class _EditorTabScrollbarState extends State<_EditorTabScrollbar> {
+  bool _pointerOver = false;
+  bool _sliderHovered = false;
+
+  /// The slider is dragged, from the scroll offset it started at and the
+  /// global x it started from.
+  ({double pixels, double pointerX})? _drag;
+
+  /// Revealed by a scroll or the pointer, before the tabs' overflow gates it.
+  bool _revealed = false;
+
+  /// The last hide faded rather than cut, so the fade-out duration applies.
+  bool _fading = false;
+
+  Timer? _hideTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    widget.controller.removeListener(_onScroll);
+    super.dispose();
+  }
+
+  bool get _held => _pointerOver || _drag != null;
+
+  void _onScroll() => _reveal();
+
+  /// Show the bar, and schedule its hide unless the pointer or a drag holds
+  /// it (`ScrollableElement._reveal`).
+  void _reveal() {
+    setState(() {
+      _revealed = true;
+      _fading = false;
+    });
+    _hideTimer?.cancel();
+    if (!_held) {
+      _hideTimer = Timer(
+        WorkbenchLayoutConstants.editorTabScrollbarHideDelay,
+        _hide,
+      );
+    }
+  }
+
+  /// Fade the bar out unless the pointer or a drag holds it
+  /// (`ScrollableElement._hide`).
+  void _hide() {
+    if (!mounted || _held) return;
+    _hideTimer?.cancel();
+    setState(() {
+      _revealed = false;
+      _fading = true;
+    });
+  }
+
+  /// Slider geometry per `scrollbarState.ts`: the slider takes the visible
+  /// share of the track, never less than the minimum, and travels in
+  /// proportion to the scroll. Null while the tabs fit.
+  ({double size, double left, double ratio})? _slider() {
+    final controller = widget.controller;
+    if (!controller.hasClients) return null;
+    final position = controller.position;
+    if (!position.hasContentDimensions || !position.hasViewportDimension) {
+      return null;
+    }
+    final visible = position.viewportDimension;
+    final scrollSize = position.maxScrollExtent + visible;
+    if (scrollSize <= visible) return null;
+    final size = math
+        .max(
+          WorkbenchLayoutConstants.editorTabScrollbarMinSliderSize,
+          (visible * visible / scrollSize).floorToDouble(),
+        )
+        .roundToDouble();
+    final ratio = (visible - size) / (scrollSize - visible);
+    return (
+      size: size,
+      left: (position.pixels * ratio).roundToDouble(),
+      ratio: ratio,
+    );
+  }
+
+  /// A press on the track centres the slider under the pointer, then drags
+  /// it (`AbstractScrollbar._onPointerDown`); a press on the slider drags it
+  /// from where it stands.
+  void _onPointerDown(PointerDownEvent event) {
+    final slider = _slider();
+    if (slider == null) return;
+    final position = widget.controller.position;
+    final x = event.localPosition.dx;
+    if (x < slider.left || x > slider.left + slider.size) {
+      widget.controller.jumpTo(
+        clampDouble(
+          (x - slider.size / 2) / slider.ratio,
+          position.minScrollExtent,
+          position.maxScrollExtent,
+        ),
+      );
+    }
+    setState(() {
+      _drag = (pixels: position.pixels, pointerX: event.position.dx);
+    });
+    _reveal();
+  }
+
+  void _onPointerMove(PointerMoveEvent event) {
+    final drag = _drag;
+    final slider = _slider();
+    if (drag == null || slider == null) return;
+    final position = widget.controller.position;
+    final delta = event.position.dx - drag.pointerX;
+    widget.controller.jumpTo(
+      clampDouble(
+        drag.pixels + delta / slider.ratio,
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      ),
+    );
+  }
+
+  void _onPointerEnd(PointerEvent event) {
+    if (_drag == null) return;
+    setState(() => _drag = null);
+    _hide();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = widget.theme;
+    final slider = _slider();
+    final visible = _revealed && slider != null;
+    final Color sliderColor;
+    if (_drag != null) {
+      sliderColor = theme.scrollbarSliderActiveBackground;
+    } else if (_sliderHovered) {
+      sliderColor = theme.scrollbarSliderHoverBackground;
+    } else {
+      sliderColor = theme.scrollbarSliderBackground;
+    }
+    final Duration duration;
+    if (visible) {
+      duration = WorkbenchLayoutConstants.editorTabScrollbarFadeInDuration;
+    } else if (_fading && slider != null) {
+      duration = WorkbenchLayoutConstants.editorTabScrollbarFadeOutDuration;
+    } else {
+      // A bar the tabs no longer need goes without a fade.
+      duration = Duration.zero;
+    }
+    return MouseRegion(
+      onEnter: (_) {
+        _pointerOver = true;
+        _reveal();
+      },
+      onExit: (_) {
+        _pointerOver = false;
+        _hide();
+      },
+      child: NotificationListener<ScrollMetricsNotification>(
+        // The slider follows the extent as tabs open and close.
+        onNotification: (_) {
+          setState(() {});
+          return false;
+        },
+        child: Stack(
+          children: [
+            widget.child,
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: WorkbenchLayoutConstants.editorTabScrollbarSize,
+              child: AnimatedOpacity(
+                key: const ValueKey('editor-tab-scrollbar'),
+                opacity: visible ? 1 : 0,
+                duration: duration,
+                // An invisible bar takes no pointer, so the tabs beneath it
+                // stay reachable (`.invisible { pointer-events: none }`).
+                child: IgnorePointer(
+                  ignoring: !visible,
+                  child: Listener(
+                    behavior: HitTestBehavior.opaque,
+                    onPointerDown: _onPointerDown,
+                    onPointerMove: _onPointerMove,
+                    onPointerUp: _onPointerEnd,
+                    onPointerCancel: _onPointerEnd,
+                    child: Stack(
+                      children: [
+                        if (slider != null)
+                          Positioned(
+                            left: slider.left,
+                            width: slider.size,
+                            top: 0,
+                            bottom: 0,
+                            child: MouseRegion(
+                              onEnter: (_) =>
+                                  setState(() => _sliderHovered = true),
+                              onExit: (_) =>
+                                  setState(() => _sliderHovered = false),
+                              child: DecoratedBox(
+                                key: const ValueKey(
+                                  'editor-tab-scrollbar-slider',
+                                ),
+                                decoration: BoxDecoration(
+                                  color: sliderColor,
+                                  borderRadius: widget.rounded
+                                      ? BorderRadius.circular(
+                                          WorkbenchLayoutConstants
+                                              .cornerRadiusSmall,
+                                        )
+                                      : null,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

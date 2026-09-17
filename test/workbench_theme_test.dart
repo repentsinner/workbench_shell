@@ -1694,4 +1694,90 @@ void main() {
       }
     });
   });
+
+  group('WorkbenchTheme editor tab scrollbar tokens '
+      '(§spec:editor-tab-overflow)', () {
+    test('fall back to the upstream registry defaults when omitted', () {
+      // miscColors.ts: scrollbarSlider.background #797979 at 0.4 dark /
+      // #646464 at 0.4 light; hoverBackground #646464 at 0.7 in both;
+      // activeBackground #BFBFBF at 0.4 dark / #000000 at 0.6 light.
+      final dark = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+      );
+      expect(
+        dark.scrollbarSliderBackground,
+        const Color(0xFF797979).withValues(alpha: 0.4),
+      );
+      expect(
+        dark.scrollbarSliderHoverBackground,
+        const Color(0xFF646464).withValues(alpha: 0.7),
+      );
+      expect(
+        dark.scrollbarSliderActiveBackground,
+        const Color(0xFFBFBFBF).withValues(alpha: 0.4),
+      );
+
+      final light = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs', colors: {}),
+      );
+      expect(
+        light.scrollbarSliderBackground,
+        const Color(0xFF646464).withValues(alpha: 0.4),
+      );
+      expect(
+        light.scrollbarSliderHoverBackground,
+        const Color(0xFF646464).withValues(alpha: 0.7),
+      );
+      expect(
+        light.scrollbarSliderActiveBackground,
+        const Color(0xFF000000).withValues(alpha: 0.6),
+      );
+    });
+
+    test('read the theme keys', () {
+      final theme = WorkbenchTheme.fromVscodeColorMap(
+        loader.parse('''
+        {
+          "name": "Slider",
+          "type": "vs-dark",
+          "colors": {
+            "scrollbarSlider.background": "#010203",
+            "scrollbarSlider.hoverBackground": "#040506",
+            "scrollbarSlider.activeBackground": "#070809"
+          }
+        }
+        '''),
+      );
+      expect(theme.scrollbarSliderBackground, const Color(0xFF010203));
+      expect(theme.scrollbarSliderHoverBackground, const Color(0xFF040506));
+      expect(theme.scrollbarSliderActiveBackground, const Color(0xFF070809));
+    });
+
+    test('copyWith, lerp and equality carry the tokens', () {
+      final base = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'X', baseType: 'vs-dark', colors: {}),
+      );
+      const red = Color(0xFFFF0000);
+      final other = base.copyWith(
+        scrollbarSliderBackground: red,
+        scrollbarSliderHoverBackground: red,
+        scrollbarSliderActiveBackground: red,
+      );
+      expect(other.scrollbarSliderBackground, red);
+      expect(other.scrollbarSliderHoverBackground, red);
+      expect(other.scrollbarSliderActiveBackground, red);
+      expect(
+        base.lerp(other, 0.5).scrollbarSliderBackground,
+        Color.lerp(base.scrollbarSliderBackground, red, 0.5),
+      );
+      for (final changed in [
+        base.copyWith(scrollbarSliderBackground: red),
+        base.copyWith(scrollbarSliderHoverBackground: red),
+        base.copyWith(scrollbarSliderActiveBackground: red),
+      ]) {
+        expect(changed, isNot(base));
+        expect(changed.hashCode, isNot(base.hashCode));
+      }
+    });
+  });
 }

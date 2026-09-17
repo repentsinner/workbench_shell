@@ -165,6 +165,18 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   /// (§spec:editor-tab-interaction).
   final Color tabDragAndDropBorder;
 
+  /// The editor tab strip's scrollbar slider — VS Code
+  /// `scrollbarSlider.background` (§spec:editor-tab-overflow). The package
+  /// themes no other scrollbar.
+  final Color scrollbarSliderBackground;
+
+  /// The slider while the pointer is over it —
+  /// `scrollbarSlider.hoverBackground`.
+  final Color scrollbarSliderHoverBackground;
+
+  /// The slider while dragged — `scrollbarSlider.activeBackground`.
+  final Color scrollbarSliderActiveBackground;
+
   // ---- Input / dropdown / button ----
   final Color inputBackground;
   final Color inputForeground;
@@ -587,6 +599,9 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.tabActiveBorderTop,
     required this.tabActiveBorder,
     required this.tabDragAndDropBorder,
+    required this.scrollbarSliderBackground,
+    required this.scrollbarSliderHoverBackground,
+    required this.scrollbarSliderActiveBackground,
     required this.inputBackground,
     required this.inputForeground,
     required this.inputBorder,
@@ -1067,6 +1082,26 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // VS Code: tab.dragAndDropBorder inherits from tab.activeForeground
       // outside high contrast.
       tabDragAndDropBorder: map.resolve('tab.dragAndDropBorder', tabActiveFg),
+      // Editor tab strip scrollbar (§spec:editor-tab-overflow), from
+      // miscColors.ts.
+      scrollbarSliderBackground: map.resolve(
+        'scrollbarSlider.background',
+        dl(
+          const Color(0xFF797979),
+          const Color(0xFF646464),
+        ).withValues(alpha: 0.4),
+      ),
+      scrollbarSliderHoverBackground: map.resolve(
+        'scrollbarSlider.hoverBackground',
+        const Color(0xFF646464).withValues(alpha: 0.7),
+      ),
+      scrollbarSliderActiveBackground: map.resolve(
+        'scrollbarSlider.activeBackground',
+        dl(
+          const Color(0xFFBFBFBF).withValues(alpha: 0.4),
+          const Color(0xFF000000).withValues(alpha: 0.6),
+        ),
+      ),
       // Inputs / buttons
       inputBackground: map.resolve(
         'input.background',
@@ -1404,6 +1439,9 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? tabActiveBorderTop,
     Color? tabActiveBorder,
     Color? tabDragAndDropBorder,
+    Color? scrollbarSliderBackground,
+    Color? scrollbarSliderHoverBackground,
+    Color? scrollbarSliderActiveBackground,
     Color? inputBackground,
     Color? inputForeground,
     Color? inputBorder,
@@ -1568,6 +1606,13 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       tabActiveBorderTop: tabActiveBorderTop ?? this.tabActiveBorderTop,
       tabActiveBorder: tabActiveBorder ?? this.tabActiveBorder,
       tabDragAndDropBorder: tabDragAndDropBorder ?? this.tabDragAndDropBorder,
+      scrollbarSliderBackground:
+          scrollbarSliderBackground ?? this.scrollbarSliderBackground,
+      scrollbarSliderHoverBackground:
+          scrollbarSliderHoverBackground ?? this.scrollbarSliderHoverBackground,
+      scrollbarSliderActiveBackground:
+          scrollbarSliderActiveBackground ??
+          this.scrollbarSliderActiveBackground,
       inputBackground: inputBackground ?? this.inputBackground,
       inputForeground: inputForeground ?? this.inputForeground,
       inputBorder: inputBorder ?? this.inputBorder,
@@ -1822,6 +1867,18 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       tabActiveBorderTop: cn(tabActiveBorderTop, other.tabActiveBorderTop),
       tabActiveBorder: cn(tabActiveBorder, other.tabActiveBorder),
       tabDragAndDropBorder: c(tabDragAndDropBorder, other.tabDragAndDropBorder),
+      scrollbarSliderBackground: c(
+        scrollbarSliderBackground,
+        other.scrollbarSliderBackground,
+      ),
+      scrollbarSliderHoverBackground: c(
+        scrollbarSliderHoverBackground,
+        other.scrollbarSliderHoverBackground,
+      ),
+      scrollbarSliderActiveBackground: c(
+        scrollbarSliderActiveBackground,
+        other.scrollbarSliderActiveBackground,
+      ),
       inputBackground: c(inputBackground, other.inputBackground),
       inputForeground: c(inputForeground, other.inputForeground),
       inputBorder: c(inputBorder, other.inputBorder),
@@ -2110,6 +2167,11 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           tabActiveBorderTop == other.tabActiveBorderTop &&
           tabActiveBorder == other.tabActiveBorder &&
           tabDragAndDropBorder == other.tabDragAndDropBorder &&
+          scrollbarSliderBackground == other.scrollbarSliderBackground &&
+          scrollbarSliderHoverBackground ==
+              other.scrollbarSliderHoverBackground &&
+          scrollbarSliderActiveBackground ==
+              other.scrollbarSliderActiveBackground &&
           inputBackground == other.inputBackground &&
           inputForeground == other.inputForeground &&
           inputBorder == other.inputBorder &&
@@ -2267,6 +2329,9 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     tabActiveBorderTop,
     tabActiveBorder,
     tabDragAndDropBorder,
+    scrollbarSliderBackground,
+    scrollbarSliderHoverBackground,
+    scrollbarSliderActiveBackground,
     inputBackground,
     inputForeground,
     inputBorder,
