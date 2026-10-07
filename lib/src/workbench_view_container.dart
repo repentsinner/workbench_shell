@@ -82,9 +82,11 @@ class WorkbenchViewDescriptor {
   /// Optional cap on this pane's apportioned body height, in pixels
   /// (§spec:view-pane-max-body). Null is unbounded — the pane fills its share
   /// as before. Mirrors VS Code's `maximumBodySize`: the clamp is canon
-  /// (`min(max(value, minBody), maxBody)`), so a value below
-  /// [WorkbenchLayoutConstants.viewPaneMinBodyHeight] wins over the floor and
-  /// the pane renders below it (hug-to-content).
+  /// (`min(max(value, minBody), maxBody)`), so a value below the pane's floor
+  /// ([minimumBodySize], or [WorkbenchLayoutConstants.viewPaneMinBodyHeight]
+  /// when unset) wins over the floor and the pane renders below it
+  /// (hug-to-content). An infinite value is unbounded, the same as null; a
+  /// negative or NaN value fails a debug assertion.
   ///
   /// The stack re-reads this on every build, so it is not a value fixed at
   /// first layout: rebuild the descriptor with a new cap and the pane
@@ -96,6 +98,19 @@ class WorkbenchViewDescriptor {
   /// `OpenEditorsView` reports in that case, so a lone pane fills the bar
   /// instead of stranding it behind a short cap.
   final double? maximumBodySize;
+
+  /// Optional floor on this pane's apportioned body height, in pixels
+  /// (§spec:view-pane-min-body). Null takes the uniform
+  /// [WorkbenchLayoutConstants.viewPaneMinBodyHeight], VS Code's own default
+  /// for a vertically stacked pane. Mirrors VS Code's per-pane
+  /// `minimumBodySize` (`paneview.ts`): the value replaces the default, so a
+  /// value above it reserves room and a value below it lets the pane shrink
+  /// further than its siblings. Derive it by counting, as for
+  /// [maximumBodySize]: `OpenEditorsView` sets its floor to the rows it keeps
+  /// visible times the row height. A [maximumBodySize] below this floor still
+  /// wins (§spec:view-pane-max-body). A negative or non-finite value fails a
+  /// debug assertion.
+  final double? minimumBodySize;
 
   /// Builds the view body. The host owns body content (§spec:scope); the
   /// container owns the header and the stacking chrome.
@@ -115,8 +130,17 @@ class WorkbenchViewDescriptor {
     this.expanded,
     this.onExpandedChanged,
     this.maximumBodySize,
+    this.minimumBodySize,
     required this.bodyBuilder,
-  });
+  }) : assert(
+         maximumBodySize == null || maximumBodySize >= 0,
+         'maximumBodySize must be null, zero or more, or infinite',
+       ),
+       assert(
+         minimumBodySize == null ||
+             (minimumBodySize >= 0 && minimumBodySize < double.infinity),
+         'minimumBodySize must be null or a finite value of zero or more',
+       );
 
   /// Returns a copy with the given fields replaced. Omitted fields keep their
   /// current value (the standard `copyWith` idiom, so a nullable field cannot be
@@ -136,6 +160,7 @@ class WorkbenchViewDescriptor {
     bool? expanded,
     ValueChanged<bool>? onExpandedChanged,
     double? maximumBodySize,
+    double? minimumBodySize,
     Widget Function(BuildContext)? bodyBuilder,
   }) {
     return WorkbenchViewDescriptor(
@@ -152,6 +177,7 @@ class WorkbenchViewDescriptor {
       expanded: expanded ?? this.expanded,
       onExpandedChanged: onExpandedChanged ?? this.onExpandedChanged,
       maximumBodySize: maximumBodySize ?? this.maximumBodySize,
+      minimumBodySize: minimumBodySize ?? this.minimumBodySize,
       bodyBuilder: bodyBuilder ?? this.bodyBuilder,
     );
   }
@@ -279,8 +305,8 @@ class WorkbenchViewContainerSpec {
 /// available height among the **expanded** panes rather than letting each
 /// grow to its content: each
 /// expanded pane is header + an apportioned body, distributed evenly (the
-/// sash-resize foundation will weight it), never below
-/// [WorkbenchLayoutConstants.viewPaneMinBodyHeight]. A collapsed pane occupies
+/// sash-resize foundation will weight it), never below the pane's floor
+/// (§spec:view-pane-min-body). A collapsed pane occupies
 /// only its header height and contributes nothing to the apportionment, so
 /// collapsing one hands its freed body height to the expanded siblings.
 ///
@@ -748,10 +774,6 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
   /// panes untouched.
   double? _activeSashPair;
 
-  /// Hover cursor for the sash on the boundary above [lowerId]: directional when
-  /// a neighbor is already pinned at its minimum body height, otherwise
-  /// bidirectional (§spec:view-stack). The drag cursor is computed live by the
-  /// sash from its basis.
   /// The body-height cap for the pane with descriptor [id]
   /// (§spec:view-pane-max-body), or [double.infinity] when unbounded.
   double _maxBodyOf(String id) {
@@ -761,29 +783,48 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
     return double.infinity;
   }
 
+  /// The body-height floor for the pane with descriptor [id]
+  /// (§spec:view-pane-min-body), or the uniform minimum when it sets none. A
+  /// cap below the floor wins, so the effective floor is never above the cap
+  /// (§spec:view-pane-max-body).
+  double _minBodyOf(String id) {
+    const uniform = WorkbenchLayoutConstants.viewPaneMinBodyHeight;
+    var floor = uniform;
+    for (final view in widget.views) {
+      if (view.id == id) {
+        floor = view.minimumBodySize ?? uniform;
+        break;
+      }
+    }
+    final cap = _maxBodyOf(id);
+    return cap < floor ? cap : floor;
+  }
+
+  /// Hover cursor for the sash on the boundary above [lowerId]: directional when
+  /// a neighbor is already pinned at its own floor ([_minBodyOf]), otherwise
+  /// bidirectional (§spec:view-stack). The drag cursor is computed live by the
+  /// sash from its basis.
   MouseCursor _sashCursor(String upperId, String lowerId) {
-    const minBody = WorkbenchLayoutConstants.viewPaneMinBodyHeight;
     final upper = _manualBody[upperId];
     final lower = _manualBody[lowerId];
-    if (upper != null && upper <= minBody + 0.5) {
+    if (upper != null && upper <= _minBodyOf(upperId) + 0.5) {
       return SystemMouseCursors.resizeDown;
     }
-    if (lower != null && lower <= minBody + 0.5) {
+    if (lower != null && lower <= _minBodyOf(lowerId) + 0.5) {
       return SystemMouseCursors.resizeUp;
     }
     return SystemMouseCursors.resizeUpDown;
   }
 
   /// The on-screen body heights of the adjacent expanded pair [upperId]/[lowerId],
-  /// read from live layout (falling back to the minimum body when a pane is
+  /// read from live layout (falling back to the pane's floor when a pane is
   /// unmeasured). Both a sash drag and a double-click reset seed from these
   /// actual heights rather than recomputing the apportionment.
   ({double upper, double lower}) _liveBodies(String upperId, String lowerId) {
-    const minBody = WorkbenchLayoutConstants.viewPaneMinBodyHeight;
     final render = _stackKey.currentContext?.findRenderObject();
     double bodyOf(String id) => render is _RenderViewStack
-        ? (render.bodyHeightOf(id) ?? minBody)
-        : minBody;
+        ? (render.bodyHeightOf(id) ?? _minBodyOf(id))
+        : _minBodyOf(id);
     return (upper: bodyOf(upperId), lower: bodyOf(lowerId));
   }
 
@@ -792,7 +833,9 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
   /// owns the absolute-anchored drag, the directional cursor, and the hover/drag
   /// highlight (§spec:view-stack). The drag basis is read from live layout at
   /// drag start — a transfer re-apportions only between this pair, conserving
-  /// their combined height, so the upper body ranges over `[minBody, pair - minBody]`.
+  /// their combined height, so the upper body ranges over
+  /// `[upperFloor, pair - lowerFloor]`, each floor the pane's own
+  /// ([_minBodyOf]), narrowed further by either pane's cap.
   Widget _sashedPane({
     required String upperId,
     required String lowerId,
@@ -813,19 +856,20 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
             growSign: 1,
             hoverCursor: _sashCursor(upperId, lowerId),
             resolveBasis: () {
-              const minBody = WorkbenchLayoutConstants.viewPaneMinBodyHeight;
+              final upperFloorMin = _minBodyOf(upperId);
+              final lowerFloorMin = _minBodyOf(lowerId);
               final (:upper, :lower) = _liveBodies(upperId, lowerId);
               final pair = upper + lower;
               _activeSashPair = pair;
               // A finite cap on either pane bounds the drag: the upper pane
               // cannot grow past its own cap, nor shrink the lower below its
-              // cap (§spec:view-pane-max-body). The floor stays the minimum
-              // body height.
+              // cap (§spec:view-pane-max-body). Each pane's own floor bounds
+              // the other end (§spec:view-pane-min-body).
               final upperCap = _maxBodyOf(upperId);
               final lowerCap = _maxBodyOf(lowerId);
-              var max = pair - minBody;
+              var max = pair - lowerFloorMin;
               if (max > upperCap) max = upperCap;
-              var min = minBody;
+              var min = upperFloorMin;
               final lowerFloor = pair - lowerCap;
               if (lowerFloor > min) min = lowerFloor;
               if (max < min) max = min;
@@ -968,6 +1012,9 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
               weight: isExpandedPane ? _manualBody[view.id] : null,
               // Per-pane body cap (§spec:view-pane-max-body); null is unbounded.
               maxBody: view.maximumBodySize,
+              // Per-pane body floor (§spec:view-pane-min-body); null takes the
+              // uniform minimum body height.
+              minBody: view.minimumBodySize,
               // An expanded pane after the first carries a resize sash on the
               // boundary it shares with its expanded neighbor above.
               child: paneVisual,
@@ -1023,7 +1070,7 @@ class _WorkbenchViewContainerState extends State<WorkbenchViewContainer> {
 /// height back to a sash drag), and an optional [weight] (§spec:view-stack). The
 /// weight is a proportional size, not an absolute pixel target: the render
 /// object rescales every expanded pane's weight to fill the available body pool,
-/// re-clamped to the minimum body height. An expanded pane with no weight shares
+/// re-clamped to each pane's floor. An expanded pane with no weight shares
 /// the pool with the others as if it carried the even-default weight; collapsed
 /// children take only their header height and join no distribution.
 class _ViewStackParentData extends ContainerBoxParentData<RenderBox> {
@@ -1033,9 +1080,13 @@ class _ViewStackParentData extends ContainerBoxParentData<RenderBox> {
 
   /// Optional body-height cap for this pane (§spec:view-pane-max-body); null is
   /// unbounded. The render object clamps the apportioned body to this maximum
-  /// with VS Code's argument order, so a cap below the minimum body height wins
-  /// over the floor.
+  /// with VS Code's argument order, so a cap below the pane's floor wins over
+  /// the floor.
   double? maxBody;
+
+  /// Optional body-height floor for this pane (§spec:view-pane-min-body); null
+  /// takes the uniform minimum body height.
+  double? minBody;
 
   /// The measured body height (pane height minus its fixed header) from the last
   /// layout, cached so a sash drag can seed from the on-screen size.
@@ -1059,12 +1110,17 @@ class _ViewStackChild extends ParentDataWidget<_ViewStackParentData> {
   /// unbounded.
   final double? maxBody;
 
+  /// Optional body-height floor for this pane (§spec:view-pane-min-body); null
+  /// takes the uniform minimum body height.
+  final double? minBody;
+
   const _ViewStackChild({
     super.key,
     required this.collapsed,
     required this.viewId,
     required this.weight,
     required this.maxBody,
+    required this.minBody,
     required super.child,
   });
 
@@ -1084,6 +1140,10 @@ class _ViewStackChild extends ParentDataWidget<_ViewStackParentData> {
       parentData.maxBody = maxBody;
       needsLayout = true;
     }
+    if (parentData.minBody != minBody) {
+      parentData.minBody = minBody;
+      needsLayout = true;
+    }
     parentData.viewId = viewId;
     if (needsLayout) {
       final targetParent = renderObject.parent;
@@ -1099,15 +1159,15 @@ class _ViewStackChild extends ParentDataWidget<_ViewStackParentData> {
 /// (§spec:view-stack): each header is the canonical
 /// [WorkbenchLayoutConstants.viewPaneHeaderHeight]; a collapsed pane takes only
 /// that height; the remaining body height is apportioned across the expanded
-/// panes **in proportion to their weights**, never below
-/// [WorkbenchLayoutConstants.viewPaneMinBodyHeight]. Weights are proportional,
+/// panes **in proportion to their weights**, never below each pane's floor
+/// (§spec:view-pane-min-body). Weights are proportional,
 /// not absolute pixels — the body pool is always rescaled to fill, so collapsing
 /// a pane or dragging a sash never leaves dead space (the survivors absorb freed
 /// height in proportion to their weights). An expanded pane with no weight uses
 /// the even-default weight, so a freshly built container divides the pool evenly.
 /// Each expanded pane is forced to header + its apportioned body so its body
 /// scroller bounds itself. The stack lays out at exactly [availableHeight] when
-/// the panes fit at or above the minimum body height; it overflows that height
+/// the panes fit at or above their floors; it overflows that height
 /// (so the enclosing [SingleChildScrollView] scrolls the whole stack) only as
 /// the minimum-body fallback.
 class _ViewStack extends MultiChildRenderObjectWidget {
@@ -1239,7 +1299,7 @@ class _RenderViewStack extends RenderBox
   }
 
   /// Distribute [bodyPool] across the [expanded] panes in proportion to their
-  /// weights, clamped so no body falls below [minBody] (§spec:view-stack). An
+  /// weights, clamped so no body falls below its floor (§spec:view-stack). An
   /// unsized pane (`weight == null`) takes the even-default weight — the pool
   /// divided by the expanded count — so a fresh container divides evenly and a
   /// container with some sized panes treats the rest as equal peers. Returns the
@@ -1247,8 +1307,10 @@ class _RenderViewStack extends RenderBox
   ///
   /// Each pane's body is clamped to `[floor, cap]` where `cap` is its
   /// [_ViewStackParentData.maxBody] (or unbounded) and `floor` is
-  /// `min(minBody, cap)` — a cap below [minBody] collapses the interval to the
-  /// cap, so the maximum wins over the floor, matching VS Code's
+  /// `min(paneMin, cap)`, where `paneMin` is the pane's
+  /// [_ViewStackParentData.minBody] or [minBody] when unset
+  /// (§spec:view-pane-min-body). A cap below `paneMin` collapses the interval
+  /// to the cap, so the maximum wins over the floor, matching VS Code's
   /// `clamp(value, min, max)` argument order (§spec:view-pane-max-body). The
   /// clamp is a two-sided water-fill: first pin panes over their cap (returning
   /// the excess to the pool for uncapped panes), then pin panes under their
@@ -1270,9 +1332,13 @@ class _RenderViewStack extends RenderBox
     final evenWeight = bodyPool > 0 ? bodyPool / count : minBody;
     final weights = [for (final pd in expanded) pd.weight ?? evenWeight];
     final caps = [for (final pd in expanded) pd.maxBody ?? double.infinity];
-    // A cap below the floor wins (VS Code max-over-min); the effective floor is
-    // never above the cap.
-    final floors = [for (final cap in caps) cap < minBody ? cap : minBody];
+    // Each pane's own floor, defaulting to the uniform minimum
+    // (§spec:view-pane-min-body). A cap below the floor wins (VS Code
+    // max-over-min); the effective floor is never above the cap.
+    final mins = [for (final pd in expanded) pd.minBody ?? minBody];
+    final floors = [
+      for (var i = 0; i < count; i++) caps[i] < mins[i] ? caps[i] : mins[i],
+    ];
 
     final bodies = List<double>.filled(count, 0.0);
     final pinned = List<bool>.filled(count, false);
@@ -1290,6 +1356,9 @@ class _RenderViewStack extends RenderBox
     // returning the excess to the pool. Pinning raises the per-weight rate for
     // the rest, which can push another pane over its cap, so iterate to a fixed
     // point. After this phase every unpinned pane's share is at or below its cap.
+    // A pass keeps going after a pin even though the weight sum it divides by is
+    // then stale: the stale sum only understates later shares, which can defer a
+    // cap pin to the next pass but never adds one that should not happen.
     while (true) {
       final weightSum = unpinnedWeightSum();
       if (weightSum <= 0) break;
@@ -1322,6 +1391,11 @@ class _RenderViewStack extends RenderBox
           pinned[i] = true;
           remainingPool -= floors[i];
           pinnedThisPass = true;
+          // Pinning at the floor takes more than the pane's share from the pool,
+          // so dividing the reduced pool by the stale weight sum would understate
+          // every later share and pin panes that should absorb the remainder.
+          // Restart with the unpinned sum re-derived.
+          break;
         }
       }
       if (!pinnedThisPass) {
