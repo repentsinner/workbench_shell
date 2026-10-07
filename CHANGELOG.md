@@ -1,3 +1,16 @@
+# [0.41.0](https://github.com/repentsinner/workbench_shell/compare/v0.40.2...v0.41.0) (2026-10-07)
+
+
+### Bug Fixes
+
+* **view-stack:** re-derive the weight sum after a floor pin ([6084534](https://github.com/repentsinner/workbench_shell/commit/60845346029dcf703dcedca2bd33aa384acdb6bd))
+
+
+### Features
+
+* **example:** show a view pane with its own minimum body size ([305a792](https://github.com/repentsinner/workbench_shell/commit/305a7921872407cb4f2a1b6349548db1ae1b215d))
+* **view-stack:** give a view pane its own minimum body size ([ec39c73](https://github.com/repentsinner/workbench_shell/commit/ec39c73f723cb12a9675070011efabbae2904531)), closes [#136](https://github.com/repentsinner/workbench_shell/issues/136)
+
 ## [0.40.2](https://github.com/repentsinner/workbench_shell/compare/v0.40.1...v0.40.2) (2026-09-17)
 
 
