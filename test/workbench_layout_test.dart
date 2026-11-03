@@ -56,6 +56,7 @@ Widget _buildApp({
   Widget? statusBar,
   double? initialSidebarWidth,
   double? initialPanelHeight,
+  double? panelDefaultHeightRatio,
   ValueChanged<double>? onSidebarWidthChangeEnd,
   ValueChanged<double>? onPanelHeightChangeEnd,
   WorkbenchSidebarPosition? sidebarPosition,
@@ -89,6 +90,9 @@ Widget _buildApp({
       showBottomPanel: showBottomPanel,
       initialSidebarWidth: initialSidebarWidth,
       initialPanelHeight: initialPanelHeight,
+      panelDefaultHeightRatio:
+          panelDefaultHeightRatio ??
+          WorkbenchLayoutConstants.panelDefaultHeightRatio,
       onSidebarWidthChangeEnd: onSidebarWidthChangeEnd,
       onPanelHeightChangeEnd: onPanelHeightChangeEnd,
       sidebarPosition: sidebarPosition,
@@ -162,6 +166,25 @@ WorkbenchTheme _splitBackdrop(WorkbenchTheme base) => base.copyWith(
   workbenchBackdrop: const Color(0xFF191A1B),
   editorBackground: const Color(0xFF121314),
 );
+
+/// The height the editor and the bottom panel share: the column the panel
+/// sits at the foot of, which a panel height is a share of
+/// (§spec:resize-geometry).
+double _bandHeight(WidgetTester tester) => tester
+    .getSize(
+      find
+          .ancestor(
+            of: find
+                .ancestor(
+                  of: find.text('Panel'),
+                  matching: find.byType(Visibility),
+                )
+                .first,
+            matching: find.byType(Column),
+          )
+          .first,
+    )
+    .height;
 
 Finder _sashFinder(Axis axis) =>
     find.byWidgetPredicate((w) => w is WorkbenchSash && w.axis == axis);
@@ -714,9 +737,60 @@ void main() {
         _sash(tester, Axis.horizontal).value,
         WorkbenchLayoutConstants.sidebarDefaultWidth,
       );
+      // The panel's default is a share of the height it shares with the
+      // editor, VS Code's `layout.ts` third, not a fixed pixel count.
       expect(
         _sash(tester, Axis.vertical).value,
-        WorkbenchLayoutConstants.panelDefaultHeight,
+        closeTo(
+          _bandHeight(tester) *
+              WorkbenchLayoutConstants.panelDefaultHeightRatio,
+          0.01,
+        ),
+      );
+    });
+
+    testWidgets('a host sets the share the panel defaults to', (tester) async {
+      await tester.pumpWidget(_buildApp(panelDefaultHeightRatio: 0.5));
+      expect(
+        _sash(tester, Axis.vertical).value,
+        closeTo(_bandHeight(tester) / 2, 0.01),
+      );
+    });
+
+    testWidgets('the panel grows until the editor reaches its minimum height', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1.0;
+      tester.view.physicalSize = const Size(1200, 1600);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(_buildApp());
+      final band = _bandHeight(tester);
+      // Past the old fixed 400 cap: a tall window has room for a tall panel.
+      expect(_sash(tester, Axis.vertical).max, greaterThan(400));
+      expect(
+        _sash(tester, Axis.vertical).max,
+        band - WorkbenchLayoutConstants.editorMinHeight,
+      );
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(_sashFinder(Axis.vertical)),
+      );
+      await gesture.moveBy(Offset(0, -band));
+      await gesture.up();
+      await tester.pump();
+      expect(
+        _sash(tester, Axis.vertical).value,
+        band - WorkbenchLayoutConstants.editorMinHeight,
+      );
+    });
+
+    testWidgets('a seed taller than the window leaves the editor its minimum', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_buildApp(initialPanelHeight: 5000));
+      expect(
+        _sash(tester, Axis.vertical).value,
+        _bandHeight(tester) - WorkbenchLayoutConstants.editorMinHeight,
       );
     });
 
@@ -805,11 +879,13 @@ void main() {
       await tester.tapAt(center);
       await tester.pump();
 
-      expect(
-        _sash(tester, Axis.vertical).value,
-        WorkbenchLayoutConstants.panelDefaultHeight,
-      );
-      expect(ends, [WorkbenchLayoutConstants.panelDefaultHeight]);
+      final reset =
+          _bandHeight(tester) *
+          WorkbenchLayoutConstants.panelDefaultHeightRatio;
+      expect(_sash(tester, Axis.vertical).value, closeTo(reset, 0.01));
+      // Committed in pixels, as every other panel height is.
+      expect(ends, hasLength(1));
+      expect(ends.single, closeTo(reset, 0.01));
     });
   });
 

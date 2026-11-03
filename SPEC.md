@@ -1255,10 +1255,13 @@ uniform; the *reset action* is a property of the seam, matching VS Code's
 divergent per-consumer semantics:
 
 - **Sidebar width, panel height** reset to their default size
-  (`WorkbenchLayoutConstants.sidebarDefaultWidth` / `panelDefaultHeight`).
-  VS Code resets a part sash to the part's *preferred* size (`Grid.onDidSashReset`
+  (`WorkbenchLayoutConstants.sidebarDefaultWidth`, and the panel's default
+  share of the band, `WorkbenchLayout.panelDefaultHeightRatio`). VS Code
+  resets a part sash to the part's *preferred* size (`Grid.onDidSashReset`
   → `preferredWidth`/`preferredHeight`); the shell has no content-derived
-  preferred size, so the fixed default is the faithful stand-in.
+  preferred size, so the default is the faithful stand-in. The panel's
+  reset returns to the share, not to its pixels at the time of the reset,
+  so the panel keeps its proportion through a later window resize.
 - **View-pane sashes** (§spec:view-stack) reset to an *even* distribution of
   body height between the two adjacent expanded panes, matching VS Code's
   `ViewPaneContainer` sash-reset (split the combined space equally).
@@ -1277,9 +1280,20 @@ commits nothing.
 **Sidebar width and panel height are host-persistable via seed-plus-commit**,
 like the view-stack pane sizes (§spec:resize-geometry). Each is shell-owned:
 `initialSidebarWidth` / `initialPanelHeight` seed it once at startup (falling
-back to `sidebarDefaultWidth` / `panelDefaultHeight`, §spec:layout-constants),
-and `onSidebarWidthChangeEnd` / `onPanelHeightChangeEnd` fire once on drag-end
-with the final clamped value. There is no controlled width or height property
+back to `sidebarDefaultWidth`, §spec:layout-constants, and to the panel's
+default share of the band), and `onSidebarWidthChangeEnd` /
+`onPanelHeightChangeEnd` fire once on drag-end with the final clamped value.
+
+**The panel's height is bounded by the editor, not by a constant.** The
+height the editor and panel share is the band. A panel with no seed opens at
+`panelDefaultHeightRatio` of the band, VS Code's third by default
+(`layout.ts` `PANEL_SIZE.defaultValue = mainContainerDimension.height / 3`);
+a host sets another share. It grows until the editor reaches
+`editorMinHeight`, as VS Code's panel does (`panelPart.ts` sets no
+`maximumHeight`; the grid stops at the editor's minimum). A height the user
+set, and a seed, persist in pixels, as VS Code's `panel.size` does, and a
+band too short for one draws the panel at the largest height that leaves the
+editor its minimum. There is no controlled width or height property
 and no per-frame callback, so a host persists one write per drag with no
 debounce of its own.
 
@@ -3281,6 +3295,8 @@ and makes a stale row visible on inspection.
 | `statusBarHeight` | 22 | [`statusbarpart.css`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/parts/statusbar/media/statusbarpart.css) — `height: 22px`. Cross-confirmed by inline comment in `notificationsToasts.css`: `bottom: 25px; /* 22px status bar height + 3px */` | 1.138.0 |
 | `sidebarMinWidth` | 170 | [`sidebarPart.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/parts/sidebar/sidebarPart.ts) — `readonly minimumWidth: number = 170` | 1.138.0 |
 | `panelMinHeight` | 77 | [`panelPart.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/parts/panel/panelPart.ts) — `readonly minimumHeight: number = 77` | 1.138.0 |
+| `panelDefaultHeightRatio` | 1/3 | [`layout.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/layout.ts) — `PANEL_SIZE.defaultValue = … mainContainerDimension.height / 3` for a bottom panel | 1.138.0 |
+| `editorMinHeight` | 70 | [`editor.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/parts/editor/editor.ts) — `DEFAULT_EDITOR_MIN_DIMENSIONS = new Dimension(220, 70)` | 1.138.0 |
 | `notificationCardWidth` | 450 | [`notificationsToasts.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/workbench/browser/parts/notifications/notificationsToasts.ts) — `private static readonly MAX_WIDTH = 450` | 1.138.0 |
 
 **Constants without a VS Code peer.** Some
@@ -3293,9 +3309,7 @@ default and records the rationale:
 | Constant | Value | Why no peer | Rationale |
 |---|---|---|---|
 | `sidebarDefaultWidth` | 300 | VS Code persists last user width | Common starting point that fits an Explorer-plus-OUTLINE column without truncation on a 1440-wide screen |
-| `panelDefaultHeight` | 200 | VS Code persists last user height | Tall enough to show a useful number of log lines without dominating the editor area |
-| `panelMaxHeight` | 400 | VS Code allows dynamic max bounded by editor area | Static cap keeps the shell from re-implementing VS Code's layout-service min/max negotiation; consumers that need taller panels override at the layout call site |
-| `sidebarMaxWidth` | 600 | VS Code caps at ~75% of window width dynamically | Same reasoning as `panelMaxHeight` |
+| `sidebarMaxWidth` | 600 | VS Code caps at ~75% of window width dynamically | Static cap keeps the shell from re-implementing VS Code's layout-service min/max negotiation |
 | Icon sizes (`iconXs`, `iconSm`, `iconMd`, `iconLg`, `iconXl`, `iconActivityBar`, `iconStatusBar`) | 12 / 14 / 16 / 20 / 24 / 30 / 17 | VS Code uses 16 for most codicons (`codiconFontSize` in `baseSizes.ts`), 12 for compact (`codiconFontSize.compact`) | Provides a scale around VS Code's 16 default for surfaces (close affordances, status indicators) where a single fixed icon size doesn't fit |
 | `notificationProgressBarHeight` | 4 | not surfaced within search scope of VS Code source | Matches the visible progress bar height VS Code renders |
 

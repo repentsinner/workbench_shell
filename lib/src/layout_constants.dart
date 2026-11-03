@@ -29,14 +29,32 @@ class WorkbenchLayoutConstants {
   static const double sidebarMaxWidth = 600.0;
 
   /// Bottom panel default height.
+  @Deprecated(
+    'The panel defaults to panelDefaultHeightRatio of the height it shares '
+    'with the editor. Unused by the layout.',
+  )
   static const double panelDefaultHeight = 200.0;
+
+  /// The share of the editor-and-panel height a panel with no seed opens at,
+  /// and returns to on a double-click. VS Code `layout.ts` sets
+  /// `PANEL_SIZE.defaultValue` to `mainContainerDimension.height / 3`.
+  static const double panelDefaultHeightRatio = 1 / 3;
 
   /// Bottom panel minimum height. VS Code `panelPart.ts`
   /// `minimumHeight = 77`.
   static const double panelMinHeight = 77.0;
 
   /// Bottom panel maximum height.
+  @Deprecated(
+    'The panel grows until the editor reaches editorMinHeight. Unused by the '
+    'layout.',
+  )
   static const double panelMaxHeight = 400.0;
+
+  /// The least height the editor keeps beside a growing bottom panel. VS Code
+  /// `editor.ts` `DEFAULT_EDITOR_MIN_DIMENSIONS` height; VS Code's
+  /// `panelPart.ts` sets no maximum of the panel's own.
+  static const double editorMinHeight = 70.0;
 
   /// Status bar content height. VS Code `statusbarPart.ts`
   /// `StatusbarPart.HEIGHT = 22`, applied by `statusbarpart.css` as

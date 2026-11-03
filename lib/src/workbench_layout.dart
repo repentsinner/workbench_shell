@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -519,9 +521,15 @@ class WorkbenchLayout extends StatefulWidget {
 
   /// Seed for the bottom-panel height in pixels (§spec:resize-geometry). The
   /// shell owns the live height and seeds it once at startup from this value,
-  /// falling back to [WorkbenchLayoutConstants.panelDefaultHeight] when null.
-  /// Mirrors [initialSidebarWidth].
+  /// falling back to [panelDefaultHeightRatio] of the height the panel shares
+  /// with the editor when null. Mirrors [initialSidebarWidth].
   final double? initialPanelHeight;
+
+  /// The share of the height the editor and panel share that the panel opens
+  /// at with no [initialPanelHeight], and returns to on a double-click of its
+  /// sash. Defaults to VS Code's third
+  /// ([WorkbenchLayoutConstants.panelDefaultHeightRatio]).
+  final double panelDefaultHeightRatio;
 
   /// Notified once when a panel sash drag ends, with the final clamped height
   /// (§spec:resize-geometry). Fires on release only, like
@@ -759,6 +767,8 @@ class WorkbenchLayout extends StatefulWidget {
     this.initialSidebarWidth,
     this.onSidebarWidthChangeEnd,
     this.initialPanelHeight,
+    this.panelDefaultHeightRatio =
+        WorkbenchLayoutConstants.panelDefaultHeightRatio,
     this.onPanelHeightChangeEnd,
     this.initialZenMode = false,
     this.zenMode,
@@ -870,7 +880,10 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
   late bool _internalSidebarVisible;
   late bool _internalStatusBarVisible;
   double _sidebarWidth = WorkbenchLayoutConstants.sidebarDefaultWidth;
-  double _panelHeight = WorkbenchLayoutConstants.panelDefaultHeight;
+  /// The panel height the user set, in pixels, or null for the default share
+  /// of whatever height the band has: a panel never dragged keeps its
+  /// proportion through a window resize.
+  double? _panelHeight;
 
   /// Container ids opened at least once, in first-open order
   /// (§spec:view-container-state). The shell builds a [WorkbenchViewContainer]
@@ -1153,9 +1166,7 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     _sidebarWidth =
         widget.initialSidebarWidth ??
         WorkbenchLayoutConstants.sidebarDefaultWidth;
-    _panelHeight =
-        widget.initialPanelHeight ??
-        WorkbenchLayoutConstants.panelDefaultHeight;
+    _panelHeight = widget.initialPanelHeight;
     // Seed the secondary side bar (§spec:secondary-sidebar), mirroring the
     // primary's container/visibility/width seeding above. The first member is
     // active when the host names no initial id.
@@ -1518,55 +1529,76 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       bottom: _CardEdgeKind.perimeter,
     );
 
-    final panel = Visibility(
-      visible: widget.showBottomPanel,
-      maintainState: true,
-      maintainAnimation: true,
-      child: SizedBox(
-        height: _panelHeight,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              // Framed like the side bars, keeping its own `panel.background`
-              // fill — upstream overrides the shared surface fill for the
-              // panel the same way (`floatingPanels.css`). The card's ring
-              // insets the child past the stroke, so the panel's own opaque
-              // background widget cannot overdraw the hairline
-              // (§spec:modern-ui-surfaces).
-              child: _PartFrame(
-                density: density,
-                modernUI: modernUI,
-                // Base VS Code rules the panel off from the editor with its own
-                // `panel.border` top seam, suppressed when the theme omits it.
-                baseBorder: theme.panelBorder == null
-                    ? null
-                    : Border(top: BorderSide(color: theme.panelBorder!)),
-                edges: panelEdges,
-                background: theme.panelBackground,
-                borderColor: theme.surfaceBorder,
-                child: widget.bottomPanel,
+    // The panel's height is a share of the band it sits in, so it is built
+    // once that height is known, and kept within it: VS Code's panel sets no
+    // maximum of its own, and the grid stops it where the editor reaches its
+    // minimum (§spec:resize-geometry).
+    Widget panelFor(double band) {
+      final max = math.max(
+        WorkbenchLayoutConstants.panelMinHeight,
+        band - WorkbenchLayoutConstants.editorMinHeight,
+      );
+      final reset = (band * widget.panelDefaultHeightRatio).clamp(
+        WorkbenchLayoutConstants.panelMinHeight,
+        max,
+      );
+      final height = (_panelHeight ?? reset).clamp(
+        WorkbenchLayoutConstants.panelMinHeight,
+        max,
+      );
+      return Visibility(
+        visible: widget.showBottomPanel,
+        maintainState: true,
+        maintainAnimation: true,
+        child: SizedBox(
+          height: height,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                // Framed like the side bars, keeping its own `panel.background`
+                // fill — upstream overrides the shared surface fill for the
+                // panel the same way (`floatingPanels.css`). The card's ring
+                // insets the child past the stroke, so the panel's own opaque
+                // background widget cannot overdraw the hairline
+                // (§spec:modern-ui-surfaces).
+                child: _PartFrame(
+                  density: density,
+                  modernUI: modernUI,
+                  // Base VS Code rules the panel off from the editor with its own
+                  // `panel.border` top seam, suppressed when the theme omits it.
+                  baseBorder: theme.panelBorder == null
+                      ? null
+                      : Border(top: BorderSide(color: theme.panelBorder!)),
+                  edges: panelEdges,
+                  background: theme.panelBackground,
+                  borderColor: theme.surfaceBorder,
+                  child: widget.bottomPanel,
+                ),
               ),
-            ),
-            Positioned(
-              // Sit the sash fully inside the panel (top: 0), like the
-              // view-stack pane sashes. An overhang above the panel's top
-              // edge is clipped by this Stack's hardEdge bound, halving the
-              // painted highlight band; sitting inside keeps every seam's
-              // sash the same canonical width. Height owned by
-              // WorkbenchSash (sashSize).
-              top: 0,
-              left: 0,
-              right: 0,
-              child: _buildHorizontalResizer(
-                edges: panelEdges,
-                density: density,
-                modernUI: modernUI,
+              Positioned(
+                // Sit the sash fully inside the panel (top: 0), like the
+                // view-stack pane sashes. An overhang above the panel's top
+                // edge is clipped by this Stack's hardEdge bound, halving the
+                // painted highlight band; sitting inside keeps every seam's
+                // sash the same canonical width. Height owned by
+                // WorkbenchSash (sashSize).
+                top: 0,
+                left: 0,
+                right: 0,
+                child: _buildHorizontalResizer(
+                  edges: panelEdges,
+                  density: density,
+                  modernUI: modernUI,
+                  height: height,
+                  max: max,
+                  reset: reset,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    }
 
     // The activity bar and primary side bar travel together to the selected
     // edge; the secondary side bar sits on the editor's opposite edge
@@ -1586,26 +1618,28 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     // (§spec:view-container-state, mirroring §spec:sidebar-position).
     final bandColumn = Expanded(
       key: _editorAndPanelKey,
-      child: Column(
-        children: [
-          Expanded(
-            child: Row(
-              // The parts take their height from the band, not from whatever
-              // the host puts inside them. Left to Flutter's default the row
-              // centres its children on the cross axis, so an editor whose
-              // content shrink-wraps under a loose constraint — a scroll view,
-              // the common case — collapses the card onto its content and
-              // floats it mid-band (§spec:modern-ui-surfaces).
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (leftInside) ...leftGroup,
-                editorArea,
-                if (rightInside) ...rightGroup,
-              ],
+      child: LayoutBuilder(
+        builder: (context, constraints) => Column(
+          children: [
+            Expanded(
+              child: Row(
+                // The parts take their height from the band, not from whatever
+                // the host puts inside them. Left to Flutter's default the row
+                // centres its children on the cross axis, so an editor whose
+                // content shrink-wraps under a loose constraint — a scroll view,
+                // the common case — collapses the card onto its content and
+                // floats it mid-band (§spec:modern-ui-surfaces).
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (leftInside) ...leftGroup,
+                  editorArea,
+                  if (rightInside) ...rightGroup,
+                ],
+              ),
             ),
-          ),
-          panel,
-        ],
+            panelFor(constraints.maxHeight),
+          ],
+        ),
       ),
     );
 
@@ -1815,6 +1849,9 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     required _CardEdges edges,
     required WorkbenchLayoutDensity density,
     required bool modernUI,
+    required double height,
+    required double max,
+    required double reset,
   }) {
     final seam = _seamTreatment(Axis.vertical, edges, density, modernUI);
     // The panel sits at the bottom, so dragging the seam up grows its height
@@ -1822,9 +1859,9 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
     // sash, highlight and grip included (§spec:workbench-layout).
     return WorkbenchSash(
       axis: Axis.vertical,
-      value: _panelHeight,
+      value: height,
       min: WorkbenchLayoutConstants.panelMinHeight,
-      max: WorkbenchLayoutConstants.panelMaxHeight,
+      max: max,
       growSign: -1,
       grip: seam.grip,
       highlightInset: seam.highlightInset,
@@ -1833,9 +1870,10 @@ class _WorkbenchLayoutState extends State<WorkbenchLayout> {
       onChangeEnd: widget.onPanelHeightChangeEnd,
       // Reset to the default height on double-click, committed like the sidebar
       // (§spec:workbench-layout).
+      // The reset returns to the default share rather than pinning today's
+      // pixels, so the panel keeps its proportion through a later resize.
       onReset: () {
-        const reset = WorkbenchLayoutConstants.panelDefaultHeight;
-        setState(() => _panelHeight = reset);
+        setState(() => _panelHeight = null);
         widget.onPanelHeightChangeEnd?.call(reset);
       },
       child: const SizedBox.expand(),
