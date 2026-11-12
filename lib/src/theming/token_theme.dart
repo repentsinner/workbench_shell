@@ -85,9 +85,9 @@ class TokenTheme {
   final Color defaultForeground;
 
   TokenTheme._({
-    required List<_TokenRule> rules,
+    required this._rules,
     required this.defaultForeground,
-  }) : _rules = rules;
+  });
 
   /// Parse `tokenColors` from a decoded VS Code theme JSON.
   ///

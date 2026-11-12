@@ -10,11 +10,11 @@ import 'package:flutter/gestures.dart'
         PointerPanZoomUpdateEvent,
         PointerScrollEvent,
         PointerSignalEvent;
-import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show FlexParentData, RenderFlex;
 import 'package:flutter/scheduler.dart' show Ticker;
 import 'package:flutter/services.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:meta/meta.dart';
 
 import 'layout_constants.dart';

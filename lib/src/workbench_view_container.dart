@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'layout_constants.dart';
 import 'workbench_content.dart';
@@ -1203,10 +1203,9 @@ class _RenderViewStack extends RenderBox
         ContainerRenderObjectMixin<RenderBox, _ViewStackParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, _ViewStackParentData> {
   _RenderViewStack({
-    required double availableHeight,
-    required double headerHeight,
-  }) : _availableHeight = availableHeight,
-       _headerHeight = headerHeight;
+    required this._availableHeight,
+    required this._headerHeight,
+  });
 
   double _availableHeight;
   double get availableHeight => _availableHeight;

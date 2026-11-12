@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:workbench_shell/workbench_shell.dart';
 
 import 'test_theme.dart';
@@ -971,7 +971,7 @@ void main() {
 /// Host-style `Action` whose `isActionEnabled` is under test control
 /// and who forwards changes via [notifyActionListeners].
 class _ToggleEnabledAction extends Action<ToggleBottomPanelIntent> {
-  _ToggleEnabledAction({required bool enabled}) : _enabled = enabled;
+  _ToggleEnabledAction({required this._enabled});
 
   bool _enabled;
 
