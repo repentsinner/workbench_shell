@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:ui';
 
-import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter/widgets.dart';
+import 'package:material_ui/material_ui.dart' show ThemeMode;
 
 import 'theming/vscode_color_map.dart';
 import 'workbench_theme.dart';
@@ -133,25 +133,17 @@ class WorkbenchThemeController extends ChangeNotifier {
     required WorkbenchTheme initialTheme,
     required String initialFilename,
     required List<WorkbenchThemeEntry> availableThemes,
-    required VscodeColorThemeLoader loader,
-    required String? chromeFontFamily,
-    required String? editorFontFamily,
-    required double? editorFontSize,
-    required ThemeMode themeMode,
-    required String preferredLight,
-    required String preferredDark,
-    required PlatformDispatcher platformDispatcher,
+    required this._loader,
+    required this._chromeFontFamily,
+    required this._editorFontFamily,
+    required this._editorFontSize,
+    required this._themeMode,
+    required this._preferredLight,
+    required this._preferredDark,
+    required this._platformDispatcher,
   }) : _theme = initialTheme,
        _selectedFilename = initialFilename,
-       _availableThemes = List.unmodifiable(availableThemes),
-       _loader = loader,
-       _chromeFontFamily = chromeFontFamily,
-       _editorFontFamily = editorFontFamily,
-       _editorFontSize = editorFontSize,
-       _themeMode = themeMode,
-       _preferredLight = preferredLight,
-       _preferredDark = preferredDark,
-       _platformDispatcher = platformDispatcher {
+       _availableThemes = List.unmodifiable(availableThemes) {
     _installPlatformBrightnessListener();
     _pendingResolution = _resolveActiveTheme();
   }

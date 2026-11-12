@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'workbench_panel.dart';
 import 'workbench_tabbed_panel.dart';

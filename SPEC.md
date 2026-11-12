@@ -103,7 +103,8 @@ without knowing any particular host exists? Section navigation,
 status-bar chrome, the View menu, and tabbed bottom-panel
 composition satisfy this test.
 
-**Dependency footprint**: `lib/` imports only Flutter, `equatable`,
+**Dependency footprint**: `lib/` imports only Flutter, `material_ui`
+(the Material library, published apart from the Flutter SDK), `equatable`,
 `material_color_utilities`, `material_symbols_icons`, and `meta`
 (Dart's `@internal` annotation, already a Flutter transitive dep — used
 to keep the container-only `WorkbenchViewPane.inContainer` seam off the
@@ -2438,8 +2439,8 @@ is "not now," with the shape recorded so a future promotion starts
 from a design rather than a blank page.
 
 **Why the shell cannot ship it turnkey**: §spec:capability-boundary
-fixes `lib/`'s dependency footprint at Flutter, `equatable`,
-`material_color_utilities`, and `material_symbols_icons`. Frame
+fixes `lib/`'s dependency footprint at Flutter, `material_ui`,
+`equatable`, `material_color_utilities`, and `material_symbols_icons`. Frame
 takeover needs a desktop window plugin (e.g. `window_manager`),
 `main()` initialization before `runApp`, and native runner edits
 (`MainFlutterWindow.swift`, `main.cpp`, `my_application.cc`) — all
@@ -2558,7 +2559,7 @@ passive indicators).
 
 **Why HCT**: perceptually uniform tone shifts across hues.
 `material_color_utilities` is Google-maintained and already a
-transitive dependency of Flutter Material 3. The alternative —
+transitive dependency of `material_ui`. The alternative —
 hand-maintaining dark/light palettes per semantic — scales
 poorly and invites drift.
 
