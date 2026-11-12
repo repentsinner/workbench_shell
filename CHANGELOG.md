@@ -1,3 +1,17 @@
+# [1.0.0](https://github.com/repentsinner/workbench_shell/compare/v0.41.0...v1.0.0) (2026-11-12)
+
+
+* feat!: build on the standalone material_ui package ([c95e4d3](https://github.com/repentsinner/workbench_shell/commit/c95e4d3b33cb379267480f2dd7545013a0c0c06d))
+
+
+### BREAKING CHANGES
+
+* hosts must depend on material_ui and import
+package:material_ui/material_ui.dart in place of
+package:flutter/material.dart, so the MaterialApp, ThemeData and
+widgets they pass to the shell share its types. The minimum supported
+Flutter is 3.44.0 (Dart 3.12.0).
+
 # [0.41.0](https://github.com/repentsinner/workbench_shell/compare/v0.40.2...v0.41.0) (2026-10-07)
 
 
