@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'activity_bar_item.dart';
 import 'layout_constants.dart';

@@ -47,13 +47,18 @@ construction.
 ## Install
 
 ```bash
-flutter pub add workbench_shell
+flutter pub add workbench_shell material_ui
 ```
+
+The shell builds on `material_ui`, the standalone Material library, rather
+than the deprecated `package:flutter/material.dart`. The two libraries
+define separate types, so a host's `MaterialApp`, `ThemeData` and widgets
+come from `material_ui` too. Otherwise the shell can't read the host's theme.
 
 ## Usage
 
 ```dart
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:workbench_shell/workbench_shell.dart';
 
 void main() => runApp(const ExampleApp());

@@ -17,25 +17,28 @@ topics:
 
 environment:
   # The floor is set by the dependency graph, not by a language-feature
-  # choice. Flutter pins `material_color_utilities` transitively, so the
-  # `^0.13.0` below is only resolvable from Flutter 3.41.0 on — 3.38 ships
-  # 0.11.1 and fails to resolve. 3.41.0 bundles Dart 3.11.0, which is what
-  # sets the `sdk:` bound; neither line is independently chosen, and the
-  # two must agree because a Flutter release bundles exactly one Dart SDK.
-  # `quality.yml` builds this floor on every PR, so it stays a tested
-  # property rather than a claim.
-  sdk: ^3.11.0
-  flutter: ">=3.41.0"
+  # choice. `material_ui` 1.0.0, the first release of the standalone
+  # Material library, requires Flutter 3.44.0, and 3.44.0 bundles Dart
+  # 3.12.0, which is what sets the `sdk:` bound. Neither line is
+  # independently chosen, and the two must agree because a Flutter release
+  # bundles exactly one Dart SDK. `quality.yml` builds this floor on every
+  # PR, so it stays a tested property rather than a claim.
+  sdk: ^3.12.0
+  flutter: ">=3.44.0"
 
 dependencies:
   flutter:
     sdk: flutter
   equatable: ^2.0.5
   # Used to derive surfaceTone from the chrome's editor background via
-  # HCT. The package is already a transitive dep of Flutter Material 3,
-  # so this adds no real footprint. See SPEC §spec:hct-tonal-resolution.
+  # HCT. The package is already a transitive dep of `material_ui`, so
+  # this adds no real footprint. See SPEC §spec:hct-tonal-resolution.
   material_color_utilities: ^0.13.0
   material_symbols_icons: ^4.2928.1
+  # The Material library, decoupled from the Flutter SDK. Its types are
+  # distinct from those of the deprecated `package:flutter/material.dart`,
+  # so a host passes `material_ui` `ThemeData` to `applyWorkbenchChrome`.
+  material_ui: ^1.0.0
   # `@internal` marks the WorkbenchViewPane.inContainer collapsibility seam
   # off the public API (§spec:view-stack). meta is already a Flutter
   # transitive dep, so this adds no real footprint.

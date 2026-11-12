@@ -29,10 +29,9 @@ class NotificationProgressController {
   /// [NotificationService.showProgress].
   NotificationProgressController({
     required this.id,
-    required NotificationService service,
-    required bool cancellable,
-  }) : _service = service,
-       _cancellable = cancellable;
+    required this._service,
+    required this._cancellable,
+  });
 
   /// Whether the controller is still tracking an in-flight task.
   /// Becomes `false` after [complete] or [fail].
