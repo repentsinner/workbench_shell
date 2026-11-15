@@ -29,7 +29,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  equatable: ^2.0.5
+  equatable: ">=2.0.5 <4.0.0"
   # Used to derive surfaceTone from the chrome's editor background via
   # HCT. The package is already a transitive dep of `material_ui`, so
   # this adds no real footprint. See SPEC §spec:hct-tonal-resolution.
