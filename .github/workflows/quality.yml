@@ -184,3 +184,27 @@ jobs:
         run: |
           jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$NEEDS"
           exit 1
+
+  # The bug-free-happiness supply-chain checks. Its release pin moves through
+  # Dependabot like any other Action's, and each release's checks arrive with
+  # the bump.
+  security-checks:
+    needs: classify
+    if: needs.classify.outputs.derived_release_commit != 'true' && needs.classify.outputs.promotion_pr != 'true'
+    uses: repentsinner/bug-free-happiness/.github/workflows/security.yml@8bb4c839a8707cfa7f86be288553635f1e39d3c4 # v0.5.0
+
+  # Not a required check yet: the template requires it once every adopter
+  # emits it with real signal.
+  security:
+    name: quality / security
+    needs: [classify, security-checks]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail when a security job failed or was cancelled
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$NEEDS"
+          exit 1
