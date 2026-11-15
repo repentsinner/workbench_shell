@@ -1,15 +1,26 @@
 name: Flywheel — Push
+
 on:
   push:
     branches: ["**"]
+
 concurrency:
   group: flywheel-push-${{ github.ref_name }}
   cancel-in-progress: false
+
 jobs:
   release:
+    # Flywheel mints its own App installation token for every write, so the
+    # built-in token needs read only. Without this block the job inherits the
+    # repository default, which on older repos is write on everything.
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
-      - uses: point-source/flywheel@v2
+      # SHA-pinned, not @v2: this action receives a GitHub App private key,
+      # and a floating tag lets its repository repoint that credential at new
+      # code without review. Bump the pin deliberately.
+      - uses: point-source/flywheel@59758d1940ebe054ce9fdd4b7a7dc79a0cf235e0 # v2.1.0
         with:
           event: push
           app-id: ${{ vars.FLYWHEEL_GH_APP_ID }}

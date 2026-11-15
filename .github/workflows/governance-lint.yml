@@ -11,6 +11,6 @@ jobs:
   # `Flywheel - review` ruleset. Renaming it means re-pointing the
   # ruleset entry.
   governance:
-    uses: repentsinner/symphonize/.github/workflows/governance-lint.yml@notation--v0
+    uses: repentsinner/symphonize/.github/workflows/governance-lint.yml@c923c65b044d3ab7866520b5bfba5fca939aac6f # notation--v0.2.16
     with:
       readme-type: "library"

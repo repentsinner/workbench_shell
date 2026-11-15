@@ -1,18 +1,45 @@
 name: Flywheel — PR
+
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, edited]
+
 concurrency:
   group: flywheel-pr-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  # A run whose job will skip must not cancel one that will not. A bot edit —
+  # the App rewriting a title, or a dependency bot updating its own body on a
+  # rebase — arrives moments after the push it accompanies, cancels the
+  # in-flight run, and then skips itself on the guard below. The head commit
+  # is left with no flywheel/conventional-commit check at all, and because
+  # that check is posted by the action rather than being a job of this
+  # workflow, there is no skipped check run to count as passing: a required
+  # check simply never appears and the pull request can never merge. Mirrors
+  # the conduct job's `if`, so the two have to move together.
+  cancel-in-progress: >-
+    ${{ github.event.pull_request.draft == false
+    && (github.event.action != 'edited' || github.event.sender.type == 'User') }}
+
 jobs:
   conduct:
+    # Only run on 'edited' events when a human triggered the edit. Bot-driven
+    # edits (the Flywheel App rewriting titles/bodies, push-flow upserting
+    # promotion PR bodies) would otherwise flap conduct <-> push-flow writes on
+    # every promotion-source push.
     if: |
       github.event.pull_request.draft == false &&
       (github.event.action != 'edited' || github.event.sender.type == 'User')
+    # The degraded empty-key path (Dependabot PRs, where the App key is absent)
+    # posts the conventional-commit check with the built-in token, so the token
+    # needs checks:write.
+    permissions:
+      contents: read
+      checks: write
     runs-on: ubuntu-latest
     steps:
-      - uses: point-source/flywheel@v2
+      # SHA-pinned, not @v2: this action receives a GitHub App private key,
+      # and a floating tag lets its repository repoint that credential at new
+      # code without review. Bump the pin deliberately.
+      - uses: point-source/flywheel@59758d1940ebe054ce9fdd4b7a7dc79a0cf235e0 # v2.1.0
         with:
           event: pull_request
           app-id: ${{ vars.FLYWHEEL_GH_APP_ID }}
