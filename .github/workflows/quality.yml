@@ -1,13 +1,6 @@
-# quality — everything this repository verifies, behind one required check.
-#
-# GitHub names a check run after the JOB, so the job id `quality` below is
-# the context registered in the `Flywheel - review` ruleset. The work is
-# split into jobs so failures are attributable and the fast one reports
-# early; the ruleset sees only the aggregate.
-#
-# `needs:` cannot cross workflow files, so anything that should gate merges
-# lives here. Adding a job means adding it to the aggregate's `needs` — the
-# ruleset never changes.
+# quality — the merge gate. Branch rulesets require the `quality / <class>`
+# summary jobs at the bottom, never the jobs that do the work, so jobs here
+# can be added, split or renamed without touching a ruleset.
 #
 # Every job runs twice, against two SDKs that answer different questions:
 #
@@ -25,8 +18,22 @@ on:
   pull_request:
   merge_group: # required for merge-queue compatibility
 
+permissions:
+  contents: read
+
 jobs:
+  classify:
+    runs-on: ubuntu-latest
+    outputs:
+      derived_release_commit: ${{ steps.classify.outputs.derived_release_commit }}
+      promotion_pr: ${{ steps.classify.outputs.promotion_pr }}
+    steps:
+      - id: classify
+        uses: point-source/flywheel/classify@59758d1940ebe054ce9fdd4b7a7dc79a0cf235e0 # v2.1.0
+
   analyze:
+    needs: classify
+    if: needs.classify.outputs.derived_release_commit != 'true' && needs.classify.outputs.promotion_pr != 'true'
     runs-on: ubuntu-latest
     strategy:
       # Report both SDKs. Cancelling the floor build because the pinned one
@@ -35,80 +42,69 @@ jobs:
       matrix:
         sdk: [floor, pinned]
     steps:
-      # Classify the triggering commit/PR so Flywheel-emitted commits
-      # (chore(release):, back-merge) skip the suite. A step-level `if:`
-      # that evaluates false still reports `success`, so the aggregate stays
-      # satisfied. Pinned to the same major as the main Flywheel action.
-      - id: classify
-        uses: point-source/flywheel/classify@v2
-      - uses: actions/checkout@v6
-        if: steps.classify.outputs.derived_release_commit != 'true'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - id: sdk
         name: Resolve SDK version
-        if: steps.classify.outputs.derived_release_commit != 'true'
         env:
           MATRIX_SDK: ${{ matrix.sdk }}
         run: .github/scripts/resolve-sdk.sh
-      - uses: subosito/flutter-action@v2
-        if: steps.classify.outputs.derived_release_commit != 'true'
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           flutter-version: ${{ steps.sdk.outputs.version }}
           cache: true
       - name: Analyze
-        if: steps.classify.outputs.derived_release_commit != 'true'
         run: |
           flutter pub get
           flutter analyze
 
   test-package:
+    needs: classify
+    if: needs.classify.outputs.derived_release_commit != 'true' && needs.classify.outputs.promotion_pr != 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         sdk: [floor, pinned]
     steps:
-      - id: classify
-        uses: point-source/flywheel/classify@v2
-      - uses: actions/checkout@v6
-        if: steps.classify.outputs.derived_release_commit != 'true'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - id: sdk
         name: Resolve SDK version
-        if: steps.classify.outputs.derived_release_commit != 'true'
         env:
           MATRIX_SDK: ${{ matrix.sdk }}
         run: .github/scripts/resolve-sdk.sh
-      - uses: subosito/flutter-action@v2
-        if: steps.classify.outputs.derived_release_commit != 'true'
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           flutter-version: ${{ steps.sdk.outputs.version }}
           cache: true
       - name: Test (package)
-        if: steps.classify.outputs.derived_release_commit != 'true'
         run: |
           flutter pub get
           flutter test
 
   test-example:
+    needs: classify
+    if: needs.classify.outputs.derived_release_commit != 'true' && needs.classify.outputs.promotion_pr != 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         sdk: [floor, pinned]
     steps:
-      - id: classify
-        uses: point-source/flywheel/classify@v2
-      - uses: actions/checkout@v6
-        if: steps.classify.outputs.derived_release_commit != 'true'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - id: sdk
         name: Resolve SDK version
-        if: steps.classify.outputs.derived_release_commit != 'true'
         env:
           MATRIX_SDK: ${{ matrix.sdk }}
         run: .github/scripts/resolve-sdk.sh
-      - uses: subosito/flutter-action@v2
-        if: steps.classify.outputs.derived_release_commit != 'true'
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           flutter-version: ${{ steps.sdk.outputs.version }}
@@ -116,33 +112,91 @@ jobs:
       # workbench_shell is a path dependency, so this resolves from source
       # and does not need the package's pub get to have run first.
       - name: Test (example)
-        if: steps.classify.outputs.derived_release_commit != 'true'
         working-directory: example
         run: |
           flutter pub get
           flutter test
 
-  quality:
-    name: quality
-    if: always()
-    needs: [analyze, test-package, test-example]
+  governance-lint:
+    needs: classify
+    if: needs.classify.outputs.derived_release_commit != 'true' && needs.classify.outputs.promotion_pr != 'true'
+    uses: repentsinner/symphonize/.github/workflows/governance-lint.yml@c923c65b044d3ab7866520b5bfba5fca939aac6f # notation--v0.2.16
+    with:
+      readme-type: library
+
+  actionlint:
+    needs: classify
+    if: needs.classify.outputs.derived_release_commit != 'true' && needs.classify.outputs.promotion_pr != 'true'
     runs-on: ubuntu-latest
     steps:
-      # A required check has to report on every run, and a skipped job
-      # reports nothing — so the ruleset names this aggregate rather than
-      # the jobs above. A matrixed job reports one result for the whole
-      # matrix, so a floor-only failure still lands here. Results arrive
-      # through env so the script stays quoting-safe.
-      - name: Check results
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Digest copied from the release's checksums file, so a replaced
+      # release asset fails here rather than running.
+      - name: Install actionlint
         env:
-          ANALYZE: ${{ needs.analyze.result }}
-          TEST_PACKAGE: ${{ needs.test-package.result }}
-          TEST_EXAMPLE: ${{ needs.test-example.result }}
+          ACTIONLINT_VERSION: 1.7.12
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
         run: |
-          echo "analyze=$ANALYZE test-package=$TEST_PACKAGE test-example=$TEST_EXAMPLE"
-          for result in "$ANALYZE" "$TEST_PACKAGE" "$TEST_EXAMPLE"; do
-            case "$result" in
-              success|skipped) ;;
-              *) echo "::error::job result: $result"; exit 1 ;;
-            esac
-          done
+          archive="$RUNNER_TEMP/actionlint.tar.gz"
+          curl -sfLo "$archive" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "${ACTIONLINT_SHA256}  ${archive}" | sha256sum -c -
+          tar -xzf "$archive" -C "$RUNNER_TEMP" actionlint
+
+      # actionlint skips run: blocks silently when shellcheck is absent, so
+      # its absence has to fail the job rather than pass it.
+      - name: Lint workflows
+        run: |
+          command -v shellcheck
+          "$RUNNER_TEMP/actionlint"
+
+  # Summary jobs carry the required check names. Each runs whatever its
+  # dependencies' outcome, because GitHub counts a skipped required check as
+  # passing. A matrixed job reports one result for the whole matrix, so a
+  # floor-only failure still lands here.
+  governance:
+    name: quality / governance
+    needs: [classify, governance-lint]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail when a governance job failed or was cancelled
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$NEEDS"
+          exit 1
+
+  correctness:
+    name: quality / correctness
+    needs: [classify, analyze, test-package, test-example, actionlint]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail when a correctness job failed or was cancelled
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$NEEDS"
+          exit 1
+
+  # Transitional: the live review ruleset still requires a check named
+  # `quality`. Remove this job once the template's Review ruleset replaces it.
+  quality:
+    name: quality
+    needs: [classify, analyze, test-package, test-example]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail when a correctness job failed or was cancelled
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$NEEDS"
+          exit 1
