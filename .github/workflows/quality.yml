@@ -184,19 +184,3 @@ jobs:
         run: |
           jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$NEEDS"
           exit 1
-
-  # Transitional: the live review ruleset still requires a check named
-  # `quality`. Remove this job once the template's Review ruleset replaces it.
-  quality:
-    name: quality
-    needs: [classify, analyze, test-package, test-example]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Fail when a correctness job failed or was cancelled
-        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
-        env:
-          NEEDS: ${{ toJSON(needs) }}
-        run: |
-          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$NEEDS"
-          exit 1
