@@ -29,6 +29,11 @@ example/windows/
 CLAUDE.md
 styles/
 
+# --- README animation ---
+# Linked from the README by absolute URL, so the package archive doesn't
+# need it, and every download would otherwise carry it.
+doc/tour.avif
+
 # Nothing else is excluded. A published Dart package is a full source
 # distribution (pub ships tests, docs, and examples by default), and the
 # size limit is 100 MB gzip — we are ~6 orders of magnitude under it. So

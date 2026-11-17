@@ -14,6 +14,17 @@ flutter pub get
 flutter run -d macos      # or -d linux / -d windows
 ```
 
+To watch the workbench's highlights without touching it, pass `--tour`.
+The app then loops through every sidebar, the editor and panel tabs,
+notifications, layout changes, and several color themes:
+
+```bash
+flutter run -d linux -a --tour
+```
+
+The tour starts from the default layout each run and leaves the saved
+layout state alone.
+
 ## Test
 
 ```bash
@@ -24,7 +35,9 @@ The widget test in `test/example_test.dart` asserts the activity-bar
 icons render, the default sidebar body is visible, all five panel
 tabs are present, the initial Problems tab body shows, the activity
 bar switches sidebars on tap, the Settings sidebar exposes the theme
-slots, and the Notifications demo posts a toast.
+slots, and the Notifications demo posts a toast. `test/tour_test.dart`
+runs one tour cycle at the recording's size and asserts each step
+reaches the app, and that without `--tour` nothing moves.
 
 ## Layout
 

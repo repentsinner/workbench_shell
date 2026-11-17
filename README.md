@@ -7,7 +7,7 @@ structural primitives (section, card, toggle card, empty
 state) that keep sidebar and panel content visually consistent by
 construction.
 
-![workbench_shell example app](workbench_shell_example.png)
+![The example app touring the workbench: switching sidebars, editor tabs and bottom panel tabs, posting and clearing notifications, opening the secondary side bar, moving the primary side bar right, toggling Modern UI, and changing color themes](https://raw.githubusercontent.com/repentsinner/workbench_shell/main/doc/tour.avif)
 
 ## Features
 
@@ -109,6 +109,9 @@ class ExampleApp extends StatelessWidget {
 
 A runnable example with five sidebars, a tabbed bottom panel, a
 notification demo, and a status bar lives under [`example/`](example/).
+On a desktop platform, `flutter run -a --tour` loops through the
+workbench's highlights on its own, which is how the animation at the top
+of this page was recorded.
 
 ## API
 
