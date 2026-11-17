@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/repentsinner/workbench_shell/compare/v1.0.0...v1.0.1) (2026-11-17)
+
+
+### Bug Fixes
+
+* shorten pubspec description to pub.dev's 180-character limit ([d57a9c6](https://github.com/repentsinner/workbench_shell/commit/d57a9c6aad39a02ca58cac1df9c968fb1ab9a425)), closes [#157](https://github.com/repentsinner/workbench_shell/issues/157)
+
 # [1.0.0](https://github.com/repentsinner/workbench_shell/compare/v0.41.0...v1.0.0) (2026-11-12)
 
 
