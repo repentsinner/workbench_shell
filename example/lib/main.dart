@@ -40,6 +40,8 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workbench_shell/workbench_shell.dart';
 
+import 'tour.dart';
+
 /// Canonical method channel for forwarding workbench brightness to the
 /// host-window runner.
 ///
@@ -102,7 +104,15 @@ Future<void> _publishBrightness(Brightness brightness) async {
 /// the key and owns the bytes (§spec:capability-boundary).
 const String _layoutStateKey = 'workbench_shell_example.layout_state';
 
-Future<void> main() async {
+/// Starts the example. `--tour` loops through the workbench's highlights on
+/// its own.
+Future<void> main(List<String> args) async {
+  if (args.contains('--tour')) {
+    // The tour leaves the stored layout alone, so every run starts from the
+    // same arrangement and a recording of it is repeatable.
+    runApp(const WorkbenchExampleApp(tour: true));
+    return;
+  }
   // Await the persistence load before the first build so the layout seeds its
   // arrangement once from the rehydrated value (§spec:layout-state-persistence).
   WidgetsFlutterBinding.ensureInitialized();
@@ -135,11 +145,15 @@ class WorkbenchExampleApp extends StatefulWidget {
     super.key,
     this.prefs,
     this.initialLayoutState = const WorkbenchLayoutState(),
+    this.tour = false,
   });
 
   /// Host key–value store for cross-restart persistence. Null in widget tests
   /// (persistence degrades to a no-op).
   final SharedPreferences? prefs;
+
+  /// Whether the app tours the workbench's highlights on a loop.
+  final bool tour;
 
   /// The rehydrated layout arrangement seeded into the shell on first build.
   final WorkbenchLayoutState initialLayoutState;
@@ -198,6 +212,11 @@ class _WorkbenchExampleAppState extends State<WorkbenchExampleApp> {
       animation: _themeController,
       builder: (context, _) {
         final isDark = _themeController.brightness == Brightness.dark;
+        final Widget home = WorkbenchHome(
+          themeController: _themeController,
+          prefs: widget.prefs,
+          initialLayoutState: widget.initialLayoutState,
+        );
         return MaterialApp(
           title: 'workbench_shell example',
           debugShowCheckedModeBanner: false,
@@ -211,11 +230,9 @@ class _WorkbenchExampleAppState extends State<WorkbenchExampleApp> {
             isDark ? ThemeData.dark() : ThemeData.light(),
             _themeController.theme,
           ),
-          home: WorkbenchHome(
-            themeController: _themeController,
-            prefs: widget.prefs,
-            initialLayoutState: widget.initialLayoutState,
-          ),
+          home: widget.tour
+              ? Tour(themeController: _themeController, child: home)
+              : home,
         );
       },
     );
