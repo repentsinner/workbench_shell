@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/repentsinner/workbench_shell/compare/v1.0.1...v1.0.2) (2026-11-17)
+
+
+### Bug Fixes
+
+* publish the README whose image resolves on pub.dev ([15fc3ec](https://github.com/repentsinner/workbench_shell/commit/15fc3ec7b39cbc785fcc1ec23976d757f1a4fd9f))
+
 ## [1.0.1](https://github.com/repentsinner/workbench_shell/compare/v1.0.0...v1.0.1) (2026-11-17)
 
 
