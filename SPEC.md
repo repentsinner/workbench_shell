@@ -3070,6 +3070,8 @@ target):
 - `IconButton` — foreground from a dedicated `iconForeground` token
   mapping VS Code's
   [`icon.foreground`](https://code.visualstudio.com/api/references/theme-color#icon-colors).
+  Its selected state is VS Code's toggle, painted from the
+  `inputOption.active*` tokens.
 - `OutlinedButton` and `ElevatedButton` — rendered as the secondary
   tier: fill `button.secondaryBackground`, label
   `button.secondaryForeground`, stroke `button.border`. VS Code has two
@@ -3218,6 +3220,31 @@ same token-per-VS-Code-semantic pattern every other chrome token follows.
 Hover is left to Material's default state-layer overlay rather than a
 glyph-color change — matching VS Code, which signals icon-button hover
 with a `toolbar.hoverBackground` background, not a foreground shift.
+
+**A selected `IconButton` is VS Code's toggle.** VS Code's on/off
+control is the `Toggle` widget (`ToggleActionViewItem` in
+`vs/base/browser/ui/toggle`): the find widget's Match Case, Whole Word
+and Regex controls. It is a single icon button with its own state, not
+a group. Checked, it fills `inputOption.activeBackground`, draws its
+glyph in `inputOption.activeForeground` and strokes 1px
+`inputOption.activeBorder`; unchecked, the stroke stays transparent so
+the glyph does not shift as the state flips. Flutter's stock equivalent
+is an `IconButton` with `isSelected`, so the chrome themes that state
+and the shell owns no toggle widget (§spec:form-controls-not-owned).
+The chrome resolves the selected glyph, fill and stroke from those three
+tokens and leaves the unselected glyph on `iconForeground`. Material 3's
+own selected glyph is `primary`, which would read as a second accent.
+
+`ToggleButtons` is not the toggle. It joins several buttons into one
+control over a shared list of states, which is the shape of
+`SegmentedButton` in Material 3, and VS Code has no joined toggle row.
+A set of independent on/off states is a row of toggle `IconButton`s; a
+choice of one option among several is a `SegmentedButton`.
+
+Hover on an unselected toggle keeps the plain icon button's state-layer
+overlay rather than `inputOption.hoverBackground`. The chrome cannot
+tell an unselected toggle from a plain icon button, because neither
+carries the selected state, so one hover treatment serves both.
 
 **Observable behavior.**
 

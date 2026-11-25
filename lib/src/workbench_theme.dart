@@ -257,6 +257,14 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   /// on the active segment, paired with [inputOptionActiveBackground].
   final Color inputOptionActiveBorder;
 
+  /// Active-toggle glyph. VS Code `inputOption.activeForeground`, whose
+  /// registry default is white in dark themes and black in light ones.
+  /// Paired with [inputOptionActiveBackground] and [inputOptionActiveBorder]
+  /// on a selected `IconButton`, the toggle the chrome themes
+  /// (§spec:chrome-material-theming). Optional on the constructor, falling
+  /// back to [foreground], so a hand-built theme needs no new argument.
+  final Color inputOptionActiveForeground;
+
   // ---- Foreground / accent ----
   final Color foreground;
   final Color descriptionForeground;
@@ -718,7 +726,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.notificationProgressTrack,
     required this.notificationProgressFill,
     required this.surfaceTone,
-  });
+    Color? inputOptionActiveForeground,
+  }) : inputOptionActiveForeground = inputOptionActiveForeground ?? foreground;
 
   /// Compute the HCT tone (0–100) for [color] using
   /// `package:material_color_utilities`.
@@ -1171,6 +1180,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         'inputOption.activeBorder',
         accentFg,
       ),
+      inputOptionActiveForeground: map.resolve(
+        'inputOption.activeForeground',
+        dl(const Color(0xFFFFFFFF), const Color(0xFF000000)),
+      ),
       // Foregrounds / accent
       foreground: fg,
       descriptionForeground: secondaryFg,
@@ -1458,6 +1471,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? buttonSecondaryHoverBackground,
     Color? inputOptionActiveBackground,
     Color? inputOptionActiveBorder,
+    Color? inputOptionActiveForeground,
     Color? foreground,
     Color? descriptionForeground,
     Color? accentForeground,
@@ -1639,6 +1653,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           inputOptionActiveBackground ?? this.inputOptionActiveBackground,
       inputOptionActiveBorder:
           inputOptionActiveBorder ?? this.inputOptionActiveBorder,
+      inputOptionActiveForeground:
+          inputOptionActiveForeground ?? this.inputOptionActiveForeground,
       foreground: foreground ?? this.foreground,
       descriptionForeground:
           descriptionForeground ?? this.descriptionForeground,
@@ -1924,6 +1940,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         inputOptionActiveBorder,
         other.inputOptionActiveBorder,
       ),
+      inputOptionActiveForeground: c(
+        inputOptionActiveForeground,
+        other.inputOptionActiveForeground,
+      ),
       foreground: c(foreground, other.foreground),
       descriptionForeground: c(
         descriptionForeground,
@@ -2192,6 +2212,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
               other.buttonSecondaryHoverBackground &&
           inputOptionActiveBackground == other.inputOptionActiveBackground &&
           inputOptionActiveBorder == other.inputOptionActiveBorder &&
+          inputOptionActiveForeground == other.inputOptionActiveForeground &&
           foreground == other.foreground &&
           descriptionForeground == other.descriptionForeground &&
           accentForeground == other.accentForeground &&
@@ -2352,6 +2373,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     buttonSecondaryHoverBackground,
     inputOptionActiveBackground,
     inputOptionActiveBorder,
+    inputOptionActiveForeground,
     foreground,
     descriptionForeground,
     accentForeground,

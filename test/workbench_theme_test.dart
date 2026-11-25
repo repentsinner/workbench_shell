@@ -261,6 +261,47 @@ void main() {
       expect(theme.sideBarSectionHeaderBorder, isNull);
     });
 
+    test('inputOption.activeForeground resolves from the colors map', () {
+      final map = loader.parse('''
+        {
+          "name": "Toggle Glyph",
+          "type": "vs-dark",
+          "colors": { "inputOption.activeForeground": "#EEEEEE" }
+        }
+        ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.inputOptionActiveForeground, const Color(0xFFEEEEEE));
+    });
+
+    test('inputOption.activeForeground falls back to the registry default', () {
+      // VS Code registers white for dark themes and black for light ones.
+      final dark = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'D', baseType: 'vs-dark', colors: {}),
+      );
+      final light = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'L', baseType: 'vs', colors: {}),
+      );
+      expect(dark.inputOptionActiveForeground, const Color(0xFFFFFFFF));
+      expect(light.inputOptionActiveForeground, const Color(0xFF000000));
+    });
+
+    test('inputOptionActiveForeground takes part in copyWith, lerp and '
+        'equality', () {
+      final base = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'B', baseType: 'vs-dark', colors: {}),
+      );
+      final changed = base.copyWith(
+        inputOptionActiveForeground: const Color(0xFF654321),
+      );
+      expect(changed.inputOptionActiveForeground, const Color(0xFF654321));
+      expect(changed, isNot(base));
+      expect(changed.hashCode, isNot(base.hashCode));
+      expect(
+        base.lerp(changed, 1).inputOptionActiveForeground,
+        const Color(0xFF654321),
+      );
+    });
+
     test('inputOption.active* fall back to the focusBorder accent', () {
       // Older themes (Dark+) omit inputOption.*; the selected segment still
       // gets an accent treatment from focusBorder rather than disappearing.

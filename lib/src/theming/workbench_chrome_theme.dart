@@ -29,7 +29,9 @@ import '../workbench_view_menu.dart';
 ///   competing with the primary-action blue (§spec:layout-constants-canon).
 /// - an [IconButtonThemeData] for bare [IconButton]s, glyph color from
 ///   the `iconForeground` token (VS Code `icon.foreground`) at the same
-///   flat compact sizing (§spec:chrome-material-theming).
+///   flat compact sizing (§spec:chrome-material-theming). A selected
+///   [IconButton] (`isSelected: true`) is VS Code's toggle, painted from
+///   the `inputOption.active*` fill, glyph and border tokens.
 /// - the menu and select family — [MenuThemeData], [MenuButtonThemeData],
 ///   [MenuBarThemeData] and [DropdownMenuThemeData] — so a host's stock
 ///   [MenuAnchor] and [DropdownMenu] read the `menu.*` and `dropdown.*`
@@ -231,14 +233,45 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
     // background (§spec:chrome-material-theming). Hover is left to Material's default IconButton
     // state-layer overlay, matching VS Code, which signals icon-button
     // hover with a background, not a foreground shift.
+    //
+    // A selected IconButton (`isSelected: true`) is VS Code's toggle —
+    // the find widget's Match Case / Whole Word / Regex control. Upstream's
+    // `Toggle` paints its checked state from the three `inputOption.active*`
+    // tokens and keeps a transparent 1px stroke when unchecked, so the
+    // glyph does not shift as the state flips. These resolvers outrank
+    // Material 3's selected defaults (a `primary` glyph), which would
+    // otherwise read as a second accent (§spec:chrome-material-theming).
     iconButtonTheme: IconButtonThemeData(
-      style: IconButton.styleFrom(
-        foregroundColor: chrome.iconForeground,
-        shape: buttonShape,
-        minimumSize: buttonMinSize,
-        padding: buttonPadding,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
+      style:
+          IconButton.styleFrom(
+            // Kept although the resolver below replaces it: styleFrom
+            // derives the hover/press overlay from this colour.
+            foregroundColor: chrome.iconForeground,
+            shape: buttonShape,
+            minimumSize: buttonMinSize,
+            padding: buttonPadding,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ).copyWith(
+            foregroundColor: WidgetStateProperty.resolveWith(
+              (states) => states.contains(WidgetState.disabled)
+                  ? null
+                  : states.contains(WidgetState.selected)
+                  ? chrome.inputOptionActiveForeground
+                  : chrome.iconForeground,
+            ),
+            backgroundColor: WidgetStateProperty.resolveWith(
+              (states) => states.contains(WidgetState.selected)
+                  ? chrome.inputOptionActiveBackground
+                  : null,
+            ),
+            side: WidgetStateProperty.resolveWith(
+              (states) => BorderSide(
+                color: states.contains(WidgetState.selected)
+                    ? chrome.inputOptionActiveBorder
+                    : const Color(0x00000000),
+              ),
+            ),
+          ),
     ),
     // Popup menu panel and rows, from the `menu.*` family. These are the
     // same builders the shell's own popups use through

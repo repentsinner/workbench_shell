@@ -2151,6 +2151,10 @@ class _ButtonsReviewSidebarState extends State<_ButtonsReviewSidebar> {
   /// the halves and the pipe together.
   bool _splitEnabled = true;
 
+  /// Which find-style toggles are on. Each flips on its own, as VS Code's
+  /// Match Case, Whole Word and Regex toggles do.
+  final Set<IconData> _toggles = {};
+
   void _record(String label) => setState(() => _lastAction = label);
 
   /// The related actions the disclosure lists under the primary one — the
@@ -2242,6 +2246,34 @@ class _ButtonsReviewSidebarState extends State<_ButtonsReviewSidebar> {
             ),
             const SizedBox(height: WorkbenchLayoutConstants.spacingSize80),
             Text('Last split action: $_lastAction', style: caption),
+            const SizedBox(height: WorkbenchLayoutConstants.spacingSize240),
+            Text(
+              'Toggle icon buttons, themed by applyWorkbenchChrome: a stock '
+              'IconButton with isSelected paints VS Code\'s active-toggle '
+              'treatment (inputOption.active*) when on, as the find '
+              'widget\'s Match Case, Whole Word and Regex controls do.',
+              style: caption,
+            ),
+            const SizedBox(height: WorkbenchLayoutConstants.spacingSize80),
+            Row(
+              children: [
+                for (final (icon, tooltip) in const [
+                  (Symbols.match_case, 'Match Case'),
+                  (Symbols.match_word, 'Match Whole Word'),
+                  (Symbols.regular_expression, 'Use Regular Expression'),
+                ])
+                  IconButton(
+                    tooltip: tooltip,
+                    isSelected: _toggles.contains(icon),
+                    icon: Icon(icon),
+                    onPressed: () => setState(
+                      () => _toggles.contains(icon)
+                          ? _toggles.remove(icon)
+                          : _toggles.add(icon),
+                    ),
+                  ),
+              ],
+            ),
           ],
         ),
       ),

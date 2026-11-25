@@ -323,6 +323,83 @@ void main() {
       expect(fg, const Color(0xFFC5C5C5));
     });
 
+    group('IconButton selected state is the VS Code toggle '
+        '(§spec:chrome-material-theming)', () {
+      final style = result.iconButtonTheme.style;
+      const selected = {WidgetState.selected};
+      const unselected = <WidgetState>{};
+
+      test('a selected IconButton fills from inputOption.activeBackground', () {
+        expect(
+          style?.backgroundColor?.resolve(selected),
+          testWorkbenchTheme.inputOptionActiveBackground,
+        );
+      });
+
+      test('an unselected IconButton keeps no fill', () {
+        expect(style?.backgroundColor?.resolve(unselected), isNull);
+      });
+
+      test('a selected IconButton draws its glyph in '
+          'inputOption.activeForeground', () {
+        expect(
+          style?.foregroundColor?.resolve(selected),
+          testWorkbenchTheme.inputOptionActiveForeground,
+        );
+      });
+
+      test('a selected IconButton strokes inputOption.activeBorder', () {
+        expect(
+          style?.side?.resolve(selected)?.color,
+          testWorkbenchTheme.inputOptionActiveBorder,
+        );
+      });
+
+      test('the hover overlay still derives from iconForeground', () {
+        // IconButton.styleFrom builds its hover/press overlay from the
+        // foregroundColor it is given. The selected-state resolvers must
+        // not drop that, or the overlay falls back to Material's default.
+        final overlay = style?.overlayColor?.resolve({WidgetState.hovered});
+        expect(overlay, isNotNull);
+        expect(overlay!.r, testWorkbenchTheme.iconForeground.r);
+        expect(overlay.g, testWorkbenchTheme.iconForeground.g);
+        expect(overlay.b, testWorkbenchTheme.iconForeground.b);
+      });
+
+      test('an unselected IconButton draws no stroke', () {
+        final side = style?.side?.resolve(unselected);
+        expect(side == null || side.color.a == 0, isTrue);
+      });
+
+      testWidgets('the toggle tokens win over Material 3 selected defaults', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: result,
+            home: Scaffold(
+              body: IconButton(
+                isSelected: true,
+                icon: const Icon(Icons.abc),
+                onPressed: () {},
+              ),
+            ),
+          ),
+        );
+        final material = tester.widget<Material>(
+          find.descendant(
+            of: find.byType(IconButton),
+            matching: find.byType(Material),
+          ),
+        );
+        expect(material.color, testWorkbenchTheme.inputOptionActiveBackground);
+        expect(
+          IconTheme.of(tester.element(find.byIcon(Icons.abc))).color,
+          testWorkbenchTheme.inputOptionActiveForeground,
+        );
+      });
+    });
+
     test('does not set elevated or outlined button themes', () {
       // §spec:chrome-material-theming canonicalizes every button — including the jog grid — on
       // FilledButton, so no ElevatedButton or OutlinedButton remains in
