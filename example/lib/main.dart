@@ -2133,7 +2133,8 @@ Widget _explorerHeaderAction({
 /// ([WorkbenchLayoutConstants.buttonShape]). Without the helper these
 /// would render Material 3's accent/secondary-container colors and the
 /// default pill ([StadiumBorder]). [OutlinedButton] and [ElevatedButton]
-/// render as the secondary tier. This is the self-contained chrome
+/// render as the secondary tier, and a stock [TextField] as VS Code's input
+/// box. This is the self-contained chrome
 /// review surface (SPEC §spec:chrome-material-theming): run the example standalone to review the
 /// button taxonomy, no host needed.
 class _ButtonsReviewSidebar extends StatefulWidget {
@@ -2300,6 +2301,17 @@ class _ButtonsReviewSidebarState extends State<_ButtonsReviewSidebar> {
                     ),
                   ),
               ],
+            ),
+            const SizedBox(height: WorkbenchLayoutConstants.spacingSize240),
+            Text(
+              'A stock TextField, themed by applyWorkbenchChrome as VS Code\'s '
+              'input box: an input.border hairline that turns focusBorder '
+              'on focus, and no floating label.',
+              style: caption,
+            ),
+            const SizedBox(height: WorkbenchLayoutConstants.spacingSize80),
+            const TextField(
+              decoration: InputDecoration(hintText: 'Search files'),
             ),
           ],
         ),

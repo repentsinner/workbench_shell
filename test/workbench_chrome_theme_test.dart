@@ -816,6 +816,148 @@ void main() {
       }
     });
   });
+
+  group('applyWorkbenchChrome text input (§spec:chrome-material-theming)', () {
+    // Distinct colours so a leak between the input and dropdown families, or
+    // between the resting and focused hairlines, shows up as a mismatch.
+    final chrome = WorkbenchTheme.fromVscodeColorMap(
+      const VscodeColorMap(
+        name: 'Input',
+        baseType: 'vs-dark',
+        colors: {
+          'input.background': Color(0xFF101010),
+          'input.foreground': Color(0xFFE0E0E0),
+          'input.border': Color(0xFF404040),
+          'input.placeholderForeground': Color(0xFF808080),
+          'focusBorder': Color(0xFF0078D4),
+          'dropdown.background': Color(0xFF202020),
+          'dropdown.border': Color(0xFF505050),
+        },
+      ),
+    );
+    final result = applyWorkbenchChrome(ThemeData.dark(), chrome);
+    final decoration = result.inputDecorationTheme;
+
+    test('fills from input.background, flat and dense, with no floating '
+        'label', () {
+      expect(decoration.filled, isTrue);
+      expect(decoration.fillColor, chrome.inputBackground);
+      expect(decoration.hoverColor, Colors.transparent);
+      expect(decoration.focusColor, Colors.transparent);
+      expect(decoration.isDense, isTrue);
+      expect(decoration.floatingLabelBehavior, FloatingLabelBehavior.never);
+      expect(
+        decoration.contentPadding,
+        WorkbenchLayoutConstants.inputBoxPadding,
+      );
+    });
+
+    test('draws an input.border hairline that focusBorder replaces on '
+        'focus, at the controls corner tier', () {
+      for (final border in [
+        decoration.border,
+        decoration.enabledBorder,
+        decoration.disabledBorder,
+      ]) {
+        final outline = border! as OutlineInputBorder;
+        expect(outline.borderSide.color, chrome.inputBorder);
+        expect(outline.borderSide.width, 1);
+        expect(outline.borderRadius, WorkbenchLayoutConstants.controlsRadius);
+      }
+      final focused = decoration.focusedBorder! as OutlineInputBorder;
+      expect(focused.borderSide.color, chrome.focusBorder);
+      expect(focused.borderSide.width, 1);
+      expect(focused.borderRadius, WorkbenchLayoutConstants.controlsRadius);
+    });
+
+    test('paints the placeholder from input.placeholderForeground', () {
+      expect(decoration.hintStyle?.color, chrome.inputPlaceholderForeground);
+      // A label never floats, so it stands in the box as a placeholder.
+      expect(decoration.labelStyle?.color, chrome.inputPlaceholderForeground);
+    });
+
+    testWidgets('a bare TextField renders a dense input-family box whose '
+        'hairline turns focusBorder on focus', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: result,
+          home: const Scaffold(
+            body: TextField(decoration: InputDecoration(hintText: 'Search')),
+          ),
+        ),
+      );
+
+      expect(
+        tester.getSize(find.byType(TextField)).height,
+        WorkbenchLayoutConstants.buttonHeight,
+      );
+      expect(
+        tester.widget<EditableText>(find.byType(EditableText)).style.color,
+        chrome.inputForeground,
+      );
+      // The decorator draws its fill, then its hairline.
+      final decorator = find.byType(InputDecorator);
+      expect(
+        decorator,
+        paints
+          ..rrect(color: chrome.inputBackground)
+          ..rrect(color: chrome.inputBorder),
+      );
+
+      await tester.tap(find.byType(TextField));
+      await tester.pumpAndSettle();
+      expect(
+        decorator,
+        paints
+          ..rrect(color: chrome.inputBackground)
+          ..rrect(color: chrome.focusBorder),
+      );
+    });
+
+    testWidgets('the DropdownMenu trigger keeps its dropdown decoration', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: result,
+          home: const Scaffold(
+            body: DropdownMenu<String>(
+              label: Text('Label'),
+              initialSelection: 'One',
+              dropdownMenuEntries: [
+                DropdownMenuEntry(value: 'One', label: 'One'),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      // The decoration the trigger's field renders with, after the field
+      // has applied `ThemeData.inputDecorationTheme` over the select's own.
+      final decorator = find.byType(InputDecorator);
+      final rendered = tester.widget<InputDecorator>(decorator).decoration;
+      expect(rendered.fillColor, chrome.dropdownBackground);
+      expect(
+        rendered.contentPadding,
+        WorkbenchLayoutConstants.selectBoxPadding,
+      );
+      expect(rendered.floatingLabelBehavior, FloatingLabelBehavior.auto);
+      expect(
+        tester.widget<EditableText>(find.byType(EditableText)).style.color,
+        chrome.dropdownForeground,
+      );
+      // The floated label opens a gap in the hairline, so it draws as a path.
+      final dropdownPaint = paints
+        ..rrect(color: chrome.dropdownBackground)
+        ..path(color: chrome.dropdownBorder);
+      expect(decorator, dropdownPaint);
+
+      // The select draws no focus border of its own, as upstream's does not.
+      await tester.tap(find.byType(TextField));
+      await tester.pumpAndSettle();
+      expect(decorator, dropdownPaint);
+    });
+  });
 }
 
 class _FakeDomainExtension extends ThemeExtension<_FakeDomainExtension> {

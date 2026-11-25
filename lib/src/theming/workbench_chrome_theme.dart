@@ -39,6 +39,10 @@ import '../workbench_view_menu.dart';
 ///   [MenuBarThemeData] and [DropdownMenuThemeData] — so a host's stock
 ///   [MenuAnchor] and [DropdownMenu] read the `menu.*` and `dropdown.*`
 ///   token families without per-widget wiring.
+/// - an [InputDecorationThemeData] that paints a stock [TextField] or
+///   [TextFormField] as VS Code's input box from the `input.*` tokens, with
+///   a `focusBorder` hairline on focus. The [DropdownMenu] trigger keeps its
+///   own `dropdown.*` decoration.
 ///
 /// The button tiers are flat — elevation pinned to 0 across every state. The
 /// helper keeps [FilledButton]'s hover/pressed state-layer *overlay* (the
@@ -73,8 +77,8 @@ import '../workbench_view_menu.dart';
 /// A host obtains VS Code Material theming with one call instead of
 /// hand-wiring each widget theme. See SPEC §spec:chrome-material-theming.
 ///
-/// Extensible by design: the button family and the menu and select family
-/// are the Material surfaces the chrome owns today. Further surfaces join
+/// Extensible by design: the button family, the menu and select family and
+/// text input are the Material surfaces the chrome owns. Further surfaces join
 /// them here without changing call sites, each themed whole rather than in
 /// part (§spec:chrome-material-theming).
 ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
@@ -110,6 +114,18 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
   // so a change to the tier cannot drift this border away from it.
   final dropdownBorder = OutlineInputBorder(
     borderSide: BorderSide(color: chrome.dropdownBorder),
+  );
+
+  // Text input hairlines. VS Code always draws a 1px `input.border` around
+  // `.monaco-inputbox`, transparent when the theme leaves it unset, and on
+  // focus the workbench outlines it 1px `focusBorder` inset over that
+  // hairline (`style.css` `.synthetic-focus`), so the focused border
+  // replaces the resting one at the same width.
+  final inputBorder = OutlineInputBorder(
+    borderSide: BorderSide(color: chrome.inputBorder),
+  );
+  final inputFocusedBorder = OutlineInputBorder(
+    borderSide: BorderSide(color: chrome.focusBorder),
   );
 
   // IconButton's flat compact base. styleFrom derives the press and focus
@@ -356,6 +372,43 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
     // through `workbenchMenuThemeData`; this gives a host's menus the same
     // hairline (§spec:chrome-material-theming).
     dividerTheme: DividerThemeData(color: chrome.menuSeparatorBackground),
+    // Text input (§spec:chrome-material-theming): a stock [TextField] or
+    // [TextFormField] reads as VS Code's input box — `input.*` fill,
+    // placeholder and hairline, dense single-line height and no floating
+    // label. [DropdownMenu] applies its own decoration theme below before
+    // the field applies this one, and that theme sets every field this one
+    // does, so the select trigger keeps the `dropdown.*` family.
+    inputDecorationTheme: InputDecorationThemeData(
+      filled: true,
+      fillColor: chrome.inputBackground,
+      // Flat: no Material hover or focus tint over the VS Code fill.
+      hoverColor: Colors.transparent,
+      focusColor: Colors.transparent,
+      isDense: true,
+      floatingLabelBehavior: FloatingLabelBehavior.never,
+      constraints: const BoxConstraints(
+        minHeight: WorkbenchLayoutConstants.buttonHeight,
+      ),
+      contentPadding: WorkbenchLayoutConstants.inputBoxPadding,
+      border: inputBorder,
+      enabledBorder: inputBorder,
+      disabledBorder: inputBorder,
+      focusedBorder: inputFocusedBorder,
+      hintStyle: TextStyle(color: chrome.inputPlaceholderForeground),
+      // A label that never floats stands in the box as a placeholder.
+      labelStyle: TextStyle(color: chrome.inputPlaceholderForeground),
+    ),
+    // A text field draws its text in `TextTheme.bodyLarge`, and Flutter has
+    // no text-field theme to scope a colour to, so `input.foreground` can
+    // only reach the field through the global style. Its reach is wider than
+    // the field: other widgets that read `bodyLarge` take the colour too.
+    // `input.foreground` defaults to `foreground`, so those widgets render in
+    // the chrome's body colour rather than one the base `ThemeData` carries.
+    textTheme: base.textTheme.copyWith(
+      bodyLarge: base.textTheme.bodyLarge?.copyWith(
+        color: chrome.inputForeground,
+      ),
+    ),
     // Select (§spec:chrome-material-theming). The trigger is a text field:
     // its fill, hairline and height come from a decoration theme scoped to
     // [DropdownMenu] rather than from `ThemeData.inputDecorationTheme`,

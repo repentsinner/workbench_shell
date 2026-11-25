@@ -602,6 +602,16 @@ class WorkbenchLayoutConstants {
     horizontal: spacingSize80,
   );
 
+  /// Text input padding. VS Code's
+  /// [`inputBox.css`](https://github.com/microsoft/vscode/blob/1.147.0/src/vs/base/browser/ui/inputbox/inputBox.css)
+  /// pads `.monaco-inputbox > .ibwrapper > .input` `4px 6px`. The chrome's
+  /// text field theme (§spec:chrome-material-theming) sets it as the
+  /// content padding of a stock `TextField`.
+  static const EdgeInsets inputBoxPadding = EdgeInsets.symmetric(
+    horizontal: spacingSize60,
+    vertical: spacingSize40,
+  );
+
   /// Popup menu row height. VS Code's
   /// [`menu.ts`](https://github.com/microsoft/vscode/blob/1.138.0/src/vs/base/browser/ui/menu/menu.ts)
   /// sizes `.monaco-menu .monaco-action-bar.vertical .action-menu-item` at

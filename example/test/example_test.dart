@@ -580,6 +580,93 @@ void main() {
     expect(panel.color, chrome.dropdownListBackground);
   });
 
+  testWidgets('the buttons review text field paints the input family, '
+      'follows a theme switch, and leaves the select on dropdown '
+      '(§spec:chrome-material-theming)', (tester) async {
+    await tester.pumpWidget(const WorkbenchExampleApp());
+    await tester.pumpAndSettle();
+
+    // The editor's bare select, as rendered after the field applies the
+    // global decoration theme over the select's own.
+    InputDecoration selectDecoration() => tester
+        .widget<InputDecorator>(
+          find.descendant(
+            of: find.byType(DropdownMenu<String>).first,
+            matching: find.byType(InputDecorator),
+          ),
+        )
+        .decoration;
+
+    Future<InputDecorator> openTextField() async {
+      await tester.tap(find.byIcon(Symbols.smart_button_rounded));
+      await tester.pumpAndSettle();
+      final field = find.ancestor(
+        of: find.text('Search files'),
+        matching: find.byType(TextField),
+      );
+      await tester.ensureVisible(field);
+      await tester.pumpAndSettle();
+      return tester.widget<InputDecorator>(
+        find.descendant(of: field, matching: find.byType(InputDecorator)),
+      );
+    }
+
+    WorkbenchTheme chromeOf() => Theme.of(
+      tester.element(find.byType(DropdownMenu<String>).first),
+    ).extension<WorkbenchTheme>()!;
+
+    var chrome = chromeOf();
+    expect(selectDecoration().fillColor, chrome.dropdownBackground);
+
+    final decorator = await openTextField();
+    expect(decorator.decoration.fillColor, chrome.inputBackground);
+    expect(
+      decorator.decoration.floatingLabelBehavior,
+      FloatingLabelBehavior.never,
+    );
+    final fieldFinder = find.ancestor(
+      of: find.text('Search files'),
+      matching: find.byType(TextField),
+    );
+    expect(
+      tester.getSize(fieldFinder).height,
+      WorkbenchLayoutConstants.buttonHeight,
+    );
+
+    // Focus swaps the input.border hairline for focusBorder.
+    await tester.tap(fieldFinder);
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: fieldFinder, matching: find.byType(InputDecorator)),
+      paints
+        ..rrect(color: chrome.inputBackground)
+        ..rrect(color: chrome.focusBorder),
+    );
+
+    // Switch to Monokai; the field follows the theme with the chrome.
+    final before = chrome.inputBackground;
+    await tester.tap(find.byIcon(Symbols.settings_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Auto detect color scheme'));
+    await tester.pumpAndSettle();
+    final colorThemeSlot = find.descendant(
+      of: find
+          .ancestor(of: find.text('Color theme'), matching: find.byType(Column))
+          .first,
+      matching: find.byType(DropdownMenu<String>),
+    );
+    await tester.tap(colorThemeSlot);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Monokai').last);
+    await tester.pumpAndSettle();
+
+    final switched = await openTextField();
+    chrome = chromeOf();
+    expect(chrome.inputBackground, isNot(before));
+    expect(switched.decoration.fillColor, chrome.inputBackground);
+    expect(selectDecoration().fillColor, chrome.dropdownBackground);
+  });
+
   testWidgets(
     'Up/Down traverse the Explorer headers and clamp at the ends (§spec:view-pane-focus)',
     (tester) async {

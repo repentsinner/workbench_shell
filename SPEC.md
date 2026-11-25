@@ -3099,6 +3099,13 @@ floating label. The `DropdownMenu` trigger keeps its own decoration
 under `DropdownMenuThemeData`, which reads `dropdown.*` rather than
 `input.*`.
 
+Flutter offers no text-field theme that carries a text colour, because a
+field draws its text in `TextTheme.bodyLarge`. The chrome therefore sets
+`input.foreground` on that style, and every widget that reads it takes the
+colour. The reach is accepted for the reason the menu separator's is:
+`input.foreground` defaults to `foreground`, so those widgets render in the
+chrome's body colour rather than one the base `ThemeData` carries.
+
 **Carve-out: the secondary button's stroke and hover.** Parity holds
 across the button family with one exception the framework forces.
 Flutter routes `FilledButton` and `FilledButton.tonal` through a single
