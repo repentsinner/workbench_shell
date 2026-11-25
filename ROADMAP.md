@@ -13,14 +13,6 @@ Closes the gap between `applyWorkbenchChrome` and
 Material 3 pills because the chrome sets no theme for them. A stock
 `TextField` falls back to Material defaults the same way.
 
-### Outlined and elevated buttons §road:outlined-elevated-button-parity
-
-Add `outlinedButtonTheme` and `elevatedButtonTheme` to
-`applyWorkbenchChrome`, rendering both widgets as the secondary tier at
-the shared flat compact sizing, in
-`lib/src/theming/workbench_chrome_theme.dart`, its tests, and the
-example app's button review sidebar (§spec:chrome-material-theming).
-
 ### Text input decoration §road:text-input-parity
 
 Add a top-level `inputDecorationTheme` to `applyWorkbenchChrome` that

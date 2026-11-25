@@ -22,6 +22,9 @@ import '../workbench_view_menu.dart';
 ///     label `button.secondaryForeground`, via the `secondaryContainer` /
 ///     `onSecondaryContainer` roles;
 ///   - [TextButton] (text / link): label the link accent.
+/// - [OutlinedButton] and [ElevatedButton] rendered as the secondary tier,
+///   at the same flat compact sizing, so no Material button a host places
+///   falls back to Material 3's pill.
 /// - a [SegmentedButtonThemeData] for the single-select jog selectors
 ///   (mode toggle, distance ladders, percent), inheriting the same 4px
 ///   shape and compact height with a **neutral** selected-segment fill
@@ -169,6 +172,40 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
         padding: buttonPadding,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
+    ),
+    // Material's third and fourth variants, rendered as the secondary tier.
+    // VS Code has two button tiers, so these map onto the quieter one
+    // rather than inventing a tier upstream lacks; left unthemed they
+    // render Material 3's pill beside flat chrome (§spec:chrome-material-theming).
+    // Each has a theme of its own, unlike the tonal tier, so the fill and
+    // label are set here directly. Elevation is pinned to 0 for the reason
+    // the filled tiers pin it. `ElevatedButton.styleFrom` treats `elevation`
+    // as a base and adds to it on hover, focus and press, so that theme
+    // overrides the property with a constant.
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        backgroundColor: chrome.buttonSecondaryBackground,
+        foregroundColor: chrome.buttonSecondaryForeground,
+        elevation: 0,
+        shape: buttonShape,
+        side: BorderSide(color: chrome.buttonBorder),
+        textStyle: chrome.buttonTextStyle,
+        minimumSize: buttonMinSize,
+        padding: buttonPadding,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: chrome.buttonSecondaryBackground,
+        foregroundColor: chrome.buttonSecondaryForeground,
+        shape: buttonShape,
+        side: BorderSide(color: chrome.buttonBorder),
+        textStyle: chrome.buttonTextStyle,
+        minimumSize: buttonMinSize,
+        padding: buttonPadding,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ).copyWith(elevation: const WidgetStatePropertyAll(0)),
     ),
     // Text / link tier: link accent label, 4px corners, compact size.
     textButtonTheme: TextButtonThemeData(

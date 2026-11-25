@@ -2132,7 +2132,8 @@ Widget _explorerHeaderAction({
 /// each flat at rest with VS Code's rectangular 4px corners
 /// ([WorkbenchLayoutConstants.buttonShape]). Without the helper these
 /// would render Material 3's accent/secondary-container colors and the
-/// default pill ([StadiumBorder]). This is the self-contained chrome
+/// default pill ([StadiumBorder]). [OutlinedButton] and [ElevatedButton]
+/// render as the secondary tier. This is the self-contained chrome
 /// review surface (SPEC §spec:chrome-material-theming): run the example standalone to review the
 /// button taxonomy, no host needed.
 class _ButtonsReviewSidebar extends StatefulWidget {
@@ -2178,9 +2179,7 @@ class _ButtonsReviewSidebarState extends State<_ButtonsReviewSidebar> {
   @override
   Widget build(BuildContext context) {
     final theme = context.workbenchTheme;
-    final caption = theme.bodyText.copyWith(
-      color: theme.descriptionForeground,
-    );
+    final caption = theme.bodyText.copyWith(color: theme.descriptionForeground);
     // Scrolls vertically: the review now runs past a short side bar.
     return SingleChildScrollView(
       padding: _sidebarBodyPadding,
@@ -2215,6 +2214,37 @@ class _ButtonsReviewSidebarState extends State<_ButtonsReviewSidebar> {
             TextButton(onPressed: () {}, child: const Text('Text / link')),
             const SizedBox(height: WorkbenchLayoutConstants.spacingSize240),
             Text(
+              'OutlinedButton and ElevatedButton have no VS Code tier of '
+              'their own, so the chrome renders both as the secondary tier. '
+              'Two-word labels fit a half-width cell on one line.',
+              style: caption,
+            ),
+            const SizedBox(height: WorkbenchLayoutConstants.spacingSize160),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {},
+                    child: const Text('Reset view'),
+                  ),
+                ),
+                const SizedBox(width: WorkbenchLayoutConstants.spacingSize80),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {},
+                    child: const Text('Apply changes'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: WorkbenchLayoutConstants.spacingSize80),
+            OutlinedButton.icon(
+              onPressed: () {},
+              icon: const Icon(Symbols.add),
+              label: const Text('Add folder'),
+            ),
+            const SizedBox(height: WorkbenchLayoutConstants.spacingSize240),
+            Text(
               'WorkbenchSplitButton — the control VS Code commits with, in '
               'both tiers. One outline across both halves, one pipe inset '
               'from the edges, and a disclosure opening the same menu '
@@ -2238,11 +2268,8 @@ class _ButtonsReviewSidebarState extends State<_ButtonsReviewSidebar> {
             ),
             const SizedBox(height: WorkbenchLayoutConstants.spacingSize80),
             TextButton(
-              onPressed: () =>
-                  setState(() => _splitEnabled = !_splitEnabled),
-              child: Text(
-                _splitEnabled ? 'Disable both' : 'Enable both',
-              ),
+              onPressed: () => setState(() => _splitEnabled = !_splitEnabled),
+              child: Text(_splitEnabled ? 'Disable both' : 'Enable both'),
             ),
             const SizedBox(height: WorkbenchLayoutConstants.spacingSize80),
             Text('Last split action: $_lastAction', style: caption),

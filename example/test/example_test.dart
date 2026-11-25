@@ -330,6 +330,46 @@ void main() {
     },
   );
 
+  testWidgets('the buttons review renders outlined and elevated buttons as the '
+      'secondary tier (§spec:chrome-material-theming)', (tester) async {
+    await tester.pumpWidget(const WorkbenchExampleApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Symbols.smart_button_rounded));
+    await tester.pumpAndSettle();
+
+    Finder buttonLabelled(String label) => find.ancestor(
+      of: find.text(label),
+      matching: find.byWidgetPredicate(
+        (w) => w is OutlinedButton || w is ElevatedButton,
+      ),
+    );
+    final buttons = [
+      buttonLabelled('Reset view'),
+      buttonLabelled('Apply changes'),
+      buttonLabelled('Add folder'),
+    ];
+    await tester.ensureVisible(buttons.last);
+    await tester.pumpAndSettle();
+
+    Material materialOf(Finder finder) => tester
+        .widgetList<Material>(
+          find.descendant(of: finder, matching: find.byType(Material)),
+        )
+        .first;
+    final tonal = materialOf(find.widgetWithText(FilledButton, 'Secondary'));
+    for (final button in buttons) {
+      expect(button, findsOneWidget);
+      final material = materialOf(button);
+      expect(material.color, tonal.color);
+      expect(material.elevation, 0);
+      // A wrapped label would grow the button past the compact height.
+      expect(
+        tester.getSize(button).height,
+        WorkbenchLayoutConstants.buttonHeight,
+      );
+    }
+  });
+
   testWidgets(
     'the buttons review carries both split-button tiers (§spec:split-button)',
     (tester) async {
@@ -1121,11 +1161,7 @@ void main() {
       await tester.tap(find.text('New Editor'));
       await tester.pumpAndSettle();
       expect(
-        tabOrder(tester, [
-          'lorem-ipsum.txt',
-          'Untitled-1',
-          'release-notes.md',
-        ]),
+        tabOrder(tester, ['lorem-ipsum.txt', 'Untitled-1', 'release-notes.md']),
         ['lorem-ipsum.txt', 'Untitled-1', 'release-notes.md'],
       );
       expect(find.text('# Untitled-1'), findsOneWidget);

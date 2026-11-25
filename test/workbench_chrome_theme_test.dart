@@ -426,16 +426,6 @@ void main() {
       });
     });
 
-    test('does not set elevated or outlined button themes', () {
-      // §spec:chrome-material-theming canonicalizes every button — including the jog grid — on
-      // FilledButton, so no ElevatedButton or OutlinedButton remains in
-      // the UI. The helper installs neither theme; the host's own are
-      // left untouched. One button widget, one theme, no parallel styling
-      // to drift out of sync.
-      expect(result.elevatedButtonTheme, base.elevatedButtonTheme);
-      expect(result.outlinedButtonTheme, base.outlinedButtonTheme);
-    });
-
     test('preserves host extensions already on the base', () {
       final withDomain = base.copyWith(
         extensions: const [_FakeDomainExtension()],
@@ -702,6 +692,128 @@ void main() {
         composed.dropdownMenuTheme.menuStyle?.backgroundColor?.resolve({}),
         const Color(0xFF191A1B),
       );
+    });
+  });
+
+  group('applyWorkbenchChrome outlined and elevated buttons '
+      '(§spec:chrome-material-theming)', () {
+    final result = applyWorkbenchChrome(ThemeData.dark(), testWorkbenchTheme);
+    final styles = {
+      'OutlinedButton': result.outlinedButtonTheme.style,
+      'ElevatedButton': result.elevatedButtonTheme.style,
+    };
+
+    for (final MapEntry(key: name, value: style) in styles.entries) {
+      test('$name carries the shared flat compact sizing', () {
+        expect(style?.shape?.resolve({}), WorkbenchLayoutConstants.buttonShape);
+        expect(
+          style?.minimumSize?.resolve({})?.height,
+          WorkbenchLayoutConstants.buttonHeight,
+        );
+        expect(
+          style?.padding?.resolve({}),
+          WorkbenchLayoutConstants.buttonPadding,
+        );
+        expect(
+          style?.textStyle?.resolve({}),
+          testWorkbenchTheme.buttonTextStyle,
+        );
+        expect(style?.tapTargetSize, MaterialTapTargetSize.shrinkWrap);
+      });
+
+      test('$name renders as the secondary tier', () {
+        expect(
+          style?.backgroundColor?.resolve({}),
+          testWorkbenchTheme.buttonSecondaryBackground,
+        );
+        expect(
+          style?.foregroundColor?.resolve({}),
+          testWorkbenchTheme.buttonSecondaryForeground,
+        );
+        expect(
+          style?.side?.resolve({})?.color,
+          testWorkbenchTheme.buttonBorder,
+        );
+      });
+
+      test('$name pins elevation to 0 across all states', () {
+        for (final states in const [
+          <WidgetState>{},
+          {WidgetState.hovered},
+          {WidgetState.pressed},
+          {WidgetState.focused},
+        ]) {
+          expect(
+            style?.elevation?.resolve(states),
+            0,
+            reason: 'states: $states',
+          );
+        }
+      });
+    }
+
+    testWidgets('bare outlined and elevated buttons render flat, compact and '
+        'filled like FilledButton.tonal', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: result,
+          home: Scaffold(
+            body: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                FilledButton.tonal(
+                  key: const Key('tonal'),
+                  onPressed: () {},
+                  child: const Text('Tonal'),
+                ),
+                OutlinedButton(
+                  key: const Key('outlined'),
+                  onPressed: () {},
+                  child: const Text('Outlined'),
+                ),
+                OutlinedButton.icon(
+                  key: const Key('outlinedIcon'),
+                  onPressed: () {},
+                  icon: const Icon(Icons.add),
+                  label: const Text('Outlined icon'),
+                ),
+                ElevatedButton(
+                  key: const Key('elevated'),
+                  onPressed: () {},
+                  child: const Text('Elevated'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      Material materialOf(String key) => tester
+          .widgetList<Material>(
+            find.descendant(
+              of: find.byKey(Key(key)),
+              matching: find.byType(Material),
+            ),
+          )
+          .first;
+
+      final tonal = materialOf('tonal');
+      for (final key in ['outlined', 'outlinedIcon', 'elevated']) {
+        final material = materialOf(key);
+        expect(material.color, tonal.color, reason: key);
+        expect(material.textStyle?.color, tonal.textStyle?.color, reason: key);
+        expect(material.elevation, 0, reason: key);
+        expect(
+          (material.shape! as RoundedRectangleBorder).borderRadius,
+          WorkbenchLayoutConstants.buttonShape.borderRadius,
+          reason: key,
+        );
+        expect(
+          tester.getSize(find.byKey(Key(key))).height,
+          WorkbenchLayoutConstants.buttonHeight,
+          reason: key,
+        );
+      }
     });
   });
 }
