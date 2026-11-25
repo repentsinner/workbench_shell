@@ -112,21 +112,37 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
   // (`selectBox.css`: `--vscode-cornerRadius-small`), which
   // [OutlineInputBorder] already defaults to; a test pins the two together
   // so a change to the tier cannot drift this border away from it.
-  final dropdownBorder = OutlineInputBorder(
-    borderSide: BorderSide(color: chrome.dropdownBorder),
-  );
+  OutlineInputBorder hairline(Color color) =>
+      OutlineInputBorder(borderSide: BorderSide(color: color));
+  final dropdownBorder = hairline(chrome.dropdownBorder);
 
   // Text input hairlines. VS Code always draws a 1px `input.border` around
   // `.monaco-inputbox`, transparent when the theme leaves it unset, and on
   // focus the workbench outlines it 1px `focusBorder` inset over that
   // hairline (`style.css` `.synthetic-focus`), so the focused border
-  // replaces the resting one at the same width.
-  final inputBorder = OutlineInputBorder(
-    borderSide: BorderSide(color: chrome.inputBorder),
+  // replaces the resting one at the same width, at the select's radius.
+  final inputBorder = hairline(chrome.inputBorder);
+  final inputFocusedBorder = hairline(chrome.focusBorder);
+  final inputPlaceholderStyle = TextStyle(
+    color: chrome.inputPlaceholderForeground,
   );
-  final inputFocusedBorder = OutlineInputBorder(
-    borderSide: BorderSide(color: chrome.focusBorder),
-  );
+
+  // Material's third and fourth button variants, rendered as the secondary
+  // tier (see the outlined and elevated themes below). One style serves
+  // both: `ElevatedButton.styleFrom` adds to its `elevation` on hover,
+  // focus and press, so elevation is pinned with a constant rather than a
+  // base, for the reason the filled tiers stay flat. styleFrom still derives
+  // the state-layer overlay and the disabled colours.
+  final secondaryTierStyle = ElevatedButton.styleFrom(
+    backgroundColor: chrome.buttonSecondaryBackground,
+    foregroundColor: chrome.buttonSecondaryForeground,
+    shape: buttonShape,
+    side: BorderSide(color: chrome.buttonBorder),
+    textStyle: chrome.buttonTextStyle,
+    minimumSize: buttonMinSize,
+    padding: buttonPadding,
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  ).copyWith(elevation: const WidgetStatePropertyAll(0));
 
   // IconButton's flat compact base. styleFrom derives the press and focus
   // overlay from `foregroundColor`, so it keeps `iconForeground` even
@@ -194,35 +210,9 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
     // rather than inventing a tier upstream lacks; left unthemed they
     // render Material 3's pill beside flat chrome (§spec:chrome-material-theming).
     // Each has a theme of its own, unlike the tonal tier, so the fill and
-    // label are set here directly. Elevation is pinned to 0 for the reason
-    // the filled tiers pin it. `ElevatedButton.styleFrom` treats `elevation`
-    // as a base and adds to it on hover, focus and press, so that theme
-    // overrides the property with a constant.
-    outlinedButtonTheme: OutlinedButtonThemeData(
-      style: OutlinedButton.styleFrom(
-        backgroundColor: chrome.buttonSecondaryBackground,
-        foregroundColor: chrome.buttonSecondaryForeground,
-        elevation: 0,
-        shape: buttonShape,
-        side: BorderSide(color: chrome.buttonBorder),
-        textStyle: chrome.buttonTextStyle,
-        minimumSize: buttonMinSize,
-        padding: buttonPadding,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
-    ),
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: chrome.buttonSecondaryBackground,
-        foregroundColor: chrome.buttonSecondaryForeground,
-        shape: buttonShape,
-        side: BorderSide(color: chrome.buttonBorder),
-        textStyle: chrome.buttonTextStyle,
-        minimumSize: buttonMinSize,
-        padding: buttonPadding,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ).copyWith(elevation: const WidgetStatePropertyAll(0)),
-    ),
+    // label are set directly, from the one shared style.
+    outlinedButtonTheme: OutlinedButtonThemeData(style: secondaryTierStyle),
+    elevatedButtonTheme: ElevatedButtonThemeData(style: secondaryTierStyle),
     // Text / link tier: link accent label, 4px corners, compact size.
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
@@ -394,20 +384,15 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
       enabledBorder: inputBorder,
       disabledBorder: inputBorder,
       focusedBorder: inputFocusedBorder,
-      hintStyle: TextStyle(color: chrome.inputPlaceholderForeground),
+      hintStyle: inputPlaceholderStyle,
       // A label that never floats stands in the box as a placeholder.
-      labelStyle: TextStyle(color: chrome.inputPlaceholderForeground),
+      labelStyle: inputPlaceholderStyle,
     ),
-    // A text field draws its text in `TextTheme.bodyLarge`, and Flutter has
-    // no text-field theme to scope a colour to, so `input.foreground` can
-    // only reach the field through the global style. Its reach is wider than
-    // the field: other widgets that read `bodyLarge` take the colour too.
-    // `input.foreground` defaults to `foreground`, so those widgets render in
-    // the chrome's body colour rather than one the base `ThemeData` carries.
+    // Body text takes the chrome's `foreground`. A text field draws its text
+    // in `bodyLarge`, which otherwise resolves a base `ThemeData` colour the
+    // chrome leaves unset (§spec:chrome-material-theming).
     textTheme: base.textTheme.copyWith(
-      bodyLarge: base.textTheme.bodyLarge?.copyWith(
-        color: chrome.inputForeground,
-      ),
+      bodyLarge: base.textTheme.bodyLarge?.copyWith(color: chrome.foreground),
     ),
     // Select (§spec:chrome-material-theming). The trigger is a text field:
     // its fill, hairline and height come from a decoration theme scoped to

@@ -891,9 +891,11 @@ void main() {
         tester.getSize(find.byType(TextField)).height,
         WorkbenchLayoutConstants.buttonHeight,
       );
+      // Body text colour, not input.foreground: no theme can scope a colour
+      // to a text field alone (§spec:chrome-material-theming).
       expect(
         tester.widget<EditableText>(find.byType(EditableText)).style.color,
-        chrome.inputForeground,
+        chrome.foreground,
       );
       // The decorator draws its fill, then its hairline.
       final decorator = find.byType(InputDecorator);
