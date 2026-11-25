@@ -341,6 +341,47 @@ void main() {
       );
     });
 
+    test('statusBarItem.hoverBackground resolves from the colors map', () {
+      final map = loader.parse('''
+        {
+          "name": "Status Hover",
+          "type": "vs-dark",
+          "colors": { "statusBarItem.hoverBackground": "#11223344" }
+        }
+        ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.statusBarItemHoverBackground, const Color(0x44112233));
+    });
+
+    test('statusBarItem.hoverBackground falls back to the registry default', () {
+      // VS Code registers 12% white for dark themes and 12% black for light.
+      final dark = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'D', baseType: 'vs-dark', colors: {}),
+      );
+      final light = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'L', baseType: 'vs', colors: {}),
+      );
+      expect(dark.statusBarItemHoverBackground, const Color(0x1FFFFFFF));
+      expect(light.statusBarItemHoverBackground, const Color(0x1F000000));
+    });
+
+    test('statusBarItemHoverBackground takes part in copyWith, lerp and '
+        'equality', () {
+      final base = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'B', baseType: 'vs-dark', colors: {}),
+      );
+      final changed = base.copyWith(
+        statusBarItemHoverBackground: const Color(0xFF654321),
+      );
+      expect(changed.statusBarItemHoverBackground, const Color(0xFF654321));
+      expect(changed, isNot(base));
+      expect(changed.hashCode, isNot(base.hashCode));
+      expect(
+        base.lerp(changed, 1).statusBarItemHoverBackground,
+        const Color(0xFF654321),
+      );
+    });
+
     test('inputOption.active* fall back to the focusBorder accent', () {
       // Older themes (Dark+) omit inputOption.*; the selected segment still
       // gets an accent treatment from focusBorder rather than disappearing.

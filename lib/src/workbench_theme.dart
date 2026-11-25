@@ -137,6 +137,13 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   final Color statusBarBorder;
   final Color statusBarForeground;
 
+  /// Hovered status bar item fill. VS Code `statusBarItem.hoverBackground`,
+  /// whose registry default is 12% white in dark themes and 12% black in
+  /// light ones, so the tint reads over any status bar colour
+  /// (§spec:hover-canon). Optional on the constructor, falling back to
+  /// [toolbarHoverBackground], so a hand-built theme needs no new argument.
+  final Color statusBarItemHoverBackground;
+
   // ---- Editor tab strip (§spec:editor-tab-rendering) ----
   /// Fill behind the editor tab strip — VS Code
   /// `editorGroupHeader.tabsBackground`.
@@ -736,8 +743,13 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.surfaceTone,
     Color? inputOptionActiveForeground,
     Color? toolbarHoverBackground,
+    Color? statusBarItemHoverBackground,
   }) : inputOptionActiveForeground = inputOptionActiveForeground ?? foreground,
-       toolbarHoverBackground = toolbarHoverBackground ?? listHoverBackground;
+       toolbarHoverBackground = toolbarHoverBackground ?? listHoverBackground,
+       statusBarItemHoverBackground =
+           statusBarItemHoverBackground ??
+           toolbarHoverBackground ??
+           listHoverBackground;
 
   /// Compute the HCT tone (0–100) for [color] using
   /// `package:material_color_utilities`.
@@ -1065,6 +1077,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // Transparent fallback so the BorderSide draws but is invisible.
       statusBarBorder: map['statusBar.border'] ?? const Color(0x00000000),
       statusBarForeground: statusBarFg,
+      statusBarItemHoverBackground: map.resolve(
+        'statusBarItem.hoverBackground',
+        dl(const Color(0x1FFFFFFF), const Color(0x1F000000)),
+      ),
       // Editor tab strip (§spec:editor-tab-rendering), from theme.ts.
       editorGroupHeaderTabsBackground: map.resolve(
         'editorGroupHeader.tabsBackground',
@@ -1454,6 +1470,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? statusBarBackground,
     Color? statusBarBorder,
     Color? statusBarForeground,
+    Color? statusBarItemHoverBackground,
     Color? editorGroupHeaderTabsBackground,
     Color? tabActiveBackground,
     Color? tabInactiveBackground,
@@ -1620,6 +1637,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       statusBarBackground: statusBarBackground ?? this.statusBarBackground,
       statusBarBorder: statusBarBorder ?? this.statusBarBorder,
       statusBarForeground: statusBarForeground ?? this.statusBarForeground,
+      statusBarItemHoverBackground:
+          statusBarItemHoverBackground ?? this.statusBarItemHoverBackground,
       editorGroupHeaderTabsBackground:
           editorGroupHeaderTabsBackground ??
           this.editorGroupHeaderTabsBackground,
@@ -1881,6 +1900,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       statusBarBackground: c(statusBarBackground, other.statusBarBackground),
       statusBarBorder: c(statusBarBorder, other.statusBarBorder),
       statusBarForeground: c(statusBarForeground, other.statusBarForeground),
+      statusBarItemHoverBackground: c(
+        statusBarItemHoverBackground,
+        other.statusBarItemHoverBackground,
+      ),
       editorGroupHeaderTabsBackground: c(
         editorGroupHeaderTabsBackground,
         other.editorGroupHeaderTabsBackground,
@@ -2198,6 +2221,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           statusBarBackground == other.statusBarBackground &&
           statusBarBorder == other.statusBarBorder &&
           statusBarForeground == other.statusBarForeground &&
+          statusBarItemHoverBackground == other.statusBarItemHoverBackground &&
           editorGroupHeaderTabsBackground ==
               other.editorGroupHeaderTabsBackground &&
           tabActiveBackground == other.tabActiveBackground &&
@@ -2364,6 +2388,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     statusBarBackground,
     statusBarBorder,
     statusBarForeground,
+    statusBarItemHoverBackground,
     editorGroupHeaderTabsBackground,
     tabActiveBackground,
     tabInactiveBackground,

@@ -2,6 +2,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'layout_constants.dart';
+import 'theming/toolbar_hover_style.dart';
 import 'workbench_panel.dart';
 import 'workbench_surface_treatment.dart';
 import 'workbench_theme.dart';
@@ -332,6 +333,12 @@ class _WorkbenchTabbedPanelState extends State<WorkbenchTabbedPanel>
                       size: WorkbenchLayoutConstants.iconMd,
                     ),
                     color: theme.descriptionForeground,
+                    // Hover paints from the shell's own token, not from
+                    // the host's icon button theme (§spec:hover-canon).
+                    style: toolbarHoverStyle(
+                      theme,
+                      foreground: theme.descriptionForeground,
+                    ),
                     tooltip: widget.closeButtonTooltip,
                     onPressed: widget.onTogglePanel,
                     padding: const EdgeInsets.all(

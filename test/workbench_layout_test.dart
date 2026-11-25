@@ -2253,6 +2253,32 @@ void main() {
       expect(find.byIcon(Symbols.more_horiz), findsOneWidget);
     });
 
+    // §spec:hover-canon: the `⋯` button paints `toolbar.hoverBackground`
+    // itself. `_buildApp` never calls `applyWorkbenchChrome`, so the host
+    // ThemeData carries no icon button theme to inherit a hover from.
+    testWidgets('overflow button hovers to toolbar.hoverBackground with no '
+        'state layer', (tester) async {
+      await tester.pumpWidget(_buildApp(containerBuilder: multiSpec));
+      final overflow = find.widgetWithIcon(IconButton, Symbols.more_horiz);
+      final style = tester.widget<IconButton>(overflow).style;
+      const hovered = {WidgetState.hovered};
+      expect(
+        style?.backgroundColor?.resolve(hovered),
+        _testTheme.toolbarHoverBackground,
+      );
+      expect(style?.overlayColor?.resolve(hovered)?.a ?? 0, 0);
+
+      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(gesture.removePointer);
+      await gesture.addPointer(location: Offset.zero);
+      await gesture.moveTo(tester.getCenter(overflow));
+      await tester.pumpAndSettle();
+      final fill = tester.widget<Material>(
+        find.descendant(of: overflow, matching: find.byType(Material)).first,
+      );
+      expect(fill.color, _testTheme.toolbarHoverBackground);
+    });
+
     // §spec:chrome-material-theming: the title overflow popup is a menu, so
     // it takes the `menu.*` family rather than the panel it sits over.
     testWidgets('overflow popup panel takes menu.background, not the panel '

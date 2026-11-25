@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../layout_constants.dart';
 import '../workbench_theme.dart';
 import '../workbench_view_menu.dart';
+import 'toolbar_hover_style.dart';
 
 /// Compose the workbench chrome's Material theming onto a host's
 /// [base] [ThemeData].
@@ -144,15 +145,19 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
   ).copyWith(elevation: const WidgetStatePropertyAll(0));
 
-  // IconButton's flat compact base. styleFrom derives the press and focus
-  // overlay from `foregroundColor`, so it keeps `iconForeground` even
-  // though the selected-state resolver below replaces the glyph colour.
+  // IconButton's flat compact base. The hover layer derives the press and
+  // focus overlay from `iconForeground`, even though the selected-state
+  // resolver below replaces the glyph colour.
   final iconButtonBase = IconButton.styleFrom(
     foregroundColor: chrome.iconForeground,
     shape: buttonShape,
     minimumSize: buttonMinSize,
     padding: buttonPadding,
     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  );
+  final iconButtonHover = toolbarHoverStyle(
+    chrome,
+    foreground: chrome.iconForeground,
   );
 
   return base.copyWith(
@@ -304,24 +309,14 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
               ? chrome.inputOptionActiveForeground
               : chrome.iconForeground,
         ),
+        // A checked toggle keeps its fill on hover, because upstream sets
+        // that fill inline where its :hover rule cannot reach.
         backgroundColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.selected)
               ? chrome.inputOptionActiveBackground
-              : states.contains(WidgetState.hovered)
-              ? chrome.toolbarHoverBackground
-              : null,
+              : iconButtonHover.backgroundColor?.resolve(states),
         ),
-        // Hover shows through the fill above, so its state layer is
-        // dropped. A checked toggle keeps its fill on hover, because
-        // upstream sets that fill inline where its :hover rule cannot
-        // reach. Press and focus keep styleFrom's overlay.
-        overlayColor: WidgetStateProperty.resolveWith(
-          (states) =>
-              states.contains(WidgetState.hovered) &&
-                  !states.contains(WidgetState.pressed)
-              ? const Color(0x00000000)
-              : iconButtonBase.overlayColor?.resolve(states),
-        ),
+        overlayColor: iconButtonHover.overlayColor,
         side: WidgetStateProperty.resolveWith(
           (states) => BorderSide(
             color: states.contains(WidgetState.selected)
