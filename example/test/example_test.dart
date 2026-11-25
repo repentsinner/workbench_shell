@@ -330,6 +330,46 @@ void main() {
     },
   );
 
+  testWidgets('the buttons review renders outlined and elevated buttons as the '
+      'secondary tier (§spec:chrome-material-theming)', (tester) async {
+    await tester.pumpWidget(const WorkbenchExampleApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Symbols.smart_button_rounded));
+    await tester.pumpAndSettle();
+
+    Finder buttonLabelled(String label) => find.ancestor(
+      of: find.text(label),
+      matching: find.byWidgetPredicate(
+        (w) => w is OutlinedButton || w is ElevatedButton,
+      ),
+    );
+    final buttons = [
+      buttonLabelled('Reset view'),
+      buttonLabelled('Apply changes'),
+      buttonLabelled('Add folder'),
+    ];
+    await tester.ensureVisible(buttons.last);
+    await tester.pumpAndSettle();
+
+    Material materialOf(Finder finder) => tester
+        .widgetList<Material>(
+          find.descendant(of: finder, matching: find.byType(Material)),
+        )
+        .first;
+    final tonal = materialOf(find.widgetWithText(FilledButton, 'Secondary'));
+    for (final button in buttons) {
+      expect(button, findsOneWidget);
+      final material = materialOf(button);
+      expect(material.color, tonal.color);
+      expect(material.elevation, 0);
+      // A wrapped label would grow the button past the compact height.
+      expect(
+        tester.getSize(button).height,
+        WorkbenchLayoutConstants.buttonHeight,
+      );
+    }
+  });
+
   testWidgets(
     'the buttons review carries both split-button tiers (§spec:split-button)',
     (tester) async {
@@ -530,6 +570,92 @@ void main() {
     await tester.pumpAndSettle();
     final panel = openSelectListPanel(tester);
     expect(panel.color, chrome.dropdownListBackground);
+  });
+
+  testWidgets('the buttons review text field paints the input family, '
+      'follows a theme switch, and leaves the select on dropdown '
+      '(§spec:chrome-material-theming)', (tester) async {
+    await tester.pumpWidget(const WorkbenchExampleApp());
+    await tester.pumpAndSettle();
+
+    // The editor's bare select, as rendered after the field applies the
+    // global decoration theme over the select's own.
+    InputDecoration selectDecoration() => tester
+        .widget<InputDecorator>(
+          find.descendant(
+            of: find.byType(DropdownMenu<String>).first,
+            matching: find.byType(InputDecorator),
+          ),
+        )
+        .decoration;
+
+    final fieldFinder = find.ancestor(
+      of: find.text('Search files'),
+      matching: find.byType(TextField),
+    );
+    final decoratorFinder = find.descendant(
+      of: fieldFinder,
+      matching: find.byType(InputDecorator),
+    );
+
+    Future<InputDecorator> openTextField() async {
+      await tester.tap(find.byIcon(Symbols.smart_button_rounded));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(fieldFinder);
+      await tester.pumpAndSettle();
+      return tester.widget<InputDecorator>(decoratorFinder);
+    }
+
+    WorkbenchTheme chromeOf() => Theme.of(
+      tester.element(find.byType(DropdownMenu<String>).first),
+    ).extension<WorkbenchTheme>()!;
+
+    var chrome = chromeOf();
+    expect(selectDecoration().fillColor, chrome.dropdownBackground);
+
+    final decorator = await openTextField();
+    expect(decorator.decoration.fillColor, chrome.inputBackground);
+    expect(
+      decorator.decoration.floatingLabelBehavior,
+      FloatingLabelBehavior.never,
+    );
+    expect(
+      tester.getSize(fieldFinder).height,
+      WorkbenchLayoutConstants.buttonHeight,
+    );
+
+    // Focus swaps the input.border hairline for focusBorder.
+    await tester.tap(fieldFinder);
+    await tester.pumpAndSettle();
+    expect(
+      decoratorFinder,
+      paints
+        ..rrect(color: chrome.inputBackground)
+        ..rrect(color: chrome.focusBorder),
+    );
+
+    // Switch to Monokai; the field follows the theme with the chrome.
+    final before = chrome.inputBackground;
+    await tester.tap(find.byIcon(Symbols.settings_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Auto detect color scheme'));
+    await tester.pumpAndSettle();
+    final colorThemeSlot = find.descendant(
+      of: find
+          .ancestor(of: find.text('Color theme'), matching: find.byType(Column))
+          .first,
+      matching: find.byType(DropdownMenu<String>),
+    );
+    await tester.tap(colorThemeSlot);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Monokai').last);
+    await tester.pumpAndSettle();
+
+    final switched = await openTextField();
+    chrome = chromeOf();
+    expect(chrome.inputBackground, isNot(before));
+    expect(switched.decoration.fillColor, chrome.inputBackground);
+    expect(selectDecoration().fillColor, chrome.dropdownBackground);
   });
 
   testWidgets(
@@ -1121,11 +1247,7 @@ void main() {
       await tester.tap(find.text('New Editor'));
       await tester.pumpAndSettle();
       expect(
-        tabOrder(tester, [
-          'lorem-ipsum.txt',
-          'Untitled-1',
-          'release-notes.md',
-        ]),
+        tabOrder(tester, ['lorem-ipsum.txt', 'Untitled-1', 'release-notes.md']),
         ['lorem-ipsum.txt', 'Untitled-1', 'release-notes.md'],
       );
       expect(find.text('# Untitled-1'), findsOneWidget);

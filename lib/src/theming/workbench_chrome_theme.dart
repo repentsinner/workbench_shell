@@ -22,6 +22,9 @@ import '../workbench_view_menu.dart';
 ///     label `button.secondaryForeground`, via the `secondaryContainer` /
 ///     `onSecondaryContainer` roles;
 ///   - [TextButton] (text / link): label the link accent.
+/// - [OutlinedButton] and [ElevatedButton] rendered as the secondary tier,
+///   at the same flat compact sizing, so no Material button a host places
+///   falls back to Material 3's pill.
 /// - a [SegmentedButtonThemeData] for the single-select jog selectors
 ///   (mode toggle, distance ladders, percent), inheriting the same 4px
 ///   shape and compact height with a **neutral** selected-segment fill
@@ -36,6 +39,10 @@ import '../workbench_view_menu.dart';
 ///   [MenuBarThemeData] and [DropdownMenuThemeData] — so a host's stock
 ///   [MenuAnchor] and [DropdownMenu] read the `menu.*` and `dropdown.*`
 ///   token families without per-widget wiring.
+/// - an [InputDecorationThemeData] that paints a stock [TextField] or
+///   [TextFormField] as VS Code's input box from the `input.*` tokens, with
+///   a `focusBorder` hairline on focus. The [DropdownMenu] trigger keeps its
+///   own `dropdown.*` decoration.
 ///
 /// The button tiers are flat — elevation pinned to 0 across every state. The
 /// helper keeps [FilledButton]'s hover/pressed state-layer *overlay* (the
@@ -70,8 +77,8 @@ import '../workbench_view_menu.dart';
 /// A host obtains VS Code Material theming with one call instead of
 /// hand-wiring each widget theme. See SPEC §spec:chrome-material-theming.
 ///
-/// Extensible by design: the button family and the menu and select family
-/// are the Material surfaces the chrome owns today. Further surfaces join
+/// Extensible by design: the button family, the menu and select family and
+/// text input are the Material surfaces the chrome owns. Further surfaces join
 /// them here without changing call sites, each themed whole rather than in
 /// part (§spec:chrome-material-theming).
 ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
@@ -105,9 +112,37 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
   // (`selectBox.css`: `--vscode-cornerRadius-small`), which
   // [OutlineInputBorder] already defaults to; a test pins the two together
   // so a change to the tier cannot drift this border away from it.
-  final dropdownBorder = OutlineInputBorder(
-    borderSide: BorderSide(color: chrome.dropdownBorder),
+  OutlineInputBorder hairline(Color color) =>
+      OutlineInputBorder(borderSide: BorderSide(color: color));
+  final dropdownBorder = hairline(chrome.dropdownBorder);
+
+  // Text input hairlines. VS Code always draws a 1px `input.border` around
+  // `.monaco-inputbox`, transparent when the theme leaves it unset, and on
+  // focus the workbench outlines it 1px `focusBorder` inset over that
+  // hairline (`style.css` `.synthetic-focus`), so the focused border
+  // replaces the resting one at the same width, at the select's radius.
+  final inputBorder = hairline(chrome.inputBorder);
+  final inputFocusedBorder = hairline(chrome.focusBorder);
+  final inputPlaceholderStyle = TextStyle(
+    color: chrome.inputPlaceholderForeground,
   );
+
+  // Material's third and fourth button variants, rendered as the secondary
+  // tier (see the outlined and elevated themes below). One style serves
+  // both: `ElevatedButton.styleFrom` adds to its `elevation` on hover,
+  // focus and press, so elevation is pinned with a constant rather than a
+  // base, for the reason the filled tiers stay flat. styleFrom still derives
+  // the state-layer overlay and the disabled colours.
+  final secondaryTierStyle = ElevatedButton.styleFrom(
+    backgroundColor: chrome.buttonSecondaryBackground,
+    foregroundColor: chrome.buttonSecondaryForeground,
+    shape: buttonShape,
+    side: BorderSide(color: chrome.buttonBorder),
+    textStyle: chrome.buttonTextStyle,
+    minimumSize: buttonMinSize,
+    padding: buttonPadding,
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  ).copyWith(elevation: const WidgetStatePropertyAll(0));
 
   // IconButton's flat compact base. styleFrom derives the press and focus
   // overlay from `foregroundColor`, so it keeps `iconForeground` even
@@ -170,6 +205,14 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
     ),
+    // Material's third and fourth variants, rendered as the secondary tier.
+    // VS Code has two button tiers, so these map onto the quieter one
+    // rather than inventing a tier upstream lacks; left unthemed they
+    // render Material 3's pill beside flat chrome (§spec:chrome-material-theming).
+    // Each has a theme of its own, unlike the tonal tier, so the fill and
+    // label are set directly, from the one shared style.
+    outlinedButtonTheme: OutlinedButtonThemeData(style: secondaryTierStyle),
+    elevatedButtonTheme: ElevatedButtonThemeData(style: secondaryTierStyle),
     // Text / link tier: link accent label, 4px corners, compact size.
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
@@ -319,6 +362,38 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
     // through `workbenchMenuThemeData`; this gives a host's menus the same
     // hairline (§spec:chrome-material-theming).
     dividerTheme: DividerThemeData(color: chrome.menuSeparatorBackground),
+    // Text input (§spec:chrome-material-theming): a stock [TextField] or
+    // [TextFormField] reads as VS Code's input box — `input.*` fill,
+    // placeholder and hairline, dense single-line height and no floating
+    // label. [DropdownMenu] applies its own decoration theme below before
+    // the field applies this one, and that theme sets every field this one
+    // does, so the select trigger keeps the `dropdown.*` family.
+    inputDecorationTheme: InputDecorationThemeData(
+      filled: true,
+      fillColor: chrome.inputBackground,
+      // Flat: no Material hover or focus tint over the VS Code fill.
+      hoverColor: Colors.transparent,
+      focusColor: Colors.transparent,
+      isDense: true,
+      floatingLabelBehavior: FloatingLabelBehavior.never,
+      constraints: const BoxConstraints(
+        minHeight: WorkbenchLayoutConstants.buttonHeight,
+      ),
+      contentPadding: WorkbenchLayoutConstants.inputBoxPadding,
+      border: inputBorder,
+      enabledBorder: inputBorder,
+      disabledBorder: inputBorder,
+      focusedBorder: inputFocusedBorder,
+      hintStyle: inputPlaceholderStyle,
+      // A label that never floats stands in the box as a placeholder.
+      labelStyle: inputPlaceholderStyle,
+    ),
+    // Body text takes the chrome's `foreground`. A text field draws its text
+    // in `bodyLarge`, which otherwise resolves a base `ThemeData` colour the
+    // chrome leaves unset (§spec:chrome-material-theming).
+    textTheme: base.textTheme.copyWith(
+      bodyLarge: base.textTheme.bodyLarge?.copyWith(color: chrome.foreground),
+    ),
     // Select (§spec:chrome-material-theming). The trigger is a text field:
     // its fill, hairline and height come from a decoration theme scoped to
     // [DropdownMenu] rather than from `ThemeData.inputDecorationTheme`,
