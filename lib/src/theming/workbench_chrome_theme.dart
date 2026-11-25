@@ -109,6 +109,17 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
     borderSide: BorderSide(color: chrome.dropdownBorder),
   );
 
+  // IconButton's flat compact base. styleFrom derives the press and focus
+  // overlay from `foregroundColor`, so it keeps `iconForeground` even
+  // though the selected-state resolver below replaces the glyph colour.
+  final iconButtonBase = IconButton.styleFrom(
+    foregroundColor: chrome.iconForeground,
+    shape: buttonShape,
+    minimumSize: buttonMinSize,
+    padding: buttonPadding,
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  );
+
   return base.copyWith(
     extensions: extensions,
     // Drive both filled tiers through color-scheme roles: FilledButton
@@ -230,9 +241,9 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
     // Without this, an IconButton placed under the chrome falls back to
     // the host base ThemeData's onSurfaceVariant — a role the chrome
     // leaves unset, rendering the glyph near-invisible against the chrome
-    // background (§spec:chrome-material-theming). Hover is left to Material's default IconButton
-    // state-layer overlay, matching VS Code, which signals icon-button
-    // hover with a background, not a foreground shift.
+    // background (§spec:chrome-material-theming). Hover is a
+    // `toolbar.hoverBackground` fill with no state layer, as VS Code paints
+    // a hovered action-bar icon; a press keeps Material's overlay.
     //
     // A selected IconButton (`isSelected: true`) is VS Code's toggle —
     // the find widget's Match Case / Whole Word / Regex control. Upstream's
@@ -242,36 +253,40 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
     // Material 3's selected defaults (a `primary` glyph), which would
     // otherwise read as a second accent (§spec:chrome-material-theming).
     iconButtonTheme: IconButtonThemeData(
-      style:
-          IconButton.styleFrom(
-            // Kept although the resolver below replaces it: styleFrom
-            // derives the hover/press overlay from this colour.
-            foregroundColor: chrome.iconForeground,
-            shape: buttonShape,
-            minimumSize: buttonMinSize,
-            padding: buttonPadding,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ).copyWith(
-            foregroundColor: WidgetStateProperty.resolveWith(
-              (states) => states.contains(WidgetState.disabled)
-                  ? null
-                  : states.contains(WidgetState.selected)
-                  ? chrome.inputOptionActiveForeground
-                  : chrome.iconForeground,
-            ),
-            backgroundColor: WidgetStateProperty.resolveWith(
-              (states) => states.contains(WidgetState.selected)
-                  ? chrome.inputOptionActiveBackground
-                  : null,
-            ),
-            side: WidgetStateProperty.resolveWith(
-              (states) => BorderSide(
-                color: states.contains(WidgetState.selected)
-                    ? chrome.inputOptionActiveBorder
-                    : const Color(0x00000000),
-              ),
-            ),
+      style: iconButtonBase.copyWith(
+        foregroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.disabled)
+              ? null
+              : states.contains(WidgetState.selected)
+              ? chrome.inputOptionActiveForeground
+              : chrome.iconForeground,
+        ),
+        backgroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? chrome.inputOptionActiveBackground
+              : states.contains(WidgetState.hovered)
+              ? chrome.toolbarHoverBackground
+              : null,
+        ),
+        // Hover shows through the fill above, so its state layer is
+        // dropped. A checked toggle keeps its fill on hover, because
+        // upstream sets that fill inline where its :hover rule cannot
+        // reach. Press and focus keep styleFrom's overlay.
+        overlayColor: WidgetStateProperty.resolveWith(
+          (states) =>
+              states.contains(WidgetState.hovered) &&
+                  !states.contains(WidgetState.pressed)
+              ? const Color(0x00000000)
+              : iconButtonBase.overlayColor?.resolve(states),
+        ),
+        side: WidgetStateProperty.resolveWith(
+          (states) => BorderSide(
+            color: states.contains(WidgetState.selected)
+                ? chrome.inputOptionActiveBorder
+                : const Color(0x00000000),
           ),
+        ),
+      ),
     ),
     // Popup menu panel and rows, from the `menu.*` family. These are the
     // same builders the shell's own popups use through

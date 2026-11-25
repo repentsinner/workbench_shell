@@ -276,6 +276,14 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   /// composed under the chrome (§spec:chrome-material-theming).
   final Color iconForeground;
 
+  /// Hovered toolbar-action fill. VS Code `toolbar.hoverBackground`, which
+  /// the workbench paints behind a hovered action-bar icon. Drives the
+  /// hover state of an `IconButton` composed under the chrome
+  /// (§spec:chrome-material-theming). Optional on the constructor, falling
+  /// back to [listHoverBackground], so a hand-built theme needs no new
+  /// argument.
+  final Color toolbarHoverBackground;
+
   // ---- Semantic status ----
   final Color errorForeground;
   final Color warningForeground;
@@ -727,7 +735,9 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.notificationProgressFill,
     required this.surfaceTone,
     Color? inputOptionActiveForeground,
-  }) : inputOptionActiveForeground = inputOptionActiveForeground ?? foreground;
+    Color? toolbarHoverBackground,
+  }) : inputOptionActiveForeground = inputOptionActiveForeground ?? foreground,
+       toolbarHoverBackground = toolbarHoverBackground ?? listHoverBackground;
 
   /// Compute the HCT tone (0–100) for [color] using
   /// `package:material_color_utilities`.
@@ -1195,6 +1205,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         'icon.foreground',
         dl(const Color(0xFFC5C5C5), const Color(0xFF424242)),
       ),
+      toolbarHoverBackground: map.resolve(
+        'toolbar.hoverBackground',
+        dl(const Color(0x505A5D5E), const Color(0x50B8B8B8)),
+      ),
       // Semantic status
       errorForeground: errorFg,
       warningForeground: warningFg,
@@ -1476,6 +1490,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? descriptionForeground,
     Color? accentForeground,
     Color? iconForeground,
+    Color? toolbarHoverBackground,
     Color? errorForeground,
     Color? warningForeground,
     Color? successForeground,
@@ -1660,6 +1675,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           descriptionForeground ?? this.descriptionForeground,
       accentForeground: accentForeground ?? this.accentForeground,
       iconForeground: iconForeground ?? this.iconForeground,
+      toolbarHoverBackground:
+          toolbarHoverBackground ?? this.toolbarHoverBackground,
       errorForeground: errorForeground ?? this.errorForeground,
       warningForeground: warningForeground ?? this.warningForeground,
       successForeground: successForeground ?? this.successForeground,
@@ -1951,6 +1968,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       ),
       accentForeground: c(accentForeground, other.accentForeground),
       iconForeground: c(iconForeground, other.iconForeground),
+      toolbarHoverBackground: c(
+        toolbarHoverBackground,
+        other.toolbarHoverBackground,
+      ),
       errorForeground: c(errorForeground, other.errorForeground),
       warningForeground: c(warningForeground, other.warningForeground),
       successForeground: c(successForeground, other.successForeground),
@@ -2217,6 +2238,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           descriptionForeground == other.descriptionForeground &&
           accentForeground == other.accentForeground &&
           iconForeground == other.iconForeground &&
+          toolbarHoverBackground == other.toolbarHoverBackground &&
           errorForeground == other.errorForeground &&
           warningForeground == other.warningForeground &&
           successForeground == other.successForeground &&
@@ -2378,6 +2400,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     descriptionForeground,
     accentForeground,
     iconForeground,
+    toolbarHoverBackground,
     errorForeground,
     warningForeground,
     successForeground,

@@ -302,6 +302,45 @@ void main() {
       );
     });
 
+    test('toolbar.hoverBackground resolves from the colors map', () {
+      final map = loader.parse('''
+        {
+          "name": "Toolbar Hover",
+          "type": "vs-dark",
+          "colors": { "toolbar.hoverBackground": "#11223344" }
+        }
+        ''');
+      final theme = WorkbenchTheme.fromVscodeColorMap(map);
+      expect(theme.toolbarHoverBackground, const Color(0x44112233));
+    });
+
+    test('toolbar.hoverBackground falls back to the registry default', () {
+      final dark = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'D', baseType: 'vs-dark', colors: {}),
+      );
+      final light = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'L', baseType: 'vs', colors: {}),
+      );
+      expect(dark.toolbarHoverBackground, const Color(0x505A5D5E));
+      expect(light.toolbarHoverBackground, const Color(0x50B8B8B8));
+    });
+
+    test('toolbarHoverBackground takes part in copyWith, lerp and equality', () {
+      final base = WorkbenchTheme.fromVscodeColorMap(
+        const VscodeColorMap(name: 'B', baseType: 'vs-dark', colors: {}),
+      );
+      final changed = base.copyWith(
+        toolbarHoverBackground: const Color(0xFF654321),
+      );
+      expect(changed.toolbarHoverBackground, const Color(0xFF654321));
+      expect(changed, isNot(base));
+      expect(changed.hashCode, isNot(base.hashCode));
+      expect(
+        base.lerp(changed, 1).toolbarHoverBackground,
+        const Color(0xFF654321),
+      );
+    });
+
     test('inputOption.active* fall back to the focusBorder accent', () {
       // Older themes (Dark+) omit inputOption.*; the selected segment still
       // gets an accent treatment from focusBorder rather than disappearing.

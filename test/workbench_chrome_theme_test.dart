@@ -355,13 +355,39 @@ void main() {
         );
       });
 
-      test('the hover overlay still derives from iconForeground', () {
-        // IconButton.styleFrom builds its hover/press overlay from the
-        // foregroundColor it is given. The selected-state resolvers must
-        // not drop that, or the overlay falls back to Material's default.
-        final overlay = style?.overlayColor?.resolve({WidgetState.hovered});
+      test('a hovered IconButton fills toolbar.hoverBackground with no '
+          'overlay', () {
+        // VS Code paints a hovered toolbar action with a background fill
+        // (workbench style.css), not a state layer over it.
+        const hovered = {WidgetState.hovered};
+        expect(
+          style?.backgroundColor?.resolve(hovered),
+          testWorkbenchTheme.toolbarHoverBackground,
+        );
+        expect(style?.overlayColor?.resolve(hovered)?.a ?? 0, 0);
+      });
+
+      test('a hovered selected IconButton keeps its active fill', () {
+        // Upstream's Toggle sets the checked fill inline, which outranks
+        // its :hover rule, so hovering a checked toggle changes nothing.
+        const hoveredSelected = {WidgetState.hovered, WidgetState.selected};
+        expect(
+          style?.backgroundColor?.resolve(hoveredSelected),
+          testWorkbenchTheme.inputOptionActiveBackground,
+        );
+        expect(style?.overlayColor?.resolve(hoveredSelected)?.a ?? 0, 0);
+      });
+
+      test('the press overlay still derives from iconForeground', () {
+        // IconButton.styleFrom builds its press overlay from the
+        // foregroundColor it is given; the hover override must keep it.
+        final overlay = style?.overlayColor?.resolve({
+          WidgetState.hovered,
+          WidgetState.pressed,
+        });
         expect(overlay, isNotNull);
-        expect(overlay!.r, testWorkbenchTheme.iconForeground.r);
+        expect(overlay!.a, greaterThan(0));
+        expect(overlay.r, testWorkbenchTheme.iconForeground.r);
         expect(overlay.g, testWorkbenchTheme.iconForeground.g);
         expect(overlay.b, testWorkbenchTheme.iconForeground.b);
       });
