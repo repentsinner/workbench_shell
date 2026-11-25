@@ -2491,7 +2491,7 @@ platform.
 
 ## Theming §spec:theming
 
-*Status: complete*
+*Status: in progress*
 
 The theme architecture splits along a single axis: **chrome vs
 domain**. `workbench_shell` owns chrome via `WorkbenchTheme`.
@@ -3023,7 +3023,7 @@ are generic in shape; only the family / size choice is host-tunable.
 
 ### Chrome Material Theming Contract §spec:chrome-material-theming
 
-*Status: complete*
+*Status: in progress*
 
 `applyWorkbenchChrome` composes VS Code styling onto a host's
 `ThemeData` so the standard Material widgets a host places inherit chrome
@@ -3070,10 +3070,32 @@ target):
 - `IconButton` — foreground from a dedicated `iconForeground` token
   mapping VS Code's
   [`icon.foreground`](https://code.visualstudio.com/api/references/theme-color#icon-colors).
+- `OutlinedButton` and `ElevatedButton` — rendered as the secondary
+  tier: fill `button.secondaryBackground`, label
+  `button.secondaryForeground`, stroke `button.border`. VS Code has two
+  button tiers, so a third Material variant maps onto the quieter one
+  rather than introducing a tier upstream lacks.
 
-The set is extensible: input decoration and other Material surfaces can
-join the contract without changing call sites. Each addition obeys
-parity — it themes the whole widget, not a subset of its states.
+"Full family" is literal. A Material button widget the chrome leaves
+unthemed renders Material 3's defaults (a pill shape, 40px height and
+24px padding) beside flat chrome, which is the drift parity exists to
+prevent. Every Material 3 button widget a host can place therefore
+appears in this list.
+
+The set is extensible: other Material surfaces can join the contract
+without changing call sites. Each addition obeys parity — it themes the
+whole widget, not a subset of its states.
+
+**Owned surface: text input.** §spec:form-controls-not-owned rests on a
+stock text field reading as VS Code under the chrome, so the chrome
+themes `TextField` and `TextFormField` through
+`ThemeData.inputDecorationTheme`: fill `input.background`, text
+`input.foreground`, placeholder `input.placeholderForeground`, a 1px
+`input.border` hairline that `focusBorder` replaces on focus, the
+controls-tier corner radius, and a dense single-line height with no
+floating label. The `DropdownMenu` trigger keeps its own decoration
+under `DropdownMenuThemeData`, which reads `dropdown.*` rather than
+`input.*`.
 
 **Carve-out: the secondary button's stroke and hover.** Parity holds
 across the button family with one exception the framework forces.
