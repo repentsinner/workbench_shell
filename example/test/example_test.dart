@@ -29,14 +29,6 @@ Material openSelectListPanel(WidgetTester tester) {
 }
 
 void main() {
-  // rootBundle caches each asset load's future for the whole process. A
-  // theme load that a test starts and ends before it resolves leaves a
-  // future bound to that test's fake clock, which never completes. A later
-  // test that loads the same theme awaits it forever, and the theme
-  // controller's queued switches stall behind it. Clearing the cache gives
-  // every test its own loads.
-  setUp(rootBundle.clear);
-
   testWidgets('every select is select-only, never a text entry', (
     tester,
   ) async {
@@ -597,18 +589,21 @@ void main() {
         )
         .decoration;
 
+    final fieldFinder = find.ancestor(
+      of: find.text('Search files'),
+      matching: find.byType(TextField),
+    );
+    final decoratorFinder = find.descendant(
+      of: fieldFinder,
+      matching: find.byType(InputDecorator),
+    );
+
     Future<InputDecorator> openTextField() async {
       await tester.tap(find.byIcon(Symbols.smart_button_rounded));
       await tester.pumpAndSettle();
-      final field = find.ancestor(
-        of: find.text('Search files'),
-        matching: find.byType(TextField),
-      );
-      await tester.ensureVisible(field);
+      await tester.ensureVisible(fieldFinder);
       await tester.pumpAndSettle();
-      return tester.widget<InputDecorator>(
-        find.descendant(of: field, matching: find.byType(InputDecorator)),
-      );
+      return tester.widget<InputDecorator>(decoratorFinder);
     }
 
     WorkbenchTheme chromeOf() => Theme.of(
@@ -624,10 +619,6 @@ void main() {
       decorator.decoration.floatingLabelBehavior,
       FloatingLabelBehavior.never,
     );
-    final fieldFinder = find.ancestor(
-      of: find.text('Search files'),
-      matching: find.byType(TextField),
-    );
     expect(
       tester.getSize(fieldFinder).height,
       WorkbenchLayoutConstants.buttonHeight,
@@ -637,7 +628,7 @@ void main() {
     await tester.tap(fieldFinder);
     await tester.pumpAndSettle();
     expect(
-      find.descendant(of: fieldFinder, matching: find.byType(InputDecorator)),
+      decoratorFinder,
       paints
         ..rrect(color: chrome.inputBackground)
         ..rrect(color: chrome.focusBorder),

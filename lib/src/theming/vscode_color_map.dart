@@ -68,9 +68,15 @@ class VscodeColorThemeLoader {
   /// Assets ship with the `workbench_shell` package at
   /// `assets/themes/`. Flutter rewrites package assets to
   /// `packages/workbench_shell/assets/themes/<filename>` at runtime.
+  ///
+  /// The bundle's own string cache is bypassed: callers such as
+  /// `WorkbenchThemeController` keep the parsed theme, so a cached raw
+  /// string would hold each theme in memory twice, and a cached future
+  /// outlives the zone that started it.
   Future<VscodeColorMap> loadAsset(String filename) async {
     final jsonStr = await rootBundle.loadString(
       'packages/workbench_shell/assets/themes/$filename',
+      cache: false,
     );
     return parse(jsonStr);
   }
