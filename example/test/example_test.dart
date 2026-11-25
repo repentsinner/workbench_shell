@@ -29,6 +29,14 @@ Material openSelectListPanel(WidgetTester tester) {
 }
 
 void main() {
+  // rootBundle caches each asset load's future for the whole process. A
+  // theme load that a test starts and ends before it resolves leaves a
+  // future bound to that test's fake clock, which never completes. A later
+  // test that loads the same theme awaits it forever, and the theme
+  // controller's queued switches stall behind it. Clearing the cache gives
+  // every test its own loads.
+  setUp(rootBundle.clear);
+
   testWidgets('every select is select-only, never a text entry', (
     tester,
   ) async {
