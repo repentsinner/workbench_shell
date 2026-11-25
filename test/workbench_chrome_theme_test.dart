@@ -267,6 +267,142 @@ void main() {
       );
     });
 
+    // §spec:hover-canon: a hovered segment takes the toggle hover its
+    // selected treatment comes from, with no state layer over it.
+    test('a hovered unselected segment fills inputOption.hoverBackground', () {
+      final style = result.segmentedButtonTheme.style;
+      const hovered = {WidgetState.hovered};
+      expect(
+        style?.backgroundColor?.resolve(hovered),
+        testWorkbenchTheme.inputOptionHoverBackground,
+      );
+      expect(style?.backgroundColor?.resolve(<WidgetState>{}), isNull);
+      expect(style?.overlayColor?.resolve(hovered)?.a ?? 0, 0);
+    });
+
+    test('a hovered selected segment keeps its active treatment', () {
+      final style = result.segmentedButtonTheme.style;
+      const hoveredSelected = {WidgetState.hovered, WidgetState.selected};
+      expect(
+        style?.backgroundColor?.resolve(hoveredSelected),
+        testWorkbenchTheme.inputOptionActiveBackground,
+      );
+      expect(
+        style?.side?.resolve(hoveredSelected)?.color,
+        testWorkbenchTheme.inputOptionActiveBorder,
+      );
+      expect(style?.overlayColor?.resolve(hoveredSelected)?.a ?? 0, 0);
+    });
+
+    test('a pressed segment keeps a press overlay', () {
+      final overlay = result.segmentedButtonTheme.style?.overlayColor?.resolve({
+        WidgetState.hovered,
+        WidgetState.pressed,
+      });
+      expect(overlay, isNotNull);
+      expect(overlay!.a, greaterThan(0));
+    });
+
+    testWidgets('hovering an unselected segment paints the hover fill', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: result,
+          home: Scaffold(
+            body: SegmentedButton<int>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(value: 1, label: Text('One')),
+                ButtonSegment(value: 2, label: Text('Two')),
+              ],
+              selected: const {1},
+              onSelectionChanged: (_) {},
+            ),
+          ),
+        ),
+      );
+      Material fillOf(String label) => tester.widget<Material>(
+        find
+            .ancestor(of: find.text(label), matching: find.byType(Material))
+            .first,
+      );
+      final gesture = await hover(tester, find.text('Two'));
+      await tester.pumpAndSettle();
+      expect(
+        fillOf('Two').color,
+        testWorkbenchTheme.inputOptionHoverBackground,
+      );
+
+      await gesture.moveTo(tester.getCenter(find.text('One')));
+      await tester.pumpAndSettle();
+      expect(
+        fillOf('One').color,
+        testWorkbenchTheme.inputOptionActiveBackground,
+      );
+    });
+
+    // §spec:hover-canon: a hovered link-tier button shifts its label to
+    // `textLink.activeForeground`, as a hovered VS Code link does.
+    test('a hovered TextButton label takes textLink.activeForeground', () {
+      final style = result.textButtonTheme.style;
+      const hovered = {WidgetState.hovered};
+      expect(
+        style?.foregroundColor?.resolve(hovered),
+        testWorkbenchTheme.textLinkActiveForeground,
+      );
+      expect(
+        style?.foregroundColor?.resolve(<WidgetState>{}),
+        testWorkbenchTheme.accentForeground,
+      );
+      expect(style?.overlayColor?.resolve(hovered)?.a ?? 0, 0);
+    });
+
+    test('a disabled TextButton keeps the disabled label on hover', () {
+      // A raw hover colour would make a disabled link read as live.
+      final fg = result.textButtonTheme.style?.foregroundColor;
+      const disabledHovered = {WidgetState.disabled, WidgetState.hovered};
+      expect(
+        fg?.resolve(disabledHovered),
+        isNot(testWorkbenchTheme.textLinkActiveForeground),
+      );
+      expect(
+        fg?.resolve(disabledHovered),
+        isNot(testWorkbenchTheme.accentForeground),
+      );
+    });
+
+    test('a pressed TextButton keeps its press overlay', () {
+      final overlay = result.textButtonTheme.style?.overlayColor?.resolve({
+        WidgetState.hovered,
+        WidgetState.pressed,
+      });
+      expect(overlay, isNotNull);
+      expect(overlay!.a, greaterThan(0));
+    });
+
+    testWidgets('hovering a TextButton shifts its label colour', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: result,
+          home: Scaffold(
+            body: Center(
+              child: TextButton(onPressed: () {}, child: const Text('Link')),
+            ),
+          ),
+        ),
+      );
+      Color? labelColor() =>
+          DefaultTextStyle.of(tester.element(find.text('Link'))).style.color;
+      expect(labelColor(), testWorkbenchTheme.accentForeground);
+
+      await hover(tester, find.text('Link'));
+      await tester.pumpAndSettle();
+      expect(labelColor(), testWorkbenchTheme.textLinkActiveForeground);
+    });
+
     test('icon button theme carries the 4px buttonShape and compact size', () {
       final style = result.iconButtonTheme.style;
       expect(style?.shape?.resolve({}), WorkbenchLayoutConstants.buttonShape);

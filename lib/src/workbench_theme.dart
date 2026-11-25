@@ -137,6 +137,13 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   final Color statusBarBorder;
   final Color statusBarForeground;
 
+  /// Hovered status bar item fill. VS Code `statusBarItem.hoverBackground`,
+  /// whose registry default is 12% white in dark themes and 12% black in
+  /// light ones, so the tint reads over any status bar colour
+  /// (§spec:hover-canon). Optional on the constructor, falling back to
+  /// [toolbarHoverBackground], so a hand-built theme needs no new argument.
+  final Color statusBarItemHoverBackground;
+
   // ---- Editor tab strip (§spec:editor-tab-rendering) ----
   /// Fill behind the editor tab strip — VS Code
   /// `editorGroupHeader.tabsBackground`.
@@ -265,10 +272,24 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
   /// back to [foreground], so a hand-built theme needs no new argument.
   final Color inputOptionActiveForeground;
 
+  /// Hovered unchecked toggle fill. VS Code `inputOption.hoverBackground`,
+  /// the hover of the toggle whose checked state [inputOptionActiveBackground]
+  /// paints. Drives a hovered unselected `SegmentedButton` segment under the
+  /// chrome (§spec:hover-canon). Optional on the constructor, falling back to
+  /// [toolbarHoverBackground], so a hand-built theme needs no new argument.
+  final Color inputOptionHoverBackground;
+
   // ---- Foreground / accent ----
   final Color foreground;
   final Color descriptionForeground;
   final Color accentForeground;
+
+  /// Hovered link label. VS Code `textLink.activeForeground`, the colour a
+  /// link shifts to under the pointer; [accentForeground] is its resting
+  /// `textLink.foreground`. Drives a hovered `TextButton` under the chrome
+  /// (§spec:hover-canon). Optional on the constructor, falling back to
+  /// [accentForeground], so a hand-built theme needs no new argument.
+  final Color textLinkActiveForeground;
 
   /// Icon-button glyph color. VS Code `icon.foreground` — near-full
   /// contrast, deliberately distinct from [foreground] (body text) and
@@ -736,8 +757,20 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     required this.surfaceTone,
     Color? inputOptionActiveForeground,
     Color? toolbarHoverBackground,
+    Color? statusBarItemHoverBackground,
+    Color? textLinkActiveForeground,
+    Color? inputOptionHoverBackground,
   }) : inputOptionActiveForeground = inputOptionActiveForeground ?? foreground,
-       toolbarHoverBackground = toolbarHoverBackground ?? listHoverBackground;
+       toolbarHoverBackground = toolbarHoverBackground ?? listHoverBackground,
+       statusBarItemHoverBackground =
+           statusBarItemHoverBackground ??
+           toolbarHoverBackground ??
+           listHoverBackground,
+       textLinkActiveForeground = textLinkActiveForeground ?? accentForeground,
+       inputOptionHoverBackground =
+           inputOptionHoverBackground ??
+           toolbarHoverBackground ??
+           listHoverBackground;
 
   /// Compute the HCT tone (0–100) for [color] using
   /// `package:material_color_utilities`.
@@ -1065,6 +1098,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       // Transparent fallback so the BorderSide draws but is invisible.
       statusBarBorder: map['statusBar.border'] ?? const Color(0x00000000),
       statusBarForeground: statusBarFg,
+      statusBarItemHoverBackground: map.resolve(
+        'statusBarItem.hoverBackground',
+        dl(const Color(0x1FFFFFFF), const Color(0x1F000000)),
+      ),
       // Editor tab strip (§spec:editor-tab-rendering), from theme.ts.
       editorGroupHeaderTabsBackground: map.resolve(
         'editorGroupHeader.tabsBackground',
@@ -1194,12 +1231,20 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         'inputOption.activeForeground',
         dl(const Color(0xFFFFFFFF), const Color(0xFF000000)),
       ),
+      inputOptionHoverBackground: map.resolve(
+        'inputOption.hoverBackground',
+        dl(const Color(0x805A5D5E), const Color(0x50B8B8B8)),
+      ),
       // Foregrounds / accent
       foreground: fg,
       descriptionForeground: secondaryFg,
       accentForeground: map.resolve(
         'textLink.foreground',
         const Color(0xFF569CD6),
+      ),
+      textLinkActiveForeground: map.resolve(
+        'textLink.activeForeground',
+        dl(const Color(0xFF3794FF), const Color(0xFF006AB1)),
       ),
       iconForeground: map.resolve(
         'icon.foreground',
@@ -1454,6 +1499,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? statusBarBackground,
     Color? statusBarBorder,
     Color? statusBarForeground,
+    Color? statusBarItemHoverBackground,
     Color? editorGroupHeaderTabsBackground,
     Color? tabActiveBackground,
     Color? tabInactiveBackground,
@@ -1486,9 +1532,11 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     Color? inputOptionActiveBackground,
     Color? inputOptionActiveBorder,
     Color? inputOptionActiveForeground,
+    Color? inputOptionHoverBackground,
     Color? foreground,
     Color? descriptionForeground,
     Color? accentForeground,
+    Color? textLinkActiveForeground,
     Color? iconForeground,
     Color? toolbarHoverBackground,
     Color? errorForeground,
@@ -1620,6 +1668,8 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       statusBarBackground: statusBarBackground ?? this.statusBarBackground,
       statusBarBorder: statusBarBorder ?? this.statusBarBorder,
       statusBarForeground: statusBarForeground ?? this.statusBarForeground,
+      statusBarItemHoverBackground:
+          statusBarItemHoverBackground ?? this.statusBarItemHoverBackground,
       editorGroupHeaderTabsBackground:
           editorGroupHeaderTabsBackground ??
           this.editorGroupHeaderTabsBackground,
@@ -1670,10 +1720,14 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           inputOptionActiveBorder ?? this.inputOptionActiveBorder,
       inputOptionActiveForeground:
           inputOptionActiveForeground ?? this.inputOptionActiveForeground,
+      inputOptionHoverBackground:
+          inputOptionHoverBackground ?? this.inputOptionHoverBackground,
       foreground: foreground ?? this.foreground,
       descriptionForeground:
           descriptionForeground ?? this.descriptionForeground,
       accentForeground: accentForeground ?? this.accentForeground,
+      textLinkActiveForeground:
+          textLinkActiveForeground ?? this.textLinkActiveForeground,
       iconForeground: iconForeground ?? this.iconForeground,
       toolbarHoverBackground:
           toolbarHoverBackground ?? this.toolbarHoverBackground,
@@ -1881,6 +1935,10 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
       statusBarBackground: c(statusBarBackground, other.statusBarBackground),
       statusBarBorder: c(statusBarBorder, other.statusBarBorder),
       statusBarForeground: c(statusBarForeground, other.statusBarForeground),
+      statusBarItemHoverBackground: c(
+        statusBarItemHoverBackground,
+        other.statusBarItemHoverBackground,
+      ),
       editorGroupHeaderTabsBackground: c(
         editorGroupHeaderTabsBackground,
         other.editorGroupHeaderTabsBackground,
@@ -1961,12 +2019,20 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
         inputOptionActiveForeground,
         other.inputOptionActiveForeground,
       ),
+      inputOptionHoverBackground: c(
+        inputOptionHoverBackground,
+        other.inputOptionHoverBackground,
+      ),
       foreground: c(foreground, other.foreground),
       descriptionForeground: c(
         descriptionForeground,
         other.descriptionForeground,
       ),
       accentForeground: c(accentForeground, other.accentForeground),
+      textLinkActiveForeground: c(
+        textLinkActiveForeground,
+        other.textLinkActiveForeground,
+      ),
       iconForeground: c(iconForeground, other.iconForeground),
       toolbarHoverBackground: c(
         toolbarHoverBackground,
@@ -2198,6 +2264,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           statusBarBackground == other.statusBarBackground &&
           statusBarBorder == other.statusBarBorder &&
           statusBarForeground == other.statusBarForeground &&
+          statusBarItemHoverBackground == other.statusBarItemHoverBackground &&
           editorGroupHeaderTabsBackground ==
               other.editorGroupHeaderTabsBackground &&
           tabActiveBackground == other.tabActiveBackground &&
@@ -2234,9 +2301,11 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
           inputOptionActiveBackground == other.inputOptionActiveBackground &&
           inputOptionActiveBorder == other.inputOptionActiveBorder &&
           inputOptionActiveForeground == other.inputOptionActiveForeground &&
+          inputOptionHoverBackground == other.inputOptionHoverBackground &&
           foreground == other.foreground &&
           descriptionForeground == other.descriptionForeground &&
           accentForeground == other.accentForeground &&
+          textLinkActiveForeground == other.textLinkActiveForeground &&
           iconForeground == other.iconForeground &&
           toolbarHoverBackground == other.toolbarHoverBackground &&
           errorForeground == other.errorForeground &&
@@ -2364,6 +2433,7 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     statusBarBackground,
     statusBarBorder,
     statusBarForeground,
+    statusBarItemHoverBackground,
     editorGroupHeaderTabsBackground,
     tabActiveBackground,
     tabInactiveBackground,
@@ -2396,9 +2466,11 @@ class WorkbenchTheme extends ThemeExtension<WorkbenchTheme> {
     inputOptionActiveBackground,
     inputOptionActiveBorder,
     inputOptionActiveForeground,
+    inputOptionHoverBackground,
     foreground,
     descriptionForeground,
     accentForeground,
+    textLinkActiveForeground,
     iconForeground,
     toolbarHoverBackground,
     errorForeground,

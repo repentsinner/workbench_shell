@@ -1320,6 +1320,9 @@ warning / info) has no obvious "summary severity" to project
 `WorkbenchStatusBarAction`, and `WorkbenchStatusBarProblemsItem`
 own the status-bar container, height, padding, and leading/
 trailing alignment. Applications populate items with domain data.
+A tappable item hovers to `statusBarItem.hoverBackground`, a
+translucent tint that reads over any status bar colour
+(§spec:hover-canon).
 
 `WorkbenchStatusBarProblemsItem` is the VS Code "Problems"
 indicator: severity counts rendered with role-coloured icons and
@@ -2491,7 +2494,7 @@ platform.
 
 ## Theming §spec:theming
 
-*Status: in progress*
+*Status: complete*
 
 The theme architecture splits along a single axis: **chrome vs
 domain**. `workbench_shell` owns chrome via `WorkbenchTheme`.
@@ -3023,7 +3026,7 @@ are generic in shape; only the family / size choice is host-tunable.
 
 ### Chrome Material Theming Contract §spec:chrome-material-theming
 
-*Status: in progress*
+*Status: complete*
 
 `applyWorkbenchChrome` composes VS Code styling onto a host's
 `ThemeData` so the standard Material widgets a host places inherit chrome
@@ -3065,8 +3068,11 @@ target):
   driven through the `primary`/`onPrimary` and
   `secondaryContainer`/`onSecondaryContainer` roles. The tiers share a
   stroke and a hover: see the carve-out below.
-- `TextButton` (text / link) — link-accent label.
-- `SegmentedButton` (single-select selectors) — neutral selected fill.
+- `TextButton` (text / link) — link-accent label, shifting to
+  `textLink.activeForeground` on hover (§spec:hover-canon).
+- `SegmentedButton` (single-select selectors) — the selected segment
+  takes the checked-toggle treatment (`inputOption.active*`), and a
+  hovered unselected one fills `inputOption.hoverBackground`.
 - `IconButton` — foreground from a dedicated `iconForeground` token
   mapping VS Code's
   [`icon.foreground`](https://code.visualstudio.com/api/references/theme-color#icon-colors).
@@ -3287,7 +3293,7 @@ the difference.
 
 ### Hover Canon §spec:hover-canon
 
-*Status: not started*
+*Status: complete*
 
 Every hover the shell paints, on its own chrome or on a stock widget
 under §spec:chrome-material-theming, resolves from the VS Code token
@@ -3296,20 +3302,27 @@ substitute. The layer derives from a colour the chrome sets, so it
 satisfies the parity invariant's letter, but it renders a tint upstream
 never draws: Material's 8% layer over an icon button is fainter than
 `toolbar.hoverBackground`, and a layer over a coloured status bar is
-not `statusBarItem.hoverBackground`.
+not `statusBarItem.hoverBackground`. The token therefore replaces the
+hover layer rather than sitting under it, and a press keeps Material's
+overlay so it still reads.
 
 **Shell-drawn surfaces paint their own hover.** A surface the shell
 renders resolves its hover from `WorkbenchTheme` directly, as the
 activity bar, view pane headers, tabs, menus and split button do. It
 does not inherit hover from the host's `ThemeData`, because a host that
 never calls `applyWorkbenchChrome` would then render the shell's chrome
-with Material's hover. The surfaces that rely on inherited hover are:
+with Material's hover. The surfaces whose hover is a plain token fill
+are:
 
 | Surface | VS Code hover token |
 | --- | --- |
 | Status bar item | `statusBarItem.hoverBackground` (12% white in dark themes, 12% black in light) |
 | Tabbed-panel close button | `toolbar.hoverBackground` |
 | View-container title `⋯` button | `toolbar.hoverBackground` |
+
+The two icon buttons share one hover style with the chrome's
+`IconButton` theme, so a shell button and a host's themed one hover
+alike.
 
 **Chrome-themed stock widgets take the hover their VS Code counterpart
 draws**, where the framework exposes the hovered state to a theme:
@@ -3320,12 +3333,16 @@ draws**, where the framework exposes the hovered state to a theme:
 | `TextButton` (text / link) | label shifts to `textLink.activeForeground` |
 | `SegmentedButton`, unselected segment | `inputOption.hoverBackground`, the toggle hover its selected segment's treatment comes from |
 
-**Framework-forced exceptions** keep a Material state layer, and the
-section that forces each one records it:
+A hovered selected segment keeps its active fill and stroke, as a hovered
+checked toggle does.
+
+**Framework-forced exceptions** fall short of the registered token, and
+the section that forces each one records it:
 
 - `FilledButton` and `FilledButton.tonal` share one `FilledButtonTheme`,
-  so a hovered fill cannot differ between the tiers
-  (§spec:chrome-material-theming's secondary-tier carve-out).
+  so a hovered fill cannot differ between the tiers and both keep
+  Material's state layer (§spec:chrome-material-theming's secondary-tier
+  carve-out).
 - An unchecked toggle `IconButton` carries no selected state, so it
   takes the plain icon button's hover (§spec:chrome-material-theming).
 

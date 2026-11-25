@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../layout_constants.dart';
 import '../workbench_theme.dart';
 import '../workbench_view_menu.dart';
+import 'hover_style.dart';
 
 /// Compose the workbench chrome's Material theming onto a host's
 /// [base] [ThemeData].
@@ -144,15 +145,29 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
   ).copyWith(elevation: const WidgetStatePropertyAll(0));
 
-  // IconButton's flat compact base. styleFrom derives the press and focus
-  // overlay from `foregroundColor`, so it keeps `iconForeground` even
-  // though the selected-state resolver below replaces the glyph colour.
+  // IconButton's flat compact base. The hover layer derives the press and
+  // focus overlay from `iconForeground`, even though the selected-state
+  // resolver below replaces the glyph colour.
   final iconButtonBase = IconButton.styleFrom(
     foregroundColor: chrome.iconForeground,
     shape: buttonShape,
     minimumSize: buttonMinSize,
     padding: buttonPadding,
     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  );
+  // TextButton's link-tier base. Its derived disabled colour and press
+  // overlay survive the hover overrides below.
+  final textButtonBase = TextButton.styleFrom(
+    foregroundColor: chrome.accentForeground,
+    shape: buttonShape,
+    textStyle: chrome.buttonTextStyle,
+    minimumSize: buttonMinSize,
+    padding: buttonPadding,
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  );
+  final iconButtonHover = toolbarHoverStyle(
+    chrome,
+    foreground: chrome.iconForeground,
   );
 
   return base.copyWith(
@@ -213,44 +228,49 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
     // label are set directly, from the one shared style.
     outlinedButtonTheme: OutlinedButtonThemeData(style: secondaryTierStyle),
     elevatedButtonTheme: ElevatedButtonThemeData(style: secondaryTierStyle),
-    // Text / link tier: link accent label, 4px corners, compact size.
+    // Text / link tier: link accent label, 4px corners, compact size. A
+    // hovered label shifts to `textLink.activeForeground`, as a hovered
+    // VS Code link does, with no state layer behind it (§spec:hover-canon).
+    // Disabled and pressed states keep styleFrom's derived colours, so a
+    // disabled link never takes the live hover colour.
     textButtonTheme: TextButtonThemeData(
-      style: TextButton.styleFrom(
-        foregroundColor: chrome.accentForeground,
-        shape: buttonShape,
-        textStyle: chrome.buttonTextStyle,
-        minimumSize: buttonMinSize,
-        padding: buttonPadding,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      style: textButtonBase.copyWith(
+        foregroundColor: WidgetStateProperty.resolveWith(
+          (states) =>
+              states.contains(WidgetState.hovered) &&
+                  !states.contains(WidgetState.disabled)
+              ? chrome.textLinkActiveForeground
+              : textButtonBase.foregroundColor?.resolve(states),
+        ),
+        overlayColor: withoutHoverLayer(textButtonBase.overlayColor),
       ),
     ),
-    // Single-select segmented control — the jog mode toggle, distance
-    // ladders, and percent selector (§spec:layout-constants-canon). The control inherits the
-    // same 4px shape, compact height, and text style as the button
-    // tiers so the dense ladders stay aligned with the rest of the
-    // chrome.
+    // Single-select segmented control. It shares the button tiers' 4px
+    // shape, compact height and text style, so dense selectors stay aligned
+    // with the rest of the chrome (§spec:layout-constants-canon).
     //
-    // The selected segment fills with the **neutral** secondary token
-    // (`button.secondaryBackground`), NOT the primary-action blue
-    // (`button.background`). Driving the selected fill from the primary
-    // accent — as the old `jogButtonStyle(selected: true)` did via
-    // `focusBorder` — makes "this option is chosen" compete with "this
-    // is the primary action": two blues, one meaning. The neutral fill
-    // reads as a selection highlight without that collision (§spec:chrome-material-theming).
-    // Call sites suppress the default checkmark (`showSelectedIcon:
-    // false`) so the 5-up ladders aren't crowded.
-    // Single-select jog selectors (§spec:chrome-material-theming). The selected segment uses VS
-    // Code's active-toggle treatment — a subtle accent tint plus a solid
-    // accent border (`inputOption.active*`) — an *active* colour distinct
-    // from both the primary-action fill and a dimmed-disabled segment.
-    // Disabled segments dim their label (descriptionForeground) so a
-    // capped distance reads clearly as unavailable, not merely unselected.
+    // The selected segment takes VS Code's checked-toggle treatment, a
+    // subtle accent tint plus a solid accent border (`inputOption.active*`),
+    // which reads as "chosen" without competing with the primary-action
+    // fill. A hovered unselected segment fills `inputOption.hoverBackground`,
+    // the same toggle's hover; a hovered selected one keeps its active
+    // treatment. Hover draws no state layer, and a press keeps the overlay
+    // styleFrom derives from the label colour (§spec:hover-canon). Disabled
+    // segments dim their label (descriptionForeground) so they read as
+    // unavailable, not merely unselected (§spec:chrome-material-theming).
     segmentedButtonTheme: SegmentedButtonThemeData(
       style: ButtonStyle(
         backgroundColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.selected)
               ? chrome.inputOptionActiveBackground
+              : states.contains(WidgetState.hovered)
+              ? chrome.inputOptionHoverBackground
               : null,
+        ),
+        overlayColor: withoutHoverLayer(
+          SegmentedButton.styleFrom(
+            foregroundColor: chrome.foreground,
+          ).overlayColor,
         ),
         foregroundColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.disabled)
@@ -265,10 +285,10 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
         shape: const WidgetStatePropertyAll(buttonShape),
         textStyle: WidgetStatePropertyAll(chrome.buttonTextStyle),
         minimumSize: const WidgetStatePropertyAll(buttonMinSize),
-        // Dense ladders pack 5–6 segments across a sidebar (jog distances,
-        // the G54–G59 WCS row). Flutter's default segment padding is sized
-        // for a handful of wide segments and squeezes a 6-up cell below its
-        // label width, wrapping "G54" to two lines. A tight horizontal pad
+        // A dense selector packs 5–6 segments across a side bar. Flutter's
+        // default segment padding is sized for a handful of wide segments
+        // and squeezes a 6-up cell below its label width, wrapping a
+        // three-character label to two lines. A tight horizontal pad
         // keeps short labels single-line; the equal-width distribution and
         // [buttonMinSize] still give every segment a comfortable tap target.
         padding: const WidgetStatePropertyAll(
@@ -304,24 +324,14 @@ ThemeData applyWorkbenchChrome(ThemeData base, WorkbenchTheme chrome) {
               ? chrome.inputOptionActiveForeground
               : chrome.iconForeground,
         ),
+        // A checked toggle keeps its fill on hover, because upstream sets
+        // that fill inline where its :hover rule cannot reach.
         backgroundColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.selected)
               ? chrome.inputOptionActiveBackground
-              : states.contains(WidgetState.hovered)
-              ? chrome.toolbarHoverBackground
-              : null,
+              : iconButtonHover.backgroundColor?.resolve(states),
         ),
-        // Hover shows through the fill above, so its state layer is
-        // dropped. A checked toggle keeps its fill on hover, because
-        // upstream sets that fill inline where its :hover rule cannot
-        // reach. Press and focus keep styleFrom's overlay.
-        overlayColor: WidgetStateProperty.resolveWith(
-          (states) =>
-              states.contains(WidgetState.hovered) &&
-                  !states.contains(WidgetState.pressed)
-              ? const Color(0x00000000)
-              : iconButtonBase.overlayColor?.resolve(states),
-        ),
+        overlayColor: iconButtonHover.overlayColor,
         side: WidgetStateProperty.resolveWith(
           (states) => BorderSide(
             color: states.contains(WidgetState.selected)

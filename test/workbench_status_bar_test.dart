@@ -268,6 +268,58 @@ void main() {
       );
     });
   });
+
+  // §spec:hover-canon: a status bar item hovers to
+  // `statusBarItem.hoverBackground`. `wrapWithTheme` never calls
+  // `applyWorkbenchChrome`, so these pin the fill to the shell's own token
+  // rather than to the host's `ThemeData.hoverColor`.
+  group('status bar item hover', () {
+    testWidgets('an action hovers to statusBarItem.hoverBackground', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithTheme(WorkbenchStatusBarAction(label: 'Tasks', onTap: () {})),
+      );
+      expect(
+        tester.widget<InkWell>(find.byType(InkWell)).hoverColor,
+        testWorkbenchTheme.statusBarItemHoverBackground,
+      );
+    });
+
+    testWidgets('the problems item hovers to statusBarItem.hoverBackground', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          WorkbenchStatusBarProblemsItem(
+            errorCount: 0,
+            warningCount: 0,
+            infoCount: 0,
+            onTap: () {},
+          ),
+        ),
+      );
+      expect(
+        tester.widget<InkWell>(find.byType(InkWell)).hoverColor,
+        testWorkbenchTheme.statusBarItemHoverBackground,
+      );
+    });
+
+    testWidgets('a hovered action paints the token as its fill', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        wrapWithTheme(WorkbenchStatusBarAction(label: 'Tasks', onTap: () {})),
+      );
+      await hover(tester, find.text('Tasks'));
+      await tester.pumpAndSettle();
+
+      expect(
+        Material.of(tester.element(find.byType(InkWell))),
+        paints..rrect(color: testWorkbenchTheme.statusBarItemHoverBackground),
+      );
+    });
+  });
 }
 
 /// The bar's own chrome container — the `Container` carrying its fill, its

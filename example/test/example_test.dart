@@ -370,6 +370,38 @@ void main() {
     }
   });
 
+  testWidgets('the buttons review hovers the link and an unselected segment '
+      'to their VS Code tokens (§spec:hover-canon)', (tester) async {
+    await tester.pumpWidget(const WorkbenchExampleApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Symbols.smart_button_rounded));
+    await tester.pumpAndSettle();
+    final chrome = Theme.of(
+      tester.element(find.text('Text / link')),
+    ).extension<WorkbenchTheme>()!;
+
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(gesture.removePointer);
+    await gesture.addPointer(location: Offset.zero);
+
+    await gesture.moveTo(tester.getCenter(find.text('Text / link')));
+    await tester.pumpAndSettle();
+    expect(
+      DefaultTextStyle.of(tester.element(find.text('Text / link'))).style.color,
+      chrome.textLinkActiveForeground,
+    );
+
+    final tree = find.text('Tree');
+    await tester.ensureVisible(tree);
+    await tester.pumpAndSettle();
+    await gesture.moveTo(tester.getCenter(tree));
+    await tester.pumpAndSettle();
+    final segmentFill = tester.widget<Material>(
+      find.ancestor(of: tree, matching: find.byType(Material)).first,
+    );
+    expect(segmentFill.color, chrome.inputOptionHoverBackground);
+  });
+
   testWidgets(
     'the buttons review carries both split-button tiers (§spec:split-button)',
     (tester) async {

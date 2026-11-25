@@ -235,6 +235,38 @@ void main() {
       expect(toggled, 1);
     });
 
+    // §spec:hover-canon: the close button paints `toolbar.hoverBackground`
+    // itself. `wrapWithTheme` never calls `applyWorkbenchChrome`, so the
+    // host ThemeData carries no icon button theme to inherit a hover from.
+    testWidgets('close button hovers to toolbar.hoverBackground with no '
+        'state layer', (tester) async {
+      await tester.pumpWidget(
+        wrapWithTheme(
+          SizedBox(
+            width: 400,
+            height: 300,
+            child: WorkbenchTabbedPanel(tabs: tabs(), onTogglePanel: () {}),
+          ),
+        ),
+      );
+      await tester.pump();
+      final close = find.widgetWithIcon(IconButton, Symbols.close_rounded);
+      final style = tester.widget<IconButton>(close).style;
+      const hovered = {WidgetState.hovered};
+      expect(
+        style?.backgroundColor?.resolve(hovered),
+        testWorkbenchTheme.toolbarHoverBackground,
+      );
+      expect(style?.overlayColor?.resolve(hovered)?.a ?? 0, 0);
+
+      await hover(tester, close);
+      await tester.pumpAndSettle();
+      final fill = tester.widget<Material>(
+        find.descendant(of: close, matching: find.byType(Material)).first,
+      );
+      expect(fill.color, testWorkbenchTheme.toolbarHoverBackground);
+    });
+
     testWidgets('uses theme tokens for tab strip colors', (tester) async {
       await tester.pumpWidget(
         wrapWithTheme(
@@ -434,10 +466,7 @@ void main() {
         reason: 'pre-hover inactive tab uses unselected label color',
       );
 
-      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      addTearDown(gesture.removePointer);
-      await gesture.addPointer(location: Offset.zero);
-      await gesture.moveTo(tester.getCenter(inactiveLabel));
+      final gesture = await hover(tester, inactiveLabel);
       await tester.pumpAndSettle();
 
       expect(
@@ -590,10 +619,7 @@ void main() {
 
       expect(labelColor(), testWorkbenchTheme.tabBarLabelColor);
 
-      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      addTearDown(gesture.removePointer);
-      await gesture.addPointer(location: Offset.zero);
-      await gesture.moveTo(tester.getCenter(activeLabel));
+      await hover(tester, activeLabel);
       await tester.pumpAndSettle();
 
       expect(

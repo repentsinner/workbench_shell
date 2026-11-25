@@ -124,13 +124,7 @@ class WorkbenchStatusBarAction extends StatelessWidget {
         textStyle: textStyle,
       ),
     );
-    // The ink response is the only background this item paints, so the pill
-    // radius lands on it (§spec:modern-ui-surfaces).
-    final tappable = InkWell(
-      onTap: onTap,
-      borderRadius: WorkbenchSurfaceTreatment.statusBarItemRadius(context),
-      child: child,
-    );
+    final tappable = _StatusBarInk(onTap: onTap, child: child);
     if (tooltip != null) {
       return Tooltip(message: tooltip!, child: tappable);
     }
@@ -198,11 +192,31 @@ class WorkbenchStatusBarProblemsItem extends StatelessWidget {
     return Tooltip(
       message:
           tooltip ?? '$errorCount errors, $warningCount warnings$infoSuffix',
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: WorkbenchSurfaceTreatment.statusBarItemRadius(context),
-        child: child,
-      ),
+      child: _StatusBarInk(onTap: onTap, child: child),
+    );
+  }
+}
+
+/// The ink response behind a tappable status bar item.
+///
+/// It is the only background the item paints, so the pill radius lands on
+/// it (§spec:modern-ui-surfaces). Its hover fill is the
+/// `statusBarItem.hoverBackground` token rather than the host's
+/// `ThemeData.hoverColor`, so the item hovers to canon whether or not the
+/// host composed the chrome onto its theme (§spec:hover-canon).
+class _StatusBarInk extends StatelessWidget {
+  final VoidCallback onTap;
+  final Widget child;
+
+  const _StatusBarInk({required this.onTap, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: WorkbenchSurfaceTreatment.statusBarItemRadius(context),
+      hoverColor: context.workbenchTheme.statusBarItemHoverBackground,
+      child: child,
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'activity_bar_item.dart';
 import 'layout_constants.dart';
+import 'theming/hover_style.dart';
 import 'workbench_editor_tabs.dart';
 import 'workbench_layout_state.dart';
 import 'workbench_sash.dart';
@@ -2558,6 +2559,12 @@ class _Sidebar extends StatelessWidget {
             size: WorkbenchLayoutConstants.iconMd,
           ),
           color: theme.descriptionForeground,
+          // Hover paints from the shell's own token, not from the host's
+          // icon button theme (§spec:hover-canon).
+          style: toolbarHoverStyle(
+            theme,
+            foreground: theme.descriptionForeground,
+          ),
           tooltip: 'Views and More Actions…',
           visualDensity: VisualDensity.compact,
           padding: EdgeInsets.zero,
