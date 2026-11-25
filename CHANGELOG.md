@@ -1,3 +1,11 @@
+# [1.1.0](https://github.com/repentsinner/workbench_shell/compare/v1.0.2...v1.1.0) (2026-11-25)
+
+
+### Features
+
+* **theming:** fill a hovered IconButton from toolbar.hoverBackground ([cc45c79](https://github.com/repentsinner/workbench_shell/commit/cc45c7905d0541b658f84937ba58109676a8d585))
+* **theming:** paint a selected IconButton as VS Code's toggle ([2e03acd](https://github.com/repentsinner/workbench_shell/commit/2e03acd5b162ffd607a28d7b8b614abdb9f9603e))
+
 ## [1.0.2](https://github.com/repentsinner/workbench_shell/compare/v1.0.1...v1.0.2) (2026-11-17)
 
 
