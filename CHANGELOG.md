@@ -1,3 +1,17 @@
+# [1.2.0](https://github.com/repentsinner/workbench_shell/compare/v1.1.0...v1.2.0) (2026-11-25)
+
+
+### Bug Fixes
+
+* **theming:** keep input.foreground off the app's body text ([153b318](https://github.com/repentsinner/workbench_shell/commit/153b3180ed438e06bb27d9285f3663a3537b562f))
+* **theming:** load bundled themes past the asset bundle's cache ([bb3cdde](https://github.com/repentsinner/workbench_shell/commit/bb3cdde3b20ca997b47747043ccc326a601ed3ce))
+
+
+### Features
+
+* **theming:** paint a stock TextField as VS Code's input box ([8e88757](https://github.com/repentsinner/workbench_shell/commit/8e887572ae72499f3bed94bdf14beaf521d3fe4c))
+* **theming:** render outlined and elevated buttons as the secondary tier ([0de5fed](https://github.com/repentsinner/workbench_shell/commit/0de5fed91c2dcd8689c2360c0bd8fd3195833b8e))
+
 # [1.1.0](https://github.com/repentsinner/workbench_shell/compare/v1.0.2...v1.1.0) (2026-11-25)
 
 
