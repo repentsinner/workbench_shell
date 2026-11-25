@@ -259,10 +259,7 @@ void main() {
       );
       expect(style?.overlayColor?.resolve(hovered)?.a ?? 0, 0);
 
-      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      addTearDown(gesture.removePointer);
-      await gesture.addPointer(location: Offset.zero);
-      await gesture.moveTo(tester.getCenter(close));
+      await hover(tester, close);
       await tester.pumpAndSettle();
       final fill = tester.widget<Material>(
         find.descendant(of: close, matching: find.byType(Material)).first,
@@ -469,10 +466,7 @@ void main() {
         reason: 'pre-hover inactive tab uses unselected label color',
       );
 
-      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      addTearDown(gesture.removePointer);
-      await gesture.addPointer(location: Offset.zero);
-      await gesture.moveTo(tester.getCenter(inactiveLabel));
+      final gesture = await hover(tester, inactiveLabel);
       await tester.pumpAndSettle();
 
       expect(
@@ -625,10 +619,7 @@ void main() {
 
       expect(labelColor(), testWorkbenchTheme.tabBarLabelColor);
 
-      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      addTearDown(gesture.removePointer);
-      await gesture.addPointer(location: Offset.zero);
-      await gesture.moveTo(tester.getCenter(activeLabel));
+      await hover(tester, activeLabel);
       await tester.pumpAndSettle();
 
       expect(

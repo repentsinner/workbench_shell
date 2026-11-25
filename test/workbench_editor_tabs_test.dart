@@ -487,15 +487,6 @@ void main() {
     Color? labelColor(WidgetTester tester, String id) =>
         tester.widget<Text>(find.text('Tab $id')).style!.color;
 
-    Future<TestGesture> hover(WidgetTester tester, Finder target) async {
-      final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      await pointer.addPointer(location: Offset.zero);
-      addTearDown(pointer.removePointer);
-      await pointer.moveTo(tester.getCenter(target));
-      await tester.pump();
-      return pointer;
-    }
-
     testWidgets('the strip is a transparent 32px row at either density', (
       tester,
     ) async {

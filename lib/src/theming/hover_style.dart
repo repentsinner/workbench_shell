@@ -40,7 +40,7 @@ WidgetStateProperty<Color?> withoutHoverLayer(
     (states) =>
         states.contains(WidgetState.hovered) &&
             !states.contains(WidgetState.pressed)
-        ? const Color(0x00000000)
+        ? Colors.transparent
         : overlay?.resolve(states),
   );
 }

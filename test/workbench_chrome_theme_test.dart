@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:workbench_shell/workbench_shell.dart';
@@ -328,10 +327,7 @@ void main() {
             .ancestor(of: find.text(label), matching: find.byType(Material))
             .first,
       );
-      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      addTearDown(gesture.removePointer);
-      await gesture.addPointer(location: Offset.zero);
-      await gesture.moveTo(tester.getCenter(find.text('Two')));
+      final gesture = await hover(tester, find.text('Two'));
       await tester.pumpAndSettle();
       expect(
         fillOf('Two').color,
@@ -402,10 +398,7 @@ void main() {
           DefaultTextStyle.of(tester.element(find.text('Link'))).style.color;
       expect(labelColor(), testWorkbenchTheme.accentForeground);
 
-      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      addTearDown(gesture.removePointer);
-      await gesture.addPointer(location: Offset.zero);
-      await gesture.moveTo(tester.getCenter(find.text('Link')));
+      await hover(tester, find.text('Link'));
       await tester.pumpAndSettle();
       expect(labelColor(), testWorkbenchTheme.textLinkActiveForeground);
     });

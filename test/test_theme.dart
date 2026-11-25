@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:workbench_shell/src/workbench_surface_treatment.dart';
@@ -85,4 +86,17 @@ FocusNode headerFocusNodeOf(WidgetTester tester, {Finder? of}) {
       ? headerFocus
       : find.descendant(of: of, matching: headerFocus);
   return tester.widgetList<Focus>(finder).first.focusNode!;
+}
+
+/// Hover a mouse pointer over [target] and pump one frame.
+///
+/// The pointer is removed at teardown. Callers that wait on a hover
+/// animation pump again (for example `pumpAndSettle`).
+Future<TestGesture> hover(WidgetTester tester, Finder target) async {
+  final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+  await pointer.addPointer(location: Offset.zero);
+  addTearDown(pointer.removePointer);
+  await pointer.moveTo(tester.getCenter(target));
+  await tester.pump();
+  return pointer;
 }

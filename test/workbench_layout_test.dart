@@ -2268,10 +2268,7 @@ void main() {
       );
       expect(style?.overlayColor?.resolve(hovered)?.a ?? 0, 0);
 
-      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      addTearDown(gesture.removePointer);
-      await gesture.addPointer(location: Offset.zero);
-      await gesture.moveTo(tester.getCenter(overflow));
+      await hover(tester, overflow);
       await tester.pumpAndSettle();
       final fill = tester.widget<Material>(
         find.descendant(of: overflow, matching: find.byType(Material)).first,

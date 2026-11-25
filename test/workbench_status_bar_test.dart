@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:material_ui/material_ui.dart';
@@ -312,10 +311,7 @@ void main() {
       await tester.pumpWidget(
         wrapWithTheme(WorkbenchStatusBarAction(label: 'Tasks', onTap: () {})),
       );
-      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      addTearDown(gesture.removePointer);
-      await gesture.addPointer(location: Offset.zero);
-      await gesture.moveTo(tester.getCenter(find.text('Tasks')));
+      await hover(tester, find.text('Tasks'));
       await tester.pumpAndSettle();
 
       expect(
