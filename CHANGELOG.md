@@ -1,3 +1,11 @@
+# [1.3.0](https://github.com/repentsinner/workbench_shell/compare/v1.2.0...v1.3.0) (2026-11-25)
+
+
+### Features
+
+* **theming:** hover a link button and an unselected segment to canon ([679763c](https://github.com/repentsinner/workbench_shell/commit/679763ce264f673e9ab492f97dd5b3ea64453093))
+* **theming:** paint shell-drawn hovers from VS Code tokens ([717e50f](https://github.com/repentsinner/workbench_shell/commit/717e50f2b9c0feb03f0f35da0edeaedfc24570a2))
+
 # [1.2.0](https://github.com/repentsinner/workbench_shell/compare/v1.1.0...v1.2.0) (2026-11-25)
 
 
