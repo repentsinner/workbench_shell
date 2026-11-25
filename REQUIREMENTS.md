@@ -94,6 +94,10 @@ canonical chrome.
 - As a host developer, I want the shell to stop me from breaking canon
   (lowercase headers, icons in tab labels, ad-hoc status badges) at
   the point I write the code, so my app cannot drift even by accident.
+- As a host developer, I want controls that the chrome does not paint,
+  or that have no VS Code counterpart, to be out of my reach while I
+  build a view body, so a stock widget in its default style cannot
+  appear beside canonical chrome without my noticing.
 
 **End users** (of the host apps):
 
