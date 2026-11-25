@@ -3238,6 +3238,59 @@ with a `toolbar.hoverBackground` background, not a foreground shift.
   at the same flat elevation, border treatment and row height, each
   from its own token family.
 
+### Hover Canon §spec:hover-canon
+
+*Status: not started*
+
+Every hover the shell paints, on its own chrome or on a stock widget
+under §spec:chrome-material-theming, resolves from the VS Code token
+registered for that surface's hover. A Material state layer is not a
+substitute. The layer derives from a colour the chrome sets, so it
+satisfies the parity invariant's letter, but it renders a tint upstream
+never draws: Material's 8% layer over an icon button is fainter than
+`toolbar.hoverBackground`, and a layer over a coloured status bar is
+not `statusBarItem.hoverBackground`.
+
+**Shell-drawn surfaces paint their own hover.** A surface the shell
+renders resolves its hover from `WorkbenchTheme` directly, as the
+activity bar, view pane headers, tabs, menus and split button do. It
+does not inherit hover from the host's `ThemeData`, because a host that
+never calls `applyWorkbenchChrome` would then render the shell's chrome
+with Material's hover. The surfaces that rely on inherited hover are:
+
+| Surface | VS Code hover token |
+| --- | --- |
+| Status bar item | `statusBarItem.hoverBackground` (12% white in dark themes, 12% black in light) |
+| Tabbed-panel close button | `toolbar.hoverBackground` |
+| View-container title `⋯` button | `toolbar.hoverBackground` |
+
+**Chrome-themed stock widgets take the hover their VS Code counterpart
+draws**, where the framework exposes the hovered state to a theme:
+
+| Widget | VS Code hover |
+| --- | --- |
+| `IconButton` | `toolbar.hoverBackground` fill (§spec:chrome-material-theming) |
+| `TextButton` (text / link) | label shifts to `textLink.activeForeground` |
+| `SegmentedButton`, unselected segment | `inputOption.hoverBackground`, the toggle hover its selected segment's treatment comes from |
+
+**Framework-forced exceptions** keep a Material state layer, and the
+section that forces each one records it:
+
+- `FilledButton` and `FilledButton.tonal` share one `FilledButtonTheme`,
+  so a hovered fill cannot differ between the tiers
+  (§spec:chrome-material-theming's secondary-tier carve-out).
+- An unchecked toggle `IconButton` carries no selected state, so it
+  takes the plain icon button's hover (§spec:chrome-material-theming).
+
+**Observable behavior.**
+
+- Hovering a status bar item, the panel close button or the `⋯` button
+  paints the VS Code hover token, whether or not the host composed
+  `applyWorkbenchChrome` onto its `ThemeData`.
+- Hovering a chrome-themed `TextButton` shifts its label to
+  `textLink.activeForeground`, and hovering an unselected segment fills
+  it with `inputOption.hoverBackground`.
+
 ## Layout Constants §spec:layout-constants
 
 *Status: complete*
