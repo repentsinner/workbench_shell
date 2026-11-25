@@ -2157,6 +2157,9 @@ class _ButtonsReviewSidebarState extends State<_ButtonsReviewSidebar> {
   /// Match Case, Whole Word and Regex toggles do.
   final Set<IconData> _toggles = {};
 
+  /// The one segment the segmented selector has chosen.
+  String _segment = 'List';
+
   void _record(String label) => setState(() => _lastAction = label);
 
   /// The related actions the disclosure lists under the primary one — the
@@ -2301,6 +2304,25 @@ class _ButtonsReviewSidebarState extends State<_ButtonsReviewSidebar> {
                     ),
                   ),
               ],
+            ),
+            const SizedBox(height: WorkbenchLayoutConstants.spacingSize240),
+            Text(
+              'A stock SegmentedButton, themed by applyWorkbenchChrome: the '
+              'selected segment takes the active-toggle treatment, and a '
+              'hovered unselected segment fills inputOption.hoverBackground.',
+              style: caption,
+            ),
+            const SizedBox(height: WorkbenchLayoutConstants.spacingSize80),
+            SegmentedButton<String>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(value: 'List', label: Text('List')),
+                ButtonSegment(value: 'Tree', label: Text('Tree')),
+                ButtonSegment(value: 'Grid', label: Text('Grid')),
+              ],
+              selected: {_segment},
+              onSelectionChanged: (selection) =>
+                  setState(() => _segment = selection.single),
             ),
             const SizedBox(height: WorkbenchLayoutConstants.spacingSize240),
             Text(

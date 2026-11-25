@@ -2,7 +2,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'layout_constants.dart';
-import 'theming/toolbar_hover_style.dart';
+import 'theming/hover_style.dart';
 import 'workbench_panel.dart';
 import 'workbench_surface_treatment.dart';
 import 'workbench_theme.dart';

@@ -3,7 +3,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'activity_bar_item.dart';
 import 'layout_constants.dart';
-import 'theming/toolbar_hover_style.dart';
+import 'theming/hover_style.dart';
 import 'workbench_editor_tabs.dart';
 import 'workbench_layout_state.dart';
 import 'workbench_sash.dart';

@@ -15,21 +15,32 @@ ButtonStyle toolbarHoverStyle(
   WorkbenchTheme chrome, {
   required Color foreground,
 }) {
-  final pressOverlay = IconButton.styleFrom(
-    foregroundColor: foreground,
-  ).overlayColor;
   return ButtonStyle(
     backgroundColor: WidgetStateProperty.resolveWith(
       (states) => states.contains(WidgetState.hovered)
           ? chrome.toolbarHoverBackground
           : null,
     ),
-    overlayColor: WidgetStateProperty.resolveWith(
-      (states) =>
-          states.contains(WidgetState.hovered) &&
-              !states.contains(WidgetState.pressed)
-          ? const Color(0x00000000)
-          : pressOverlay?.resolve(states),
+    overlayColor: withoutHoverLayer(
+      IconButton.styleFrom(foregroundColor: foreground).overlayColor,
     ),
+  );
+}
+
+/// [overlay] with its hover state layer dropped.
+///
+/// VS Code paints hover as a token, a fill or a label colour, never as a
+/// translucent layer over the control (§spec:hover-canon). A hover that is
+/// not also a press therefore resolves transparent, and every other state
+/// keeps [overlay]'s value, so a press still reads.
+WidgetStateProperty<Color?> withoutHoverLayer(
+  WidgetStateProperty<Color?>? overlay,
+) {
+  return WidgetStateProperty.resolveWith(
+    (states) =>
+        states.contains(WidgetState.hovered) &&
+            !states.contains(WidgetState.pressed)
+        ? const Color(0x00000000)
+        : overlay?.resolve(states),
   );
 }
