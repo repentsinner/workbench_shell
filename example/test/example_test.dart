@@ -402,6 +402,30 @@ void main() {
   );
 
   testWidgets(
+    'the buttons review carries toggle icon buttons that flip their state '
+    '(§spec:chrome-material-theming)',
+    (tester) async {
+      await tester.pumpWidget(const WorkbenchExampleApp());
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Symbols.smart_button_rounded));
+      await tester.pumpAndSettle();
+
+      IconButton toggle() => tester.widget<IconButton>(
+        find.widgetWithIcon(IconButton, Symbols.match_case),
+      );
+      expect(toggle().isSelected, isFalse);
+
+      await tester.ensureVisible(find.byIcon(Symbols.match_case));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Symbols.match_case));
+      await tester.pumpAndSettle();
+      expect(toggle().isSelected, isTrue);
+      expect(find.byIcon(Symbols.match_word), findsOneWidget);
+      expect(find.byIcon(Symbols.regular_expression), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'disabling the split buttons dims each as one control (§spec:split-button)',
     (tester) async {
       await tester.pumpWidget(const WorkbenchExampleApp());

@@ -323,6 +323,109 @@ void main() {
       expect(fg, const Color(0xFFC5C5C5));
     });
 
+    group('IconButton selected state is the VS Code toggle '
+        '(§spec:chrome-material-theming)', () {
+      final style = result.iconButtonTheme.style;
+      const selected = {WidgetState.selected};
+      const unselected = <WidgetState>{};
+
+      test('a selected IconButton fills from inputOption.activeBackground', () {
+        expect(
+          style?.backgroundColor?.resolve(selected),
+          testWorkbenchTheme.inputOptionActiveBackground,
+        );
+      });
+
+      test('an unselected IconButton keeps no fill', () {
+        expect(style?.backgroundColor?.resolve(unselected), isNull);
+      });
+
+      test('a selected IconButton draws its glyph in '
+          'inputOption.activeForeground', () {
+        expect(
+          style?.foregroundColor?.resolve(selected),
+          testWorkbenchTheme.inputOptionActiveForeground,
+        );
+      });
+
+      test('a selected IconButton strokes inputOption.activeBorder', () {
+        expect(
+          style?.side?.resolve(selected)?.color,
+          testWorkbenchTheme.inputOptionActiveBorder,
+        );
+      });
+
+      test('a hovered IconButton fills toolbar.hoverBackground with no '
+          'overlay', () {
+        // VS Code paints a hovered toolbar action with a background fill
+        // (workbench style.css), not a state layer over it.
+        const hovered = {WidgetState.hovered};
+        expect(
+          style?.backgroundColor?.resolve(hovered),
+          testWorkbenchTheme.toolbarHoverBackground,
+        );
+        expect(style?.overlayColor?.resolve(hovered)?.a ?? 0, 0);
+      });
+
+      test('a hovered selected IconButton keeps its active fill', () {
+        // Upstream's Toggle sets the checked fill inline, which outranks
+        // its :hover rule, so hovering a checked toggle changes nothing.
+        const hoveredSelected = {WidgetState.hovered, WidgetState.selected};
+        expect(
+          style?.backgroundColor?.resolve(hoveredSelected),
+          testWorkbenchTheme.inputOptionActiveBackground,
+        );
+        expect(style?.overlayColor?.resolve(hoveredSelected)?.a ?? 0, 0);
+      });
+
+      test('the press overlay still derives from iconForeground', () {
+        // IconButton.styleFrom builds its press overlay from the
+        // foregroundColor it is given; the hover override must keep it.
+        final overlay = style?.overlayColor?.resolve({
+          WidgetState.hovered,
+          WidgetState.pressed,
+        });
+        expect(overlay, isNotNull);
+        expect(overlay!.a, greaterThan(0));
+        expect(overlay.r, testWorkbenchTheme.iconForeground.r);
+        expect(overlay.g, testWorkbenchTheme.iconForeground.g);
+        expect(overlay.b, testWorkbenchTheme.iconForeground.b);
+      });
+
+      test('an unselected IconButton draws no stroke', () {
+        final side = style?.side?.resolve(unselected);
+        expect(side == null || side.color.a == 0, isTrue);
+      });
+
+      testWidgets('the toggle tokens win over Material 3 selected defaults', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: result,
+            home: Scaffold(
+              body: IconButton(
+                isSelected: true,
+                icon: const Icon(Icons.abc),
+                onPressed: () {},
+              ),
+            ),
+          ),
+        );
+        final material = tester.widget<Material>(
+          find.descendant(
+            of: find.byType(IconButton),
+            matching: find.byType(Material),
+          ),
+        );
+        expect(material.color, testWorkbenchTheme.inputOptionActiveBackground);
+        expect(
+          IconTheme.of(tester.element(find.byIcon(Icons.abc))).color,
+          testWorkbenchTheme.inputOptionActiveForeground,
+        );
+      });
+    });
+
     test('does not set elevated or outlined button themes', () {
       // §spec:chrome-material-theming canonicalizes every button — including the jog grid — on
       // FilledButton, so no ElevatedButton or OutlinedButton remains in
